@@ -128,6 +128,11 @@ def _discover_default_panel_path() -> tuple[Path | None, str | None, str | None]
             candidate = Path(panel_path)
             if candidate.exists():
                 return candidate, None, None
+            # Absolute path from another machine/container — try by filename in data/cache/
+            local_candidate = Path("data/cache") / candidate.name
+            if local_candidate.exists():
+                logger.info("Resolved panel by filename: %s", local_candidate)
+                return local_candidate, None, None
             return (
                 None,
                 f"Model report '{report_path.name}' đang tham chiếu tới panel không còn tồn tại: {candidate}",
