@@ -1,0 +1,205 @@
+{
+  "created_at": "2026-03-30T04:05:21.360754+00:00",
+  "best_variants": [
+    {
+      "horizon": "1m",
+      "variant_name": "current_stack",
+      "n_features": 36,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7223594642072904,
+      "brier": 0.11574074074074077,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "full_plus_breadth",
+      "n_features": 42,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6541660639375091,
+      "brier": 0.21299403930414093,
+      "precision_high_risk": 0.8,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "legacy_plus_breadth",
+      "n_features": 27,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6959378733572281,
+      "brier": 0.17526176889740558,
+      "precision_high_risk": 0.6111111111111112,
+      "calibration": "isotonic"
+    }
+  ],
+  "results": [
+    {
+      "horizon": "1m",
+      "variant_name": "current_stack",
+      "n_features": 36,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7223594642072904,
+      "brier": 0.11574074074074077,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "variant_name": "full_plus_breadth",
+      "n_features": 42,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7003458498023715,
+      "brier": 0.11988388360292386,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "variant_name": "current_no_macro",
+      "n_features": 26,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6949934123847168,
+      "brier": 0.1307837616632373,
+      "precision_high_risk": 0.6521739130434783,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "variant_name": "legacy_plus_breadth",
+      "n_features": 27,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6641688625384278,
+      "brier": 0.12644999838228993,
+      "precision_high_risk": 0.85,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "variant_name": "legacy_baseline",
+      "n_features": 21,
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6529973649538866,
+      "brier": 0.12933037212485832,
+      "precision_high_risk": 0.75,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "full_plus_breadth",
+      "n_features": 42,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6541660639375091,
+      "brier": 0.21299403930414093,
+      "precision_high_risk": 0.8,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "current_stack",
+      "n_features": 36,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6530449877043253,
+      "brier": 0.21229963233508078,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "current_no_macro",
+      "n_features": 26,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6282366555764501,
+      "brier": 0.2166122039228706,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "legacy_plus_breadth",
+      "n_features": 27,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6222877187906842,
+      "brier": 0.21549396201682464,
+      "precision_high_risk": 0.6538461538461539,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "variant_name": "legacy_baseline",
+      "n_features": 21,
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.613825401417619,
+      "brier": 0.21304650020653873,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "legacy_plus_breadth",
+      "n_features": 27,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6959378733572281,
+      "brier": 0.17526176889740558,
+      "precision_high_risk": 0.6111111111111112,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "full_plus_breadth",
+      "n_features": 42,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6816222904932583,
+      "brier": 0.1754339143917911,
+      "precision_high_risk": 0.7692307692307693,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "legacy_baseline",
+      "n_features": 21,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6669013483529612,
+      "brier": 0.18133289488040558,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "current_stack",
+      "n_features": 36,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6603515958354668,
+      "brier": 0.1810394213834375,
+      "precision_high_risk": 0.8,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "variant_name": "current_no_macro",
+      "n_features": 26,
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.574458098651647,
+      "brier": 0.19223809441810144,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    }
+  ]
+}

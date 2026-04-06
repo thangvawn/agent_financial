@@ -1,0 +1,277 @@
+{
+  "created_at": "2026-03-30T03:42:45.627662+00:00",
+  "best_models": [
+    {
+      "horizon": "1m",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7294411506368028,
+      "brier": 0.11363734307165718,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6579632576305512,
+      "brier": 0.21069101759665262,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6629544290834614,
+      "brier": 0.18088573634477156,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    }
+  ],
+  "results": [
+    {
+      "horizon": "1m",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7294411506368028,
+      "brier": 0.11363734307165718,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "gradient_boosting",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.7084156785243741,
+      "brier": 0.11726701282622334,
+      "precision_high_risk": 0.8695652173913043,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "hist_gradient_boosting",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6977108036890647,
+      "brier": 0.12480537004585654,
+      "precision_high_risk": 0.85,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "extra_trees",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6564833113746157,
+      "brier": 0.13754679053476665,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "random_forest",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.6414964866051822,
+      "brier": 0.12516012252854358,
+      "precision_high_risk": 0.9375,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "logistic_regression",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.5666721563460694,
+      "brier": 0.15293683639848238,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "dummy_prior",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.5,
+      "brier": 0.15574022776238844,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1m",
+      "model_name": "dummy_stratified",
+      "rows": 1367,
+      "positive_rate": 0.19970738844184346,
+      "auc": 0.5,
+      "brier": 0.15574022776238844,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6579632576305512,
+      "brier": 0.21069101759665262,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "gradient_boosting",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6379647041805294,
+      "brier": 0.21467596162860794,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "random_forest",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.6220164906697526,
+      "brier": 0.21685021837255777,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "extra_trees",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.5981484160277737,
+      "brier": 0.22127435767035702,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "hist_gradient_boosting",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.5976602054100969,
+      "brier": 0.22165914322489358,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "logistic_regression",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.5239042383914364,
+      "brier": 0.22893779291473818,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "dummy_prior",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.5013380587299291,
+      "brier": 0.22962401199925847,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "1w",
+      "model_name": "dummy_stratified",
+      "rows": 1387,
+      "positive_rate": 0.39005046863734677,
+      "auc": 0.5,
+      "brier": 0.2296506075127274,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "hist_gradient_boosting_tuned",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6629544290834614,
+      "brier": 0.18088573634477156,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "hist_gradient_boosting",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6537165045229563,
+      "brier": 0.1817081685771869,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "gradient_boosting",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.6303763440860215,
+      "brier": 0.18770920428495952,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "random_forest",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.5567502986857826,
+      "brier": 0.1918284789336543,
+      "precision_high_risk": 1.0,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "extra_trees",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.5475337088240314,
+      "brier": 0.19374800873231313,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "logistic_regression",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.5065284178187405,
+      "brier": 0.1965673122863759,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "dummy_stratified",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.5050563236047108,
+      "brier": 0.19688297750247374,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    },
+    {
+      "horizon": "2w",
+      "model_name": "dummy_prior",
+      "rows": 1378,
+      "positive_rate": 0.3011611030478955,
+      "auc": 0.5009600614439325,
+      "brier": 0.19689892715979673,
+      "precision_high_risk": null,
+      "calibration": "isotonic"
+    }
+  ]
+}

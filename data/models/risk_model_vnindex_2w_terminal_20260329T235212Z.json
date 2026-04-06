@@ -1,0 +1,107 @@
+{
+  "created_at": "2026-03-29T23:52:12.552308+00:00",
+  "model_version": "skgbc-v4-2w-terminal-20260329",
+  "panel_path": "/Users/mac/Documents/Dự án Agent Tài chính/data/cache/panel_20260329T153334Z_c80964fc.parquet",
+  "artifact_path": "/Users/mac/Documents/Dự án Agent Tài chính/data/models/risk_model_vnindex_2w_terminal_20260329T235212Z.pkl",
+  "n_rows_raw": 1437,
+  "train_as_of": "2026-03-27",
+  "usable_rows": {
+    "1w": 1387,
+    "2w": 1378,
+    "1m": 1367
+  },
+  "metrics": {
+    "auc_1w": 0.5861420512078692,
+    "brier_1w": 0.22288207281583847,
+    "precision_high_risk_1w": null,
+    "auc_2w": 0.6105564089435058,
+    "brier_2w": 0.18946129143569534,
+    "precision_high_risk_2w": null,
+    "last_auc": 0.6105564089435058,
+    "last_brier": 0.18946129143569534,
+    "auc_1m": 0.7064668423364076,
+    "brier_1m": 0.12474874647226822,
+    "precision_high_risk_1m": 0.8095238095238095
+  },
+  "quant_snapshot": {
+    "run_id": "train-vnindex-2w-terminal-20260329",
+    "as_of": "2026-03-29T23:51:21.403104Z",
+    "model_version": "skgbc-v4-2w-terminal-20260329",
+    "decision_score": 0.37190196468870307,
+    "risk_score_2w": 0.45161290322580644,
+    "risk_regime": "neutral",
+    "horizons": {
+      "p_decline_1w": 0.4166666666666667,
+      "p_decline_2w": 0.45161290322580644,
+      "p_decline_1m": 0.13168724279835392,
+      "expected_drawdown_pct": -1.6968591708452332
+    },
+    "shap_top": [
+      {
+        "feature_name": "usd_vnd_rate",
+        "share": 0.39895654059149227,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "usd_vnd_1m_change_pct",
+        "share": 0.3215352990044026,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "realized_vol_20d",
+        "share": 0.09916484860230089,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "ma_gap_50",
+        "share": 0.0921174116687057,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "realized_vol_10d",
+        "share": 0.08822590013309849,
+        "direction": "decreases_risk"
+      }
+    ],
+    "var_summary": {
+      "fitted": true,
+      "n_obs": 1436,
+      "max_lag": 0,
+      "note": "VAR đa biến ước lượng được; kênh vĩ mô và chỉ số thị trường tương tác động."
+    },
+    "backtest": {
+      "last_auc": 0.6105564089435058,
+      "last_brier": 0.18946129143569534,
+      "window_label": "rolling_holdout",
+      "metrics_by_horizon": {
+        "1w": {
+          "auc": 0.5861420512078692,
+          "brier": 0.22288207281583847,
+          "precision_high_risk": null
+        },
+        "2w": {
+          "auc": 0.6105564089435058,
+          "brier": 0.18946129143569534,
+          "precision_high_risk": null
+        },
+        "1m": {
+          "auc": 0.7064668423364076,
+          "brier": 0.12474874647226822,
+          "precision_high_risk": 0.8095238095238095
+        }
+      }
+    },
+    "dominant_feature": "usd_vnd_rate",
+    "narrative_inputs": {
+      "vn_index": 1672.8,
+      "decision_score": 0.37190196468870307,
+      "p_decline_1w": 0.4166666666666667,
+      "p_decline_2w": 0.45161290322580644,
+      "p_decline_1m": 0.13168724279835392,
+      "expected_drawdown_pct": -1.6968591708452332,
+      "usd_vnd_rate": 26030.0,
+      "dominant_feature": "usd_vnd_rate",
+      "var_note": "VAR đa biến ước lượng được; kênh vĩ mô và chỉ số thị trường tương tác động."
+    }
+  }
+}

@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "risk-dashboard"
+version = "0.1.0"
+description = "Neural-symbolic risk dashboard pipeline (data, quant, agents, API)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "pydantic>=2.5",
+  "pydantic-settings>=2.2",
+  "fastapi>=0.109",
+  "uvicorn[standard]>=0.27",
+  "eval-type-backport>=0.2",
+  "shap>=0.44",
+  "statsmodels>=0.14",
+  "scikit-learn>=1.4",
+  "arch>=7.0",
+  "hmmlearn>=0.3",
+  "pyarrow>=14.0",
+  "matplotlib>=3.9.4",
+  "langchain-core>=0.3",
+  "langchain-openai>=0.3",
+  "langgraph>=0.6",
+  "python-dotenv>=1.0",
+]
+
+[project.scripts]
+risk-eod-ingest = "risk_dashboard.cli.ingest:main"
+risk-eod-job = "risk_dashboard.cli.eod_job:main"
+risk-fetch-data = "risk_dashboard.cli.fetch_data:main"
+risk-fetch-universe = "risk_dashboard.cli.fetch_market_universe:main"
+risk-benchmark-models = "risk_dashboard.cli.benchmark_models:main"
+risk-benchmark-features = "risk_dashboard.cli.benchmark_features:main"
+risk-model-report = "risk_dashboard.cli.model_report:main"
+risk-train-model = "risk_dashboard.cli.train_job:main"
+risk-fetch-financials = "risk_dashboard.cli.fetch_financials:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=4.1",
+  "httpx>=0.26",
+  "ruff>=0.3",
+]
+xgboost = [
+  "xgboost>=2.0",
+]
+vnstock = [
+  "vnstock>=3.2.1",
+  "ipython>=8.0",
+]
+auto = [
+  "yfinance>=0.2.40",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

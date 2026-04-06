@@ -1,0 +1,240 @@
+{
+  "created_at": "2026-03-30T05:34:48.034604+00:00",
+  "model_version": "skhgb-v3-breadth-20260330",
+  "panel_path": "/Users/mac/Documents/Dự án Agent Tài chính/data/cache/panel_20260329T153334Z_c80964fc.parquet",
+  "vn30_panel_path": "/Users/mac/Documents/Dự án Agent Tài chính/data/cache/vn30_daily_20150101_20260329_c80964fc.parquet",
+  "artifact_path": "/Users/mac/Documents/Dự án Agent Tài chính/data/models/risk_model_vnindex_hgb_breadth_20260330T053022Z.pkl",
+  "n_rows_raw": 1437,
+  "train_as_of": "2026-03-27",
+  "usable_rows": {
+    "1w": 1387,
+    "2w": 1378,
+    "1m": 1367
+  },
+  "feature_names_by_horizon": {
+    "1w": [
+      "usd_vnd_rate",
+      "usd_vnd_1m_change_pct",
+      "sbv_interest_rate_pct",
+      "cpi_yoy_pct",
+      "fdi_disbursement_yoy_pct",
+      "usd_vnd_rate_is_missing",
+      "usd_vnd_1m_change_pct_is_missing",
+      "sbv_interest_rate_pct_is_missing",
+      "cpi_yoy_pct_is_missing",
+      "fdi_disbursement_yoy_pct_is_missing",
+      "volume_1w_trend_pct",
+      "ret_5d",
+      "ret_10d",
+      "ret_20d",
+      "realized_vol_10d",
+      "realized_vol_20d",
+      "drawdown_20d",
+      "vol_z",
+      "ma_gap_20",
+      "ma_gap_50",
+      "ma_slope_20",
+      "ret_1d",
+      "ret_3d",
+      "ret_7d",
+      "realized_vol_5d",
+      "drawdown_10d",
+      "vol_z_5",
+      "ma_gap_10",
+      "ma_slope_10",
+      "volume_trend_accel",
+      "downside_vol_10d",
+      "vol_regime_5d_20d",
+      "ma_spread_10_20",
+      "ma_spread_20_50",
+      "breadth_advancers_pct",
+      "breadth_above_ma20_pct",
+      "breadth_above_ma50_pct",
+      "breadth_mean_ret_5d",
+      "breadth_dispersion_1d",
+      "breadth_volume_pressure"
+    ],
+    "2w": [
+      "usd_vnd_rate",
+      "usd_vnd_1m_change_pct",
+      "sbv_interest_rate_pct",
+      "cpi_yoy_pct",
+      "fdi_disbursement_yoy_pct",
+      "usd_vnd_rate_is_missing",
+      "usd_vnd_1m_change_pct_is_missing",
+      "sbv_interest_rate_pct_is_missing",
+      "cpi_yoy_pct_is_missing",
+      "fdi_disbursement_yoy_pct_is_missing",
+      "volume_1w_trend_pct",
+      "ret_5d",
+      "ret_10d",
+      "ret_20d",
+      "realized_vol_10d",
+      "realized_vol_20d",
+      "drawdown_20d",
+      "vol_z",
+      "ma_gap_20",
+      "ma_gap_50",
+      "ma_slope_20",
+      "breadth_advancers_pct",
+      "breadth_above_ma20_pct",
+      "breadth_above_ma50_pct",
+      "breadth_mean_ret_5d",
+      "breadth_dispersion_1d",
+      "breadth_volume_pressure"
+    ],
+    "1m": [
+      "usd_vnd_rate",
+      "usd_vnd_1m_change_pct",
+      "sbv_interest_rate_pct",
+      "cpi_yoy_pct",
+      "fdi_disbursement_yoy_pct",
+      "usd_vnd_rate_is_missing",
+      "usd_vnd_1m_change_pct_is_missing",
+      "sbv_interest_rate_pct_is_missing",
+      "cpi_yoy_pct_is_missing",
+      "fdi_disbursement_yoy_pct_is_missing",
+      "volume_1w_trend_pct",
+      "ret_5d",
+      "ret_10d",
+      "ret_20d",
+      "realized_vol_10d",
+      "realized_vol_20d",
+      "drawdown_20d",
+      "vol_z",
+      "ma_gap_20",
+      "ma_gap_50",
+      "ma_slope_20",
+      "ret_1d",
+      "ret_3d",
+      "ret_7d",
+      "realized_vol_5d",
+      "drawdown_10d",
+      "vol_z_5",
+      "ma_gap_10",
+      "ma_slope_10",
+      "volume_trend_accel",
+      "downside_vol_10d",
+      "vol_regime_5d_20d",
+      "ma_spread_10_20",
+      "ma_spread_20_50"
+    ]
+  },
+  "estimator_params": {
+    "1w": {
+      "learning_rate": 0.04,
+      "max_depth": 5,
+      "max_iter": 300,
+      "min_samples_leaf": 15,
+      "l2_regularization": 0.1
+    },
+    "2w": {
+      "learning_rate": 0.04,
+      "max_depth": 5,
+      "max_iter": 300,
+      "min_samples_leaf": 15,
+      "l2_regularization": 0.1
+    },
+    "1m": {
+      "learning_rate": 0.04,
+      "max_depth": 5,
+      "max_iter": 300,
+      "min_samples_leaf": 15,
+      "l2_regularization": 0.1
+    }
+  },
+  "metrics": {
+    "auc_1w": 0.6541660639375091,
+    "brier_1w": 0.21299403930414093,
+    "precision_high_risk_1w": 0.8,
+    "auc_2w": 0.6959378733572281,
+    "brier_2w": 0.17526176889740558,
+    "precision_high_risk_2w": 0.6111111111111112,
+    "last_auc": 0.6959378733572281,
+    "last_brier": 0.17526176889740558,
+    "auc_1m": 0.7223594642072904,
+    "brier_1m": 0.11574074074074077,
+    "precision_high_risk_1m": 1.0
+  },
+  "quant_snapshot": {
+    "run_id": "train-vnindex-hgb-breadth-20260330",
+    "as_of": "2026-03-30T05:32:45.999166Z",
+    "model_version": "skhgb-v3-breadth-20260330",
+    "decision_score": 0.2111780455153949,
+    "risk_score_2w": 0.3493975903614458,
+    "risk_regime": "low",
+    "horizons": {
+      "p_decline_1w": 0.14285714285714285,
+      "p_decline_2w": 0.3493975903614458,
+      "p_decline_1m": 0.12301587301587301,
+      "expected_drawdown_pct": -0.9648345456808272
+    },
+    "shap_top": [
+      {
+        "feature_name": "usd_vnd_1m_change_pct",
+        "share": 0.45051263352726784,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "ma_gap_50",
+        "share": 0.18086227764632792,
+        "direction": "increases_risk"
+      },
+      {
+        "feature_name": "realized_vol_10d",
+        "share": 0.14086887377141308,
+        "direction": "decreases_risk"
+      },
+      {
+        "feature_name": "ret_20d",
+        "share": 0.11679973066454358,
+        "direction": "decreases_risk"
+      },
+      {
+        "feature_name": "ma_slope_20",
+        "share": 0.11095648439044753,
+        "direction": "increases_risk"
+      }
+    ],
+    "var_summary": {
+      "fitted": true,
+      "n_obs": 1436,
+      "max_lag": 0,
+      "note": "VAR đa biến ước lượng được; kênh vĩ mô và chỉ số thị trường tương tác động."
+    },
+    "backtest": {
+      "last_auc": 0.6959378733572281,
+      "last_brier": 0.17526176889740558,
+      "window_label": "rolling_holdout",
+      "metrics_by_horizon": {
+        "1w": {
+          "auc": 0.6541660639375091,
+          "brier": 0.21299403930414093,
+          "precision_high_risk": 0.8
+        },
+        "2w": {
+          "auc": 0.6959378733572281,
+          "brier": 0.17526176889740558,
+          "precision_high_risk": 0.6111111111111112
+        },
+        "1m": {
+          "auc": 0.7223594642072904,
+          "brier": 0.11574074074074077,
+          "precision_high_risk": 1.0
+        }
+      }
+    },
+    "dominant_feature": "usd_vnd_1m_change_pct",
+    "narrative_inputs": {
+      "vn_index": 1672.8,
+      "decision_score": 0.2111780455153949,
+      "p_decline_1w": 0.14285714285714285,
+      "p_decline_2w": 0.3493975903614458,
+      "p_decline_1m": 0.12301587301587301,
+      "expected_drawdown_pct": -0.9648345456808272,
+      "usd_vnd_rate": 26030.0,
+      "dominant_feature": "usd_vnd_1m_change_pct",
+      "var_note": "VAR đa biến ước lượng được; kênh vĩ mô và chỉ số thị trường tương tác động."
+    }
+  }
+}

@@ -1,0 +1,1821 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeepQuant | Market Risk Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+      :root {
+        --bg: #03070e;
+        --panel: rgba(16, 24, 39, 0.6);
+        --panel-active: rgba(30, 41, 59, 0.8);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-light: rgba(255, 255, 255, 0.15);
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.4);
+        --good: #10b981;
+        --good-glow: rgba(16, 185, 129, 0.3);
+        --warn: #f59e0b;
+        --bad: #ef4444;
+        --very-bad: #e11d48;
+        --very-bad-glow: rgba(225, 29, 72, 0.4);
+        --glass-blur: blur(20px);
+        --shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Inter", sans-serif;
+        color: var(--text);
+        background-color: var(--bg);
+        background-image: 
+          radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
+          radial-gradient(circle at 85% 30%, rgba(225, 29, 72, 0.05), transparent 25%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      h1, h2, h3, h4, h5 {
+        font-family: "Outfit", sans-serif;
+        margin: 0;
+      }
+
+      input, button, textarea {
+        font-family: inherit;
+      }
+
+      /* Layout */
+      .app-container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* Glassmorphism primitives */
+      .glass {
+        background: var(--panel);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--border);
+      }
+
+      .glass-card {
+        background: linear-gradient(135deg, rgba(20, 27, 40, 0.7), rgba(10, 15, 25, 0.8));
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        padding: 24px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      
+      .glass-card:hover {
+        border-color: var(--border-light);
+      }
+
+      /* Sidebar */
+      .sidebar {
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        padding: 24px 20px;
+        z-index: 10;
+        background: rgba(3, 7, 14, 0.85);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 40px;
+      }
+
+      .brand-logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-family: "Outfit", sans-serif;
+        font-size: 18px;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+      }
+
+      .brand-name {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        background: linear-gradient(to right, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .nav-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex-grow: 1;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        color: var(--muted);
+        text-decoration: none;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+      }
+
+      .nav-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .nav-item.active {
+        background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        color: var(--accent);
+        border-left: 3px solid var(--accent);
+      }
+
+      .nav-item span.icon {
+        font-size: 18px;
+      }
+
+      .system-status {
+        margin-top: auto;
+        padding: 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+      }
+
+      .system-status .eyebrow {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+        display: block;
+      }
+
+      .system-status .value {
+        font-size: 12px;
+        color: var(--text);
+        line-height: 1.5;
+        word-break: break-all;
+      }
+
+      /* Main Content */
+      .main-content {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 30px 40px;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .page-title h1 {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+
+      .page-title p {
+        color: var(--muted);
+        margin: 6px 0 0;
+        font-size: 14px;
+      }
+
+      .global-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(15, 23, 34, 0.6);
+        padding: 8px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        backdrop-filter: var(--glass-blur);
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+      }
+
+      input[type="date"], input[type="number"] {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 8px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      input[type="date"]:focus, input[type="number"]:focus {
+        border-color: var(--accent);
+      }
+
+      .btn {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+      }
+      
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+      }
+
+      .btn-ghost {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      /* View Management */
+      .view {
+        display: none;
+        animation: viewSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .view.active {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      @keyframes viewSlideIn {
+        from { opacity: 0; transform: translateY(16px) scale(0.99); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* Staggered card entrance */
+      .view.active > *:nth-child(1) { animation-delay: 0s; }
+      .view.active > *:nth-child(2) { animation-delay: 0.06s; }
+      .view.active > *:nth-child(3) { animation-delay: 0.12s; }
+      .view.active > *:nth-child(4) { animation-delay: 0.18s; }
+      .view.active > *:nth-child(5) { animation-delay: 0.24s; }
+      .view.active > * {
+        animation: viewSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      /* Typography & Badges */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .badge.low { background: rgba(16, 185, 129, 0.15); color: var(--good); border: 1px solid rgba(16, 185, 129, 0.3); }
+      .badge.neutral { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+      .badge.high { background: rgba(245, 158, 11, 0.15); color: var(--warn); border: 1px solid rgba(245, 158, 11, 0.3); }
+      .badge.very_high { background: rgba(225, 29, 72, 0.15); color: var(--very-bad); border: 1px solid rgba(225, 29, 72, 0.3); box-shadow: 0 0 10px var(--very-bad-glow); }
+
+      /* Hero Stats Grid */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      .stat-card {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+        border-color: var(--border-light);
+      }
+
+      .stat-card::before {
+        content: "";
+        position: absolute;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background: radial-gradient(circle at top right, rgba(255,255,255,0.03), transparent 60%);
+        pointer-events: none;
+      }
+
+      .stat-label {
+        font-size: 13px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+      }
+
+      .stat-value {
+        font-size: 36px;
+        font-weight: 700;
+        font-family: "Outfit", sans-serif;
+        line-height: 1.1;
+        background: linear-gradient(to right, #fff, #cbd5e1);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .stat-sub {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* Skeleton Loading Animation */
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+
+      .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.8s ease-in-out infinite;
+        border-radius: 8px;
+      }
+
+      .skeleton-line {
+        height: 14px;
+        margin-bottom: 10px;
+        border-radius: 6px;
+      }
+
+      .skeleton-line.short { width: 60%; }
+      .skeleton-line.medium { width: 80%; }
+      .skeleton-line.long { width: 100%; }
+
+      /* Empty State */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 24px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .empty-state .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      .empty-state h4 {
+        font-size: 18px;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+
+      .empty-state p {
+        font-size: 14px;
+        max-width: 320px;
+        line-height: 1.6;
+      }
+
+      /* Tooltip */
+      .has-tooltip {
+        position: relative;
+        cursor: help;
+      }
+
+      .has-tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-4px);
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid var(--border-light);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 400;
+        padding: 8px 12px;
+        border-radius: 8px;
+        white-space: nowrap;
+        max-width: 250px;
+        white-space: normal;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s, transform 0.2s;
+        z-index: 100;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      }
+
+      .has-tooltip:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-8px);
+      }
+
+      /* Pulse animation for live indicators */
+      @keyframes livePulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--good);
+        display: inline-block;
+        animation: livePulse 2s ease-in-out infinite;
+        box-shadow: 0 0 8px var(--good-glow);
+      }
+
+      /* Layout Grids */
+      .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+      .grid-half { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+      /* Table Styles */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+      }
+      
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      th {
+        text-align: left;
+        padding: 16px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+      }
+
+      td {
+        padding: 16px;
+        vertical-align: middle;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+      }
+
+      tbody tr {
+        transition: background 0.2s;
+        cursor: pointer;
+      }
+
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .entity-name { font-weight: 600; font-size: 15px; }
+      .entity-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+      /* Bar Charts */
+      .bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .bar-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .bar-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .bar-meta .val {
+        color: var(--muted);
+      }
+
+      .bar-track {
+        height: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .bar-fill.danger { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+      .bar-fill.success { background: linear-gradient(90deg, #10b981, #34d399); }
+
+      /* Narrative Card */
+      .narrative-card {
+        background: relative;
+      }
+
+      .narrative-card::before {
+        content: "AI INSIGHT";
+        position: absolute;
+        top: 24px; right: 24px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: rgba(59, 130, 246, 0.8);
+        background: rgba(59, 130, 246, 0.1);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+
+      .narrative-body {
+        font-size: 15px;
+        line-height: 1.7;
+        color: #e2e8f0;
+        margin-bottom: 20px;
+      }
+
+      .narrative-bullets {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .narrative-bullets li {
+        display: flex;
+        gap: 12px;
+        font-size: 14px;
+        color: var(--muted);
+        align-items: flex-start;
+      }
+
+      .narrative-bullets li::before {
+        content: "→";
+        color: var(--accent);
+        font-weight: bold;
+      }
+
+      /* Chat Interface */
+      .chat-interface {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 160px);
+      }
+
+      .chat-history {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding-right: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .chat-msg {
+        display: flex;
+        flex-direction: column;
+        max-width: 80%;
+      }
+
+      .chat-msg.user {
+        align-self: flex-end;
+      }
+
+      .chat-msg.user .msg-bubble {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+
+      .chat-msg.assistant {
+        align-self: flex-start;
+      }
+
+      .chat-msg.assistant .msg-bubble {
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 4px;
+      }
+
+      .msg-bubble {
+        padding: 16px 20px;
+        border-radius: 20px;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      .msg-meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        align-self: flex-start;
+      }
+
+      .chat-input-area {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .chat-prompts {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .prompt-chip {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .prompt-chip:hover {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--text);
+        border-color: rgba(59, 130, 246, 0.3);
+      }
+
+      .chat-form {
+        display: flex;
+        gap: 12px;
+        background: rgba(15, 23, 34, 0.8);
+        border: 1px solid var(--border);
+        padding: 12px;
+        border-radius: 24px;
+        backdrop-filter: var(--glass-blur);
+      }
+
+      .chat-form input {
+        flex-grow: 1;
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 15px;
+        padding: 0 12px;
+        outline: none;
+      }
+
+      .chat-form button {
+        border-radius: 16px;
+      }
+
+      /* Macro Trackers & Allocation */
+      .macro-chip {
+        background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; margin-right: 12px; margin-bottom: 12px;
+      }
+      .allocation-bar-wrap {
+        height: 12px; width: 100%; border-radius: 20px; background: #ef4444; overflow: hidden; display: flex; margin-top: 10px;
+      }
+      .allocation-bar-cash {
+        background: #10b981; height: 100%; transition: width 0.8s ease;
+      }
+
+      /* Scenario Controls */
+      .scenario-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      
+      .slider-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .slider-meta {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 500;
+      }
+      
+      input[type=range] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        background: transparent;
+      }
+      
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 20px;
+        width: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        margin-top: -8px;
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+      }
+      
+      input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 6px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+      
+      /* Simple helper classes */
+      .text-success { color: var(--good); }
+      .text-danger { color: var(--bad); }
+      .mt-4 { margin-top: 16px; }
+      .mb-4 { margin-bottom: 16px; }
+
+      /* FLOATING QUANT CHAT UI */
+      .floating-chat-btn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #3b82f6;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+        cursor: pointer;
+        z-index: 9999;
+        transition: transform 0.2s, background 0.2s;
+      }
+      .floating-chat-btn:hover {
+        transform: scale(1.1);
+        background: #2563eb;
+      }
+      .floating-chat-popup {
+        position: fixed;
+        bottom: 100px;
+        right: 24px;
+        width: 400px;
+        max-width: calc(100vw - 48px);
+        height: 540px;
+        background: rgba(10, 15, 25, 0.97);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.05) inset;
+        z-index: 9998;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        pointer-events: none;
+      }
+      .floating-chat-popup.open {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+      }
+      .floating-chat-header {
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .floating-chat-close {
+        cursor: pointer;
+        font-size: 24px;
+        line-height: 1;
+        color: var(--muted);
+      }
+      .floating-chat-close:hover {
+        color: white;
+      }
+
+      /* Loading Spinner */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .spinner {
+        width: 16px; height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: inline-block;
+      }
+
+      .btn-primary.loading {
+        pointer-events: none;
+        opacity: 0.8;
+      }
+
+      /* Typing Indicator */
+      @keyframes typingBounce {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-6px); }
+      }
+
+      .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 16px 20px;
+        align-items: center;
+      }
+
+      .typing-indicator span {
+        width: 8px; height: 8px;
+        background: var(--muted);
+        border-radius: 50%;
+        animation: typingBounce 1.4s ease-in-out infinite;
+      }
+
+      .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+      .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+      /* Smooth scrollbar */
+      .main-content::-webkit-scrollbar { width: 6px; }
+      .main-content::-webkit-scrollbar-track { background: transparent; }
+      .main-content::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+      }
+      .main-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.2);
+      }
+
+      .chat-history::-webkit-scrollbar { width: 4px; }
+      .chat-history::-webkit-scrollbar-track { background: transparent; }
+      .chat-history::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.1);
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-logo">DQ</div>
+          <div class="brand-name">DeepQuant</div>
+        </div>
+
+        <nav class="nav-menu">
+          <a class="nav-item active" data-target="view-overview">
+            <span class="icon">📊</span>
+            <span>Tổng quan Rủi ro</span>
+          </a>
+          <a class="nav-item" data-target="view-explain">
+            <span class="icon">🧠</span>
+            <span>Giải thích Mô hình</span>
+          </a>
+          <a class="nav-item" data-target="view-scenario">
+            <span class="icon">🎛️</span>
+            <span>Mô phỏng Kịch bản</span>
+          </a>
+          <a class="nav-item" data-target="view-sectors">
+            <span class="icon">🏢</span>
+            <span>Ngành & Thị trường</span>
+          </a>
+        </nav>
+
+        <div class="system-status">
+          <span class="eyebrow">Trạng thái Hệ thống</span>
+          <div class="value" id="statusText"><span class="live-dot"></span> Đang kiểm tra backend...</div>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+        <!-- Top Control Bar -->
+        <div class="top-bar">
+          <div class="page-title">
+            <h1 id="headerTitle">Tổng quan Rủi ro Thị trường</h1>
+            <p id="headerSub">Đánh giá rủi ro VN-INDEX theo thời gian thực dựa trên AI Model.</p>
+          </div>
+          
+          <div class="global-controls">
+            <div class="control-group">
+              <label>As Of Date</label>
+              <input type="date" id="asOfInput" />
+            </div>
+            <button class="btn btn-primary" id="runEodBtn">
+              <span class="btn-text">Chạy Phân tích EOD</span>
+              <span class="btn-spinner" style="display:none;"><span class="spinner"></span></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="view-overview" class="view active">
+          <!-- MACRO TRACKERS -->
+          <div id="macroTrackersBlock"></div>
+
+          <!-- TIME SERIES CHART -->
+          <div class="glass-card" style="padding: 20px;">
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <style>
+                  .tf-btn { padding: 4px 10px; font-size: 11px; margin-right: 4px; border: 1px solid rgba(255,255,255,0.1); }
+                  .tf-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+                </style>
+                <h3>Lịch sử Risk Score & VN-INDEX</h3>
+                <div style="display: flex; align-items: center;">
+                    <div style="display: flex; margin-right: 15px;">
+                      <button class="btn btn-ghost tf-btn" onclick="setTimeframe('1w', this)">1W</button>
+                      <button class="btn btn-ghost tf-btn" onclick="setTimeframe('1m', this)">1M</button>
+                      <button class="btn btn-ghost tf-btn" onclick="setTimeframe('3m', this)">3M</button>
+                      <button class="btn btn-ghost tf-btn active" onclick="setTimeframe('all', this)" style="margin-right:0">ALL</button>
+                    </div>
+                    <button class="btn btn-ghost" id="exportBtn" style="padding: 6px 12px; font-size: 12px; border: 1px dashed rgba(255,255,255,0.2);">🖨️ Xuất Báo Cáo</button>
+                </div>
+             </div>
+             <div id="historicalChart" style="width: 100%; height: 280px;"></div>
+          </div>
+          
+          <!-- ASSET ALLOCATION WIDGET -->
+          <div class="glass-card" style="margin-top: -8px;">
+             <h3 style="margin-bottom: 12px;">Đề xuất Phân bổ Tài sản Cốt lõi (Asset Allocation)</h3>
+             <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600;">
+                <span style="color: #10b981;" id="lblCash">Tỷ trọng Tiền mặt: <span id="allocCash">--%</span></span>
+                <span style="color: #ef4444;" id="lblStock">Tỷ trọng Cổ phiếu Risk: <span id="allocStock">--%</span></span>
+             </div>
+             <div class="allocation-bar-wrap">
+                <div class="allocation-bar-cash" id="allocationBar" style="width: 50%;"></div>
+             </div>
+          </div>
+
+          <div class="stats-grid" style="margin-top: 16px;">
+            <div class="glass-card stat-card">
+              <div class="stat-label has-tooltip" data-tooltip="Xác suất giảm điểm kết hợp từ XGBoost, HMM, GARCH">Composite Risk Score</div>
+              <div class="stat-value" id="ov-risk-score">--%</div>
+              <div class="stat-sub">Độ tin cậy: <span id="ov-confidence">--</span></div>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-label has-tooltip" data-tooltip="Trạng thái thị trường phát hiện bởi Hidden Markov Model (HMM)">Risk Regime</div>
+              <div class="stat-value" style="font-size: 28px; margin-top: 8px;">
+                <span class="badge" id="ov-regime">UNKNOWN</span>
+              </div>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-label has-tooltip" data-tooltip="Mức sụt giảm tối đa kỳ vọng dựa trên Monte Carlo VaR">Expected Drawdown</div>
+              <div class="stat-value" id="ov-drawdown">--%</div>
+              <div class="stat-sub">Max Drawdown kỳ vọng</div>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-label has-tooltip" data-tooltip="Biến số có SHAP importance cao nhất đẩy rủi ro tăng">Dominant Driver</div>
+              <div class="stat-value" id="ov-driver" style="font-size: 22px;">--</div>
+              <div class="stat-sub text-danger">Yếu tố tác động chính</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="glass-card">
+              <h3>Bản tin Định lượng (AI Narrative)</h3>
+              <p style="color:var(--muted); font-size: 13px; margin-bottom: 20px;">Được sinh tự động từ kết quả Quant Models.</p>
+              <div class="narrative-body" id="narrativeBody">Chưa có dữ liệu dự báo. Vui lòng chọn ngày và chạy EOD.</div>
+              <ul class="narrative-bullets" id="narrativeBullets"></ul>
+            </div>
+            
+            <div class="glass-card">
+              <h3>Xác suất Giảm Điểm (Risk Horizons)</h3>
+              <div class="bar-chart mt-4" id="overviewHorizonBars">
+                <!-- Bars injected here -->
+                <div style="color: var(--muted); font-size: 13px;">Đang tải...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- VIEW 2: EXPLAINABLE AI (SHAP) -->
+        <div id="view-explain" class="view">
+          <div class="glass-card">
+            <h3>Phân rã Rủi ro (SHAP Explainer)</h3>
+            <p style="color:var(--muted); font-size: 14px; margin-bottom: 24px;">Biểu đồ thể hiện mức độ đóng góp (Feature Contribution) của các biến số kinh tế vĩ mô và kỹ thuật vào tỷ lệ rủi ro chung.</p>
+            
+            <div class="bar-chart" id="shapBarsList">
+                <div class="empty-state" id="shapEmptyState">
+                  <div class="empty-icon">🔬</div>
+                  <h4>Chưa có dữ liệu SHAP</h4>
+                  <p>Chạy "Phân tích EOD" ở góc trên bên phải để hệ thống tính toán Feature Attribution cho phiên giao dịch mới nhất.</p>
+                  <div style="margin-top: 20px; width: 100%;">
+                    <div class="skeleton skeleton-line long"></div>
+                    <div class="skeleton skeleton-line medium"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                    <div class="skeleton skeleton-line" style="width: 45%;"></div>
+                    <div class="skeleton skeleton-line" style="width: 30%;"></div>
+                  </div>
+                </div>
+            </div>
+          </div>
+          
+          <div class="glass-card">
+            <h3>Metadata & Provenance</h3>
+            <pre id="provenanceBlock" style="color: var(--muted); font-size: 13px; overflow-x: auto; background: rgba(0,0,0,0.3); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">Không có thông tin Model.</pre>
+          </div>
+        </div>
+
+        <!-- VIEW 3: SCENARIO SIMULATION -->
+        <div id="view-scenario" class="view">
+          <div class="grid-half">
+            <div class="glass-card">
+              <h3>Thiết lập Kịch bản Vĩ mô</h3>
+              <p style="color:var(--muted); font-size: 14px; margin-bottom: 30px;">Điều chỉnh các yếu tố vĩ mô để đánh giá tác động lên VN-INDEX.</p>
+              
+              <div class="scenario-controls">
+                <div class="slider-container">
+                  <div class="slider-meta">
+                    <span>Tỷ giá USD/VND</span>
+                    <span id="fxValLabel">25000</span>
+                  </div>
+                  <input type="range" id="fxSlider" min="23000" max="27000" step="50" value="25000" />
+                  <input type="number" id="fxInputScenario" value="25000" style="margin-top: 8px;"/>
+                </div>
+                
+                <div class="slider-container">
+                  <div class="slider-meta">
+                    <span>Lãi suất NHNN (%)</span>
+                    <span id="irValLabel">4.5</span>
+                  </div>
+                  <input type="range" id="irSlider" min="1.0" max="10.0" step="0.1" value="4.5" />
+                  <input type="number" id="irInputScenario" value="4.5" style="margin-top: 8px;"/>
+                </div>
+              </div>
+              
+              <button class="btn btn-primary mt-4" style="width: 100%; margin-top: 30px;" id="runScenarioBtn">
+                ▶ Chạy Mô phỏng Kịch bản
+              </button>
+            </div>
+            
+            <div class="glass-card">
+              <h3>Kết quả Mô phỏng</h3>
+              <div class="stats-grid" style="grid-template-columns: 1fr; gap: 16px; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                  <span style="color: var(--muted);">Risk Score Mới</span>
+                  <span class="stat-value" id="scenarioRisk" style="font-size: 24px;">--%</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                  <span style="color: var(--muted);">Drawdown Mới</span>
+                  <span class="stat-value" id="scenarioDD" style="font-size: 24px;">--%</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="color: var(--muted);">Risk Regime Mới</span>
+                  <span class="badge neutral" id="scenarioRegime">UNKNOWN</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 4: SECTORS & HISTORICAL -->
+        <div id="view-sectors" class="view">
+          
+          <!-- SECTOR MONEY FLOW WIDGET -->
+          <div class="glass-card" style="margin-bottom: 24px;">
+             <h3 style="margin-bottom: 12px;">Bản đồ Dòng tiền (Sector Rotation Matrix)</h3>
+             <div style="color:var(--muted); font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between;">
+                 <span>Luân chuyển nhóm ngành hằng ngày</span>
+                 <span id="foreignFlowInfo" style="font-weight: 600;">Khối ngoại: Đang tải...</span>
+             </div>
+             <div id="heatmapContainer" style="display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; border-radius: 8px; overflow: hidden; height: 260px; width: 100%; background: rgba(0,0,0,0.2); padding: 8px;">
+                 <div style="padding: 12px; color: var(--muted); font-size: 13px;">Đang tải dữ liệu luân chuyển dòng tiền...</div>
+             </div>
+          </div>
+
+          <div class="glass-card">
+            <h3>Screener Ngành & Cổ phiếu Đại diện</h3>
+            <p style="color:var(--muted); font-size: 14px; margin-bottom: 24px;">Dữ liệu Mock cho ứng dụng. Phân bổ rủi ro theo từng nhóm ngành và cổ phiếu.</p>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;" id="boardTabs">
+               <button class="badge neutral" style="cursor: pointer; font-size: 13px; padding: 8px 16px;" data-mode="market">Market</button>
+               <button class="badge neutral" style="cursor: pointer; font-size: 13px; padding: 8px 16px; background: transparent; border: 1px solid var(--border); color: var(--text);" data-mode="sector">Sectors</button>
+               <button class="badge neutral" style="cursor: pointer; font-size: 13px; padding: 8px 16px; background: transparent; border: 1px solid var(--border); color: var(--text);" data-mode="ticker">Tickers</button>
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thực thể</th>
+                    <th>Risk Score</th>
+                    <th>Regime</th>
+                    <th>1W</th>
+                    <th>2W</th>
+                    <th>1M</th>
+                    <th>Drawdown</th>
+                    <th>Driver Chính</th>
+                  </tr>
+                </thead>
+                <tbody id="riskBoardTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: var(--muted);">Chưa có dữ liệu</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING QUANT CHAT -->
+        <div class="floating-chat-btn" id="fabChat" title="Chat với Quant AI">💬</div>
+        
+        <div id="floatingChatPopup" class="floating-chat-popup">
+          <div class="floating-chat-header">
+            <span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 18px;">🤖</span> Quant Assistant</span>
+            <span class="floating-chat-close" id="fabClose">&times;</span>
+          </div>
+          <div class="chat-interface" style="flex: 1; border: none; border-radius: 0; padding: 12px; display: flex; flex-direction: column; overflow: hidden; background: transparent;">
+            <div class="chat-history" id="chatHistoryBox" style="flex: 1; margin-bottom: 0;">
+              <div class="chat-msg assistant">
+                <div class="msg-bubble">Chào bạn, tôi là Quant AI. Bạn có thể hỏi tôi về phân tích rủi ro thị trường, giải thích số liệu hiện tại, mô phỏng tỷ giá. Hôm nay tôi có thể giúp gì cho bạn?</div>
+              </div>
+            </div>
+            
+            <div class="chat-input-area" style="padding-top: 12px; border-top: 1px solid var(--border);">
+              <div class="chat-prompts">
+                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Sao rủi ro tăng?</div>
+                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Nếu Tỷ giá vượt 25.5k?</div>
+                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Stress test danh mục</div>
+                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Rủi ro FPT</div>
+              </div>
+              
+              <div class="chat-form">
+                <input type="text" id="chatInputField" placeholder="Hỏi phân tích rủi ro, stress test, vĩ mô..." style="font-size: 13px; flex: 1;" />
+                <button class="btn btn-primary" id="chatSendBtn" style="padding: 10px 14px;">↗</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+      // DOM Elements & State
+      const currentBoard = { market: [], sector: [], ticker: [] };
+      let currentQuantData = null;
+      let activeBoardTab = 'market';
+
+      // Selectors
+      const views = document.querySelectorAll('.view');
+      const navItems = document.querySelectorAll('.nav-item');
+      const headerTitle = document.getElementById('headerTitle');
+      const headerSub = document.getElementById('headerSub');
+      const statusText = document.getElementById('statusText');
+      const asOfInput = document.getElementById('asOfInput');
+
+      // Titles Mapping
+      const viewMeta = {
+        'view-overview': { title: 'Tổng quan Rủi ro Thị trường', sub: 'Đánh giá rủi ro VN-INDEX thời gian thực.' },
+        'view-explain': { title: 'Giải thích Mô hình AI (SHAP)', sub: 'Chi tiết mức đóng góp của các yếu tố vĩ mô và kỹ thuật.' },
+        'view-scenario': { title: 'Mô phỏng Kịch bản Vĩ mô', sub: 'What-if Analysis theo thời gian thực.' },
+        'view-sectors': { title: 'Screener Ngành & Cổ Phiếu', sub: 'So sánh rủi ro ngang (Cross-sectional risk).' },
+        'view-chat': { title: 'Conversational Quant Assistant', sub: 'Trợ lý truy vấn định lượng tự động.' }
+      };
+
+      // Navigation Logic
+      navItems.forEach(item => {
+        item.addEventListener('click', () => {
+          navItems.forEach(n => n.classList.remove('active'));
+          item.classList.add('active');
+          
+          const target = item.dataset.target;
+          views.forEach(v => v.classList.remove('active'));
+          document.getElementById(target).classList.add('active');
+
+          headerTitle.textContent = viewMeta[target].title;
+          headerSub.textContent = viewMeta[target].sub;
+        });
+      });
+
+      // Helpers
+      const pct = (val) => `${(val * 100).toFixed(1)}%`;
+      const riskClass = (regime) => {
+        if (regime === "very_high") return "very_high";
+        if (regime === "high") return "high";
+        if (regime === "neutral") return "neutral";
+        return "low";
+      };
+
+      // Rendering Tools
+      function createBarHtml(label, value, isPct=true, colorClass='danger') {
+        const displayVal = isPct ? pct(value) : value;
+        const width = isPct ? Math.max(5, value * 100) : 50; 
+        return `
+          <div class="bar-item">
+            <div class="bar-meta"><span>${label}</span><span class="val">${displayVal}</span></div>
+            <div class="bar-track">
+              <div class="bar-fill ${colorClass}" style="width: ${width}%"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      function buildBoards(quant) {
+        const market = [
+          { symbol: "VNINDEX", kind: "Market core", regime: quant.risk_regime, score: quant.decision_score, p1w: quant.horizons.p_decline_1w, p2w: quant.horizons.p_decline_2w, p1m: quant.horizons.p_decline_1m, dd: quant.horizons.expected_drawdown_pct, driver: quant.dominant_feature }
+        ];
+        const sector = [
+          { symbol: "Ngân hàng", kind: "Nhạy cảm thanh khoản", regime: "very_high", score: Math.min(0.99, quant.decision_score + 0.09), p1w: Math.min(0.99, quant.horizons.p_decline_1w + 0.07), p2w: Math.min(0.99, quant.horizons.p_decline_2w + 0.08), p1m: Math.min(0.99, quant.horizons.p_decline_1m + 0.06), dd: quant.horizons.expected_drawdown_pct * 1.25, driver: "usd_vnd_rate" },
+          { symbol: "Bất động sản", kind: "Đòn bẩy cao", regime: "high", score: Math.min(0.99, quant.decision_score + 0.05), p1w: Math.min(0.99, quant.horizons.p_decline_1w + 0.05), p2w: Math.min(0.99, quant.horizons.p_decline_2w + 0.06), p1m: Math.min(0.99, quant.horizons.p_decline_1m + 0.04), dd: quant.horizons.expected_drawdown_pct * 1.18, driver: "sbv_interest_rate_pct" },
+          { symbol: "Xuất khẩu", kind: "Phòng thủ", regime: "neutral", score: Math.max(0.05, quant.decision_score - 0.12), p1w: Math.max(0.05, quant.horizons.p_decline_1w - 0.11), p2w: Math.max(0.05, quant.horizons.p_decline_2w - 0.09), p1m: Math.max(0.05, quant.horizons.p_decline_1m - 0.08), dd: quant.horizons.expected_drawdown_pct * 0.72, driver: "breadth_volume_pressure" }
+        ];
+        const ticker = [
+          { symbol: "VCB", kind: "Banking proxy", regime: "high", score: Math.min(0.99, quant.decision_score + 0.04), p1w: Math.min(0.99, quant.horizons.p_decline_1w + 0.03), p2w: Math.min(0.99, quant.horizons.p_decline_2w + 0.04), p1m: Math.min(0.99, quant.horizons.p_decline_1m + 0.03), dd: quant.horizons.expected_drawdown_pct * 1.08, driver: "usd_vnd_rate" },
+          { symbol: "FPT", kind: "Defensive growth", regime: "neutral", score: Math.max(0.05, quant.decision_score - 0.1), p1w: Math.max(0.05, quant.horizons.p_decline_1w - 0.08), p2w: Math.max(0.05, quant.horizons.p_decline_2w - 0.09), p1m: Math.max(0.05, quant.horizons.p_decline_1m - 0.07), dd: quant.horizons.expected_drawdown_pct * 0.76, driver: "breadth_advancers_pct" }
+        ];
+        return { market, sector, ticker };
+      }
+
+      const FEATURE_LABELS = {
+        "usd_vnd_1m_change_pct": "Tốc độ Tăng Tỷ giá (1M)",
+        "usd_vnd_rate": "Tỷ giá USD/VND hiện tại",
+        "sbv_interest_rate_pct": "Lãi suất Điều hành",
+        "vn_index": "Định giá VN-INDEX",
+        "ret_1d": "Đà giảm Ngắn hạn (1D)",
+        "ret_5d": "Đà giảm Tuần (5D)",
+        "ret_10d": "Đà giảm Tuần (10D)",
+        "vol_regime_5d_20d": "Áp lực Đột biến Thanh khoản",
+        "realized_vol_20d": "Biến động Giá quá mức (20D)",
+        "downside_vol_10d": "Rủi ro Rơi tự do (Drawdown)",
+        "ma_gap_20": "Độ lệch so với MA20",
+        "ma_slope_10": "Mất Động lượng MA10",
+        "breadth_advancers_pct": "Độ rộng: Số Mã tăng",
+        "volume_1w_trend_pct": "Lực bán tháo mạnh",
+        "cpi_yoy_pct": "Lạm phát CPI",
+        "fdi_disbursement_yoy_pct": "Dòng tiền FDI",
+        "drawdown_10d": "Cú rơi sâu 10 ngày",
+        "drawdown_20d": "Cú rơi sâu 20 ngày",
+      };
+      
+      function humanize(key) {
+         return FEATURE_LABELS[key] || key;
+      }
+
+      function updateUIWithData(manifest, isScenario = false) {
+        const quant = manifest.quant ?? manifest;
+        currentQuantData = quant;
+        
+        const regimeLabel = quant.risk_regime.replace("_", " ").toUpperCase();
+        const rStyle = riskClass(quant.risk_regime);
+
+        if (!isScenario) {
+          // View 1 Updates
+          document.getElementById('ov-risk-score').textContent = pct(quant.decision_score);
+          document.getElementById('ov-confidence').textContent = quant.backtest?.last_auc?.toFixed(2) || "N/A";
+          document.getElementById('ov-regime').textContent = regimeLabel;
+          document.getElementById('ov-regime').className = `badge ${rStyle}`;
+          document.getElementById('ov-drawdown').textContent = `${quant.horizons.expected_drawdown_pct.toFixed(2)}%`;
+          
+          let el = document.getElementById('ov-driver');
+          el.textContent = humanize(quant.dominant_feature);
+          el.style.fontSize = "16px";
+          el.style.whiteSpace = "normal";
+
+          // Horizon bars
+          let hBarsHtml = "";
+          hBarsHtml += createBarHtml('Xác suất 1 Tuần (1W)', quant.horizons.p_decline_1w);
+          hBarsHtml += createBarHtml('Xác suất 2 Tuần (2W)', quant.horizons.p_decline_2w);
+          hBarsHtml += createBarHtml('Xác suất 1 Tháng (1M)', quant.horizons.p_decline_1m);
+          document.getElementById('overviewHorizonBars').innerHTML = hBarsHtml;
+
+          // Narrative
+          if (manifest.narrative) {
+            document.getElementById('narrativeBody').textContent = manifest.narrative.body;
+            document.getElementById('narrativeBullets').innerHTML = manifest.narrative.bullet_highlights.map(b => `<li>${b}</li>`).join('');
+          }
+          
+          // Allocation
+          let cashPct = 50;
+          if (quant.decision_score > 0.75) cashPct = 80;
+          else if (quant.decision_score > 0.55) cashPct = 60;
+          else if (quant.decision_score > 0.35) cashPct = 30;
+          else cashPct = 10;
+          
+          document.getElementById('allocCash').textContent = cashPct + "%";
+          document.getElementById('allocStock').textContent = (100 - cashPct) + "%";
+          document.getElementById('allocBar').style.width = cashPct + "%";
+          
+          // Macro Current Trackers
+          if (quant.narrative_inputs) {
+              let hDriver = humanize(quant.dominant_feature);
+              document.getElementById('macroTrackersBlock').innerHTML = `
+                 <div class="macro-chip">Đóng cửa VN-INDEX: <span style="color:var(--text)">${quant.narrative_inputs.vn_index || 'N/A'}</span></div>
+                 <div class="macro-chip">Biến động Tỷ giá: <span style="color:var(--warn)">${quant.narrative_inputs.usd_vnd_rate || 'N/A'} đ</span></div>
+                 <div class="macro-chip">Điểm mù (Driver): <span style="color:var(--warn); font-weight:700">${hDriver || 'N/A'}</span></div>
+              `;
+          }
+
+          // View 2 Updates (SHAP)
+          let shapHtml = "";
+          (quant.shap_top || []).forEach(sh => {
+            const isDanger = sh.direction === "increases_risk";
+            shapHtml += createBarHtml(humanize(sh.feature_name), sh.share, true, isDanger ? 'danger' : 'success');
+          });
+          document.getElementById('shapBarsList').innerHTML = shapHtml || "<span class='muted'>Không có dữ liệu SHAP</span>";
+          
+          document.getElementById('provenanceBlock').textContent = JSON.stringify({
+            run_id: quant.run_id,
+            model_info: quant.provenance || {}
+          }, null, 2);
+
+          // View 4 Updates
+          Object.assign(currentBoard, buildBoards(quant));
+          renderBoardTable(activeBoardTab);
+        } else {
+          // View 3 Updates (Scenario Mode)
+          document.getElementById('scenarioRisk').textContent = pct(quant.decision_score);
+          document.getElementById('scenarioDD').textContent = `${quant.horizons.expected_drawdown_pct.toFixed(2)}%`;
+          document.getElementById('scenarioRegime').textContent = regimeLabel;
+          document.getElementById('scenarioRegime').className = `badge ${rStyle}`;
+        }
+      }
+
+      function renderBoardTable(tab) {
+        const tbody = document.getElementById('riskBoardTableBody');
+        const rows = currentBoard[tab] || [];
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--muted);">Chưa có dữ liệu</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map(r => `
+          <tr>
+            <td>
+              <div class="entity-name">${r.symbol}</div>
+              <div class="entity-sub">${r.kind}</div>
+            </td>
+            <td style="font-weight: 700; color: ${r.score > 0.6 ? 'var(--bad)' : 'inherit'}">${pct(r.score)}</td>
+            <td><span class="badge ${riskClass(r.regime)}">${r.regime.replace("_", " ")}</span></td>
+            <td>${pct(r.p1w)}</td>
+            <td>${pct(r.p2w)}</td>
+            <td>${pct(r.p1m)}</td>
+            <td>${r.dd.toFixed(2)}%</td>
+            <td style="color: var(--muted); font-size: 13px;">${r.driver}</td>
+          </tr>
+        `).join('');
+      }
+      
+      let chart, lineSeries, riskSeries;
+      let lastChartTimestamp = null;
+      let currentTf = 'all';
+
+      function setTimeframe(tf, btn) {
+          document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+          if(btn) btn.classList.add('active');
+          currentTf = tf;
+          applyTimeframe();
+      }
+
+      function applyTimeframe() {
+          if(!chart || !lastChartTimestamp) return;
+          if(currentTf === 'all') {
+              chart.timeScale().fitContent();
+              return;
+          }
+          let secs = 0;
+          if(currentTf === '1w') secs = 7 * 24 * 60 * 60;
+          if(currentTf === '1m') secs = 30 * 24 * 60 * 60;
+          if(currentTf === '3m') secs = 90 * 24 * 60 * 60;
+          
+          chart.timeScale().setVisibleRange({
+              from: lastChartTimestamp - secs,
+              to: lastChartTimestamp
+          });
+      }
+
+      function buildChart() {
+         const container = document.getElementById('historicalChart');
+         if (!container || chart) return;
+         
+         const lwOpts = {
+            layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+            grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+            timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true }
+         };
+         
+         if (LightweightCharts.CrosshairMode) {
+             lwOpts.crosshair = { mode: LightweightCharts.CrosshairMode.Normal };
+         }
+         
+         chart = LightweightCharts.createChart(container, lwOpts);
+         lineSeries = chart.addLineSeries({
+            color: '#3b82f6', lineWidth: 2, priceScaleId: 'right'
+         });
+         riskSeries = chart.addHistogramSeries({
+            color: 'rgba(239, 68, 68, 0.4)', 
+            priceScaleId: 'left'
+         });
+         chart.priceScale('left').applyOptions({ 
+             scaleMargins: { top: 0.75, bottom: 0 },
+             visible: false
+         });
+      }
+
+      async function fetchHistory() {
+         try {
+             const ds = document.getElementById('historicalChart');
+             const res = await fetch("/dashboard/history");
+             const payload = await res.json();
+             if(!payload.data || payload.data.length === 0) {
+                 ds.innerHTML = '<span class="muted">Không có dữ liệu lịch sử</span>';
+                 return;
+             }
+             
+             let lineData = [];
+             let riskData = [];
+             const seen = new Set();
+             
+             payload.data.forEach(d => {
+                 if(!seen.has(d.time)) {
+                     seen.add(d.time);
+                     lineData.push({ time: d.time, value: d.value });
+                     riskData.push({
+                         time: d.time, 
+                         value: d.risk_score, 
+                         color: d.risk_score > 0.75 ? 'rgba(225, 29, 72, 0.7)' : (d.risk_score > 0.55 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.5)')
+                     });
+                 }
+             });
+             
+             lineData.sort((a,b) => a.time.localeCompare(b.time));
+             riskData.sort((a,b) => a.time - b.time);
+             
+             if(lineData.length > 0) {
+                 lastChartTimestamp = lineData[lineData.length - 1].time;
+             }
+             
+             buildChart();
+             lineSeries.setData(lineData);
+             riskSeries.setData(riskData);
+             applyTimeframe();
+         } catch(e) { 
+             console.error("Lỗi vẽ biểu đồ History:", e); 
+             document.getElementById('historicalChart').innerHTML = `<p style="color:red">Lỗi Render Biểu đồ: ${e.message}</p>`;
+         }
+      }
+
+      async function fetchLive() {
+          try {
+              if(!lineSeries || !riskSeries) return;
+              const res = await fetch("/dashboard/live");
+              if(!res.ok) return;
+              const d = await res.json();
+              if(!d.time) return;
+              
+              lastChartTimestamp = d.time;
+              
+              // Live update the internal chart memory directly
+              lineSeries.update({ time: d.time, value: d.value });
+              riskSeries.update({
+                 time: d.time,
+                 value: d.risk_score,
+                 color: d.risk_score > 0.75 ? 'rgba(225, 29, 72, 0.7)' : (d.risk_score > 0.55 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.5)')
+              });
+              
+              if(currentTf !== 'all') applyTimeframe();
+              
+              // Live update some crucial UI without unmounting
+              document.getElementById('ov-risk-score').textContent = (d.risk_score * 100).toFixed(1) + "%";
+              
+              if(d.regime) {
+                  const regEl = document.getElementById('ov-regime');
+                  regEl.textContent = d.regime;
+                  let rc = "neutral";
+                  if(d.regime.includes("Bear")) rc = "very_high";
+                  if(d.regime.includes("Bull")) rc = "low";
+                  regEl.className = "badge " + riskClass(rc);
+              }
+              
+              // Cập nhật Cổ phiếu / Tiền mặt Widget tự động bằng Black-Litterman 
+              if(d.stock_pct !== undefined && d.cash_pct !== undefined) {
+                  let stockPct = d.stock_pct.toFixed(0);
+                  let cashPct = d.cash_pct.toFixed(0);
+                  let barEl = document.getElementById('allocationBar');
+                  if (barEl) {
+                      barEl.style.width = cashPct + "%";
+                      let lbls = barEl.parentElement.parentElement.querySelectorAll('.flex.justify-between span');
+                      if(lbls.length === 2) {
+                          lbls[0].textContent = "Tỷ trọng Tiền mặt (Black-Litterman expected): " + cashPct + "%";
+                          lbls[1].textContent = "Tỷ trọng Cổ phiếu (Thị trường): " + stockPct + "%";
+                      }
+                  }
+              }
+              
+          } catch(e) { console.error(e); }
+      }
+
+      async function bootSystem() {
+        try {
+          const res = await fetch("/dashboard/state");
+          const state = await res.json();
+          if (state.loaded) {
+            statusText.innerHTML = `<span style="color: var(--good)">• Kết nối thành công</span><br/>Database: ${state.rows} rows<br/>As Of Date: ${state.end_date}`;
+            asOfInput.value = state.end_date;
+            await fetchHistory();
+            
+            // XONG LỊCH SỬ THÌ KÍCH HOẠT TICKER CHẠY TỪNG GIÂY
+            setInterval(fetchLive, 2500); 
+            
+          } else {
+            statusText.innerHTML = `<span style="color: var(--warn)">• Panel trống</span><br/>Chưa nạp dữ liệu vào Database.`;
+          }
+        } catch (e) {
+          statusText.innerHTML = `<span style="color: var(--bad)">• Mất kế nối Backend</span>`;
+        }
+      }
+
+      async function runEOD() {
+        const as_of = asOfInput.value;
+        if (!as_of) return alert("Vui lòng chọn ngày As Of Date.");
+        
+        statusText.innerHTML = `<span style="color: var(--warn)"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;vertical-align:middle;margin-right:6px;"></span> Đang xử lý Quant Models...</span>`;
+        const eodBtn = document.getElementById('runEodBtn');
+        eodBtn.querySelector('.btn-text').textContent = 'Đang tính toán...';
+        eodBtn.querySelector('.btn-spinner').style.display = 'inline-block';
+        eodBtn.classList.add('loading');
+
+        try {
+          const res = await fetch("/eod/run", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ as_of })
+          });
+          const payload = await res.json();
+          updateUIWithData(payload, false);
+          statusText.innerHTML = `<span class="live-dot"></span> <span style="color: var(--good)">Hoàn tất EOD</span><br/>Date: ${as_of}`;
+        } catch (e) {
+          alert("Lỗi gọi EOD API: " + e.message);
+        } finally {
+          const eodBtn = document.getElementById('runEodBtn');
+          eodBtn.querySelector('.btn-text').textContent = 'Chạy Phân tích EOD';
+          eodBtn.querySelector('.btn-spinner').style.display = 'none';
+          eodBtn.classList.remove('loading');
+        }
+      }
+
+      async function runScenario() {
+        const as_of = asOfInput.value;
+        if (!as_of) return alert("Vui lòng chạy EOD hoặc chọn ngày TRƯỚC khi giả lập kịch bản.");
+
+        const fx = parseFloat(document.getElementById('fxInputScenario').value);
+        const ir = parseFloat(document.getElementById('irInputScenario').value);
+
+        try {
+          const res = await fetch("/scenario/rerun", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ as_of: as_of, usd_vnd_rate: fx, sbv_interest_rate_pct: ir })
+          });
+          const payload = await res.json();
+          updateUIWithData(payload, true);
+        } catch(e) {
+          alert("Lỗi gọi Scenario API: " + e.message);
+        }
+      }
+
+      async function sendChat(msg) {
+        if (!asOfInput.value) return alert("Chọn ngày lập lưới dữ liệu trước.");
+        
+        const box = document.getElementById('chatHistoryBox');
+        
+        // Append User
+        const uDiv = document.createElement('div');
+        uDiv.className = 'chat-msg user';
+        uDiv.innerHTML = `<div class="msg-bubble">${msg}</div>`;
+        box.appendChild(uDiv);
+        
+        // Typing indicator
+        const tDiv = document.createElement('div');
+        tDiv.className = 'chat-msg assistant';
+        tDiv.innerHTML = `<div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+        box.appendChild(tDiv);
+        box.scrollTop = box.scrollHeight;
+
+        try {
+           const res = await fetch("/chat", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ as_of: asOfInput.value, message: msg })
+          });
+          const payload = await res.json();
+          tDiv.innerHTML = `
+            <div class="msg-bubble">${payload.text || "Lỗi nội dung."}</div>
+            ${payload.provenance ? `<div class="msg-meta">Model: ${payload.provenance.model_version} | ID: ${payload.provenance.run_id}</div>` : ''}
+          `;
+        } catch(e) {
+          tDiv.innerHTML = `<div class="msg-bubble" style="color: var(--bad)">Network Error.</div>`;
+        }
+        box.scrollTop = box.scrollHeight;
+      }
+
+      // Event Listeners bind
+      document.getElementById('runEodBtn').addEventListener('click', runEOD);
+      document.getElementById('runScenarioBtn').addEventListener('click', runScenario);
+      
+      // Board Tabs
+      document.querySelectorAll('#boardTabs button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#boardTabs button').forEach(b => {
+             b.style.background = 'transparent'; 
+             b.style.color = 'var(--text)';
+          });
+          e.target.style.background = 'rgba(59, 130, 246, 0.15)';
+          e.target.style.color = '#60a5fa';
+          activeBoardTab = e.target.dataset.mode;
+          renderBoardTable(activeBoardTab);
+        });
+      });
+
+      // Scenario Sliders sync
+      const fxSlider = document.getElementById('fxSlider');
+      const fxInputSc = document.getElementById('fxInputScenario');
+      const fxLab = document.getElementById('fxValLabel');
+      
+      fxSlider.addEventListener('input', e => { fxInputSc.value = e.target.value; fxLab.textContent = e.target.value; });
+      fxInputSc.addEventListener('input', e => { fxSlider.value = e.target.value; fxLab.textContent = e.target.value; });
+
+      const irSlider = document.getElementById('irSlider');
+      const irInputSc = document.getElementById('irInputScenario');
+      const irLab = document.getElementById('irValLabel');
+
+      irSlider.addEventListener('input', e => { irInputSc.value = e.target.value; irLab.textContent = e.target.value; });
+      irInputSc.addEventListener('input', e => { irSlider.value = e.target.value; irLab.textContent = e.target.value; });
+
+      // Chat bindings
+      const chatIn = document.getElementById('chatInputField');
+      document.getElementById('chatSendBtn').addEventListener('click', () => {
+        if(chatIn.value.trim()) { sendChat(chatIn.value.trim()); chatIn.value = ''; }
+      });
+      chatIn.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') { sendChat(chatIn.value.trim()); chatIn.value = ''; }
+      });
+      document.querySelectorAll('.prompt-chip').forEach(chip => {
+        chip.addEventListener('click', () => { sendChat(chip.textContent); });
+      });
+      
+      // Export behavior
+      document.getElementById('exportBtn').addEventListener('click', () => { window.print(); });
+
+      // ========== HEATMAP LUÂN CHUYỂN DÒNG TIỀN ==========
+      async function fetchMoneyFlow() {
+          try {
+              const res = await fetch("/dashboard/money-flow");
+              if (!res.ok) return;
+              const data = await res.json();
+              
+              // Xử lý Khối ngoại
+              const foreignEl = document.getElementById("foreignFlowInfo");
+              if(foreignEl) {
+                  let fVal = data.foreign_net_val;
+                  if (fVal > 0) {
+                      foreignEl.innerHTML = `Khối ngoại: <span style="color:#10b981">Mua ròng +${fVal} tỷ</span>`;
+                  } else {
+                      foreignEl.innerHTML = `Khối ngoại: <span style="color:#ef4444">Bán ròng ${fVal} tỷ</span>`;
+                  }
+              }
+              
+              // Xử lý Treemap (Sector Heatmap)
+              const container = document.getElementById("heatmapContainer");
+              if(container && data.sectors) {
+                  container.innerHTML = "";
+                  let totalWeight = data.sectors.reduce((sum, s) => sum + s.weight, 0);
+                  
+                  data.sectors.forEach(sec => {
+                      let box = document.createElement("div");
+                      let pctWidth = (sec.weight / totalWeight) * 100;
+                      pctWidth = Math.max(8, pctWidth - 1); // Đảm bảo width tối thiểu để hiển thị text
+                      
+                      let isPositive = sec.flow > 0;
+                      box.style.width = `calc(${pctWidth}%)`;
+                      box.style.flexGrow = sec.weight * 10;
+                      box.style.height = "100%";
+                      box.style.minHeight = "64px";
+                      // Màu xanh/Đỏ + Opacity giảm dần theo khối lượng
+                      box.style.backgroundColor = isPositive ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)";
+                      box.style.border = `1px solid ${isPositive ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)"}`;
+                      box.style.borderRadius = "4px";
+                      box.style.display = "flex";
+                      box.style.flexDirection = "column";
+                      box.style.justifyContent = "center";
+                      box.style.alignItems = "center";
+                      box.style.padding = "4px";
+                      box.style.transition = "all 0.2s";
+                      box.style.cursor = "pointer";
+                      
+                      box.onmouseover = () => {
+                          box.style.transform = "scale(1.02)";
+                          box.style.backgroundColor = isPositive ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
+                          box.style.zIndex = "10";
+                      };
+                      box.onmouseout = () => {
+                          box.style.transform = "scale(1)";
+                          box.style.backgroundColor = isPositive ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)";
+                           box.style.zIndex = "1";
+                      };
+                      
+                      let nameEl = document.createElement("div");
+                      nameEl.style.fontWeight = "bold";
+                      nameEl.style.fontSize = "11px";
+                      nameEl.style.textAlign = "center";
+                      nameEl.textContent = sec.name;
+                      
+                      let valEl = document.createElement("div");
+                      valEl.style.fontSize = "12px";
+                      valEl.style.fontWeight = "600";
+                      valEl.style.color = isPositive ? "#10b981" : "#ef4444";
+                      valEl.textContent = (isPositive ? "+" : "") + Math.abs(sec.flow) + " Tỷ";
+                      
+                      box.appendChild(nameEl);
+                      box.appendChild(valEl);
+                      container.appendChild(box);
+                  });
+              }
+          } catch(e) { console.error("Error fetching money flow", e); }
+      }
+
+      // Khởi chạy Money Flow kèm BootSystem
+      fetchMoneyFlow();
+      setInterval(fetchMoneyFlow, 60000);
+
+      // Booting toggle floating chat
+      document.getElementById('fabChat').addEventListener('click', () => {
+         document.getElementById('floatingChatPopup').classList.toggle('open');
+      });
+      document.getElementById('fabClose').addEventListener('click', () => {
+         document.getElementById('floatingChatPopup').classList.remove('open');
+      });
+
+      // Init
+      bootSystem();
+    </script>
+  </body>
+</html>
