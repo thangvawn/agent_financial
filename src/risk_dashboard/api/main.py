@@ -1,28 +1,61 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
+import time
+import urllib.request
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from risk_dashboard.data.financials import FinancialDataError, get_financial_dataset, import_financial_dataset
 from risk_dashboard.agents.graph import AgentState, run_eod_narrative
 from risk_dashboard.agents.multi_agent import run_chat
-from risk_dashboard.quant.research_report import build_model_research_report
-from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
-from risk_dashboard.quant.scenario import rerun_with_macro_override
+from risk_dashboard.data.financials import (
+    FinancialDataError,
+    get_financial_dataset,
+    import_financial_dataset,
+)
+from risk_dashboard.quant.advanced_engine import (
+    compute_garch_volatility,
+    compute_market_regime,
+    optimize_portfolio_allocation,
+)
 from risk_dashboard.quant.eod_pipeline import _get_cached_trained_model
+from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
+from risk_dashboard.quant.research_report import build_model_research_report
+from risk_dashboard.quant.scenario import rerun_with_macro_override
 from risk_dashboard.quant.xgb_engine import prepare_features, predict_horizons
-from risk_dashboard.quant.advanced_engine import compute_market_regime, compute_garch_volatility, optimize_portfolio_allocation
 from risk_dashboard.schemas.financials import FinancialImportRequest
 
-app = FastAPI(title="Risk Dashboard API", version="0.1.0")
+from risk_dashboard.api.middleware import APIKeyMiddleware, RequestLoggingMiddleware
+
+logger = logging.getLogger(__name__)
+
+_TAGS_METADATA = [
+    {"name": "System", "description": "Health checks and system state"},
+    {"name": "Dashboard", "description": "Chart data, live feed, money flow"},
+    {"name": "Quant", "description": "EOD pipeline and scenario simulation"},
+    {"name": "Chat", "description": "Multi-agent LLM chat"},
+    {"name": "Financials", "description": "Financial statement analysis"},
+    {"name": "Admin", "description": "Panel management"},
+]
+
+app = FastAPI(
+    title="Risk Dashboard API",
+    version="0.1.0",
+    description="Neural-symbolic risk pipeline for Vietnamese equity market",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=_TAGS_METADATA,
+)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(APIKeyMiddleware)
 _LEGACY_DASHBOARD_HTML = Path(__file__).with_name("dashboard.html")
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
@@ -185,24 +218,34 @@ def panel_date_range() -> tuple[str | None, str | None]:
 @app.on_event("startup")
 def startup_autoload_panel() -> None:
     if _PANEL is None:
-        autoload_default_panel()
+        loaded = autoload_default_panel()
+        logger.info("Panel autoload: %s (source=%s)", "OK" if loaded else "FAIL", _PANEL_SOURCE)
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/health", tags=["System"])
+def health() -> dict:
+    panel_ok = _PANEL is not None and not _PANEL.empty
+    model_ok = Path("data/models/latest_model.pkl").exists()
+    status = "ok" if panel_ok else "degraded"
+    return {
+        "status": status,
+        "checks": {
+            "panel_loaded": panel_ok,
+            "model_available": model_ok,
+        },
+    }
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
 def dashboard() -> str:
     return _dashboard_html_path().read_text(encoding="utf-8")
 
 
-@app.get("/dashboard/state")
+@app.get("/dashboard/state", tags=["Dashboard"])
 def dashboard_state() -> dict[str, object]:
     return panel_status()
 
-@app.get("/dashboard/history")
+@app.get("/dashboard/history", tags=["Dashboard"])
 def dashboard_history(limit: int = 150):
     panel = get_panel()
     if panel.empty:
@@ -233,23 +276,24 @@ def dashboard_history(limit: int = 150):
             
     return {"data": results}
 
-import urllib.request
-import time
 
-def _get_live_vnindex_dnse(default_val):
+def _get_live_vnindex_dnse(default_val: float) -> tuple[float, int]:
     start = int(time.time()) - 86400 * 2
-    url = f"https://services.entrade.com.vn/chart-api/v2/ohlcs/index?resolution=1&symbol=VNINDEX&from={start}&to={int(time.time())}"
+    url = (
+        f"https://services.entrade.com.vn/chart-api/v2/ohlcs/index"
+        f"?resolution=1&symbol=VNINDEX&from={start}&to={int(time.time())}"
+    )
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as res:
             data = json.loads(res.read().decode())
-            if 'c' in data and len(data['c']) > 0:
-                return float(data['c'][-1]), int(data['t'][-1])
-    except:
-        pass
+            if "c" in data and len(data["c"]) > 0:
+                return float(data["c"][-1]), int(data["t"][-1])
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as exc:
+        logger.debug("Live VNINDEX fetch failed: %s", exc)
     return default_val, int(time.time())
 
-@app.get("/dashboard/live")
+@app.get("/dashboard/live", tags=["Dashboard"])
 def dashboard_live():
     panel = get_panel()
     if panel.empty:
@@ -295,7 +339,7 @@ def dashboard_live():
 
 
 
-@app.post("/admin/load-panel")
+@app.post("/admin/load-panel", tags=["Admin"])
 def load_panel(payload: dict) -> dict[str, str]:
     """Nạp panel từ JSON records (test/demo)."""
     panel = pd.DataFrame(payload["records"])
@@ -308,7 +352,7 @@ class EODRequest(BaseModel):
     run_id: str | None = None
 
 
-@app.post("/eod/run")
+@app.post("/eod/run", tags=["Quant"])
 def eod_run(req: EODRequest):
     manifest = run_eod_narrative(get_panel(), req.as_of, run_id=req.run_id)
     return manifest.model_dump(mode="json")
@@ -320,7 +364,7 @@ class ScenarioRequest(BaseModel):
     sbv_interest_rate_pct: float | None = None
 
 
-@app.post("/scenario/rerun")
+@app.post("/scenario/rerun", tags=["Quant"])
 def scenario_rerun(req: ScenarioRequest):
     panel = get_panel()
     try:
@@ -343,7 +387,7 @@ def scenario_rerun(req: ScenarioRequest):
     return q.model_dump(mode="json")
 
 
-@app.get("/research/model-report")
+@app.get("/research/model-report", tags=["Quant"])
 def research_model_report():
     report = build_model_research_report("data/models")
     return {
@@ -358,13 +402,13 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
 
 
-@app.post("/chat")
+@app.post("/chat", tags=["Chat"])
 def chat(req: ChatRequest):
     """Multi-agent chat — LangGraph pipeline with real tools."""
     return run_chat(req.message)
 
 
-@app.get("/financials/status")
+@app.get("/financials/status", tags=["Financials"])
 def financials_status() -> dict[str, object]:
     return {
         "provider": "vnstock-live",
@@ -377,7 +421,7 @@ def financials_status() -> dict[str, object]:
     }
 
 
-@app.get("/financials/{ticker}/analysis")
+@app.get("/financials/{ticker}/analysis", tags=["Financials"])
 def financial_analysis(ticker: str, refresh: bool = False):
     try:
         dataset = get_financial_dataset(ticker, refresh=refresh)
@@ -395,7 +439,7 @@ def financial_analysis(ticker: str, refresh: bool = False):
     return analyze_financial_dataset(dataset).model_dump(mode="json")
 
 
-@app.post("/financials/import")
+@app.post("/financials/import", tags=["Financials"])
 def financial_import(req: FinancialImportRequest):
     path = import_financial_dataset(req.dataset)
     analysis = analyze_financial_dataset(req.dataset)
@@ -407,7 +451,7 @@ def financial_import(req: FinancialImportRequest):
         "analysis": analysis.model_dump(mode="json"),
     }
 
-@app.get("/dashboard/money-flow")
+@app.get("/dashboard/money-flow", tags=["Dashboard"])
 def dashboard_money_flow():
     """
     Cung cấp số liệu Dòng tiền chuyên sâu (Money Flow).

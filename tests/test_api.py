@@ -10,7 +10,11 @@ def test_health():
     c = TestClient(app)
     r = c.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    body = r.json()
+    assert body["status"] in ("ok", "degraded")
+    assert "checks" in body
+    assert "panel_loaded" in body["checks"]
+    assert "model_available" in body["checks"]
 
 
 def test_eod_requires_panel(synthetic_panel):

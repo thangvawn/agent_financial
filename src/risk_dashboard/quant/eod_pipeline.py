@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import pickle
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -10,6 +12,7 @@ from risk_dashboard.quant.model_benchmark import resolve_benchmark_training_conf
 from risk_dashboard.quant.shap_explain import contributions_from_tree_model
 from risk_dashboard.quant.var_engine import fit_var_summary, var_impulse_note
 from risk_dashboard.quant.xgb_engine import (
+    TrainedRiskModel,
     prepare_features,
     predict_horizons,
     risk_regime_from_score,
@@ -24,11 +27,12 @@ from risk_dashboard.schemas.snapshots import (
     TargetHorizons,
     VarSummary,
 )
-from risk_dashboard.quant.xgb_engine import TrainedRiskModel
 
-import pickle
+logger = logging.getLogger(__name__)
 
 _LOADED_MODEL: tuple[TrainedRiskModel, dict] | None = None
+_DEFAULT_MODEL_PATH = Path("data/models/latest_model.pkl")
+
 
 def _get_cached_trained_model(
     panel: pd.DataFrame,
@@ -41,16 +45,15 @@ def _get_cached_trained_model(
     global _LOADED_MODEL
     if _LOADED_MODEL is not None:
         return _LOADED_MODEL
-        
-    model_path = Path("data/models/latest_model.pkl")
-    if model_path.exists():
-        with open(model_path, "rb") as f:
-            data = pickle.load(f)
+
+    if _DEFAULT_MODEL_PATH.exists():
+        with open(_DEFAULT_MODEL_PATH, "rb") as f:
+            data = pickle.load(f)  # noqa: S301
             _LOADED_MODEL = (data["model"], data["metrics"])
+        logger.info("Loaded pre-trained model from %s", _DEFAULT_MODEL_PATH)
         return _LOADED_MODEL
-        
-    # Fallback to dynamic learning if the offline model is not yet trained
-    print(f"WARNING: No pre-trained model found at {model_path}. Falling back to slow dynamic training.")
+
+    logger.warning("No pre-trained model at %s — falling back to dynamic training", _DEFAULT_MODEL_PATH)
     cache_version = version.replace("-scenario", "")
     res = train_risk_model(
         panel,
@@ -60,15 +63,14 @@ def _get_cached_trained_model(
         estimator_params_by_horizon=estimator_params_by_horizon,
     )
     _LOADED_MODEL = res
-    
-    # Tự động lưu ra ổ cứng để người dùng tắt server bật lại không bị mất
+
     try:
-        model_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(model_path, "wb") as f:
+        _DEFAULT_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_DEFAULT_MODEL_PATH, "wb") as f:
             pickle.dump({"model": res[0], "metrics": res[1]}, f)
-        print(f"SUCCESS: Đã tự động lưu model vào {model_path}!")
-    except Exception as e:
-        print(f"Lỗi khi lưu model: {e}")
+        logger.info("Auto-saved trained model to %s", _DEFAULT_MODEL_PATH)
+    except OSError as exc:
+        logger.error("Failed to persist model: %s", exc)
 
     return _LOADED_MODEL
 
