@@ -1,10 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { askNewsAnalyst, fetchNewsFeed } from '../../modules/data-hub'
+import {
+  askNewsAnalyst,
+  fetchArticleDetail,
+  fetchFinnhubMacroDesk,
+  fetchNewsFeed,
+  saveNewsArticle,
+  unsaveNewsArticle,
+} from '../../modules/data-hub'
 import './news.css'
 
-const CATEGORIES = ['all', 'macro', 'markets', 'commodities', 'crypto', 'regulation', 'geopolitics', 'technology']
+// ── Constants ──────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  'all', 'macro', 'markets', 'commodities', 'crypto', 'regulation',
+  'geopolitics', 'technology', 'earnings', 'personal_finance', 'risk_alerts',
+]
 const PRESETS = [
   { id: 'balanced', label: 'Balanced' },
   { id: 'vietnam', label: 'Việt Nam' },
@@ -19,6 +31,7 @@ const REGIONS = [
   { value: 'US', label: 'United States' },
   { value: 'global', label: 'Global' },
   { value: 'EU', label: 'Europe' },
+  { value: 'Asia', label: 'Asia' },
 ]
 const SOURCE_GROUPS = [
   { value: '', label: 'All sources' },
@@ -36,34 +49,101 @@ const TIME_RANGES = [
   { value: 72, label: '3 days' },
   { value: 168, label: '7 days' },
 ]
+const SENTIMENTS = [
+  { value: '', label: 'All sentiment' },
+  { value: 'positive', label: 'Positive' },
+  { value: 'negative', label: 'Negative' },
+  { value: 'neutral', label: 'Neutral' },
+]
+const IMPACT_LEVELS = [
+  { value: '', label: 'All impact' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+]
+const IMPORTANCE_LABELS = [
+  { value: '', label: 'All importance' },
+  { value: 'critical', label: 'Critical' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+]
 const NEWS_CHAT_EXAMPLES = [
   'Tin Fed hôm nay ảnh hưởng hàng hóa thế nào?',
   'Headline này có đáng lo cho thị trường không?',
   'Tóm tắt các rủi ro chính trong filter hiện tại.',
 ]
+const HEADER_BADGES = [
+  { label: 'Source-aware', variant: 'default' },
+  { label: 'AI explained', variant: 'default' },
+  { label: 'No buy/sell', variant: 'caution' },
+  { label: 'Freshness tracked', variant: 'default' },
+]
+
+/** Feed list: show a short chunk first; scroll / “Xem thêm” reveals the rest. */
+const FEED_LIST_INITIAL = 12
+const FEED_LIST_STEP = 12
+
+/** Finnhub calendar rows in DOM (still capped server-side). */
+const FINNHUB_CAL_INITIAL = 15
+const FINNHUB_CAL_STEP = 15
+const FINNHUB_CAL_MAX = 60
+
+// ── Main Component ─────────────────────────────────────────────────────
 
 export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
+  // Feed state
   const [payload, setPayload] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // Filter state
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
   const [preset, setPreset] = useState('balanced')
   const [region, setRegion] = useState('')
   const [sourceGroup, setSourceGroup] = useState('')
   const [timeRangeHours, setTimeRangeHours] = useState(168)
+  const [sentiment, setSentiment] = useState('')
+  const [impactLevel, setImpactLevel] = useState('')
+  const [importance, setImportance] = useState('')
+
+  // Article state
   const [activeArticleId, setActiveArticleId] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [chatPrompt, setChatPrompt] = useState('Tin Fed hôm nay ảnh hưởng hàng hóa thế nào?')
+  const [articleDetail, setArticleDetail] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  // Saved state
+  const [savedIds, setSavedIds] = useState(new Set())
+
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatPrompt, setChatPrompt] = useState('')
   const [chatMessages, setChatMessages] = useState([])
   const [chatConversationId, setChatConversationId] = useState('')
-  const [chatOpen, setChatOpen] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState('')
+
+  // Mobile tab state
+  const [mobileTab, setMobileTab] = useState('feed')
+
+  /** Finnhub macro desk (calendar + quotes); server caches to protect rate limits. */
+  const [macroDesk, setMacroDesk] = useState(null)
+
+  const [feedVisible, setFeedVisible] = useState(FEED_LIST_INITIAL)
+  const [finnhubCalVisible, setFinnhubCalVisible] = useState(FINNHUB_CAL_INITIAL)
+
   const apiPreset = preset === 'balanced' ? '' : preset
+  const feedRef = useRef(null)
+  const feedScrollRef = useRef(null)
+  const feedSentinelRef = useRef(null)
+  const finnhubScrollRef = useRef(null)
+  const finnhubSentinelRef = useRef(null)
+
+  // ── Fetch feed ───────────────────────────────────────────────────────
 
   useEffect(() => {
     let cancelled = false
-
     async function run() {
       setLoading(true)
       setError('')
@@ -76,10 +156,13 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           region,
           sourceGroup,
           preset: apiPreset,
+          sentiment: sentiment || undefined,
+          impactLevel: impactLevel || undefined,
+          importance: importance || undefined,
         })
         if (!cancelled) {
           setPayload(data)
-          setActiveArticleId((current) => current || data.articles?.[0]?.article_id || '')
+          setActiveArticleId((cur) => cur || data.articles?.[0]?.article_id || '')
         }
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -87,13 +170,59 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
         if (!cancelled) setLoading(false)
       }
     }
-
     const timer = window.setTimeout(run, 250)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [category, query, preset, apiPreset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
+
+  // ── Fetch article detail ─────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeArticleId) { setArticleDetail(null); return }
+    let cancelled = false
+    async function run() {
+      setDetailLoading(true)
+      try {
+        const data = await fetchArticleDetail(activeArticleId)
+        if (!cancelled) setArticleDetail(data)
+      } catch {
+        if (!cancelled) setArticleDetail(null)
+      } finally {
+        if (!cancelled) setDetailLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [activeArticleId])
+
+  useEffect(() => {
+    let cancelled = false
+    async function run() {
+      try {
+        const d = await fetchFinnhubMacroDesk({ force: false, calendarDays: 14, includeQuotes: false })
+        if (!cancelled) setMacroDesk(d)
+      } catch {
+        if (!cancelled) setMacroDesk({ enabled: false, client_error: true })
+      }
+    }
+    run()
+    const id = window.setInterval(run, 60_000)
     return () => {
       cancelled = true
-      window.clearTimeout(timer)
+      window.clearInterval(id)
     }
-  }, [category, query, preset, apiPreset, region, sourceGroup, timeRangeHours])
+  }, [])
+
+  useEffect(() => {
+    setFeedVisible(FEED_LIST_INITIAL)
+  }, [category, query, preset, apiPreset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
+
+  useEffect(() => {
+    const win = macroDesk?.calendar
+    if (!win?.from || !win?.to) return
+    setFinnhubCalVisible(FINNHUB_CAL_INITIAL)
+  }, [macroDesk?.calendar?.from, macroDesk?.calendar?.to])
+
+  // ── Handlers ─────────────────────────────────────────────────────────
 
   async function handleRefresh() {
     setLoading(true)
@@ -101,51 +230,50 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
     try {
       const data = await fetchNewsFeed({
         category: category === 'all' ? '' : category,
-        q: query,
-        limit: 80,
-        timeRangeHours,
-        region,
-        sourceGroup,
-        preset: apiPreset,
-        force: true,
+        q: query, limit: 80, timeRangeHours, region, sourceGroup,
+        preset: apiPreset, force: true,
       })
       setPayload(data)
+      setFeedVisible(FEED_LIST_INITIAL)
       setActiveArticleId(data.articles?.[0]?.article_id || '')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
-  const articles = payload?.articles || []
-  const activeArticle = useMemo(
-    () => articles.find((article) => article.article_id === activeArticleId) || articles[0],
-    [activeArticleId, articles],
-  )
+  function handleResetFilters() {
+    setCategory('all'); setQuery(''); setPreset('balanced')
+    setRegion(''); setSourceGroup(''); setTimeRangeHours(168)
+    setSentiment(''); setImpactLevel(''); setImportance('')
+  }
+
+  const handleSave = useCallback(async (articleId) => {
+    const isSaved = savedIds.has(articleId)
+    try {
+      if (isSaved) {
+        await unsaveNewsArticle(articleId)
+        setSavedIds((prev) => { const next = new Set(prev); next.delete(articleId); return next })
+      } else {
+        await saveNewsArticle(articleId)
+        setSavedIds((prev) => new Set(prev).add(articleId))
+      }
+    } catch { /* silently fail */ }
+  }, [savedIds])
+
+  // ── Chat handlers ────────────────────────────────────────────────────
 
   async function handleAskNewsAnalyst(input = chatPrompt) {
-    const question = input.trim()
+    const question = (typeof input === 'string' ? input : chatPrompt).trim()
     if (!question || chatLoading) return
     const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    const recentHistory = chatMessages.slice(-8).map((message) => ({
-      sender: message.sender,
-      content: message.body || message.summary || '',
+    const recentHistory = chatMessages.slice(-8).map((m) => ({
+      sender: m.sender, content: m.body || m.summary || '',
     }))
-    setChatMessages((current) => [
-      ...current,
-      {
-        id: `user-${Date.now()}`,
-        sender: 'user',
-        body: question,
-        timestamp: now,
-      },
-    ])
+    setChatMessages((cur) => [...cur, { id: `user-${Date.now()}`, sender: 'user', body: question, timestamp: now }])
     setChatPrompt('')
     setChatLoading(true)
     setChatError('')
     try {
-      const response = await askNewsAnalyst({
+      const r = await askNewsAnalyst({
         message: question,
         conversation_id: chatConversationId || undefined,
         category: category === 'all' ? undefined : category,
@@ -157,36 +285,98 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
         session_id: sessionId || undefined,
         history: recentHistory,
       })
-      setChatConversationId(response.conversation_id)
-      setChatMessages((current) => [
-        ...current,
-        {
-          id: response.message_id,
-          sender: 'assistant',
-          title: response.title,
-          body: response.explanation,
-          summary: response.summary,
-          keyPoints: response.key_points || [],
-          sources: response.sources || [],
-          toolsUsed: response.tools_used || [],
-          warnings: response.warnings || [],
-          confidenceLabel: response.confidence_label,
-          dataFreshness: response.data_freshness,
-          timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-        },
-      ])
-    } catch (err) {
-      setChatError(err.message)
-    } finally {
-      setChatLoading(false)
-    }
+      setChatConversationId(r.conversation_id)
+      setChatMessages((cur) => [...cur, {
+        id: r.message_id, sender: 'assistant',
+        title: r.title, body: r.explanation,
+        summary: r.summary, keyPoints: r.key_points || [],
+        sources: r.sources || [], toolsUsed: r.tools_used || [],
+        warnings: r.warnings || [],
+        confidenceLabel: r.confidence_label, dataFreshness: r.data_freshness,
+        safetyNote: r.safety_note || r.safety?.disclaimer || '',
+        affectedMarkets: r.affected_markets || [],
+        whatToMonitor: r.what_to_monitor || [],
+        suggestedFollowups: r.suggested_followups || r.suggested_questions || [],
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      }])
+    } catch (err) { setChatError(err.message) }
+    finally { setChatLoading(false) }
   }
 
-  function handleChatKeyDown(event) {
-    if (event.key !== 'Enter' || event.shiftKey) return
-    event.preventDefault()
+  function handleChatKeyDown(e) {
+    if (e.key !== 'Enter' || e.shiftKey) return
+    e.preventDefault()
     void handleAskNewsAnalyst()
   }
+
+  // ── Derived data ─────────────────────────────────────────────────────
+
+  const articles = payload?.articles || []
+  const feedCap = Math.min(feedVisible, articles.length)
+  const feedArticles = articles.slice(0, feedCap)
+
+  const finnhubCalEvents = macroDesk?.calendar?.events || []
+  const finnhubCalCap = Math.min(
+    finnhubCalVisible,
+    finnhubCalEvents.length,
+    FINNHUB_CAL_MAX,
+  )
+  const finnhubCalSlice = finnhubCalEvents.slice(0, finnhubCalCap)
+  const finnhubCalTotal = Math.min(finnhubCalEvents.length, FINNHUB_CAL_MAX)
+
+  useEffect(() => {
+    if (!activeArticleId || !articles.length) return
+    const idx = articles.findIndex((a) => a.article_id === activeArticleId)
+    if (idx < 0) return
+    const need = idx + 1
+    setFeedVisible((v) => (need > v ? need : v))
+  }, [activeArticleId, articles])
+
+  useEffect(() => {
+    const root = feedScrollRef.current
+    const target = feedSentinelRef.current
+    if (!root || !target || feedVisible >= articles.length) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setFeedVisible((n) => Math.min(n + FEED_LIST_STEP, articles.length))
+        }
+      },
+      { root, rootMargin: '120px 0px', threshold: 0 },
+    )
+    io.observe(target)
+    return () => io.disconnect()
+  }, [articles.length, feedVisible])
+
+  useEffect(() => {
+    const root = finnhubScrollRef.current
+    const target = finnhubSentinelRef.current
+    if (!root || !target || finnhubCalVisible >= finnhubCalTotal) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))
+        }
+      },
+      { root, rootMargin: '80px 0px', threshold: 0 },
+    )
+    io.observe(target)
+    return () => io.disconnect()
+  }, [finnhubCalTotal, finnhubCalVisible])
+
+  const todayBrief = payload?.today_brief || []
+  const clusters = payload?.clusters || []
+  const pulse = payload?.pulse || {}
+  const activeArticle = useMemo(
+    () => articles.find((a) => a.article_id === activeArticleId) || articles[0],
+    [activeArticleId, articles],
+  )
+  const detail = articleDetail || null
+  const freshness = payload?.freshness || 'loading'
+  const sourceCount = payload?.source_count || 0
+  const successfulSourceCount = payload?.successful_source_count || 0
+
+  // ── Render ───────────────────────────────────────────────────────────
 
   const analystNode = (
     <div className={`news-desk__floating-analyst ${chatOpen ? 'is-open' : ''}`}>
@@ -197,73 +387,79 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
               <p>News Analyst</p>
               <h2>Hỏi sâu về tin tức</h2>
             </div>
-            <button type="button" onClick={() => setChatOpen(false)} aria-label="Thu gọn News Analyst">×</button>
+            <button type="button" onClick={() => setChatOpen(false)} aria-label="Thu gọn">×</button>
           </div>
           <div className="news-desk__analyst-context">
             <span>{chatLoading ? 'Thinking' : 'Ready'}</span>
             <span>{category === 'all' ? 'all categories' : category}</span>
             <span>{region || 'all regions'}</span>
+            {activeArticle ? <span>Article selected</span> : null}
           </div>
           <div className="news-desk__analyst-thread" aria-live="polite">
             {!chatMessages.length ? (
               <div className="news-desk__analyst-empty">
-                <strong>Bot riêng cho News</strong>
+                <strong>News Analyst</strong>
                 <span>Đọc feed, cụm tin, pulse và headline đang chọn để trả lời theo bối cảnh thị trường.</span>
               </div>
             ) : null}
-            {chatMessages.map((message) => (
-              <article
-                key={message.id}
-                className={message.sender === 'assistant' ? 'news-desk__chat-message is-assistant' : 'news-desk__chat-message is-user'}
-              >
-                {message.title ? <strong>{message.title}</strong> : null}
-                {message.summary ? <p className="news-desk__chat-summary">{message.summary}</p> : null}
-                <p>{message.body}</p>
-                {message.keyPoints?.length ? (
-                  <ul>
-                    {message.keyPoints.map((point) => <li key={point}>{point}</li>)}
-                  </ul>
+            {chatMessages.map((msg) => (
+              <article key={msg.id} className={msg.sender === 'assistant' ? 'news-desk__chat-message is-assistant' : 'news-desk__chat-message is-user'}>
+                {msg.title ? <strong>{msg.title}</strong> : null}
+                {msg.summary ? <p className="news-desk__chat-summary">{msg.summary}</p> : null}
+                <p>{msg.body}</p>
+                {msg.keyPoints?.length ? (
+                  <ul>{msg.keyPoints.map((p, i) => <li key={i}>{p}</li>)}</ul>
                 ) : null}
-                {message.sources?.length ? (
+                {msg.affectedMarkets?.length ? (
+                  <div className="news-desk__chat-tags">
+                    {msg.affectedMarkets.map((m) => <span key={m} className="news-desk__tag">{m}</span>)}
+                  </div>
+                ) : null}
+                {msg.whatToMonitor?.length ? (
+                  <div className="news-desk__chat-monitors">
+                    <span className="news-desk__chat-monitors-label">Monitor:</span>
+                    {msg.whatToMonitor.map((m) => <span key={m} className="news-desk__tag is-monitor">{m}</span>)}
+                  </div>
+                ) : null}
+                {msg.sources?.length ? (
                   <div className="news-desk__chat-sources">
-                    {message.sources.slice(0, 3).map((source) => (
-                      source.url ? (
-                        <a key={source.article_id || source.label} href={source.url} target="_blank" rel="noreferrer">{source.source}</a>
-                      ) : (
-                        <span key={source.article_id || source.label}>{source.source}</span>
-                      )
+                    {msg.sources.slice(0, 3).map((s) => (
+                      s.url ? <a key={s.article_id || s.label} href={s.url} target="_blank" rel="noreferrer">{s.source}</a>
+                        : <span key={s.article_id || s.label}>{s.source}</span>
                     ))}
                   </div>
                 ) : null}
-                {message.confidenceLabel ? (
+                {msg.confidenceLabel ? (
                   <div className="news-desk__chat-meta">
-                    <span>{message.confidenceLabel}</span>
-                    <span>{message.dataFreshness}</span>
+                    <span>{msg.confidenceLabel}</span>
+                    <span>{msg.dataFreshness}</span>
                   </div>
                 ) : null}
-                <time>{message.timestamp}</time>
+                {msg.safetyNote ? <p className="news-desk__chat-safety">{msg.safetyNote}</p> : null}
+                {msg.suggestedFollowups?.length ? (
+                  <div className="news-desk__analyst-examples">
+                    {msg.suggestedFollowups.map((q) => (
+                      <button key={q} type="button" onClick={() => void handleAskNewsAnalyst(q)} disabled={chatLoading}>{q}</button>
+                    ))}
+                  </div>
+                ) : null}
+                <time>{msg.timestamp}</time>
               </article>
             ))}
-            {chatLoading ? <p className="news-desk__chat-typing">News Analyst đang rà feed...</p> : null}
+            {chatLoading ? <p className="news-desk__chat-typing">News Analyst đang phân tích...</p> : null}
           </div>
           <div className="news-desk__analyst-examples">
-            {NEWS_CHAT_EXAMPLES.map((example) => (
-              <button key={example} type="button" onClick={() => void handleAskNewsAnalyst(example)} disabled={chatLoading}>
-                {example}
-              </button>
+            {NEWS_CHAT_EXAMPLES.map((ex) => (
+              <button key={ex} type="button" onClick={() => void handleAskNewsAnalyst(ex)} disabled={chatLoading}>{ex}</button>
             ))}
           </div>
           <div className="news-desk__analyst-composer">
-            <textarea
-              value={chatPrompt}
-              onChange={(event) => setChatPrompt(event.target.value)}
+            <textarea value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)}
               onKeyDown={handleChatKeyDown}
               placeholder="Hỏi về tác động của tin, nguồn xác nhận, hàng hóa, USD, thị trường..."
-              rows={3}
-            />
-            <button type="button" onClick={() => void handleAskNewsAnalyst()} disabled={chatLoading || !chatPrompt.trim()}>
-              Ask
-            </button>
+              rows={3} />
+            <button type="button" onClick={() => void handleAskNewsAnalyst()}
+              disabled={chatLoading || !chatPrompt.trim()}>Ask</button>
           </div>
           {chatError ? <p className="news-desk__state news-desk__state--error">{chatError}</p> : null}
         </section>
@@ -281,197 +477,639 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
 
   return (
     <>
-    <section className="news-desk">
-      <header className="news-desk__hero">
-        <div className="news-desk__hero-copy">
-          <p>News Intelligence</p>
-          <h1>Global News Desk</h1>
-          <span>{payload?.freshness || 'loading'} · {payload?.successful_source_count || 0}/{payload?.source_count || 0} sources connected</span>
-          <p className="news-desk__lede">
-            Một bàn tin gọn để đọc bối cảnh thị trường, lọc chủ đề quan trọng và mở nhanh terminal khi cần đào sâu dữ liệu.
-          </p>
-        </div>
-        <nav className="news-desk__hero-actions">
-          <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onOpenGlobalTerminal}>Global Terminal</button>
-          <button type="button" className="news-desk__button news-desk__button--primary" onClick={handleRefresh}>Refresh feeds</button>
-          <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onBack}>Home</button>
-        </nav>
-      </header>
-
-      <section className="news-desk__control-bar" aria-label="News filters">
-        <div className="news-desk__search">
-          <label>
-            <span>Search</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Fed, BTC, oil, earnings..." />
-          </label>
-        </div>
-        <div className="news-desk__select-grid">
-          <label>
-            <span>Region</span>
-            <select value={region} onChange={(event) => {
-              setRegion(event.target.value)
-              setPreset('balanced')
-            }}>
-              {REGIONS.map((item) => (
-                <option key={item.value || 'all'} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Source mix</span>
-            <select value={sourceGroup} onChange={(event) => {
-              setSourceGroup(event.target.value)
-              setPreset('balanced')
-            }}>
-              {SOURCE_GROUPS.map((item) => (
-                <option key={item.value || 'all'} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Window</span>
-            <select value={timeRangeHours} onChange={(event) => setTimeRangeHours(Number(event.target.value))}>
-              {TIME_RANGES.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="news-desk__preset-row" aria-label="News presets">
-          {PRESETS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={preset === item.id ? 'is-active' : ''}
-              onClick={() => {
-                setPreset(item.id)
-                setRegion('')
-                setSourceGroup('')
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="news-desk__category-row" aria-label="News categories">
-          {CATEGORIES.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={category === item ? 'is-active' : ''}
-              onClick={() => setCategory(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div className="news-desk__workspace">
-        <aside className="news-desk__feed" aria-label="Article feed">
-          <div className="news-desk__panel-head">
-            <div>
-              <p>Live feed</p>
-              <h2>{articles.length} headlines</h2>
-            </div>
-            {loading ? <span>Syncing</span> : <span>Ready</span>}
-          </div>
-          {error ? <p className="news-desk__state news-desk__state--error">{error}</p> : null}
-          {!loading && !articles.length ? <p className="news-desk__state">Chưa có news trong filter này.</p> : null}
-          <div className="news-desk__feed-list">
-            {articles.map((article) => (
-              <button
-                key={article.article_id}
-                type="button"
-                className={article.article_id === activeArticle?.article_id ? 'news-desk__feed-item is-active' : 'news-desk__feed-item'}
-                onClick={() => setActiveArticleId(article.article_id)}
-              >
-                <time>{formatNewsDate(article.published_at)}</time>
-                <strong>{article.headline}</strong>
-                <span>
-                  <b>{article.category}</b>
-                  <em className={`is-${article.sentiment || 'neutral'}`}>
-                    {article.sentiment}
-                  </em>
-                  <em>{article.source}</em>
+      <section className="news-desk">
+        {/* ── Header ────────────────────────────────────────────────── */}
+        <header className="news-desk__hero">
+          <div className="news-desk__hero-copy">
+            <p>News Intelligence</p>
+            <h1>News Intelligence</h1>
+            <span>{freshness} · {successfulSourceCount}/{sourceCount} sources connected</span>
+            <p className="news-desk__lede">
+              Đọc tin tức như bối cảnh, không phải tín hiệu mua/bán.
+            </p>
+            <div className="news-desk__hero-badges">
+              {HEADER_BADGES.map((b) => (
+                <span key={b.label} className={`news-desk__hero-badge ${b.variant === 'caution' ? 'is-caution' : ''}`}>
+                  {b.label}
                 </span>
+              ))}
+            </div>
+          </div>
+          <nav className="news-desk__hero-actions">
+            <button type="button" className="news-desk__button news-desk__button--ghost" onClick={() => setChatOpen(true)}>Ask Analyst</button>
+            <button type="button" className="news-desk__button news-desk__button--primary" onClick={handleRefresh}>Refresh feeds</button>
+            {onOpenGlobalTerminal ? (
+              <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onOpenGlobalTerminal}>Global Terminal</button>
+            ) : null}
+            <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onBack}>Home</button>
+          </nav>
+        </header>
+
+        {/* ── Control Bar ───────────────────────────────────────────── */}
+        <section className="news-desk__control-bar" aria-label="News filters">
+          <div className="news-desk__control-tier1">
+            <div className="news-desk__search">
+              <label>
+                <span>Search</span>
+                <input value={query} onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tìm Fed, BTC, oil, earnings..." />
+              </label>
+            </div>
+            <div className="news-desk__preset-row" aria-label="Presets">
+              {PRESETS.map((p) => (
+                <button key={p.id} type="button" className={preset === p.id ? 'is-active' : ''}
+                  onClick={() => { setPreset(p.id); setRegion(''); setSourceGroup('') }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="news-desk__control-tier2">
+            <div className="news-desk__filter-grid">
+              <label>
+                <span>Region</span>
+                <select value={region} onChange={(e) => { setRegion(e.target.value); setPreset('balanced') }}>
+                  {REGIONS.map((r) => <option key={r.value || 'all'} value={r.value}>{r.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Source mix</span>
+                <select value={sourceGroup} onChange={(e) => { setSourceGroup(e.target.value); setPreset('balanced') }}>
+                  {SOURCE_GROUPS.map((s) => <option key={s.value || 'all'} value={s.value}>{s.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Window</span>
+                <select value={timeRangeHours} onChange={(e) => setTimeRangeHours(Number(e.target.value))}>
+                  {TIME_RANGES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Sentiment</span>
+                <select value={sentiment} onChange={(e) => setSentiment(e.target.value)}>
+                  {SENTIMENTS.map((s) => <option key={s.value || 'all'} value={s.value}>{s.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Impact</span>
+                <select value={impactLevel} onChange={(e) => setImpactLevel(e.target.value)}>
+                  {IMPACT_LEVELS.map((i) => <option key={i.value || 'all'} value={i.value}>{i.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Importance</span>
+                <select value={importance} onChange={(e) => setImportance(e.target.value)}>
+                  {IMPORTANCE_LABELS.map((i) => <option key={i.value || 'all'} value={i.value}>{i.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="news-desk__filter-actions">
+              <button type="button" className="news-desk__button news-desk__button--ghost" onClick={handleResetFilters}>Reset</button>
+            </div>
+          </div>
+          <div className="news-desk__category-row" aria-label="Categories">
+            {CATEGORIES.map((c) => (
+              <button key={c} type="button" className={category === c ? 'is-active' : ''} onClick={() => setCategory(c)}>
+                {c === 'all' ? 'All' : c.replace('_', ' ')}
               </button>
             ))}
           </div>
-        </aside>
+        </section>
 
-        <article className="news-desk__story">
-          {activeArticle ? (
-            <>
-              <div className="news-desk__badges">
-                <span>{activeArticle.source_flag}</span>
-                <span>{activeArticle.impact} impact</span>
-                <span>{activeArticle.freshness || payload?.freshness || 'fresh'}</span>
-                {activeArticle.threat_level !== 'normal' ? <span className="is-warn">{activeArticle.threat_level}</span> : null}
-              </div>
-              <h2>{activeArticle.headline}</h2>
-              <p className="news-desk__summary">{activeArticle.summary || 'Nguồn RSS không cung cấp summary. Mở source để đọc đầy đủ.'}</p>
-              <dl className="news-desk__info-grid">
-                <InfoRow label="Source" value={`${activeArticle.source} · tier ${activeArticle.source_tier}`} />
-                <InfoRow label="Published" value={formatNewsDate(activeArticle.published_at)} />
-                <InfoRow label="Category" value={activeArticle.category} />
-                <InfoRow label="Source mix" value={activeArticle.source_group || 'global'} />
-                <InfoRow label="Tickers" value={activeArticle.tickers?.length ? activeArticle.tickers.join(', ') : 'None detected'} />
-              </dl>
-              <section className="news-desk__explain">
-                <h3>Why this matters</h3>
-                <p>
-                  Tin được phân loại theo source tier, sentiment, impact và risk keywords. Đây là lớp đọc bối cảnh,
-                  không phải tín hiệu mua bán hay khuyến nghị đầu tư cá nhân hóa.
-                </p>
-              </section>
-              {activeArticle.url ? (
-                <a className="news-desk__source-link" href={activeArticle.url} target="_blank" rel="noreferrer">
-                  Open original source
-                </a>
-              ) : null}
-            </>
-          ) : (
-            <p className="news-desk__state">Chọn một headline để đọc chi tiết.</p>
-          )}
-        </article>
-
-        <aside className="news-desk__pulse">
-          <div className="news-desk__panel-head">
-            <div>
-              <p>Market pulse</p>
-              <h2>Today</h2>
+        {/* ── Economic calendar: full width, above Today Brief / desk ── */}
+        {macroDesk?.enabled ? (
+          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế Finnhub">
+            <div className="news-desk__econ-calendar-head">
+              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
+              <span className="news-desk__econ-calendar-source">Finnhub</span>
             </div>
-          </div>
-          <div className="news-desk__metric-grid">
-            <Metric label="Articles" value={payload?.pulse?.article_count || 0} />
-            <Metric label="High impact" value={payload?.pulse?.high_impact_count || 0} />
-            <Metric label="Negative" value={payload?.pulse?.negative_count || 0} />
-            <Metric label="Positive" value={payload?.pulse?.positive_count || 0} />
-          </div>
-          <h3>Top regions</h3>
-          <div className="news-desk__rank-list">
-            {(payload?.pulse?.top_regions || []).map((item) => (
-              <p key={item.label}><span>{item.label}</span><b>{item.count}</b></p>
-            ))}
-          </div>
-          <h3>Top categories</h3>
-          <div className="news-desk__rank-list">
-            {(payload?.pulse?.top_categories || []).map((item) => (
-              <p key={item.label}><span>{item.label}</span><b>{item.count}</b></p>
-            ))}
-          </div>
-          <h3>Clusters</h3>
-          <div className="news-desk__rank-list">
-            {(payload?.clusters || []).slice(0, 5).map((cluster) => (
-              <p key={cluster.cluster_id}><span>{cluster.similarity_topic}</span><b>{cluster.article_count}</b></p>
-            ))}
-          </div>
-        </aside>
-      </div>
-    </section>
-    {typeof document === 'undefined' ? analystNode : createPortal(analystNode, document.body)}
+            <div className="news-desk__finnhub-head">
+              <p className="news-desk__finnhub-lede">
+                Sự kiện vĩ mô đã lên lịch (chỉ số, họp NHNN, phát biểu…). Dùng để theo dõi giờ công bố — không phải tư vấn đầu tư.
+              </p>
+              <div className="news-desk__finnhub-tzline" aria-label="Múi giờ">
+                <span className="news-desk__finnhub-pill">Giờ công bố: UTC</span>
+                <span className="news-desk__finnhub-pill news-desk__finnhub-pill--muted">≈ Việt Nam: UTC + 7 (xem cột Giờ)</span>
+              </div>
+            </div>
+            <details className="news-desk__finnhub-help">
+              <summary>Cách đọc nhanh</summary>
+              <ul>
+                <li><strong>QG</strong>: quốc gia / vùng (CA, EU…).</li>
+                <li><strong>Mức</strong>: độ “ồn ào” thường gặp trên lịch (high / medium / low), không phải xếp hạng đầu tư.</li>
+                <li><strong>Dự báo / Thực tế / Trước</strong>: chỉ khi là chỉ số có số; phát biểu / ngày lễ thường trống — bình thường.</li>
+                <li><strong>Cả ngày</strong>: không có mốc giờ từ nguồn — không đồng nghĩa 00:00.</li>
+              </ul>
+            </details>
+            {macroDesk.calendar?.events?.length ? (
+              <>
+                <p className="news-desk__finnhub-range">
+                  Hiển thị {finnhubCalSlice.length}/{finnhubCalTotal} sự kiện (tối đa {FINNHUB_CAL_MAX} gần nhất)
+                  {finnhubCalSlice.length < finnhubCalTotal ? ' · cuộn trong khung hoặc “Xem thêm”' : ''}
+                </p>
+                <div className="news-desk__finnhub-cal-scroll" ref={finnhubScrollRef}>
+                  <table className="news-desk__finnhub-table">
+                    <caption className="news-desk__finnhub-caption">
+                      Finnhub · {macroDesk.calendar.from} → {macroDesk.calendar.to}
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" className="news-desk__finnhub-th-time">
+                          <span className="news-desk__finnhub-th-main">Giờ</span>
+                          <span className="news-desk__finnhub-th-sub">UTC · VN</span>
+                        </th>
+                        <th scope="col">QG</th>
+                        <th scope="col">Mức</th>
+                        <th scope="col">Sự kiện</th>
+                        <th scope="col">Dự báo</th>
+                        <th scope="col">Thực tế</th>
+                        <th scope="col">Trước</th>
+                      </tr>
+                    </thead>
+                    {groupFinnhubEconomicDays(finnhubCalSlice).map((g) => (
+                      <Fragment key={g.day}>
+                        <tbody className="news-desk__finnhub-tbody">
+                          <tr className="news-desk__finnhub-dayrow">
+                            <td colSpan={7}>
+                              <div className="news-desk__finnhub-dayrow-inner">
+                                <span className="news-desk__finnhub-dayrow-title">{g.dayLabel}</span>
+                                {g.day !== 'unknown' ? (
+                                  <span className="news-desk__finnhub-dayrow-iso">{g.day}</span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                          {g.items.map((ev, i) => {
+                            const timeCell = formatFinnhubEconTimeCell(ev)
+                            const rk = `e-${g.day}-${i}-${ev.country}-${String(ev.event).slice(0, 40)}`
+                            return (
+                              <tr key={rk} className="news-desk__finnhub-row">
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--time">
+                                  <span className="news-desk__finnhub-time-main">{timeCell.main}</span>
+                                  {timeCell.utcLabel ? (
+                                    <span className="news-desk__finnhub-time-zone">{timeCell.utcLabel}</span>
+                                  ) : null}
+                                  {timeCell.vnLine ? (
+                                    <span className="news-desk__finnhub-time-vn">{timeCell.vnLine}</span>
+                                  ) : null}
+                                  {timeCell.sub ? (
+                                    <span className="news-desk__finnhub-time-sub">{timeCell.sub}</span>
+                                  ) : null}
+                                </td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--cc">{finnhubCell(ev.country)}</td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--impact">
+                                  <span className={`news-desk__finnhub-impact is-${((ev.impact && String(ev.impact).trim()) ? String(ev.impact).toLowerCase() : 'none')}`}>
+                                    {finnhubCell(ev.impact)}
+                                  </span>
+                                </td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--event">{finnhubCell(ev.event)}</td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.estimate, ev.unit)}</td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.actual, ev.unit)}</td>
+                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.prev, ev.unit)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </Fragment>
+                    ))}
+                  </table>
+                  {finnhubCalSlice.length < finnhubCalTotal ? (
+                    <>
+                      <div ref={finnhubSentinelRef} className="news-desk__list-sentinel" aria-hidden />
+                      <div className="news-desk__load-more-wrap">
+                        <button
+                          type="button"
+                          className="news-desk__button news-desk__button--ghost news-desk__load-more"
+                          onClick={() => setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))}>
+                          Xem thêm lịch ({finnhubCalTotal - finnhubCalSlice.length} sự kiện)
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </>
+            ) : macroDesk.calendar_error ? (
+              <p className="news-desk__state news-desk__state--warning">Lịch: {macroDesk.calendar_error}</p>
+            ) : (
+              <p className="news-desk__state">Chưa có sự kiện trong cửa sổ ngày.</p>
+            )}
+            <p className="news-desk__finnhub-foot">
+              Làm mới ~{Math.round((macroDesk.cache?.calendar_ttl_sec ?? 0) / 60)} phút
+              {macroDesk.as_of ? ` · cập nhật ${formatNewsDate(macroDesk.as_of)}` : ''}
+            </p>
+          </section>
+        ) : macroDesk?.client_error ? (
+          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế">
+            <div className="news-desk__econ-calendar-head">
+              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
+            </div>
+            <p className="news-desk__state news-desk__state--warning">Không tải được Finnhub (mạng hoặc server).</p>
+          </section>
+        ) : macroDesk && !macroDesk.enabled ? (
+          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế">
+            <div className="news-desk__econ-calendar-head">
+              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
+            </div>
+            <p className="news-desk__state">Macro Finnhub: thêm <code>FINNHUB_API_KEY</code> vào <code>.env</code> rồi restart backend.</p>
+          </section>
+        ) : null}
+
+        {/* ── Today Brief ───────────────────────────────────────────── */}
+        {todayBrief.length > 0 ? (
+          <section className="news-desk__today-brief" aria-label="Today Brief">
+            <div className="news-desk__section-head">
+              <h2>Today Brief</h2>
+              <span>{todayBrief.length} key stories</span>
+            </div>
+            <div className="news-desk__brief-grid">
+              {todayBrief.map((item) => (
+                <TodayBriefCard
+                  key={item.article_id}
+                  item={item}
+                  isActive={item.article_id === activeArticleId}
+                  isSaved={savedIds.has(item.article_id)}
+                  onSelect={() => { setActiveArticleId(item.article_id); setMobileTab('detail') }}
+                  onSave={() => handleSave(item.article_id)}
+                  onAskAi={() => { setChatOpen(true); setChatPrompt(`Giải thích tin này: ${item.headline}`) }}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── Mobile tabs ───────────────────────────────────────────── */}
+        <div className="news-desk__mobile-tabs">
+          {['feed', 'detail', 'pulse'].map((tab) => (
+            <button key={tab} type="button"
+              className={mobileTab === tab ? 'is-active' : ''}
+              onClick={() => setMobileTab(tab)}>
+              {tab === 'feed' ? 'Feed' : tab === 'detail' ? 'Detail' : 'Pulse'}
+            </button>
+          ))}
+        </div>
+
+        {/* ── 3-Column Desk ─────────────────────────────────────────── */}
+        <div className="news-desk__workspace">
+          {/* Feed Panel */}
+          <aside className={`news-desk__feed ${mobileTab !== 'feed' ? 'is-mobile-hidden' : ''}`} ref={feedRef} aria-label="Article feed">
+            <div className="news-desk__panel-head">
+              <div>
+                <p>Live feed</p>
+                <h2>{articles.length} tin</h2>
+                {articles.length > 0 ? (
+                  <p className="news-desk__feed-count">
+                    Đang hiển thị {feedArticles.length}/{articles.length}
+                    {feedArticles.length < articles.length ? ' · cuộn xuống hoặc bấm “Xem thêm”' : ''}
+                  </p>
+                ) : null}
+              </div>
+              {loading ? <span>Syncing</span> : <span>Ready</span>}
+            </div>
+            {error ? <p className="news-desk__state news-desk__state--error">{error}</p> : null}
+            {!loading && !articles.length ? <p className="news-desk__state">Chưa có news trong filter này.</p> : null}
+            <div className="news-desk__feed-scroll" ref={feedScrollRef}>
+              <div className="news-desk__feed-list">
+                {feedArticles.map((a) => (
+                  <button key={a.article_id} type="button"
+                    className={a.article_id === activeArticle?.article_id ? 'news-desk__feed-item is-active' : 'news-desk__feed-item'}
+                    aria-label={`Xem chi tiết: ${a.headline}`}
+                    onClick={() => { setActiveArticleId(a.article_id); setMobileTab('detail') }}>
+                    <div className="news-desk__feed-item-top">
+                      <time>{formatNewsDate(a.published_at)}</time>
+                      <ImportanceBadge label={a.importance_label} score={a.importance_score} />
+                    </div>
+                    <strong>{a.headline}</strong>
+                    <span className="news-desk__feed-item-meta">
+                      <b>{a.category}</b>
+                      <em className={`is-${a.sentiment || 'neutral'}`}>{a.sentiment}</em>
+                      <em>{a.source}</em>
+                      {a.impact === 'high' ? <em className="is-impact-high">high impact</em> : null}
+                    </span>
+                    {a.affected_markets?.length ? (
+                      <span className="news-desk__feed-item-tags">
+                        {a.affected_markets.slice(0, 3).map((m) => <span key={m} className="news-desk__tag is-small">{m}</span>)}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              {feedArticles.length < articles.length ? (
+                <>
+                  <div ref={feedSentinelRef} className="news-desk__list-sentinel" aria-hidden />
+                  <div className="news-desk__load-more-wrap">
+                    <button
+                      type="button"
+                      className="news-desk__button news-desk__button--ghost news-desk__load-more"
+                      onClick={() => setFeedVisible((n) => Math.min(n + FEED_LIST_STEP, articles.length))}>
+                      Xem thêm ({articles.length - feedArticles.length} tin)
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </aside>
+
+          {/* Article Detail Panel */}
+          <article className={`news-desk__story ${mobileTab !== 'detail' ? 'is-mobile-hidden' : ''}`}>
+            {activeArticle ? (
+              <>
+                {/* A. Badges */}
+                <div className="news-desk__badges">
+                  <span>{detail?.badges?.source_flag || activeArticle.source_flag}</span>
+                  <span>Tier {detail?.badges?.source_tier || activeArticle.source_tier}</span>
+                  <ImportanceBadge label={detail?.badges?.importance || activeArticle.importance_label}
+                    score={activeArticle.importance_score} />
+                  <span>{detail?.badges?.impact_level || activeArticle.impact} impact</span>
+                  <span>{detail?.badges?.freshness || freshness}</span>
+                  {(detail?.badges?.threat_level || activeArticle.threat_level) !== 'normal' ? (
+                    <span className="is-warn">{detail?.badges?.threat_level || activeArticle.threat_level}</span>
+                  ) : null}
+                  {detail?.badges?.confidence ? <span>{detail.badges.confidence} confidence</span> : null}
+                </div>
+
+                {/* Headline — scan anchor */}
+                <h2>{activeArticle.headline}</h2>
+
+                {/* Summary first: reader decides whether to open original */}
+                <section className="news-desk__summary-lead" aria-labelledby="news-summary-heading">
+                  <h3 id="news-summary-heading" className="news-desk__summary-lead-title">Tóm tắt</h3>
+                  <p className="news-desk__summary-lead-body">
+                    {activeArticle.summary?.trim()
+                      ? activeArticle.summary
+                      : 'Nguồn chỉ cung cấp tiêu đề ngắn — mở bài gốc để đọc đầy đủ, hoặc dùng Ask AI để giải thích bối cảnh từ dữ liệu đã thu thập.'}
+                  </p>
+                  {(detail?.original_source || activeArticle.url) ? (
+                    <a className="news-desk__summary-lead-cta" href={detail?.original_source || activeArticle.url} target="_blank" rel="noreferrer">
+                      Đọc bài gốc ↗
+                    </a>
+                  ) : null}
+                </section>
+
+                <div className="news-desk__story-actions">
+                  <button type="button" className="news-desk__button news-desk__button--ghost"
+                    onClick={() => handleSave(activeArticle.article_id)}>
+                    {savedIds.has(activeArticle.article_id) ? '✓ Saved' : 'Save'}
+                  </button>
+                  <button type="button" className="news-desk__button news-desk__button--ghost"
+                    onClick={() => { setChatOpen(true); setChatPrompt(`Giải thích tin này: ${activeArticle.headline}`) }}>
+                    Ask AI
+                  </button>
+                </div>
+
+                {/* Why this matters — context before taxonomy */}
+                <section className="news-desk__explain">
+                  <h3>Why this matters</h3>
+                  <p>{detail?.why_this_matters || 'Tin được phân loại theo source tier, sentiment, impact và risk keywords. Đây là lớp đọc bối cảnh, không phải tín hiệu mua bán.'}</p>
+                </section>
+
+                {/* E. Affected Markets */}
+                {(detail?.affected_markets || activeArticle.affected_markets)?.length ? (
+                  <section className="news-desk__section-block">
+                    <h3>Affected Markets</h3>
+                    <div className="news-desk__tag-list">
+                      {(detail?.affected_markets || activeArticle.affected_markets).map((m) => (
+                        <span key={m} className="news-desk__tag">{m}</span>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* F. What to Monitor */}
+                {(detail?.what_to_monitor || activeArticle.what_to_monitor)?.length ? (
+                  <section className="news-desk__section-block">
+                    <h3>What to monitor next</h3>
+                    <div className="news-desk__tag-list">
+                      {(detail?.what_to_monitor || activeArticle.what_to_monitor).map((m) => (
+                        <span key={m} className="news-desk__tag is-monitor">{m}</span>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* G. Learn Links */}
+                {(detail?.learn_links || activeArticle.learn_links)?.length ? (
+                  <section className="news-desk__section-block">
+                    <h3>Learn this concept</h3>
+                    <div className="news-desk__learn-list">
+                      {(detail?.learn_links || activeArticle.learn_links).map((link) => (
+                        <span key={link.id} className="news-desk__learn-chip">{link.label}</span>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* H. Related Articles */}
+                {detail?.related_articles?.length ? (
+                  <section className="news-desk__section-block">
+                    <h3>Related articles</h3>
+                    <div className="news-desk__related-list">
+                      {detail.related_articles.map((ra) => (
+                        <button key={ra.article_id} type="button" className="news-desk__related-item"
+                          onClick={() => setActiveArticleId(ra.article_id)}>
+                          <strong>{ra.headline}</strong>
+                          <span>{ra.source} · {formatNewsDate(ra.published_at)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* Metadata: trust signals, not primary reading — collapsed by default */}
+                <details className="news-desk__meta-details">
+                  <summary className="news-desk__meta-details-summary">Chi tiết nguồn &amp; phân loại</summary>
+                  <dl className="news-desk__info-grid news-desk__info-grid--compact">
+                    <InfoRow
+                      label="Source"
+                      value={`${detail?.info_grid?.source || activeArticle.source} · ${detail?.info_grid?.source_tier || `Tier ${activeArticle.source_tier}`}`}
+                    />
+                    <InfoRow label="Published" value={formatNewsDate(detail?.info_grid?.published_at || activeArticle.published_at)} />
+                    <InfoRow label="Category" value={detail?.info_grid?.category || activeArticle.category} />
+                    <InfoRow label="Region" value={detail?.info_grid?.region || activeArticle.region} />
+                    <InfoRow label="Source mix" value={detail?.info_grid?.source_mix || activeArticle.source_group || 'global'} />
+                    <InfoRow label="Tickers" value={(detail?.info_grid?.tickers || activeArticle.tickers)?.length ? (detail?.info_grid?.tickers || activeArticle.tickers).join(', ') : '—'} />
+                    {detail?.info_grid?.related_entities?.length ? (
+                      <InfoRow label="Entities" value={detail.info_grid.related_entities.map((e) => e.name).join(', ')} />
+                    ) : null}
+                  </dl>
+                </details>
+
+                {/* Ask AI CTA */}
+                <button type="button" className="news-desk__button news-desk__button--primary news-desk__ask-ai-cta"
+                  onClick={() => { setChatOpen(true); setChatPrompt(`Phân tích tin này: ${activeArticle.headline}`) }}>
+                  Ask AI about this article
+                </button>
+
+                {/* Data quality */}
+                {detail?.data_quality?.freshness === 'stale' ? (
+                  <p className="news-desk__state news-desk__state--warning">Dữ liệu có thể không còn mới nhất. Nguồn đang bị trễ.</p>
+                ) : null}
+              </>
+            ) : (
+              <div className="news-desk__empty-detail">
+                <p className="news-desk__state">Chọn một tin trong feed để xem phân tích chi tiết.</p>
+                {todayBrief.length ? <p className="news-desk__empty-hint">Hoặc chọn một tin từ Today Brief ở trên.</p> : null}
+              </div>
+            )}
+            {detailLoading ? <div className="news-desk__detail-loading">Loading detail...</div> : null}
+          </article>
+
+          {/* Market Pulse Panel */}
+          <aside className={`news-desk__pulse ${mobileTab !== 'pulse' ? 'is-mobile-hidden' : ''}`}>
+            <div className="news-desk__panel-head">
+              <div>
+                <p>Market pulse</p>
+                <h2>Overview</h2>
+              </div>
+            </div>
+            <div className="news-desk__metric-grid">
+              <Metric label="Articles" value={pulse.article_count || 0} />
+              <Metric label="High impact" value={pulse.high_impact_count || 0} />
+              <Metric label="Critical" value={pulse.critical_count || 0} />
+              <Metric label="Negative" value={pulse.negative_count || 0} />
+              <Metric label="Positive" value={pulse.positive_count || 0} />
+            </div>
+
+            {/* Source Health */}
+            {pulse.source_health ? (
+              <>
+                <h3>Source health</h3>
+                <div className="news-desk__source-health">
+                  <span className={`news-desk__health-dot is-${pulse.source_health.status}`} />
+                  <span>{pulse.source_health.active}/{pulse.source_health.total} active · {pulse.source_health.status}</span>
+                </div>
+              </>
+            ) : null}
+
+            {/* Freshness */}
+            <h3>Freshness</h3>
+            <div className="news-desk__rank-list">
+              <p><span>Status</span><b className={`is-freshness-${pulse.freshness_status || freshness}`}>{pulse.freshness_status || freshness}</b></p>
+            </div>
+
+            {/* Top Drivers */}
+            {pulse.top_drivers?.length ? (
+              <>
+                <h3>Top drivers</h3>
+                <div className="news-desk__rank-list">
+                  {pulse.top_drivers.map((d) => <p key={d.label}><span>{d.label}</span><b>{d.count}</b></p>)}
+                </div>
+              </>
+            ) : null}
+
+            {/* Top Affected Markets */}
+            {pulse.top_affected_markets?.length ? (
+              <>
+                <h3>Top affected markets</h3>
+                <div className="news-desk__rank-list">
+                  {pulse.top_affected_markets.map((m) => <p key={m.label}><span>{m.label}</span><b>{m.count}</b></p>)}
+                </div>
+              </>
+            ) : null}
+
+            <h3>Top regions</h3>
+            <div className="news-desk__rank-list">
+              {(pulse.top_regions || []).map((r) => <p key={r.label}><span>{r.label}</span><b>{r.count}</b></p>)}
+            </div>
+
+            <h3>Top categories</h3>
+            <div className="news-desk__rank-list">
+              {(pulse.top_categories || []).map((c) => <p key={c.label}><span>{c.label}</span><b>{c.count}</b></p>)}
+            </div>
+
+            {/* Clusters */}
+            {pulse.cluster_summary?.length ? (
+              <>
+                <h3>Clusters</h3>
+                <div className="news-desk__cluster-list">
+                  {pulse.cluster_summary.map((cl) => (
+                    <div key={cl.cluster_id} className="news-desk__cluster-card">
+                      <strong>{cl.topic}</strong>
+                      <span>
+                        <b>{cl.article_count} articles</b>
+                        <em className={`is-${cl.sentiment}`}>{cl.sentiment}</em>
+                        <ImportanceBadge label={cl.importance} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : clusters.length ? (
+              <>
+                <h3>Clusters</h3>
+                <div className="news-desk__rank-list">
+                  {clusters.slice(0, 5).map((cl) => (
+                    <p key={cl.cluster_id}><span>{cl.similarity_topic}</span><b>{cl.article_count}</b></p>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {/* Risk Labels */}
+            {pulse.risk_labels?.length ? (
+              <>
+                <h3>Risk signals</h3>
+                <div className="news-desk__tag-list">
+                  {pulse.risk_labels.map((r) => <span key={r} className="news-desk__tag is-risk">{r}</span>)}
+                </div>
+              </>
+            ) : null}
+          </aside>
+        </div>
+
+        {/* Safety disclaimer */}
+        <footer className="news-desk__safety-footer">
+          <span>Tin tức là bối cảnh phân tích, không phải khuyến nghị mua/bán.</span>
+        </footer>
+      </section>
+      {typeof document === 'undefined' ? analystNode : createPortal(analystNode, document.body)}
     </>
+  )
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────
+
+function TodayBriefCard({ item, isActive, isSaved, onSelect, onSave, onAskAi }) {
+  return (
+    <div
+      className={`news-desk__brief-card news-desk__brief-card--clickable ${isActive ? 'is-active' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Xem chi tiết: ${item.headline}`}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+    >
+      <div className="news-desk__brief-card-top">
+        <ImportanceBadge label={item.importance_label} score={item.importance_score} />
+        <span className="news-desk__brief-card-source">{item.source} · {item.time || formatNewsDate(item.published_at)}</span>
+      </div>
+      <p className="news-desk__brief-card-headline">
+        <strong>{item.headline}</strong>
+      </p>
+      <p className="news-desk__brief-card-why">{item.why_it_matters}</p>
+      {item.affected_markets?.length ? (
+        <div className="news-desk__brief-card-tags">
+          {item.affected_markets.map((m) => <span key={m} className="news-desk__tag is-small">{m}</span>)}
+        </div>
+      ) : null}
+      <div className="news-desk__brief-card-actions" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onSave}>{isSaved ? '✓ Saved' : 'Save'}</button>
+        <button type="button" onClick={onAskAi}>Ask AI</button>
+      </div>
+    </div>
+  )
+}
+
+function ImportanceBadge({ label, score }) {
+  if (!label || label === 'noise') return null
+  return (
+    <span className={`news-desk__importance is-${label}`}>
+      {label}{score ? ` ${score}` : ''}
+    </span>
   )
 }
 
@@ -496,9 +1134,111 @@ function InfoRow({ label, value }) {
 function formatNewsDate(value) {
   if (!value) return '--'
   return new Date(value).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function formatFinnhubDayHeadingVi(ymd) {
+  const [y, m, d] = ymd.split('-').map((x) => Number(x))
+  if (!y || !m || !d) return ymd
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+function parseFinnhubEconDay(dateRaw) {
+  if (dateRaw == null || dateRaw === '') return null
+  const s = String(dateRaw)
+  const ymd = s.includes('T') ? s.split('T')[0] : s.slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
+  return ymd
+}
+
+function finnhubCell(v) {
+  if (v == null || v === '') return '—'
+  return String(v)
+}
+
+function finnhubNumCell(v, unit) {
+  if (v == null || v === '') return '—'
+  const u = unit && String(unit).trim() ? ` ${unit}` : ''
+  return `${v}${u}`
+}
+
+/** Milliseconds UTC for sorting; robust to Finnhub date/time shapes. */
+function finnhubEventInstantUtc(ev) {
+  const ymd = parseFinnhubEconDay(ev.date)
+  if (!ymd) return 0
+  const t = ev.time
+  if (t == null || t === '') return Date.parse(`${ymd}T00:00:00Z`)
+  if (typeof t === 'number') {
+    const ms = t < 2e12 ? t * 1000 : t
+    return Number.isNaN(ms) ? Date.parse(`${ymd}T12:00:00Z`) : ms
+  }
+  const s = String(t).trim()
+  if (/\d{4}-\d{2}-\d{2}T\d/.test(s)) {
+    const ms = Date.parse(s)
+    return Number.isNaN(ms) ? Date.parse(`${ymd}T12:00:00Z`) : ms
+  }
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (m) {
+    const hh = Number(m[1])
+    const mm = Number(m[2])
+    return Date.parse(
+      `${ymd}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`,
+    )
+  }
+  return Date.parse(`${ymd}T12:00:00Z`)
+}
+
+/** Time column: UTC + approx Vietnam (UTC+7) when a definite time exists. */
+function formatFinnhubEconTimeCell(ev) {
+  const t = ev.time
+  if (t == null || t === '') {
+    return { main: '—', utcLabel: null, vnLine: null, sub: 'Cả ngày' }
+  }
+  const ms = finnhubEventInstantUtc(ev)
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return { main: '—', utcLabel: null, vnLine: null, sub: '' }
+  }
+  const utcHm = new Date(ms).toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'UTC',
+  })
+  const vnHm = new Date(ms).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  return {
+    main: utcHm,
+    utcLabel: 'UTC',
+    vnLine: `≈ ${vnHm} VN`,
+    sub: '',
+  }
+}
+
+function groupFinnhubEconomicDays(events) {
+  const map = new Map()
+  for (const ev of events) {
+    const day = parseFinnhubEconDay(ev.date) || 'unknown'
+    if (!map.has(day)) map.set(day, [])
+    map.get(day).push(ev)
+  }
+  const keys = [...map.keys()].filter((k) => k !== 'unknown').sort()
+  if (map.has('unknown')) keys.push('unknown')
+  return keys.map((day) => {
+    const items = (map.get(day) || []).slice().sort((a, b) => finnhubEventInstantUtc(a) - finnhubEventInstantUtc(b))
+    return {
+      day,
+      dayLabel: day === 'unknown' ? 'Không rõ ngày' : formatFinnhubDayHeadingVi(day),
+      items,
+    }
   })
 }

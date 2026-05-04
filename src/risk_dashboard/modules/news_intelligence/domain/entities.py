@@ -44,6 +44,17 @@ class NewsArticle:
     threat_level: str = "normal"
     threat_category: str | None = None
     threat_confidence: float = 0.0
+    # ── New fields (Sprint 1) ──
+    importance_score: int = 0
+    importance_label: str = "noise"
+    importance_breakdown: dict[str, int] = field(default_factory=dict)
+    source_mix: str = ""
+    content_hash: str = ""
+    affected_markets: list[str] = field(default_factory=list)
+    affected_sectors: list[str] = field(default_factory=list)
+    what_to_monitor: list[str] = field(default_factory=list)
+    learn_links: list[dict[str, str]] = field(default_factory=list)
+    related_entities: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         time_label = self.published_at[11:16] if "T" in self.published_at else ""
@@ -71,4 +82,13 @@ class NewsArticle:
             "threat_level": self.threat_level,
             "threat_category": self.threat_category,
             "threat_confidence": self.threat_confidence,
+            "importance_score": self.importance_score,
+            "importance_label": self.importance_label,
+            "importance_breakdown": self.importance_breakdown,
+            "source_mix": self.source_mix,
+            "affected_markets": self.affected_markets,
+            "affected_sectors": self.affected_sectors,
+            "what_to_monitor": self.what_to_monitor,
+            "learn_links": self.learn_links,
+            "related_entities": self.related_entities,
         }

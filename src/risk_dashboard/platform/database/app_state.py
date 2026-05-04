@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone, tzinfo
+from email.utils import parsedate_to_datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from risk_dashboard.app.config.settings import get_settings
+
+_NEWS_TIME_NORMALIZE_KEY = "news_articles_time_normalize_v1"
 
 
 SCHEMA = """
@@ -124,7 +129,17 @@ CREATE TABLE IF NOT EXISTS news_articles (
   language TEXT NOT NULL,
   threat_level TEXT NOT NULL,
   threat_category TEXT,
-  threat_confidence REAL NOT NULL
+  threat_confidence REAL NOT NULL,
+  importance_score INTEGER NOT NULL DEFAULT 0,
+  importance_label TEXT NOT NULL DEFAULT 'noise',
+  importance_breakdown_json TEXT NOT NULL DEFAULT '{}',
+  source_mix TEXT NOT NULL DEFAULT '',
+  content_hash TEXT NOT NULL DEFAULT '',
+  affected_markets_json TEXT NOT NULL DEFAULT '[]',
+  affected_sectors_json TEXT NOT NULL DEFAULT '[]',
+  what_to_monitor_json TEXT NOT NULL DEFAULT '[]',
+  learn_links_json TEXT NOT NULL DEFAULT '[]',
+  related_entities_json TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE INDEX IF NOT EXISTS idx_news_articles_sort_ts ON news_articles(sort_ts DESC);
@@ -143,6 +158,25 @@ CREATE TABLE IF NOT EXISTS news_fetch_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_news_fetch_runs_completed_at ON news_fetch_runs(completed_at DESC);
+
+CREATE TABLE IF NOT EXISTS saved_news (
+  user_id TEXT NOT NULL,
+  article_id TEXT NOT NULL,
+  note TEXT,
+  saved_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, article_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_news_user_id ON saved_news(user_id);
+
+CREATE TABLE IF NOT EXISTS source_health (
+  source_id TEXT PRIMARY KEY,
+  last_success_at TEXT,
+  last_failure_at TEXT,
+  failure_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'healthy',
+  message TEXT
+);
 
 CREATE TABLE IF NOT EXISTS goals (
   goal_id TEXT PRIMARY KEY,
@@ -688,7 +722,98 @@ CREATE TABLE IF NOT EXISTS ops_alert_events (
 
 CREATE INDEX IF NOT EXISTS idx_ops_alert_events_status_time ON ops_alert_events(status, triggered_at);
 CREATE INDEX IF NOT EXISTS idx_ops_alert_events_severity_time ON ops_alert_events(severity_tier, triggered_at);
+
+CREATE TABLE IF NOT EXISTS app_kv (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 """
+
+
+def _default_tz_for_news_region(region: str) -> tzinfo:
+    """Match rss_producer naive-date handling: VN wall clock vs UTC."""
+    if (region or "").upper() == "VN":
+        return ZoneInfo("Asia/Ho_Chi_Minh")
+    return timezone.utc
+
+
+def _parse_news_datetime(raw: str, *, region: str) -> datetime | None:
+    """Parse published_at / fetched_at into aware UTC, or None."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        try:
+            dt = parsedate_to_datetime(s)
+        except (TypeError, ValueError):
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_default_tz_for_news_region(region))
+    return dt.astimezone(timezone.utc)
+
+
+def _coerce_news_published_sort_ts(
+    published_at: str,
+    fetched_at: str,
+    sort_ts: int,
+    region: str,
+) -> tuple[str, int] | None:
+    """Canonical ISO UTC for published_at + matching sort_ts epoch seconds."""
+    dt = _parse_news_datetime(published_at, region=region)
+    if dt is None:
+        dt = _parse_news_datetime(fetched_at, region=region)
+    if dt is None and sort_ts > 0:
+        try:
+            dt = datetime.fromtimestamp(int(sort_ts), tz=timezone.utc)
+        except (OSError, OverflowError, ValueError):
+            return None
+    if dt is None:
+        return None
+    dt = dt.astimezone(timezone.utc)
+    return dt.isoformat(), int(dt.timestamp())
+
+
+def _normalize_news_articles_timestamps(conn: sqlite3.Connection) -> None:
+    """One-time backfill: align published_at (ISO UTC) with sort_ts for legacy rows."""
+    conn.execute("CREATE TABLE IF NOT EXISTS app_kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    done = conn.execute(
+        "SELECT 1 FROM app_kv WHERE key = ? AND value = ?",
+        (_NEWS_TIME_NORMALIZE_KEY, "1"),
+    ).fetchone()
+    if done:
+        return
+
+    rows = conn.execute(
+        "SELECT article_id, published_at, fetched_at, sort_ts, region FROM news_articles",
+    ).fetchall()
+    for r in rows:
+        coerced = _coerce_news_published_sort_ts(
+            str(r["published_at"]),
+            str(r["fetched_at"]),
+            int(r["sort_ts"]),
+            str(r["region"]),
+        )
+        if coerced is None:
+            continue
+        pub_iso, st = coerced
+        if pub_iso == str(r["published_at"]) and st == int(r["sort_ts"]):
+            continue
+        conn.execute(
+            "UPDATE news_articles SET published_at = ?, sort_ts = ? WHERE article_id = ?",
+            (pub_iso, st, r["article_id"]),
+        )
+
+    conn.execute(
+        """
+        INSERT INTO app_kv(key, value) VALUES(?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (_NEWS_TIME_NORMALIZE_KEY, "1"),
+    )
 
 
 def open_app_state_db(db_path: str | Path | None = None) -> sqlite3.Connection:
@@ -739,6 +864,29 @@ def _ensure_schema_compatibility(conn: sqlite3.Connection) -> None:
     }
     if incident_cols and "topic" not in incident_cols:
         conn.execute("ALTER TABLE trust_safety_incidents ADD COLUMN topic TEXT")
+    # ── News articles new columns (Sprint 1) ──
+    news_cols = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(news_articles)").fetchall()
+    }
+    _news_migrations = [
+        ("importance_score", "ALTER TABLE news_articles ADD COLUMN importance_score INTEGER NOT NULL DEFAULT 0"),
+        ("importance_label", "ALTER TABLE news_articles ADD COLUMN importance_label TEXT NOT NULL DEFAULT 'noise'"),
+        ("importance_breakdown_json", "ALTER TABLE news_articles ADD COLUMN importance_breakdown_json TEXT NOT NULL DEFAULT '{}'"),
+        ("source_mix", "ALTER TABLE news_articles ADD COLUMN source_mix TEXT NOT NULL DEFAULT ''"),
+        ("content_hash", "ALTER TABLE news_articles ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''"),
+        ("affected_markets_json", "ALTER TABLE news_articles ADD COLUMN affected_markets_json TEXT NOT NULL DEFAULT '[]'"),
+        ("affected_sectors_json", "ALTER TABLE news_articles ADD COLUMN affected_sectors_json TEXT NOT NULL DEFAULT '[]'"),
+        ("what_to_monitor_json", "ALTER TABLE news_articles ADD COLUMN what_to_monitor_json TEXT NOT NULL DEFAULT '[]'"),
+        ("learn_links_json", "ALTER TABLE news_articles ADD COLUMN learn_links_json TEXT NOT NULL DEFAULT '[]'"),
+        ("related_entities_json", "ALTER TABLE news_articles ADD COLUMN related_entities_json TEXT NOT NULL DEFAULT '[]'"),
+    ]
+    for col_name, sql in _news_migrations:
+        if news_cols and col_name not in news_cols:
+            conn.execute(sql)
+
+    if news_cols:
+        _normalize_news_articles_timestamps(conn)
 
 
 def reset_app_state_tables() -> None:
@@ -754,7 +902,10 @@ def reset_app_state_tables() -> None:
             DELETE FROM learning_lesson_progress;
             DELETE FROM learning_cms_documents;
             DELETE FROM news_articles;
+            DELETE FROM app_kv WHERE key = 'news_articles_time_normalize_v1';
             DELETE FROM news_fetch_runs;
+            DELETE FROM saved_news;
+            DELETE FROM source_health;
             DELETE FROM goals;
             DELETE FROM goal_snapshots;
             DELETE FROM goal_checkins;

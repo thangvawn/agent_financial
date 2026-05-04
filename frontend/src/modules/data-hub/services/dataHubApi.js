@@ -33,6 +33,9 @@ export async function fetchNewsFeed({
   sourceGroup = '',
   preset = '',
   force = false,
+  sentiment = '',
+  impactLevel = '',
+  importance = '',
 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -44,6 +47,9 @@ export async function fetchNewsFeed({
   if (region) params.set('region', region)
   if (sourceGroup) params.set('source_group', sourceGroup)
   if (preset) params.set('preset', preset)
+  if (sentiment) params.set('sentiment', sentiment)
+  if (impactLevel) params.set('impact_level', impactLevel)
+  if (importance) params.set('importance', importance)
   const response = await fetch(`/api/v1/public/news/feed?${params}`)
   return expectJson(response)
 }
@@ -54,5 +60,59 @@ export async function askNewsAnalyst(body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  return expectJson(response)
+}
+
+export async function fetchArticleDetail(articleId) {
+  const response = await fetch(`/api/v1/public/news/articles/${encodeURIComponent(articleId)}`)
+  return expectJson(response)
+}
+
+export async function fetchNewsPulse({ category, region, sourceGroup, preset, timeRangeHours = 24 } = {}) {
+  const params = new URLSearchParams({ time_range_hours: String(timeRangeHours) })
+  if (category) params.set('category', category)
+  if (region) params.set('region', region)
+  if (sourceGroup) params.set('source_group', sourceGroup)
+  if (preset) params.set('preset', preset)
+  const response = await fetch(`/api/v1/public/news/pulse?${params}`)
+  return expectJson(response)
+}
+
+export async function saveNewsArticle(articleId, { userId = 'anonymous', note = '' } = {}) {
+  const response = await fetch(`/api/v1/public/news/articles/${encodeURIComponent(articleId)}/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, note }),
+  })
+  return expectJson(response)
+}
+
+export async function unsaveNewsArticle(articleId, { userId = 'anonymous' } = {}) {
+  const params = new URLSearchParams({ user_id: userId })
+  const response = await fetch(`/api/v1/public/news/articles/${encodeURIComponent(articleId)}/save?${params}`, {
+    method: 'DELETE',
+  })
+  return expectJson(response)
+}
+
+export async function fetchSavedNews({ userId = 'anonymous', limit = 50 } = {}) {
+  const params = new URLSearchParams({ user_id: userId, limit: String(limit) })
+  const response = await fetch(`/api/v1/public/news/saved?${params}`)
+  return expectJson(response)
+}
+
+export async function fetchSourceHealth() {
+  const response = await fetch('/api/v1/public/news/source-health')
+  return expectJson(response)
+}
+
+/** Finnhub desk: economic calendar; quotes only if includeQuotes=true (saves API quota). */
+export async function fetchFinnhubMacroDesk({ force = false, calendarDays = 14, includeQuotes = false } = {}) {
+  const params = new URLSearchParams({
+    force: String(force),
+    calendar_days: String(calendarDays),
+    include_quotes: String(includeQuotes),
+  })
+  const response = await fetch(`/api/v1/public/news/desk/finnhub?${params}`)
   return expectJson(response)
 }

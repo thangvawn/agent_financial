@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import re
+from datetime import datetime, timezone
 
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle
+from risk_dashboard.modules.news_intelligence.domain.impact import map_impact
+from risk_dashboard.modules.news_intelligence.domain.scoring import calculate_importance
 
 
 POSITIVE_WORDS = {
@@ -47,6 +51,35 @@ def enrich_article(article: NewsArticle) -> NewsArticle:
     article.category = _refine_category(article.category, text)
     article.tickers = _extract_tickers(article.headline)
     article.threat_level, article.threat_category, article.threat_confidence = _threat(text)
+    article.content_hash = _content_hash(article.headline, article.url)
+    article.source_mix = getattr(article, "source_mix", "") or ""
+
+    # ── Importance scoring ──
+    try:
+        age_minutes = (datetime.now(timezone.utc) - datetime.fromisoformat(article.published_at)).total_seconds() / 60
+    except (ValueError, TypeError):
+        age_minutes = 60.0
+    importance = calculate_importance(
+        headline=article.headline,
+        summary=article.summary,
+        source_tier=article.source_tier,
+        impact=article.impact,
+        sentiment=article.sentiment,
+        threat_level=article.threat_level,
+        age_minutes=max(0, age_minutes),
+    )
+    article.importance_score = importance.score
+    article.importance_label = importance.label
+    article.importance_breakdown = importance.breakdown.to_dict()
+
+    # ── Impact mapping ──
+    impact_mapping = map_impact(headline=article.headline, summary=article.summary, category=article.category)
+    article.affected_markets = impact_mapping.affected_markets
+    article.affected_sectors = impact_mapping.affected_sectors
+    article.what_to_monitor = impact_mapping.what_to_monitor
+    article.learn_links = impact_mapping.learn_links
+    article.related_entities = impact_mapping.related_entities
+
     return article
 
 
@@ -107,3 +140,6 @@ def _threat(text: str) -> tuple[str, str | None, float]:
         return "elevated", "systemic_risk", 0.75
     return "watch", "market_risk", 0.45
 
+
+def _content_hash(headline: str, url: str) -> str:
+    return hashlib.sha256(f"{headline.strip().lower()}|{url}".encode("utf-8")).hexdigest()[:32]

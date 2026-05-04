@@ -46,6 +46,13 @@ class NewsCluster:
             "is_breaking": self.velocity == "fast" and self.lead_article.priority >= 4,
             "related_articles": [article.to_dict() for article in self.articles[1:5]],
             "similarity_topic": self.similarity_topic,
+            # ── New fields ──
+            "importance_score": max((a.importance_score for a in self.articles), default=0),
+            "importance_label": self.lead_article.importance_label,
+            "affected_markets": sorted(set(
+                market for a in self.articles for market in a.affected_markets
+            ))[:6],
+            "cluster_summary": _cluster_summary(self),
         }
 
 
@@ -70,7 +77,7 @@ def cluster_articles(articles: list[NewsArticle], *, limit: int = 20) -> list[Ne
 
     output: list[NewsCluster] = []
     for cluster in clusters:
-        ranked = sorted(cluster, key=lambda item: (item.source_tier, -item.priority, -item.sort_ts))
+        ranked = sorted(cluster, key=lambda item: (-item.importance_score, item.source_tier, -item.priority, -item.sort_ts))
         output.append(
             NewsCluster(
                 cluster_id=_cluster_id(ranked),
@@ -80,7 +87,7 @@ def cluster_articles(articles: list[NewsArticle], *, limit: int = 20) -> list[Ne
                 velocity=_velocity(ranked),
             )
         )
-    return sorted(output, key=lambda item: (len(item.articles), item.lead_article.priority, item.lead_article.sort_ts), reverse=True)[:limit]
+    return sorted(output, key=lambda item: (item.lead_article.importance_score, len(item.articles), item.lead_article.priority, item.lead_article.sort_ts), reverse=True)[:limit]
 
 
 def _tokens(text: str) -> set[str]:
@@ -110,3 +117,15 @@ def _velocity(articles: list[NewsArticle]) -> str:
         return "building"
     return "single"
 
+
+def _cluster_summary(cluster: NewsCluster) -> str:
+    """Generate a brief summary for the cluster."""
+    article_count = len(cluster.articles)
+    source_count = len({a.source_id for a in cluster.articles})
+    lead = cluster.lead_article
+    parts = [f"{article_count} bài từ {source_count} nguồn"]
+    if lead.importance_label in ("critical", "high"):
+        parts.append(f"importance: {lead.importance_label}")
+    if lead.sentiment != "neutral":
+        parts.append(f"sentiment: {lead.sentiment}")
+    return " · ".join(parts)

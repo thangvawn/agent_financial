@@ -50,6 +50,7 @@ class NewsChatContext:
     time_range_hours: int = 168
     active_article_id: str | None = None
     history: tuple[dict[str, str], ...] = ()
+    user_mode: str = "investor"
 
 
 class NewsAnalystAgent:
@@ -112,6 +113,13 @@ class NewsAnalystAgent:
             for result in external_results[:4]
         )
 
+        affected_markets = sorted(set(
+            market for a in evidence for market in (a.get("affected_markets") or [])
+        ))[:6]
+        what_to_monitor = sorted(set(
+            m for a in evidence for m in (a.get("what_to_monitor") or [])
+        ))[:5]
+
         draft = {
             "conversation_id": conversation_id or f"news_chat_{uuid4().hex[:16]}",
             "message_id": f"news_msg_{uuid4().hex[:16]}",
@@ -120,6 +128,9 @@ class NewsAnalystAgent:
             "summary": _summary(evidence=evidence, warning=assumption_warning),
             "explanation": explanation,
             "key_points": key_points,
+            "why_it_matters": _why_it_matters(evidence, assumption_warning),
+            "affected_markets": affected_markets,
+            "what_to_monitor": what_to_monitor,
             "sources": sources,
             "tools_used": [
                 "search_news_articles",
@@ -130,8 +141,10 @@ class NewsAnalystAgent:
             ],
             "confidence_label": confidence,
             "data_freshness": feed.get("freshness") or "unknown",
+            "safety_note": "Tin tức là bối cảnh phân tích, không phải khuyến nghị mua/bán.",
             "warnings": [assumption_warning] if assumption_warning else [],
             "suggested_questions": _suggested_questions(inferred_category),
+            "suggested_followups": _suggested_questions(inferred_category),
         }
         return self.llm.compose(
             draft=draft,
@@ -545,6 +558,17 @@ def _summary(*, evidence: list[dict[str, Any]], warning: str) -> str:
     if evidence:
         return f"Mình tìm thấy {len(evidence)} tin liên quan trong feed hiện tại và tóm tắt theo hướng tác động."
     return "Chưa đủ tin liên quan trong cache hiện tại để kết luận mạnh."
+
+
+def _why_it_matters(evidence: list[dict[str, Any]], warning: str) -> str:
+    if warning:
+        return "Cần kiểm chứng sự kiện trước khi đánh giá tác động thị trường."
+    if not evidence:
+        return "Chưa đủ dữ liệu để đánh giá mức độ ảnh hưởng."
+    high_impact = [a for a in evidence if a.get("impact") == "high"]
+    if high_impact:
+        return f"Có {len(high_impact)}/{len(evidence)} tin high-impact trong feed liên quan. Cần theo dõi phản ứng thị trường."
+    return "Tin tức hiện tại ở mức ảnh hưởng trung bình. Theo dõi thêm để đánh giá xu hướng."
 
 
 def _suggested_questions(category: str | None) -> list[str]:
