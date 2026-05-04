@@ -23,7 +23,7 @@ def _get_conformal():
 
 def _load_panel() -> pd.DataFrame | None:
     try:
-        from risk_dashboard.api.main import get_panel
+        from risk_dashboard.platform.runtime.panel_store import get_panel
         return get_panel()
     except Exception:
         pass
@@ -202,4 +202,3 @@ def run_var_backtest() -> dict:
         }
     except Exception as e:
         return {"error": f"Backtest thất bại: {e}"}
-

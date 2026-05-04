@@ -75,6 +75,8 @@ Mở file `.env` và điền:
 
 ```
 OPENAI_API_KEY=sk-your-key-here    # Bắt buộc cho chat AI
+AI_ASSISTANT_AGENT_ENABLED=1       # Bật agent runtime cho chatbot
+AI_ASSISTANT_MODEL=gpt-4o-mini     # Model dùng cho agent compose
 API_SECRET_KEY=                     # Để trống = API public
 LOG_LEVEL=INFO
 ```
@@ -170,6 +172,29 @@ docker compose up -d --build  # Rebuild khi code thay đổi
 ```
 
 > Thư mục `./data` được mount vào container — dữ liệu không mất khi tắt/xóa container.
+
+### Test media local cho Learn Hub (video/audio/sách)
+
+Bạn có thể upload file test vào thư mục:
+
+- `data/learning_assets/videos/` (`mp4`, `webm`, `mov`, `m4v`, `avi`, `mkv`, ...)
+- `data/learning_assets/audios/` (`mp3`, `wav`, `m4a`, `aac`, `ogg`, `flac`, ...)
+- `data/learning_assets/books/` (`pdf`, `epub`, `mobi`, `txt`, `docx`)
+- `data/learning_assets/images/` (thumbnail, optional)
+
+Backend tự serve public qua URL:
+
+- `/learning-assets/videos/<ten-file>`
+- `/learning-assets/audios/<ten-file>`
+- `/learning-assets/books/<ten-file>`
+- `/learning-assets/images/<ten-file>`
+
+Ví dụ:
+
+- file local: `data/learning_assets/videos/cashflow-101.mp4`
+- URL dùng trong frontend/CMS: `/learning-assets/videos/cashflow-101.mp4`
+
+Phù hợp để test local trước; sau này đổi base URL sang cloud storage/CDN mà không cần đổi flow Learn Hub.
 
 ---
 
@@ -359,9 +384,13 @@ agent_financial/
 │   └── cli/                    # 9 CLI entry points
 ├── frontend/                   # React + Vite dashboard
 │   └── src/
-│       ├── App.jsx             #   Main dashboard component
+│       ├── App.jsx             #   Route shell entry
+│       ├── app/                #   AppShell + route mapping
+│       ├── pages/              #   Domain-grouped pages
+│       ├── modules/            #   Frontend API clients/hooks by domain
+│       ├── shared/             #   Shared assistant + analytics utilities
 │       ├── ErrorBoundary.jsx   #   Error handling UI
-│       └── App.css             #   Styles
+│       └── index.css           #   Global styles
 ├── tests/                      # 22 test modules + fixtures
 ├── data/                       # Runtime data (gitignored: .pkl, .parquet)
 │   ├── models/                 #   Trained models + benchmarks
@@ -383,6 +412,11 @@ Tất cả cấu hình qua file `.env` (copy từ `.env.example`):
 | Biến | Bắt buộc | Mô tả |
 |------|----------|-------|
 | `OPENAI_API_KEY` | Có (cho chat) | API key OpenAI, dùng cho multi-agent chat |
+| `AI_ASSISTANT_AGENT_ENABLED` | Không | `1` để bật agent runtime, `0` để fallback deterministic |
+| `AI_ASSISTANT_MODEL` | Không | Model dùng cho chatbot agent khi có `OPENAI_API_KEY` |
+| `ELEVENLABS_API_KEY` | Không | Bật voice realtime server-side cho AI Assistant (không có key sẽ fallback voice local) |
+| `ELEVENLABS_VOICE_ID` | Không | Voice mặc định khi gọi ElevenLabs TTS |
+| `ELEVENLABS_MODEL_ID` | Không | Model TTS mặc định (khuyến nghị low-latency) |
 | `API_SECRET_KEY` | Không | Đặt giá trị để bật API key gate, để trống = public |
 | `LOG_LEVEL` | Không | `DEBUG`, `INFO` (mặc định), `WARNING`, `ERROR` |
 
@@ -403,6 +437,7 @@ Tất cả cấu hình qua file `.env` (copy từ `.env.example`):
 |-----|-------------|----------|
 | `Panel not loaded` / `503` | Chưa nạp dữ liệu | Chạy `risk-fetch-universe` rồi restart backend |
 | `OPENAI_API_KEY not set` | Thiếu key cho chat | Điền key vào `.env` |
+| Voice trả về local thay vì ElevenLabs | Thiếu `ELEVENLABS_API_KEY` hoặc lỗi mạng TTS | Điền key ElevenLabs, kiểm tra outbound network |
 | `port 8000 already in use` | Đang chạy process khác | `lsof -i :8000` rồi kill, hoặc dùng `--port 8001` |
 | `ModuleNotFoundError` | Chưa cài package | `pip install -e ".[dev,auto]"` |
 | `sklearn version mismatch` | Model train bằng version cũ | Xóa `data/models/latest_model.pkl`, restart để retrain |

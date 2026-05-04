@@ -38,22 +38,33 @@ _STATEMENT_TYPE_MAP = {
 _METRIC_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
     ("revenue", ("doanh thu thuần", "doanh thu", "net sales", "revenue")),
     ("gross_profit", ("lợi nhuận gộp", "lãi gộp", "gross profit")),
-    ("operating_profit", ("lợi nhuận thuần từ hoạt động kinh doanh", "lãi/lỗ từ hoạt động kinh doanh", "operating profit", "ebit")),
+    ("operating_profit", ("lợi nhuận thuần từ hoạt động kinh doanh", "lãi/lỗ từ hoạt động kinh doanh", "lãi/(lỗ) từ hoạt động kinh doanh", "operating profit")),
+    ("ebit", ("ebit", "earnings before interest and taxes")),
     ("ebitda", ("ebitda",)),
-    ("net_income", ("lợi nhuận sau thuế của cổ đông công ty mẹ", "lợi nhuận sau thuế", "lợi nhuận thuần", "net profit", "profit after tax")),
+    ("net_income", ("lợi nhuận sau thuế của cổ đông công ty mẹ", "lợi nhuận của cổ đông của công ty mẹ", "lãi/(lỗ) thuần sau thuế", "lợi nhuận sau thuế", "lợi nhuận thuần", "net profit", "profit after tax", "attributable to parent company")),
     ("total_assets", ("tổng cộng tài sản", "total assets")),
     ("total_liabilities", ("nợ phải trả", "total liabilities")),
     ("equity", ("vốn chủ sở hữu", "equity")),
     ("cash", ("tiền và tương đương tiền", "cash and cash equivalents", "cash")),
+    ("short_term_investments", ("đầu tư ngắn hạn", "short-term investments")),
+    ("short_term_debt", ("vay và nợ thuê tài chính ngắn hạn", "short-term borrowings", "short-term debt")),
+    ("long_term_debt", ("vay và nợ thuê tài chính dài hạn", "long-term borrowings", "long-term debt")),
     ("debt", ("vay và nợ thuê tài chính", "total debt", "borrowings")),
     ("current_assets", ("tài sản ngắn hạn", "current assets")),
     ("current_liabilities", ("nợ ngắn hạn", "current liabilities")),
+    ("non_current_liabilities", ("nợ dài hạn", "non-current liabilities", "long-term liabilities")),
+    ("accounts_payable", ("phải trả người bán", "trade accounts payable", "accounts payable")),
     ("inventory", ("hàng tồn kho", "inventory")),
-    ("receivables", ("các khoản phải thu ngắn hạn", "receivables")),
-    ("operating_cash_flow", ("lưu chuyển tiền tệ ròng từ các hoạt động sxkd", "lưu chuyển tiền thuần từ hoạt động kinh doanh", "operating cash flow")),
+    ("receivables", ("các khoản phải thu ngắn hạn", "các khoản phải thu", "accounts receivable", "receivables")),
+    ("fixed_assets", ("tài sản cố định", "fixed assets")),
+    ("investment_properties", ("bất động sản đầu tư", "investment properties")),
+    ("long_term_investments", ("đầu tư dài hạn", "long-term investments")),
+    ("retained_earnings", ("lợi nhuận sau thuế chưa phân phối", "retained earnings")),
+    ("minority_interest", ("lợi ích cổ đông không kiểm soát", "minority interest")),
+    ("operating_cash_flow", ("lưu chuyển tiền tệ ròng từ các hoạt động sxkd", "lưu chuyển tiền tệ ròng từ các hoạt động sản xuất kinh doanh", "lưu chuyển tiền thuần từ hoạt động kinh doanh", "net cash inflows/(outflows) from operating activities", "operating cash flow")),
     ("investing_cash_flow", ("lưu chuyển từ hoạt động đầu tư", "lưu chuyển tiền thuần từ hoạt động đầu tư", "investing cash flow")),
     ("financing_cash_flow", ("lưu chuyển tiền từ hoạt động tài chính", "lưu chuyển tiền thuần từ hoạt động tài chính", "financing cash flow")),
-    ("capex", ("mua sắm tscđ", "tiền chi để mua sắm, xây dựng tscd", "capital expenditure", "purchase of fixed assets")),
+    ("capex", ("mua sắm tscđ", "tiền chi để mua sắm, xây dựng tscđ", "tiền chi để mua sắm, xây dựng tscd", "purchases of fixed assets", "capital expenditure", "purchase of fixed assets")),
 ]
 
 _IGNORED_LABEL_PATTERNS = (
@@ -165,6 +176,11 @@ def _assign_metric(bucket: dict[str, Any], metric_name: str, value: float) -> No
     if metric_name == "debt":
         bucket[metric_name] = float(bucket.get(metric_name, 0.0) + value)
         return
+    if metric_name in {"short_term_debt", "long_term_debt"}:
+        if bucket.get(metric_name) is None:
+            bucket[metric_name] = value
+        bucket["debt"] = float(bucket.get("debt", 0.0) + value)
+        return
     if bucket.get(metric_name) is None:
         bucket[metric_name] = value
 
@@ -220,7 +236,11 @@ def _merge_statement_into_periods(period_map: dict[str, dict[str, Any]], stateme
         return
 
     label_column = statement_df.columns[0]
-    period_columns = [column for column in statement_df.columns[1:] if not str(column).startswith("Unnamed")]
+    period_columns = [
+        column for column in statement_df.columns[1:]
+        if not str(column).startswith("Unnamed")
+        and _normalize_label(column) not in {"item_en", "item_id"}
+    ]
 
     for _, row in statement_df.iterrows():
         metric_name = _canonical_metric(row.get(label_column))

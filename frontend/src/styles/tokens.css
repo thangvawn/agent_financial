@@ -1,0 +1,28 @@
+:root {
+  color-scheme: light;
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  --bg: #eef3f1;
+  --bg-deep: #d9e7e3;
+  --surface: rgba(255, 255, 252, 0.9);
+  --surface-strong: rgba(255, 255, 252, 0.98);
+  --surface-ink: #102b2d;
+  --surface-muted: #62726f;
+  --line: rgba(16, 43, 45, 0.12);
+  --line-strong: rgba(16, 43, 45, 0.22);
+  --accent: #0f766e;
+  --accent-soft: #d9eee9;
+  --accent-warm: #b86b35;
+  --accent-warm-soft: #f2dec7;
+  --danger: #a4473c;
+  --danger-soft: #f7ded8;
+  --warn: #9a6a1d;
+  --warn-soft: #f5e7cb;
+  --shadow: 0 24px 60px rgba(34, 51, 45, 0.12);
+  --shadow-soft: 0 10px 28px rgba(34, 51, 45, 0.08);
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+}

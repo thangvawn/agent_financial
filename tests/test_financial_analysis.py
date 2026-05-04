@@ -28,6 +28,178 @@ def test_analyze_financial_dataset_builds_snapshot():
     assert analysis.highlights
 
 
+def test_dupont_decomposition():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    dupont = analysis.summary.dupont
+
+    assert dupont is not None
+    assert dupont.net_margin is not None and dupont.net_margin > 0
+    assert dupont.asset_turnover is not None and dupont.asset_turnover > 0
+    assert dupont.equity_multiplier is not None and dupont.equity_multiplier >= 1
+    assert dupont.roe_decomposed is not None
+    # DuPont ROE should roughly match direct ROE
+    direct_roe = analysis.summary.roe_pct
+    assert direct_roe is not None
+    assert abs(dupont.roe_decomposed * 100 - direct_roe) < 0.01
+
+
+def test_altman_z_score():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    altman = analysis.summary.altman_z
+
+    assert altman is not None
+    assert altman.score is not None
+    assert altman.zone in ("safe", "grey", "distress")
+    assert len(altman.components) == 5
+    # Quarterly data yields lower X3/X5, so "distress" zone is expected for single-quarter input
+    assert altman.score > 0
+
+
+def test_piotroski_f_score():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    fscore = analysis.summary.piotroski_f
+
+    assert fscore is not None
+    assert fscore.score is not None
+    assert 0 <= fscore.score <= 9
+    assert len(fscore.details) == 9
+    # FPT fixture is a healthy company — expect at least 4
+    assert fscore.score >= 4
+
+
+def test_health_radar_ranges():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    radar = analysis.health_radar
+
+    for field_name in ("profitability", "growth", "efficiency", "liquidity", "leverage", "cash_quality"):
+        val = getattr(radar, field_name)
+        assert 0 <= val <= 100, f"Radar {field_name}={val} out of [0,100]"
+
+
+def test_ttm_aggregation():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    s = analysis.summary
+
+    assert s.revenue_ttm is not None
+    assert s.net_income_ttm is not None
+    assert s.ocf_ttm is not None
+    # TTM = sum of 4 consecutive quarters (Q4+Q3+Q2+Q1 of 2025)
+    q2025 = [p for p in dataset.periods if p.year == 2025]
+    expected_rev = sum(p.revenue for p in q2025 if p.revenue is not None)
+    assert abs(s.revenue_ttm - expected_rev) < 1
+
+
+def test_roic_calculation():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    assert analysis.summary.roic_pct is not None
+    assert analysis.summary.roic_pct > 0
+
+
+def test_advanced_flags_structure():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    for flag in analysis.flags:
+        assert flag.level in ("high", "medium", "low")
+        assert flag.title
+        assert flag.detail
+
+
+def test_trend_includes_new_fields():
+    dataset = _load_sample_dataset()
+    analysis = analyze_financial_dataset(dataset)
+    assert len(analysis.trends) >= 4
+    first_trend = analysis.trends[0]
+    assert first_trend.free_cash_flow is not None
+    assert first_trend.operating_margin_pct is not None
+    assert first_trend.roe_pct is not None
+
+
+def test_yoy_reference_finds_correct_quarter():
+    """YoY should find same quarter previous year, not adjacent quarter."""
+    from risk_dashboard.quant.financial_analysis import _yoy_reference, _sort_periods
+    from risk_dashboard.schemas.financials import FinancialPeriodData
+
+    periods = _sort_periods([
+        FinancialPeriodData(period="2025-Q4", year=2025, quarter=4, revenue=100),
+        FinancialPeriodData(period="2025-Q3", year=2025, quarter=3, revenue=90),
+        FinancialPeriodData(period="2024-Q4", year=2024, quarter=4, revenue=80),
+        FinancialPeriodData(period="2024-Q3", year=2024, quarter=3, revenue=70),
+    ])
+    current = periods[0]  # 2025-Q4
+    ref = _yoy_reference(periods, current)
+    assert ref is not None
+    assert ref.period == "2024-Q4"
+
+
+def test_yoy_reference_returns_none_when_no_match():
+    from risk_dashboard.quant.financial_analysis import _yoy_reference, _sort_periods
+    from risk_dashboard.schemas.financials import FinancialPeriodData
+
+    periods = _sort_periods([
+        FinancialPeriodData(period="2025-Q4", year=2025, quarter=4, revenue=100),
+        FinancialPeriodData(period="2025-Q3", year=2025, quarter=3, revenue=90),
+    ])
+    ref = _yoy_reference(periods, periods[0])
+    assert ref is None
+
+
+def test_ttm_requires_consecutive_quarters():
+    from risk_dashboard.quant.financial_analysis import _ttm_sum, _sort_periods
+    from risk_dashboard.schemas.financials import FinancialPeriodData
+
+    # Missing Q2 — TTM should return None
+    periods = _sort_periods([
+        FinancialPeriodData(period="2025-Q4", year=2025, quarter=4, revenue=100),
+        FinancialPeriodData(period="2025-Q3", year=2025, quarter=3, revenue=90),
+        FinancialPeriodData(period="2025-Q1", year=2025, quarter=1, revenue=70),
+        FinancialPeriodData(period="2024-Q4", year=2024, quarter=4, revenue=80),
+    ])
+    assert _ttm_sum(periods, "revenue") is None
+
+
+def test_roic_none_when_invested_capital_negative():
+    """ROIC should be None when equity+debt-cash <= 0."""
+    from risk_dashboard.schemas.financials import FinancialPeriodData
+    from risk_dashboard.quant.financial_analysis import _build_snapshot
+
+    p = FinancialPeriodData(
+        period="2025-Q4", year=2025, quarter=4,
+        revenue=1000, gross_profit=400, operating_profit=200, net_income=150,
+        total_assets=2000, total_liabilities=800, equity=100,
+        cash=600, debt=50,  # IC = 100 + 50 - 600 = -450
+        current_assets=900, current_liabilities=500,
+        operating_cash_flow=200, capex=80,
+    )
+    snapshot = _build_snapshot(p, None, [p])
+    assert snapshot.roic_pct is None
+
+
+def test_altman_z_skipped_for_bank():
+    from risk_dashboard.schemas.financials import FinancialDataset, FinancialPeriodData
+
+    ds = FinancialDataset(
+        ticker="VCB", source="test", industry="Ngân hàng",
+        periods=[
+            FinancialPeriodData(
+                period="2025-Q4", year=2025, quarter=4,
+                revenue=50000, net_income=10000,
+                total_assets=2000000, equity=200000,
+                current_assets=500000, current_liabilities=400000,
+            ),
+        ],
+    )
+    analysis = analyze_financial_dataset(ds)
+    assert analysis.summary.altman_z is not None
+    assert analysis.summary.altman_z.score is None
+    assert analysis.summary.altman_z.zone is None
+
+
 def test_financial_import_and_analysis_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
     dataset = _load_sample_dataset()

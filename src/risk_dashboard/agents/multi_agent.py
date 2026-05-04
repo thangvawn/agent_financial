@@ -37,14 +37,17 @@ load_dotenv()
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.15)
 
 GUARDRAIL = (
-    "\n\n⚠️ NGUYÊN TẮC BẮT BUỘC: "
-    "Bạn CHỈ được phân tích, giải thích, cung cấp dữ liệu. "
-    "TUYỆT ĐỐI KHÔNG được đưa ra khuyến nghị MUA, BÁN, GIỮ, "
-    "hay bất kỳ lời xúi giục giao dịch nào. "
-    "Nếu người dùng yêu cầu, hãy từ chối lịch sự."
-    "\n\nĐỊNH DẠNG PHẢN HỒI: Trả lời bằng Tiếng Việt, ngắn gọn nhưng sâu sắc. "
-    "Nêu con số CỤ THỂ (có đơn vị). Giọng văn chuyên nghiệp như một "
-    "Senior Analyst đang brief cho CIO. Dùng emoji nếu phù hợp (📊 📉 ⚠️ ✅)."
+    "\n\n--- NGUYÊN TẮC BẮT BUỘC ---"
+    "\n1. CHỈ được phân tích, giải thích, cung cấp dữ liệu."
+    "\n2. TUYỆT ĐỐI KHÔNG đưa ra khuyến nghị MUA, BÁN, GIỮ hay xúi giục giao dịch."
+    "\n3. Nếu người dùng yêu cầu khuyến nghị, từ chối lịch sự."
+    "\n\n--- QUY CÁCH TRÌNH BÀY ---"
+    "\n- Ngôn ngữ: Tiếng Việt, giọng văn chuyên nghiệp như Senior Analyst brief cho CIO."
+    "\n- KHÔNG dùng emoji hay icon. Tuyệt đối không có ký tự đặc biệt dạng biểu tượng."
+    "\n- Nêu con số CỤ THỂ kèm đơn vị (%, tỷ VND, lần, điểm...)."
+    "\n- Trình bày có cấu trúc rõ ràng: dùng heading, bullet points, bảng nếu cần."
+    "\n- Ngắn gọn, đi thẳng vào trọng tâm. Không lặp lại thông tin."
+    "\n- Khi có nhiều chỉ số, nhóm lại theo chủ đề (Sinh lời / Đòn bẩy / Thanh khoản / Dòng tiền)."
 )
 
 
@@ -148,8 +151,11 @@ def macro_agent(state: AgentState) -> AgentState:
         "Bạn là Chuyên gia Kinh tế Vĩ mô cao cấp (Senior Macro Economist).\n"
         "Nhiệm vụ: Phân tích chuyên sâu tỷ giá USD/VND, lãi suất, CPI, chính sách tiền tệ.\n"
         "LUÔN gọi tool get_macro_indicators để lấy dữ liệu THẬT trước khi phân tích.\n"
-        "Kết hợp dữ liệu với bối cảnh vĩ mô (FED, NHNN, dòng vốn ASEAN).\n"
-        "Đưa ra nhận định rõ ràng với con số cụ thể.",
+        "Kết hợp dữ liệu với bối cảnh vĩ mô (FED, NHNN, dòng vốn ASEAN).\n\n"
+        "FORMAT OUTPUT:\n"
+        "1. Tổng quan vĩ mô (2-3 câu)\n"
+        "2. Các chỉ số chính (bullet, kèm số liệu và đơn vị)\n"
+        "3. Đánh giá tác động (ngắn gọn, có logic nhân-quả)\n",
         [get_macro_indicators],
         state,
     )}
@@ -158,10 +164,20 @@ def fundamental_agent(state: AgentState) -> AgentState:
     logger.info("[FUNDAMENTAL_AGENT] Running...")
     return {"final_response": _run_agent(
         "Bạn là Phân tích viên Tài chính (Equity Research Analyst).\n"
-        "Nhiệm vụ: Đọc và phân tích BCTC, P/E, P/B, ROE, EPS.\n"
-        "LUÔN gọi tool get_financial_metrics để lấy dữ liệu THẬT.\n"
-        "So sánh với trung bình ngành, nhận xét sức khỏe tài chính, "
-        "chất lượng lợi nhuận, mức định giá hiện tại.",
+        "Nhiệm vụ: Đọc và phân tích BCTC, chỉ số tài chính, sức khỏe doanh nghiệp.\n"
+        "LUÔN gọi tool get_financial_metrics để lấy dữ liệu THẬT.\n\n"
+        "FORMAT OUTPUT:\n"
+        "1. TÓM TẮT (2-3 câu nhận định tổng quan)\n"
+        "2. CHỈ SỐ TRỌNG YẾU (nhóm theo chủ đề):\n"
+        "   - Sinh lời: ROE, ROIC, Biên gộp, Biên ròng\n"
+        "   - Đòn bẩy: D/E, Interest Coverage\n"
+        "   - Thanh khoản: Current Ratio, Quick Ratio, Cash Ratio\n"
+        "   - Dòng tiền: OCF, FCF, OCF/Net Income\n"
+        "   - Scoring: DuPont breakdown, Altman Z-Score, Piotroski F-Score\n"
+        "3. ĐÁNH GIÁ CHẤT LƯỢNG LỢI NHUẬN (dòng tiền có hỗ trợ lợi nhuận kế toán không?)\n"
+        "4. RỦI RO CẦN THEO DÕI (nếu có flag bất thường)\n\n"
+        "Mỗi chỉ số phải kèm giá trị cụ thể và đơn vị. "
+        "So sánh với trung bình ngành nếu có dữ liệu peer.",
         [get_financial_metrics],
         state,
     )}
@@ -170,20 +186,25 @@ def quant_risk_agent(state: AgentState) -> AgentState:
     logger.info("[QUANT_RISK_AGENT] Running...")
     return {"final_response": _run_agent(
         "Bạn là Quản trị Rủi ro Định lượng (Head of Quantitative Risk).\n"
-        "Nhiệm vụ: Phân tích rủi ro thị trường với các chỉ số CHUYÊN SÂU.\n\n"
+        "Nhiệm vụ: Phân tích rủi ro thị trường với các chỉ số chuyên sâu.\n\n"
         "CÓ 5 TOOLS:\n"
-        "1. get_quant_risk_score() — Risk Score tổng thể (HMM, GARCH, VaR, XGBoost)\n"
-        "2. compute_stock_risk_metrics(ticker) — VaR, Beta, Sharpe cho 1 mã cụ thể\n"
-        "3. run_what_if_simulation(usd_vnd_rate) — What-if tỷ giá\n"
-        "4. run_stress_test() — Giả lập Thiên nga đen (COVID, Lehman, 1997)\n"
-        "5. run_var_backtest() — Kiểm định Basel III (Kupiec, Christoffersen)\n\n"
-        "QUY TẮC:\n"
-        "- Nếu hỏi về rủi ro MỘT MÃ (FPT, VCB...) → dùng compute_stock_risk_metrics\n"
-        "- Nếu hỏi 'VN-INDEX thế nào' / 'thị trường ra sao' → dùng get_quant_risk_score\n"
-        "- Nếu hỏi 'nếu tỷ giá...' → dùng run_what_if_simulation\n"
-        "- Nếu hỏi 'stress test' → dùng run_stress_test\n"
-        "- Nếu hỏi 'kiểm định mô hình' → dùng run_var_backtest\n"
-        "Có thể gọi nhiều tools cùng lúc để trả lời đầy đủ.",
+        "1. get_quant_risk_score() -- Risk Score tổng thể (HMM, GARCH, VaR, XGBoost)\n"
+        "2. compute_stock_risk_metrics(ticker) -- VaR, Beta, Sharpe cho 1 mã cụ thể\n"
+        "3. run_what_if_simulation(usd_vnd_rate) -- What-if tỷ giá\n"
+        "4. run_stress_test() -- Giả lập Thiên nga đen (COVID, Lehman, 1997)\n"
+        "5. run_var_backtest() -- Kiểm định Basel III (Kupiec, Christoffersen)\n\n"
+        "QUY TẮC CHỌN TOOL:\n"
+        "- Rủi ro MỘT MÃ (FPT, VCB...) -> compute_stock_risk_metrics\n"
+        "- 'VN-INDEX thế nào' / 'thị trường ra sao' -> get_quant_risk_score\n"
+        "- 'nếu tỷ giá...' -> run_what_if_simulation\n"
+        "- 'stress test' -> run_stress_test\n"
+        "- 'kiểm định mô hình' -> run_var_backtest\n"
+        "Có thể gọi nhiều tools cùng lúc.\n\n"
+        "FORMAT OUTPUT:\n"
+        "1. ĐÁNH GIÁ RỦI RO TỔNG QUAN (1-2 câu kết luận chính)\n"
+        "2. CHỈ SỐ ĐỊNH LƯỢNG (bảng hoặc bullet, kèm giá trị và đơn vị)\n"
+        "3. PHÂN TÍCH KỊCH BẢN (nếu có stress test / what-if)\n"
+        "4. ĐIỂM CẦN LƯU Ý\n",
         [get_quant_risk_score, run_what_if_simulation, compute_stock_risk_metrics,
          run_stress_test, run_var_backtest],
         state,
@@ -196,7 +217,11 @@ def sector_agent(state: AgentState) -> AgentState:
         "Nhiệm vụ: Phân tích dòng tiền luân chuyển giữa các nhóm ngành, "
         "xác định winner/loser, đánh giá sector rotation.\n"
         "LUÔN gọi get_sector_money_flow() trước để có dữ liệu thật.\n"
-        "Khi so sánh ngành, hãy dùng cả get_sector_top_movers cho từng ngành.",
+        "Khi so sánh ngành, hãy dùng cả get_sector_top_movers cho từng ngành.\n\n"
+        "FORMAT OUTPUT:\n"
+        "1. BỨC TRANH DÒNG TIỀN (ngành nào hút/rút ròng, quy mô bao nhiêu)\n"
+        "2. SO SÁNH NGÀNH (bảng hoặc bullet: ngành, giá trị ròng, biến động)\n"
+        "3. NHẬN ĐỊNH XU HƯỚNG SECTOR ROTATION\n",
         [get_sector_money_flow, get_sector_top_movers],
         state,
     )}
@@ -207,27 +232,39 @@ def portfolio_agent(state: AgentState) -> AgentState:
         "Bạn là Quản lý Danh mục Đầu tư (Portfolio Manager).\n"
         "Nhiệm vụ: Tính toán rủi ro danh mục, đánh giá phân bổ tài sản.\n"
         "LUÔN gọi compute_portfolio_metrics để tính toán THẬT bằng covariance matrix.\n"
-        "Input format: 'TICKER:WEIGHT' phân cách dấu phẩy. VD: 'VCB:0.3,FPT:0.3,CASH:0.4'\n"
-        "Phân tích: Sharpe, Vol, Max Drawdown dự kiến, mức đa dạng hóa.",
+        "Input format: 'TICKER:WEIGHT' phân cách dấu phẩy. VD: 'VCB:0.3,FPT:0.3,CASH:0.4'\n\n"
+        "FORMAT OUTPUT:\n"
+        "1. TỔNG QUAN DANH MỤC (cấu trúc, tỷ trọng)\n"
+        "2. CHỈ SỐ RỦI RO (Sharpe, Vol, Max Drawdown, Beta portfolio)\n"
+        "3. ĐÁNH GIÁ ĐA DẠNG HÓA (tương quan, concentration risk)\n"
+        "4. ĐIỂM CẦN CÂN NHẮC\n",
         [compute_portfolio_metrics],
         state,
     )}
 
 def strategist_agent(state: AgentState) -> AgentState:
     logger.info("[STRATEGIST_AGENT] Synthesizing...")
-    # Strategist nhận kết quả từ agent trước (nếu có) trong final_response
     existing = state.get("final_response", "")
-    
+
     synthesis_prompt = (
         "Bạn là Chiến lược gia Trưởng (Chief Investment Strategist).\n"
-        "Nhiệm vụ: Tổng hợp phân tích thành bản tin ngắn gọn, sắc bén.\n\n"
+        "Nhiệm vụ: Tổng hợp phân tích thành bản tin chuyên nghiệp, sắc bén.\n\n"
+        "QUY CÁCH:\n"
+        "- KHÔNG dùng emoji hay icon.\n"
+        "- Giữ nguyên tất cả con số quan trọng từ phân tích gốc.\n"
+        "- Trình bày có heading rõ ràng, dùng bullet points.\n"
+        "- Ngắn gọn, loại bỏ thông tin lặp.\n\n"
     )
     if existing:
         synthesis_prompt += (
-            f"Đồng nghiệp chuyên gia đã phân tích như sau:\n"
-            f"---\n{existing}\n---\n"
-            f"Hãy TỔNG HỢP và bổ sung góc nhìn chiến lược. Giữ nguyên các con số quan trọng. "
-            f"Thêm nhận định về bức tranh toàn cảnh và gợi ý góc phân tích tiếp theo."
+            f"Đồng nghiệp chuyên gia đã phân tích:\n"
+            f"---\n{existing}\n---\n\n"
+            f"FORMAT OUTPUT:\n"
+            f"1. TÓM TẮT (3-5 câu, nêu bật điểm quan trọng nhất)\n"
+            f"2. CHỈ SỐ TRỌNG YẾU (giữ nguyên con số từ phân tích gốc, nhóm theo chủ đề)\n"
+            f"3. NHẬN XÉT (phân tích nhân-quả, so sánh tương đối, đánh giá chất lượng)\n"
+            f"4. RỦI RO CẦN THEO DÕI (liệt kê ngắn gọn)\n"
+            f"5. GÓC NHÌN CHIẾN LƯỢC (bối cảnh rộng hơn, gợi ý hướng phân tích tiếp)\n"
         )
     else:
         synthesis_prompt += (
@@ -235,10 +272,10 @@ def strategist_agent(state: AgentState) -> AgentState:
             "Hãy trả lời bằng kiến thức tổng quát, nhưng nêu rõ đây là nhận định chung, "
             "không dựa trên dữ liệu real-time."
         )
-    
+
     return {"final_response": _run_agent(
         synthesis_prompt,
-        [],  # Strategist dùng não thuần túy
+        [],
         state,
     )}
 
@@ -254,7 +291,7 @@ def reviewer_agent(state: AgentState) -> AgentState:
             return {
                 "review_status": "FAIL",
                 "final_response": (
-                    "⚠️ Hệ thống phát hiện nội dung vi phạm quy định (khuyến nghị giao dịch). "
+                    "[Cảnh báo] Hệ thống phát hiện nội dung vi phạm quy định (khuyến nghị giao dịch). "
                     "Phản hồi đã bị chặn theo nguyên tắc an toàn. "
                     "Vui lòng hỏi lại theo hướng phân tích rủi ro."
                 ),
@@ -349,7 +386,7 @@ def run_chat(user_message: str) -> dict:
     except Exception as e:
         logger.error(f"[MULTI-AGENT ERROR] {traceback.format_exc()}")
         return {
-            "text": f"⚠️ Hệ thống gặp lỗi khi xử lý: {str(e)}",
+            "text": f"[Lỗi] Hệ thống gặp sự cố khi xử lý: {str(e)}",
             "route": "error",
             "provenance": {"model_version": "multi-agent-v2", "error": str(e)},
         }

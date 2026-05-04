@@ -1,0 +1,46 @@
+# Python
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Data & models (mounted at runtime, not baked in)
+data/
+*.parquet
+*.pkl
+
+# Git & IDE
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Misc
+notebooks/
+scripts/
+tests/
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+.home-vnstock/
+.ipython/
+.matplotlib/

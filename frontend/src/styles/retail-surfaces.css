@@ -1,0 +1,63 @@
+.app-shell--financial-health .surface-panel > section,
+.app-shell--learning .surface-panel > section,
+.app-shell--goals .surface-panel > section,
+.app-shell--insights .surface-panel > section,
+.app-shell--community .surface-panel > section {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--financial-health .surface-panel > section > h1,
+.app-shell--learning .surface-panel > section > h1,
+.app-shell--goals .surface-panel > section > h1,
+.app-shell--insights .surface-panel > section > h1,
+.app-shell--community .surface-panel > section > h1,
+.app-shell--financial-health .surface-panel > section > p,
+.app-shell--learning .surface-panel > section > p,
+.app-shell--goals .surface-panel > section > p,
+.app-shell--insights .surface-panel > section > p,
+.app-shell--community .surface-panel > section > p {
+  max-width: none;
+}
+
+.app-shell--learning .surface-panel > section.learn-os-page--reader {
+  display: block;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--learning .surface-panel > section.learn-os-page--reader > div {
+  display: block;
+  gap: 0;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: #030b0d;
+  box-shadow: none;
+}
+
+.app-shell--learning .surface-panel > section.learn-os-page--reader :is(section, aside, header, div, figure) {
+  box-shadow: none;
+}
+
+.app-shell--learning .surface-panel > section.learn-os-page--reader button {
+  width: auto;
+  min-height: 0;
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+
+.app-shell--learning .surface-panel > section.learn-os-page--reader :is(input, textarea) {
+  border-radius: 0.375rem;
+  box-shadow: none;
+}

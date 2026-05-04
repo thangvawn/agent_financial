@@ -41,8 +41,21 @@ def _get_cached_trained_model(
     vn30_panel: pd.DataFrame | None,
     feature_cols_by_horizon: dict | None,
     estimator_params_by_horizon: dict | None,
+    *,
+    use_model_cache: bool = True,
 ) -> tuple[TrainedRiskModel, dict]:
     global _LOADED_MODEL
+    cache_version = version.replace("-scenario", "")
+
+    if not use_model_cache:
+        return train_risk_model(
+            panel,
+            version=cache_version,
+            vn30_panel=vn30_panel,
+            feature_cols_by_horizon=feature_cols_by_horizon,
+            estimator_params_by_horizon=estimator_params_by_horizon,
+        )
+
     if _LOADED_MODEL is not None:
         return _LOADED_MODEL
 
@@ -54,7 +67,6 @@ def _get_cached_trained_model(
         return _LOADED_MODEL
 
     logger.warning("No pre-trained model at %s — falling back to dynamic training", _DEFAULT_MODEL_PATH)
-    cache_version = version.replace("-scenario", "")
     res = train_risk_model(
         panel,
         version=cache_version,
@@ -99,6 +111,7 @@ def run_quant_eod(
     if benchmark_dir is not None:
         benchmark_cfg = resolve_benchmark_training_config(benchmark_dir)
 
+    use_model_cache = model_version == "skhgb-v4-hybrid" and str(benchmark_dir) == "data/models"
     trained, metrics = _get_cached_trained_model(
         df,
         as_of,
@@ -106,6 +119,7 @@ def run_quant_eod(
         vn30_panel=vn30_panel,
         feature_cols_by_horizon=benchmark_cfg.feature_cols_by_horizon if benchmark_cfg else None,
         estimator_params_by_horizon=benchmark_cfg.estimator_params_by_horizon if benchmark_cfg else None,
+        use_model_cache=use_model_cache,
     )
     feat_df = prepare_features(df, vn30_panel=vn30_panel)
     pred_row = row_at_date(feat_df, pd.Timestamp(as_of))

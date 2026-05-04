@@ -1,0 +1,1756 @@
+/* Final Pro Lab cockpit overrides.
+   Loaded after all Pro Lab child-page CSS so every child module fits the
+   same cockpit system. The palette is deliberately tiered: shell, page canvas,
+   cards, headers, and inset controls all use different values so child pages do
+   not visually merge with their frames. */
+
+.app-shell--pro-lab {
+  --cockpit-bg: #081119;
+  --cockpit-frame: #0e1a24;
+  --cockpit-canvas: #101f2a;
+  --cockpit-panel: #172a38;
+  --cockpit-panel-raised: #1e3443;
+  --cockpit-panel-soft: #0b1720;
+  --cockpit-inset: #071018;
+  --cockpit-border: rgba(149, 184, 197, 0.2);
+  --cockpit-border-strong: rgba(79, 209, 180, 0.38);
+  --cockpit-text: #f2fbf8;
+  --cockpit-muted: rgba(218, 234, 230, 0.72);
+  --cockpit-subtle: rgba(218, 234, 230, 0.48);
+  --cockpit-accent: #4fd1b4;
+  --cockpit-blue: #62b2ff;
+  --cockpit-green: #45df93;
+  --cockpit-amber: #ffd166;
+  --cockpit-red: #ff6b6b;
+  --cockpit-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  --cockpit-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.2);
+
+  background:
+    linear-gradient(180deg, #101c25 0%, #081119 36%, #060c12 100%) !important;
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab .surface-panel {
+  border: 1px solid rgba(149, 184, 197, 0.12) !important;
+  background:
+    linear-gradient(180deg, rgba(16, 31, 42, 0.98), rgba(8, 17, 25, 0.98)) !important;
+  color: var(--cockpit-text) !important;
+  box-shadow: var(--cockpit-shadow) !important;
+  overflow-x: hidden;
+}
+
+.app-shell--pro-lab .pl {
+  --pl-bg: transparent;
+  --pl-surface: var(--cockpit-panel);
+  --pl-surface-alt: var(--cockpit-inset);
+  --pl-surface-card: linear-gradient(145deg, var(--cockpit-panel-raised), var(--cockpit-panel));
+  --pl-border: var(--cockpit-border);
+  --pl-border-strong: var(--cockpit-border-strong);
+  --pl-text: var(--cockpit-text);
+  --pl-text-muted: var(--cockpit-muted);
+  --pl-text-subtle: var(--cockpit-subtle);
+  --pl-accent: var(--cockpit-accent);
+  --pl-accent-soft: rgba(79, 209, 180, 0.1);
+  --pl-blue: var(--cockpit-blue);
+  --pl-green: var(--cockpit-green);
+  --pl-amber: var(--cockpit-amber);
+  --pl-red: var(--cockpit-red);
+  --pl-shadow-sm: var(--cockpit-shadow-soft);
+  --pl-shadow-md: var(--cockpit-shadow);
+  background: transparent !important;
+}
+
+.app-shell--pro-lab .pl-module-nav,
+.app-shell--pro-lab .pl-module-switcher {
+  width: 100%;
+  max-width: none;
+}
+
+.app-shell--pro-lab .pl-module-nav {
+  align-items: center;
+  padding: 10px 10px 0;
+}
+
+.app-shell--pro-lab .pl-module-nav__back,
+.app-shell--pro-lab .pl-module-switcher__btn,
+.app-shell--pro-lab .sc-breadcrumb__link,
+.app-shell--pro-lab .os-breadcrumb__link,
+.app-shell--pro-lab .bv-breadcrumb__link,
+.app-shell--pro-lab .de-breadcrumb__link,
+.app-shell--pro-lab .jr-breadcrumb__link,
+.app-shell--pro-lab .ac-breadcrumb__link {
+  border-color: rgba(79, 209, 180, 0.2) !important;
+  background: rgba(79, 209, 180, 0.06) !important;
+  color: #4fd1b4 !important;
+}
+
+.app-shell--pro-lab .pl-module-switcher {
+  position: sticky;
+  top: 5.2rem;
+  z-index: 10;
+  border-radius: 10px;
+  border: 1px solid rgba(149, 184, 197, 0.16);
+  background: rgba(14, 28, 39, 0.94) !important;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.app-shell--pro-lab .pl-module-switcher__btn {
+  color: rgba(218, 234, 230, 0.68) !important;
+}
+
+.app-shell--pro-lab .pl-module-switcher__btn--active {
+  background: #4fd1b4 !important;
+  border-color: #4fd1b4 !important;
+  color: #071016 !important;
+}
+
+.app-shell--pro-lab .pro-lab-section,
+.app-shell--pro-lab .pro-lab-overview-grid,
+.app-shell--pro-lab .pro-lab-provider-grid,
+.app-shell--pro-lab .pro-lab-capability-grid,
+.app-shell--pro-lab .pro-lab-stack,
+.app-shell--pro-lab .pro-lab-experiment-grid,
+.app-shell--pro-lab .pro-lab-log-list,
+.app-shell--pro-lab .pro-lab-blueprint-layout,
+.app-shell--pro-lab .pro-lab-runs-layout {
+  width: 100%;
+  max-width: none;
+  gap: 8px;
+}
+
+.app-shell--pro-lab .pro-lab-card,
+.app-shell--pro-lab .pro-lab-provider-card,
+.app-shell--pro-lab .pro-lab-mini-card,
+.app-shell--pro-lab .pro-lab-action-card,
+.app-shell--pro-lab .pro-lab-access-card,
+.app-shell--pro-lab .pro-lab-run-console,
+.app-shell--pro-lab .pro-lab-definition-list div,
+.app-shell--pro-lab .pro-lab-compare-grid div,
+.app-shell--pro-lab .pro-lab-log-list div,
+.app-shell--pro-lab .pro-lab-checklist-grid article {
+  border-radius: 8px !important;
+  border-color: var(--cockpit-border) !important;
+  background:
+    linear-gradient(145deg, var(--cockpit-panel-raised), var(--cockpit-panel)) !important;
+  color: #edf7f5 !important;
+  box-shadow: var(--cockpit-shadow-soft) !important;
+}
+
+.app-shell--pro-lab .pro-lab-eyebrow,
+.app-shell--pro-lab .pro-lab-link-button {
+  color: #4fd1b4 !important;
+}
+
+.app-shell--pro-lab .pro-lab-badge {
+  border-color: rgba(136, 170, 184, 0.14) !important;
+  background: rgba(218, 234, 230, 0.06) !important;
+  color: rgba(218, 234, 230, 0.72) !important;
+}
+
+.app-shell--pro-lab .sc,
+.app-shell--pro-lab .bs-page,
+.app-shell--pro-lab .os,
+.app-shell--pro-lab .bv,
+.app-shell--pro-lab .de-page,
+.app-shell--pro-lab .jr,
+.app-shell--pro-lab .ac {
+  min-height: calc(100vh - 6rem);
+  width: 100%;
+  max-width: none;
+  padding: 14px !important;
+  color: var(--cockpit-text) !important;
+  background:
+    linear-gradient(180deg, rgba(16, 31, 42, 0.82), rgba(8, 17, 25, 0.9)),
+    var(--cockpit-canvas) !important;
+  font-family: Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}
+
+.app-shell--pro-lab .sc {
+  --sc-bg: var(--cockpit-bg);
+  --sc-surface: var(--cockpit-panel);
+  --sc-surface-alt: var(--cockpit-panel-soft);
+  --sc-border: var(--cockpit-border);
+  --sc-border-strong: var(--cockpit-border-strong);
+  --sc-text: var(--cockpit-text);
+  --sc-text-muted: var(--cockpit-muted);
+  --sc-text-subtle: var(--cockpit-subtle);
+  --sc-accent: var(--cockpit-accent);
+  --sc-accent-soft: rgba(79, 209, 180, 0.1);
+  --sc-accent-blue: var(--cockpit-blue);
+}
+
+.app-shell--pro-lab .sc > *,
+.app-shell--pro-lab .bs-page > *,
+.app-shell--pro-lab .os > *,
+.app-shell--pro-lab .bv > *,
+.app-shell--pro-lab .de-page > *,
+.app-shell--pro-lab .jr-header,
+.app-shell--pro-lab .jr-layout,
+.app-shell--pro-lab .ac-header,
+.app-shell--pro-lab .ac-warning,
+.app-shell--pro-lab .ac-actions,
+.app-shell--pro-lab .ac-layout {
+  width: 100%;
+  max-width: none !important;
+  margin-inline: 0 !important;
+}
+
+.app-shell--pro-lab .sc-header,
+.app-shell--pro-lab .bs-header,
+.app-shell--pro-lab .os-breadcrumb,
+.app-shell--pro-lab .bv-header,
+.app-shell--pro-lab .de-breadcrumb,
+.app-shell--pro-lab .jr-header,
+.app-shell--pro-lab .ac-header {
+  border-radius: 8px;
+}
+
+.app-shell--pro-lab .sc-hero,
+.app-shell--pro-lab .bs-header,
+.app-shell--pro-lab .bv-header,
+.app-shell--pro-lab .ac-header,
+.app-shell--pro-lab .de-breadcrumb,
+.app-shell--pro-lab .jr-header {
+  border: 1px solid var(--cockpit-border);
+  background:
+    linear-gradient(145deg, rgba(31, 56, 71, 0.96), rgba(18, 35, 48, 0.96)) !important;
+  box-shadow: var(--cockpit-shadow-soft);
+}
+
+.app-shell--pro-lab .sc-hero {
+  min-height: 160px;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.app-shell--pro-lab .sc-card,
+.app-shell--pro-lab .sc-input-card,
+.app-shell--pro-lab .sc-output-card,
+.app-shell--pro-lab .bs-card,
+.app-shell--pro-lab .bs-agent-card,
+.app-shell--pro-lab .bs-metric-card,
+.app-shell--pro-lab .bs-kpi-card,
+.app-shell--pro-lab .os-card,
+.app-shell--pro-lab .os-scenario-card,
+.app-shell--pro-lab .os-metric-card,
+.app-shell--pro-lab .os-kv,
+.app-shell--pro-lab .bv-card,
+.app-shell--pro-lab .bv-config,
+.app-shell--pro-lab .bv-vtab,
+.app-shell--pro-lab .bv-wf-item,
+.app-shell--pro-lab .bv-fail-item,
+.app-shell--pro-lab .bv-oos-item,
+.app-shell--pro-lab .de-panel,
+.app-shell--pro-lab .de-routing-map__node,
+.app-shell--pro-lab .de-routing-map__hub,
+.app-shell--pro-lab .de-metric,
+.app-shell--pro-lab .de-format-card,
+.app-shell--pro-lab .de-summary,
+.app-shell--pro-lab .de-file-card,
+.app-shell--pro-lab .jr-card,
+.app-shell--pro-lab .jr-metric,
+.app-shell--pro-lab .jr-issue,
+.app-shell--pro-lab .jr-notes__body,
+.app-shell--pro-lab .jr-outline__item,
+.app-shell--pro-lab .jr-content-section,
+.app-shell--pro-lab .jr-attachment,
+.app-shell--pro-lab .ac-card,
+.app-shell--pro-lab .ac-plan-item,
+.app-shell--pro-lab .ac-monitor-card,
+.app-shell--pro-lab .ac-check-row,
+.app-shell--pro-lab .ac-approval-step,
+.app-shell--pro-lab .ac-health-check,
+.app-shell--pro-lab .pro-lab-card,
+.app-shell--pro-lab .backtest-studio__panel {
+  border-radius: 8px !important;
+  border-color: var(--cockpit-border) !important;
+  background:
+    linear-gradient(145deg, var(--cockpit-panel-raised), var(--cockpit-panel)) !important;
+  color: var(--cockpit-text) !important;
+  box-shadow: var(--cockpit-shadow-soft) !important;
+}
+
+.app-shell--pro-lab .sc-grid,
+.app-shell--pro-lab .bs-body,
+.app-shell--pro-lab .os-columns,
+.app-shell--pro-lab .bv-layout,
+.app-shell--pro-lab .de-columns,
+.app-shell--pro-lab .jr-layout,
+.app-shell--pro-lab .ac-layout,
+.app-shell--pro-lab .pro-lab-blueprint-layout,
+.app-shell--pro-lab .pro-lab-runs-layout {
+  gap: 8px !important;
+}
+
+.app-shell--pro-lab .sc-hero__title,
+.app-shell--pro-lab .sc-card__title,
+.app-shell--pro-lab .sc-draft__name,
+.app-shell--pro-lab .bs-section-title,
+.app-shell--pro-lab .bs-agent-name,
+.app-shell--pro-lab .bs-card__title,
+.app-shell--pro-lab .os-section-title,
+.app-shell--pro-lab .os-card__title,
+.app-shell--pro-lab .bv-header__title,
+.app-shell--pro-lab .bv-section-title,
+.app-shell--pro-lab .bv-card__title,
+.app-shell--pro-lab .de-panel__title,
+.app-shell--pro-lab .jr-card__title,
+.app-shell--pro-lab .jr-report-title,
+.app-shell--pro-lab .jr-content-section__title,
+.app-shell--pro-lab .ac-title,
+.app-shell--pro-lab .ac-card__title,
+.app-shell--pro-lab .pro-lab-card h2,
+.app-shell--pro-lab .pro-lab-card h3 {
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab .sc-hero__sub,
+.app-shell--pro-lab .sc-card__sub,
+.app-shell--pro-lab .sc-draft__rationale,
+.app-shell--pro-lab .bs-section-sub,
+.app-shell--pro-lab .bs-agent-role,
+.app-shell--pro-lab .bs-muted,
+.app-shell--pro-lab .os-section-subtitle,
+.app-shell--pro-lab .os-table__muted,
+.app-shell--pro-lab .bv-header__sub,
+.app-shell--pro-lab .de-panel__subtitle,
+.app-shell--pro-lab .jr-card__sub,
+.app-shell--pro-lab .jr-muted,
+.app-shell--pro-lab .ac-subtitle,
+.app-shell--pro-lab .ac-plan-item__desc,
+.app-shell--pro-lab .pro-lab-muted,
+.app-shell--pro-lab .pro-lab-card p {
+  color: var(--cockpit-muted) !important;
+}
+
+.app-shell--pro-lab .sc-breadcrumb__sep,
+.app-shell--pro-lab .sc-breadcrumb__current,
+.app-shell--pro-lab .bs-breadcrumb__sep,
+.app-shell--pro-lab .bs-breadcrumb__current,
+.app-shell--pro-lab .os-breadcrumb__sep,
+.app-shell--pro-lab .os-breadcrumb__current,
+.app-shell--pro-lab .bv-breadcrumb__sep,
+.app-shell--pro-lab .bv-breadcrumb__current,
+.app-shell--pro-lab .de-breadcrumb__sep,
+.app-shell--pro-lab .de-breadcrumb__current,
+.app-shell--pro-lab .jr-breadcrumb__sep,
+.app-shell--pro-lab .jr-breadcrumb__current,
+.app-shell--pro-lab .ac-breadcrumb__sep,
+.app-shell--pro-lab .ac-breadcrumb__current {
+  color: var(--cockpit-muted) !important;
+}
+
+.app-shell--pro-lab .sc-input,
+.app-shell--pro-lab .sc-select,
+.app-shell--pro-lab .sc-textarea,
+.app-shell--pro-lab .sc .sc-input,
+.app-shell--pro-lab .sc .sc-select,
+.app-shell--pro-lab .sc .sc-textarea,
+.app-shell--pro-lab .bs-input,
+.app-shell--pro-lab .bs-select,
+.app-shell--pro-lab .bs-textarea,
+.app-shell--pro-lab .bs-page .bs-input,
+.app-shell--pro-lab .bs-page .bs-select,
+.app-shell--pro-lab .bs-page .bs-textarea,
+.app-shell--pro-lab .os-num-input,
+.app-shell--pro-lab .os-select,
+.app-shell--pro-lab .os .os-num-input,
+.app-shell--pro-lab .os .os-select,
+.app-shell--pro-lab .bv-select,
+.app-shell--pro-lab .bv .bv-select,
+.app-shell--pro-lab .jr-select,
+.app-shell--pro-lab .jr .jr-select,
+.app-shell--pro-lab .ac-input,
+.app-shell--pro-lab .ac-select,
+.app-shell--pro-lab .ac .ac-input,
+.app-shell--pro-lab .ac .ac-select,
+.app-shell--pro-lab .pro-lab-blueprint-editor input,
+.app-shell--pro-lab .pro-lab-blueprint-editor textarea,
+.app-shell--pro-lab .pro-lab-blueprint-editor select {
+  border-color: var(--cockpit-border) !important;
+  background: var(--cockpit-inset) !important;
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab .sc-btn--primary,
+.app-shell--pro-lab .bs-btn--primary,
+.app-shell--pro-lab .os-btn--run,
+.app-shell--pro-lab .bv-btn--primary,
+.app-shell--pro-lab .de-btn--primary,
+.app-shell--pro-lab .jr-btn--primary,
+.app-shell--pro-lab .ac-btn,
+.app-shell--pro-lab .pro-lab-action-card button {
+  border-color: var(--cockpit-accent) !important;
+  background: var(--cockpit-accent) !important;
+  color: #061014 !important;
+}
+
+.app-shell--pro-lab .sc-btn--ghost,
+.app-shell--pro-lab .bs-btn--outline,
+.app-shell--pro-lab .os-btn--outline,
+.app-shell--pro-lab .bv-btn--outline,
+.app-shell--pro-lab .de-btn--outline,
+.app-shell--pro-lab .jr-btn--ghost,
+.app-shell--pro-lab .ac-toggle-btn,
+.app-shell--pro-lab .ac-add-btn {
+  border-color: var(--cockpit-border-strong) !important;
+  background: rgba(79, 209, 180, 0.06) !important;
+  color: var(--cockpit-accent) !important;
+}
+
+.app-shell--pro-lab table,
+.app-shell--pro-lab .os-table,
+.app-shell--pro-lab .bv-table,
+.app-shell--pro-lab .de-table,
+.app-shell--pro-lab .ac-risk-table {
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab th,
+.app-shell--pro-lab td,
+.app-shell--pro-lab .os-table th,
+.app-shell--pro-lab .os-table td,
+.app-shell--pro-lab .bv-table th,
+.app-shell--pro-lab .bv-table td,
+.app-shell--pro-lab .de-table th,
+.app-shell--pro-lab .de-table td,
+.app-shell--pro-lab .ac-risk-table th,
+.app-shell--pro-lab .ac-risk-table td {
+  border-color: var(--cockpit-border) !important;
+}
+
+.app-shell--pro-lab .sc-confidence--high,
+.app-shell--pro-lab .bs-badge--ok,
+.app-shell--pro-lab .bv-badge--pass,
+.app-shell--pro-lab .bv-badge--good,
+.app-shell--pro-lab .os-badge--pass,
+.app-shell--pro-lab .jr-badge--green,
+.app-shell--pro-lab .ac-badge--green,
+.app-shell--pro-lab .de-badge--operational {
+  color: var(--cockpit-green) !important;
+  background: rgba(57, 217, 138, 0.12) !important;
+  border-color: rgba(57, 217, 138, 0.22) !important;
+}
+
+.app-shell--pro-lab .bv-chart-wrap,
+.app-shell--pro-lab .bv-mc-chart,
+.app-shell--pro-lab .jr-chart__canvas,
+.app-shell--pro-lab .de-routing-map,
+.app-shell--pro-lab .ac-donut-wrap {
+  border-color: var(--cockpit-border) !important;
+  background:
+    linear-gradient(180deg, rgba(7, 16, 24, 0.92), rgba(10, 24, 34, 0.92)) !important;
+}
+
+/* Contrast repair for child modules that still carried older white section/header rules. */
+.app-shell--pro-lab .bs-page [class*="-section"],
+.app-shell--pro-lab .bs-page [class*="__section"],
+.app-shell--pro-lab .bs-section-head,
+.app-shell--pro-lab .bs-header,
+.app-shell--pro-lab .bs-header__actions,
+.app-shell--pro-lab .os [class*="-section"],
+.app-shell--pro-lab .os [class*="__section"],
+.app-shell--pro-lab .os-section-header,
+.app-shell--pro-lab .bv [class*="-section"],
+.app-shell--pro-lab .bv [class*="__section"],
+.app-shell--pro-lab .bv-header,
+.app-shell--pro-lab .bv-card__head,
+.app-shell--pro-lab .de-page [class*="-section"],
+.app-shell--pro-lab .de-page [class*="__section"],
+.app-shell--pro-lab .de-panel__header,
+.app-shell--pro-lab .jr [class*="-section"],
+.app-shell--pro-lab .jr [class*="__section"],
+.app-shell--pro-lab .jr-section-header,
+.app-shell--pro-lab .jr-content-section,
+.app-shell--pro-lab .ac [class*="-section"],
+.app-shell--pro-lab .ac [class*="__section"],
+.app-shell--pro-lab .ac-header,
+.app-shell--pro-lab .ac-header__top {
+  background: transparent !important;
+  color: var(--cockpit-text) !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .bs-section-head,
+.app-shell--pro-lab .os-section-header,
+.app-shell--pro-lab .bv-header__row,
+.app-shell--pro-lab .de-panel__header,
+.app-shell--pro-lab .jr-section-header,
+.app-shell--pro-lab .ac-header__top {
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.app-shell--pro-lab .bs-page h1,
+.app-shell--pro-lab .bs-page h2,
+.app-shell--pro-lab .bs-page h3,
+.app-shell--pro-lab .bs-page h4,
+.app-shell--pro-lab .bs-page strong,
+.app-shell--pro-lab .os h1,
+.app-shell--pro-lab .os h2,
+.app-shell--pro-lab .os h3,
+.app-shell--pro-lab .os h4,
+.app-shell--pro-lab .os strong,
+.app-shell--pro-lab .bv h1,
+.app-shell--pro-lab .bv h2,
+.app-shell--pro-lab .bv h3,
+.app-shell--pro-lab .bv h4,
+.app-shell--pro-lab .bv strong,
+.app-shell--pro-lab .de-page h1,
+.app-shell--pro-lab .de-page h2,
+.app-shell--pro-lab .de-page h3,
+.app-shell--pro-lab .de-page h4,
+.app-shell--pro-lab .de-page strong,
+.app-shell--pro-lab .jr h1,
+.app-shell--pro-lab .jr h2,
+.app-shell--pro-lab .jr h3,
+.app-shell--pro-lab .jr h4,
+.app-shell--pro-lab .jr strong,
+.app-shell--pro-lab .ac h1,
+.app-shell--pro-lab .ac h2,
+.app-shell--pro-lab .ac h3,
+.app-shell--pro-lab .ac h4,
+.app-shell--pro-lab .ac strong {
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab .bs-page p,
+.app-shell--pro-lab .bs-page span,
+.app-shell--pro-lab .bs-page label,
+.app-shell--pro-lab .os p,
+.app-shell--pro-lab .os span,
+.app-shell--pro-lab .os label,
+.app-shell--pro-lab .bv p,
+.app-shell--pro-lab .bv span,
+.app-shell--pro-lab .bv label,
+.app-shell--pro-lab .de-page p,
+.app-shell--pro-lab .de-page span,
+.app-shell--pro-lab .de-page label,
+.app-shell--pro-lab .jr p,
+.app-shell--pro-lab .jr span,
+.app-shell--pro-lab .jr label,
+.app-shell--pro-lab .ac p,
+.app-shell--pro-lab .ac span,
+.app-shell--pro-lab .ac label {
+  color: inherit;
+}
+
+.app-shell--pro-lab .bs-field__label,
+.app-shell--pro-lab .os-slider-group__label,
+.app-shell--pro-lab .os-config__label,
+.app-shell--pro-lab .bv-config__label,
+.app-shell--pro-lab .de-routing-map__label,
+.app-shell--pro-lab .de-export-options__label,
+.app-shell--pro-lab .de-export-config__label,
+.app-shell--pro-lab .jr-metric__label,
+.app-shell--pro-lab .ac-plan-item__label,
+.app-shell--pro-lab .ac-kv__key {
+  color: var(--cockpit-muted) !important;
+}
+
+.app-shell--pro-lab .bs-field__wrap,
+.app-shell--pro-lab .bs-input,
+.app-shell--pro-lab .bs-select,
+.app-shell--pro-lab .bs-textarea,
+.app-shell--pro-lab .bs-page .bs-field__wrap,
+.app-shell--pro-lab .bs-page .bs-input,
+.app-shell--pro-lab .bs-page .bs-select,
+.app-shell--pro-lab .bs-page .bs-textarea,
+.app-shell--pro-lab .os-num-input,
+.app-shell--pro-lab .os-select,
+.app-shell--pro-lab .os .os-num-input,
+.app-shell--pro-lab .os .os-select,
+.app-shell--pro-lab .bv-select,
+.app-shell--pro-lab .bv .bv-select,
+.app-shell--pro-lab .de-format-card,
+.app-shell--pro-lab .de-check-item,
+.app-shell--pro-lab .jr-notes__body,
+.app-shell--pro-lab .jr-notes__toolbar,
+.app-shell--pro-lab .jr-report-body,
+.app-shell--pro-lab .jr .jr-notes__body,
+.app-shell--pro-lab .jr .jr-notes__toolbar,
+.app-shell--pro-lab .jr .jr-report-body,
+.app-shell--pro-lab .ac-input,
+.app-shell--pro-lab .ac-select,
+.app-shell--pro-lab .ac-tag,
+.app-shell--pro-lab .ac-toggle-row,
+.app-shell--pro-lab .ac .ac-input,
+.app-shell--pro-lab .ac .ac-select,
+.app-shell--pro-lab .ac .ac-tag,
+.app-shell--pro-lab .ac .ac-toggle-row {
+  border-color: var(--cockpit-border) !important;
+  background: var(--cockpit-inset) !important;
+  color: var(--cockpit-text) !important;
+}
+
+.app-shell--pro-lab .bs-input::placeholder,
+.app-shell--pro-lab .bs-textarea::placeholder,
+.app-shell--pro-lab .sc-textarea::placeholder,
+.app-shell--pro-lab .sc-input::placeholder,
+.app-shell--pro-lab .ac-input::placeholder {
+  color: rgba(218, 234, 230, 0.38) !important;
+}
+
+.app-shell--pro-lab .bs-empty,
+.app-shell--pro-lab .sc-empty,
+.app-shell--pro-lab .jr-empty,
+.app-shell--pro-lab .ac-empty {
+  color: var(--cockpit-muted) !important;
+}
+
+/* Final hierarchy pass: keep child-page headers visually separate from the
+   page canvas after the generic contrast-repair block above. */
+.app-shell--pro-lab .sc-hero,
+.app-shell--pro-lab .bs-header,
+.app-shell--pro-lab .os-breadcrumb,
+.app-shell--pro-lab .bv-header,
+.app-shell--pro-lab .de-breadcrumb,
+.app-shell--pro-lab .jr-header,
+.app-shell--pro-lab .ac-header {
+  border: 1px solid var(--cockpit-border) !important;
+  background:
+    linear-gradient(145deg, rgba(31, 56, 71, 0.98), rgba(18, 35, 48, 0.98)) !important;
+  color: var(--cockpit-text) !important;
+  box-shadow: var(--cockpit-shadow-soft) !important;
+}
+
+.app-shell--pro-lab .sc-card,
+.app-shell--pro-lab .bs-card,
+.app-shell--pro-lab .os-card,
+.app-shell--pro-lab .bv-card,
+.app-shell--pro-lab .de-panel,
+.app-shell--pro-lab .jr-card,
+.app-shell--pro-lab .ac-card {
+  background:
+    linear-gradient(145deg, var(--cockpit-panel-raised), var(--cockpit-panel)) !important;
+}
+
+@media (max-width: 1180px) {
+  .app-shell--pro-lab .sc-grid,
+  .app-shell--pro-lab .bs-body,
+  .app-shell--pro-lab .os-columns,
+  .app-shell--pro-lab .bv-layout,
+  .app-shell--pro-lab .de-columns,
+  .app-shell--pro-lab .jr-layout,
+  .app-shell--pro-lab .ac-layout,
+  .app-shell--pro-lab .pro-lab-blueprint-layout,
+  .app-shell--pro-lab .pro-lab-runs-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell--pro-lab .pl-module-switcher {
+    top: 4.8rem;
+  }
+
+  .app-shell--pro-lab .sc,
+  .app-shell--pro-lab .bs-page,
+  .app-shell--pro-lab .os,
+  .app-shell--pro-lab .bv,
+  .app-shell--pro-lab .de-page,
+  .app-shell--pro-lab .jr,
+  .app-shell--pro-lab .ac {
+    padding: 6px !important;
+  }
+}
+
+/* Reference cockpit pass: child modules use the dense terminal layout from the
+   supplied mockups. The Pro Lab module switcher is intentionally removed here;
+   each child page carries its own local header and controls. */
+.app-shell--pro-lab .pl--module-page {
+  gap: 8px !important;
+  min-height: 100vh;
+  padding: 4px 8px 10px !important;
+  background: #061119 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .pl-module-nav {
+  display: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .pl-module-switcher {
+  display: flex !important;
+  position: relative;
+  top: auto;
+  z-index: 18;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 8px;
+  padding: 5px;
+  gap: 4px;
+  border: 1px solid rgba(122, 165, 181, 0.24) !important;
+  border-radius: 9px;
+  background: rgba(8, 20, 29, 0.9) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  overflow-x: auto;
+}
+
+.app-shell--pro-lab .pl--module-page .pl-module-switcher__btn {
+  flex: 0 0 auto;
+  min-height: 30px !important;
+  padding: 7px 11px !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: rgba(218, 234, 230, 0.72) !important;
+  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .pl-module-switcher__btn:hover {
+  border-color: rgba(85, 216, 189, 0.22) !important;
+  background: rgba(85, 216, 189, 0.08) !important;
+  color: #effffb !important;
+}
+
+.app-shell--pro-lab .pl--module-page .pl-module-switcher__btn--active {
+  border-color: rgba(85, 216, 189, 0.42) !important;
+  background: rgba(85, 216, 189, 0.14) !important;
+  color: #ffffff !important;
+}
+
+.app-shell--pro-lab .pl--module-page > .os,
+.app-shell--pro-lab .pl--module-page > .bs-page,
+.app-shell--pro-lab .pl--module-page > .sc,
+.app-shell--pro-lab .pl--module-page > .bv,
+.app-shell--pro-lab .pl--module-page > .de-page,
+.app-shell--pro-lab .pl--module-page > .jr,
+.app-shell--pro-lab .pl--module-page > .ac {
+  --cockpit-bg: #07141d;
+  --cockpit-canvas: #0a1720;
+  --cockpit-panel: #18303f;
+  --cockpit-panel-raised: #1d394a;
+  --cockpit-inset: #08141d;
+  --cockpit-border: rgba(122, 165, 181, 0.34);
+  --cockpit-border-soft: rgba(122, 165, 181, 0.18);
+  --cockpit-text: #f4fbf9;
+  --cockpit-muted: #a9bdba;
+  --cockpit-subtle: #607a7a;
+  --cockpit-accent: #55d8bd;
+  --cockpit-blue: #3e8cff;
+  --cockpit-red: #ff5b67;
+  --cockpit-amber: #ffac33;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: calc(100vh - 98px);
+  padding: 0 !important;
+  color: var(--cockpit-text) !important;
+  background: var(--cockpit-canvas) !important;
+}
+
+.app-shell--pro-lab .pl--module-page > .sc {
+  --sc-bg: var(--cockpit-canvas);
+  --sc-surface: #193241;
+  --sc-surface-alt: #102432;
+  --sc-border: rgba(122, 165, 181, 0.34);
+  --sc-border-strong: rgba(85, 216, 189, 0.44);
+  --sc-text: #f4fbf9;
+  --sc-text-muted: #b6c9c6;
+  --sc-text-subtle: #8da5a3;
+  --sc-accent: #55d8bd;
+  --sc-accent-soft: rgba(85, 216, 189, 0.1);
+  --sc-accent-blue: #69a7ff;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-header {
+  display: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .bs-header,
+.app-shell--pro-lab .pl--module-page .de-breadcrumb,
+.app-shell--pro-lab .pl--module-page .jr-header {
+  display: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-hero {
+  min-height: 178px;
+  padding: 30px 32px !important;
+  border: 1px solid var(--cockpit-border) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #1a3444, #142b3a) !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-hero__kicker {
+  color: #c4d5d1 !important;
+  letter-spacing: 0.18em;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-hero__title {
+  max-width: 720px;
+  color: #f4fbf9 !important;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  line-height: 1.05;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell--pro-lab .pl--module-page .sc-hero__sub,
+.app-shell--pro-lab .pl--module-page .sc-card__sub,
+.app-shell--pro-lab .pl--module-page .sc-disclaimer,
+.app-shell--pro-lab .pl--module-page .sc-empty {
+  color: #bfd1ce !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-card,
+.app-shell--pro-lab .pl--module-page .sc-input-card,
+.app-shell--pro-lab .pl--module-page .sc-output-card {
+  border: 1px solid var(--cockpit-border) !important;
+  border-radius: 8px !important;
+  background: #193241 !important;
+  color: #f4fbf9 !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-card__title,
+.app-shell--pro-lab .pl--module-page .sc-draft__name,
+.app-shell--pro-lab .pl--module-page .sc-draft__section h4,
+.app-shell--pro-lab .pl--module-page .sc-bullet-list,
+.app-shell--pro-lab .pl--module-page .sc-numbered-list {
+  color: #f4fbf9 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-textarea,
+.app-shell--pro-lab .pl--module-page .sc-select,
+.app-shell--pro-lab .pl--module-page .sc-input {
+  border-color: rgba(122, 165, 181, 0.24) !important;
+  background: #08141d !important;
+  color: #f4fbf9 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot {
+  display: grid;
+  gap: 8px;
+  padding: 0 !important;
+  background: #07141d !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot * {
+  border-color: rgba(122, 165, 181, 0.22);
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot .sc-panel,
+.app-shell--pro-lab .pl--module-page .sc-copilot .sc-blueprint-panel,
+.app-shell--pro-lab .pl--module-page .sc-copilot .sc-mini-card,
+.app-shell--pro-lab .pl--module-page .sc-copilot .sc-blueprint-card {
+  background-image: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot h1,
+.app-shell--pro-lab .pl--module-page .sc-copilot h2,
+.app-shell--pro-lab .pl--module-page .sc-copilot h3,
+.app-shell--pro-lab .pl--module-page .sc-copilot h4,
+.app-shell--pro-lab .pl--module-page .sc-copilot strong {
+  color: #f4fbf9 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot p,
+.app-shell--pro-lab .pl--module-page .sc-copilot li,
+.app-shell--pro-lab .pl--module-page .sc-copilot span {
+  color: inherit;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #98aca9;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__crumb button,
+.app-shell--pro-lab .pl--module-page .sc-copilot__how,
+.app-shell--pro-lab .pl--module-page .sc-ghost-btn,
+.app-shell--pro-lab .pl--module-page .sc-icon-btn {
+  border: 1px solid rgba(122, 165, 181, 0.24) !important;
+  border-radius: 7px !important;
+  background: rgba(8, 20, 29, 0.72) !important;
+  color: #c7d8d5 !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__crumb button {
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__crumb strong {
+  color: #f4fbf9;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__how,
+.app-shell--pro-lab .pl--module-page .sc-ghost-btn {
+  min-height: 32px;
+  padding: 7px 12px !important;
+  font-size: 0.76rem !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot__main {
+  display: grid;
+  grid-template-columns: minmax(520px, 1.15fr) minmax(440px, 0.85fr);
+  gap: 8px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-panel,
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel {
+  border: 1px solid rgba(122, 165, 181, 0.28) !important;
+  border-radius: 8px !important;
+  background: #122634 !important;
+  color: #f4fbf9 !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-panel {
+  padding: 14px 16px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-panel__head,
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head,
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card header,
+.app-shell--pro-lab .pl--module-page .sc-draft-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-panel__head h2,
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head h2 {
+  margin: 0;
+  color: #f4fbf9 !important;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-panel__head p,
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head p {
+  margin: 4px 0 0;
+  color: #94aaa7 !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot-textarea {
+  position: relative;
+  margin-top: 12px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot-textarea__input {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 14px 14px 26px;
+  border: 1px solid rgba(85, 216, 189, 0.72) !important;
+  border-radius: 7px !important;
+  background: #0a1822 !important;
+  color: #dce8e5 !important;
+  font: 500 0.9rem/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app-shell--pro-lab .pl--module-page .sc-copilot-textarea span {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  color: #8aa19e;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-context-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(122, 165, 181, 0.16);
+}
+
+.app-shell--pro-lab .pl--module-page .sc-context-chips button {
+  min-height: 26px;
+  padding: 5px 10px;
+  border: 1px solid rgba(122, 165, 181, 0.2);
+  border-radius: 5px;
+  background: #102432;
+  color: #a9bdba;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-control-strip {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(90px, 0.65fr) minmax(160px, 1fr);
+  gap: 8px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-control-strip .sc-field {
+  display: grid;
+  gap: 4px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-control-strip .sc-select,
+.app-shell--pro-lab .pl--module-page .sc-control-strip .sc-input {
+  height: 34px;
+  border-radius: 5px !important;
+  font-size: 0.78rem;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-generate-btn {
+  min-height: 36px;
+  padding: 0 16px !important;
+  border: 1px solid rgba(85, 216, 189, 0.48) !important;
+  border-radius: 6px !important;
+  background: linear-gradient(135deg, #11937f, #116f65) !important;
+  color: #eafff8 !important;
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  box-shadow: 0 12px 26px rgba(17, 147, 127, 0.18) !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card {
+  padding: 12px;
+  border: 1px solid rgba(122, 165, 181, 0.24) !important;
+  border-radius: 8px !important;
+  background: #152c3a !important;
+  color: #f4fbf9 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card h3 {
+  margin: 0;
+  color: #f4fbf9 !important;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card header span,
+.app-shell--pro-lab .pl--module-page .sc-mini-card header button,
+.app-shell--pro-lab .pl--module-page .sc-mini-card > button {
+  color: #55d8bd;
+  background: transparent;
+  border: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card p {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(122, 165, 181, 0.12);
+  color: #98aca9 !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card strong {
+  color: #6fe3ca !important;
+  font-size: 0.7rem;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-mini-card strong.is-risk {
+  color: #ffd166;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-title-row,
+.app-shell--pro-lab .pl--module-page .sc-draft-row,
+.app-shell--pro-lab .pl--module-page .sc-draft-footer {
+  display: grid;
+  gap: 8px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-title-row span {
+  color: #829996;
+  font-size: 0.78rem;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(85, 216, 189, 0.26);
+  border-radius: 5px;
+  background: rgba(85, 216, 189, 0.12);
+  color: #55d8bd;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-status-chip--amber {
+  border-color: rgba(255, 172, 51, 0.34);
+  background: rgba(255, 172, 51, 0.12);
+  color: #ffd166;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-table {
+  display: grid;
+  margin-top: 14px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-row {
+  grid-template-columns: 22px minmax(110px, 0.36fr) minmax(0, 1fr);
+  align-items: start;
+  min-height: 34px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(122, 165, 181, 0.14);
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-row__icon {
+  color: #90a9a6;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-row__label {
+  color: #a9bdba !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-row__value {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: #d7e5e2 !important;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(218, 234, 230, 0.08) !important;
+  color: #cbdcd9 !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-assumption-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-date {
+  margin-left: auto;
+  color: #9eb4b1;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-footer {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(122, 165, 181, 0.18) !important;
+  border-radius: 7px !important;
+  background: rgba(8, 20, 29, 0.45) !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-footer div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9eb4b1;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-draft-footer strong {
+  color: #6fe3ca;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel {
+  padding: 14px 16px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head {
+  margin-bottom: 14px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head h2 em {
+  color: #9eb4b1;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card {
+  display: grid;
+  min-height: 132px;
+  padding: 12px;
+  border: 1px solid rgba(122, 165, 181, 0.2) !important;
+  border-radius: 7px !important;
+  background: #152c3a !important;
+  color: #f4fbf9 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card h3 {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  color: #f4fbf9;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card header button {
+  border: 0;
+  background: transparent;
+  color: #55d8bd;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card ul {
+  margin: 10px 0;
+  padding-left: 0;
+  list-style: none;
+  color: #c7d8d5;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card footer {
+  align-self: end;
+  color: #91aaa6;
+  font-size: 0.72rem;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-card footer strong {
+  color: #55d8bd;
+}
+
+.app-shell--pro-lab .pl--module-page .sc-blueprint-actions {
+  display: grid;
+  grid-template-columns: 150px 150px 170px 1fr 220px 220px;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-panel__header {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #f4fbf9 !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-panel__titles {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-panel__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 !important;
+  border: 1px solid rgba(122, 165, 181, 0.28);
+  border-radius: 7px;
+  background: #0b1a24 !important;
+  font-size: 1rem;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-panel__title {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: #f4fbf9 !important;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.12rem !important;
+  font-weight: 900 !important;
+  line-height: 1.15;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-panel__subtitle {
+  margin: 4px 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: #aec4c0 !important;
+  font-size: 0.78rem !important;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-badge {
+  border: 1px solid rgba(122, 165, 181, 0.22) !important;
+  border-radius: 999px !important;
+  background: rgba(85, 216, 189, 0.12) !important;
+  color: #55d8bd !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .de-page .de-badge--version {
+  background: rgba(105, 167, 255, 0.16) !important;
+  color: #dbeafe !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-breadcrumb {
+  display: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-columns {
+  display: grid;
+  grid-template-columns: minmax(420px, 0.52fr) minmax(560px, 0.48fr);
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: none !important;
+  align-items: start;
+}
+
+.app-shell--pro-lab .pl--module-page .os-col {
+  gap: 8px !important;
+  min-width: 0;
+}
+
+.app-shell--pro-lab .pl--module-page .os-section-header {
+  min-height: 50px;
+  padding: 0 8px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-section-header__left {
+  gap: 10px;
+  align-items: center;
+}
+
+.app-shell--pro-lab .pl--module-page .os-section-icon {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 8px;
+  background: rgba(85, 216, 189, 0.1) !important;
+  border: 1px solid rgba(85, 216, 189, 0.22) !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-section-title {
+  margin: 0;
+  color: var(--cockpit-text) !important;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.app-shell--pro-lab .pl--module-page .os-section-subtitle {
+  color: #f2f7f4 !important;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.app-shell--pro-lab .pl--module-page .os-card,
+.app-shell--pro-lab .pl--module-page .os-scenario-card,
+.app-shell--pro-lab .pl--module-page .os-kv,
+.app-shell--pro-lab .pl--module-page .os-metric-card {
+  border: 1px solid var(--cockpit-border) !important;
+  background: #193241 !important;
+  color: var(--cockpit-text) !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-card {
+  padding: 16px 18px !important;
+  border-radius: 8px !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-card__title {
+  margin-bottom: 16px;
+  color: var(--cockpit-text) !important;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.app-shell--pro-lab .pl--module-page .os-controls {
+  gap: 10px !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-control-field {
+  display: grid;
+  gap: 5px;
+}
+
+.app-shell--pro-lab .pl--module-page .os-control-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-shell--pro-lab .pl--module-page .os-slider-group__label,
+.app-shell--pro-lab .pl--module-page .os-slider-group__range-val,
+.app-shell--pro-lab .pl--module-page .os-table th,
+.app-shell--pro-lab .pl--module-page .os-kv__key,
+.app-shell--pro-lab .pl--module-page .os-metric-card__label {
+  color: var(--cockpit-muted) !important;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .os-slider-group__label {
+  color: #b6c9c6 !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+}
+
+.app-shell--pro-lab .pl--module-page .os-compact-input {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-end;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(122, 165, 181, 0.22);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #0d1b25, #08141d);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app-shell--pro-lab .pl--module-page .os-compact-input:focus-within {
+  border-color: rgba(85, 216, 189, 0.56);
+  box-shadow: 0 0 0 2px rgba(85, 216, 189, 0.08);
+}
+
+.app-shell--pro-lab .pl--module-page .os-compact-input--sm {
+  height: 32px;
+  min-width: 74px;
+}
+
+.app-shell--pro-lab .pl--module-page .os-num-input,
+.app-shell--pro-lab .pl--module-page .os-select {
+  border: 1px solid rgba(122, 165, 181, 0.2) !important;
+  color: #ffffff !important;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .os-num-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: left;
+  -webkit-text-fill-color: #ffffff;
+  appearance: textfield;
+  caret-color: var(--cockpit-accent);
+}
+
+.app-shell--pro-lab .pl--module-page .os-num-input::-webkit-outer-spin-button,
+.app-shell--pro-lab .pl--module-page .os-num-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.app-shell--pro-lab .pl--module-page .os-slider-group__suffix {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  color: #d9e8e4 !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .os-control-divider {
+  height: 1px;
+  margin: 4px 0 2px;
+  background: rgba(122, 165, 181, 0.18);
+}
+
+.app-shell--pro-lab .pl--module-page .os-control-subtitle {
+  margin: 4px 0 2px;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.app-shell--pro-lab .pl--module-page .os-constraint-row {
+  display: grid;
+  grid-template-columns: minmax(94px, 1fr) minmax(150px, 1.45fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.app-shell--pro-lab .pl--module-page .os-range-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 18px;
+  gap: 6px;
+  align-items: end;
+}
+
+.app-shell--pro-lab .pl--module-page .os-range-inputs label {
+  display: grid;
+  gap: 3px;
+}
+
+.app-shell--pro-lab .pl--module-page .os-range-inputs label > span {
+  color: var(--cockpit-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.app-shell--pro-lab .pl--module-page .os-checkmark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 32px;
+  color: #39d98a;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .os-select {
+  height: 38px;
+  border-radius: 8px;
+  background: #061119 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-range {
+  --os-range-progress: 50%;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--cockpit-accent) 0 var(--os-range-progress), rgba(122, 165, 181, 0.22) var(--os-range-progress) 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(122, 165, 181, 0.14);
+}
+
+.app-shell--pro-lab .pl--module-page .os-range::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--cockpit-accent);
+  border: 3px solid #17303f;
+  box-shadow: 0 0 0 4px rgba(85, 216, 189, 0.12), 0 4px 10px rgba(0, 0, 0, 0.24);
+}
+
+.app-shell--pro-lab .pl--module-page .os-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--cockpit-accent);
+  border: 3px solid #17303f;
+  box-shadow: 0 0 0 4px rgba(85, 216, 189, 0.12), 0 4px 10px rgba(0, 0, 0, 0.24);
+}
+
+.app-shell--pro-lab .pl--module-page .os-pill,
+.app-shell--pro-lab .pl--module-page .os-btn {
+  border-radius: 8px !important;
+  border: 1px solid rgba(85, 216, 189, 0.22) !important;
+  min-height: 34px;
+  background: rgba(8, 20, 29, 0.7) !important;
+  color: var(--cockpit-muted) !important;
+  box-shadow: none !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-pill--draft,
+.app-shell--pro-lab .pl--module-page .os-btn--run {
+  background: linear-gradient(135deg, #0f8f7b, #116d64) !important;
+  border-color: rgba(85, 216, 189, 0.54) !important;
+  color: #eafff8 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-btn--blue {
+  background: linear-gradient(135deg, #164a86, #0c2e62) !important;
+  border-color: rgba(62, 140, 255, 0.46) !important;
+  color: #eaf3ff !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-scenario-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-scenario-card {
+  min-height: 78px;
+  padding: 14px !important;
+  background: #1a3444 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-scenario-card--active {
+  border-color: var(--sc-color, var(--cockpit-accent)) !important;
+  background: linear-gradient(145deg, rgba(85, 216, 189, 0.12), #183241) !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-scenario-card__name {
+  color: #ffffff !important;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.app-shell--pro-lab .pl--module-page .os-scenario-card__horizon {
+  color: #dcf7f0 !important;
+  background: rgba(85, 216, 189, 0.14) !important;
+  border-color: rgba(85, 216, 189, 0.25) !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table {
+  border-collapse: collapse;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table th {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(122, 165, 181, 0.28) !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(122, 165, 181, 0.2) !important;
+  color: var(--cockpit-muted) !important;
+  font-weight: 700;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table--heatmap td:not(:first-child) {
+  color: #d7e5df !important;
+  text-align: center;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table__bold,
+.app-shell--pro-lab .pl--module-page .os-kv__val,
+.app-shell--pro-lab .pl--module-page .os-metric-card__value {
+  color: #ffffff !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table__up {
+  color: #8eead7 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-table__down,
+.app-shell--pro-lab .pl--module-page .os-metric-card__value--neg {
+  color: #ff727c !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-kv-grid,
+.app-shell--pro-lab .pl--module-page .os-metrics-grid {
+  gap: 8px !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-kv,
+.app-shell--pro-lab .pl--module-page .os-metric-card {
+  border-color: rgba(122, 165, 181, 0.12) !important;
+  background: #152b39 !important;
+}
+
+.app-shell--pro-lab .pl--module-page .os-action-bar {
+  position: sticky;
+  bottom: 8px;
+  gap: 8px;
+  padding: 8px !important;
+  border: 1px solid var(--cockpit-border) !important;
+  border-radius: 8px !important;
+  background: rgba(10, 23, 32, 0.94) !important;
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 1200px) {
+  .app-shell--pro-lab .pl--module-page .sc-copilot__main,
+  .app-shell--pro-lab .pl--module-page .os-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-mini-grid,
+  .app-shell--pro-lab .pl--module-page .sc-blueprint-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-blueprint-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell--pro-lab .pl--module-page {
+    padding: 4px 6px 8px !important;
+  }
+
+  .app-shell--pro-lab .pl--module-page .os-scenario-cards,
+  .app-shell--pro-lab .pl--module-page .os-kv-grid,
+  .app-shell--pro-lab .pl--module-page .os-metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-copilot__topbar,
+  .app-shell--pro-lab .pl--module-page .sc-panel__head,
+  .app-shell--pro-lab .pl--module-page .sc-blueprint-panel__head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-control-strip,
+  .app-shell--pro-lab .pl--module-page .sc-mini-grid,
+  .app-shell--pro-lab .pl--module-page .sc-blueprint-grid,
+  .app-shell--pro-lab .pl--module-page .sc-blueprint-actions,
+  .app-shell--pro-lab .pl--module-page .sc-draft-footer {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-draft-row {
+    grid-template-columns: 22px 1fr;
+  }
+
+  .app-shell--pro-lab .pl--module-page .sc-draft-row__value {
+    grid-column: 2;
+  }
+}

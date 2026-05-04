@@ -1,6 +1,8 @@
-html,
-body,
-#root {
-  margin: 0;
-  min-height: 100%;
-}
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./styles/tokens.css";
+@import "./styles/base-elements.css";
+@import "./styles/app-shell.css";
+@import "./styles/retail-surfaces.css";

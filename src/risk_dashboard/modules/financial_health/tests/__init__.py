@@ -1,0 +1,1 @@
+"""Financial health module tests."""

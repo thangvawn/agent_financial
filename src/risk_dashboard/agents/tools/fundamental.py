@@ -12,9 +12,9 @@ from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
 
 @tool
 def get_financial_metrics(ticker: str) -> dict:
-    """Đọc báo cáo tài chính THẬT (P/E, P/B, ROE, lợi nhuận) của một mã cổ phiếu.
+    """Đọc báo cáo tài chính THẬT (ROE, ROIC, DuPont, Altman Z-Score, Piotroski F-Score, dòng tiền) của một mã cổ phiếu.
     Input: ticker (ví dụ 'FPT', 'VCB', 'HPG').
-    Trả về dict chứa các chỉ số tài chính chính."""
+    Trả về dict chứa các chỉ số tài chính chính + scoring models."""
     try:
         dataset = get_financial_dataset(ticker)
         analysis = analyze_financial_dataset(dataset)
@@ -25,6 +25,7 @@ def get_financial_metrics(ticker: str) -> dict:
             "highlights": analysis.highlights,
             "flags": [flag.model_dump() for flag in analysis.flags],
             "summary": analysis.summary.model_dump(),
+            "health_radar": analysis.health_radar.model_dump(),
         }
     except FinancialDataError as exc:
         return {

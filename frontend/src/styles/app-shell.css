@@ -1,0 +1,472 @@
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.app-shell__ambient {
+  position: fixed;
+  inset: auto;
+  width: 32rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  filter: blur(30px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.app-shell__ambient--one {
+  top: -12rem;
+  right: -10rem;
+  background: rgba(15, 118, 110, 0.18);
+}
+
+.app-shell__ambient--two {
+  bottom: -14rem;
+  left: -12rem;
+  background: rgba(18, 56, 60, 0.14);
+}
+
+.app-shell__frame {
+  position: relative;
+  width: min(1180px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 1.4rem 0 3rem;
+}
+
+.app-shell__masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(23, 54, 47, 0.12);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: rgba(255, 250, 242, 0.64);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-soft);
+}
+
+.app-shell__brand,
+.app-shell__surface {
+  margin: 0;
+}
+
+.app-shell__brand {
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--surface-muted);
+}
+
+.app-shell__surface {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--surface-ink);
+}
+
+.app-shell__masthead-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.app-shell__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--surface-ink);
+  background: rgba(23, 54, 47, 0.08);
+}
+
+.app-shell__badge--pro {
+  background: rgba(201, 119, 63, 0.16);
+}
+
+.app-shell__badge--operator {
+  background: rgba(119, 84, 196, 0.12);
+}
+
+.app-shell__content {
+  position: relative;
+}
+
+.surface-panel {
+  display: grid;
+  gap: 1.1rem;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+  will-change: opacity, transform;
+}
+
+.surface-panel[data-transition-phase="exiting"] {
+  opacity: 0;
+  transform: translateY(8px) scale(0.992);
+  filter: blur(2px);
+}
+
+.surface-panel[data-transition-phase="entering"] {
+  opacity: 0;
+  transform: translateY(12px) scale(0.992);
+  filter: blur(2px);
+}
+
+.surface-panel[data-transition-phase="entered"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+.connected-nav {
+  position: fixed;
+  top: 0.6rem;
+  left: 50%;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1.2rem;
+  align-items: center;
+  width: min(1780px, calc(100vw - 1.5rem));
+  margin: 0;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid rgba(16, 43, 45, 0.06);
+  border-radius: 100px;
+  background: rgba(255, 255, 253, 0.92);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(28, 50, 47, 0.06);
+  backdrop-filter: blur(24px) saturate(1.2);
+  transform: translateX(-50%);
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.connected-nav:hover {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.05),
+    0 12px 40px rgba(28, 50, 47, 0.08);
+}
+
+.connected-nav + .surface-panel {
+  margin-top: 5.6rem;
+}
+
+.app-shell--home .connected-nav + .surface-panel,
+.app-shell--onboarding .connected-nav + .surface-panel,
+.app-shell--global-terminal .connected-nav + .surface-panel,
+.app-shell--news .connected-nav + .surface-panel,
+.app-shell--pro-lab .connected-nav + .surface-panel,
+.app-shell--backtest-studio .connected-nav + .surface-panel,
+.app-shell--financial-health .connected-nav + .surface-panel,
+.app-shell--learning .connected-nav + .surface-panel,
+.app-shell--goals .connected-nav + .surface-panel,
+.app-shell--guided-investing .connected-nav + .surface-panel,
+.app-shell--insights .connected-nav + .surface-panel,
+.app-shell--community .connected-nav + .surface-panel,
+.app-shell--auth-login .connected-nav + .surface-panel,
+.app-shell--auth-register .connected-nav + .surface-panel {
+  margin-top: 0;
+}
+
+.connected-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0 0.35rem;
+  white-space: nowrap;
+}
+
+.connected-nav__mark {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.4rem;
+  background:
+    linear-gradient(135deg, transparent 42%, #15a79d 42%, #15a79d 58%, transparent 58%),
+    linear-gradient(45deg, transparent 42%, #15a79d 42%, #15a79d 58%, transparent 58%);
+}
+
+.connected-nav__brand strong {
+  color: #0f2b2d;
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.connected-nav__tabs {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  overflow-x: auto;
+  padding-left: 0.3rem;
+}
+
+.connected-nav__tab {
+  width: auto;
+  position: relative;
+  min-height: 2.6rem;
+  padding: 0.52rem 1rem;
+  border: 0;
+  background: transparent;
+  color: #4b6367;
+  box-shadow: none;
+  font-size: 0.94rem;
+  font-weight: 600;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.connected-nav__tab:hover {
+  color: #0f3d3a;
+  background: rgba(20, 184, 166, 0.06);
+}
+
+.connected-nav__tab--active {
+  color: #0d6d62;
+  background: rgba(20, 184, 166, 0.1);
+  font-weight: 700;
+}
+
+.connected-nav__tab--active::after {
+  content: "";
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #14b8a6, #0d9488);
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.connected-nav__pro {
+  display: inline-flex;
+  margin-left: 0.3rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.connected-nav__login {
+  flex-shrink: 0;
+  width: auto;
+  min-height: 2.4rem;
+  padding: 0.5rem 1.2rem;
+  border: 0;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.22);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  white-space: nowrap;
+}
+
+.connected-nav__login:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(20, 184, 166, 0.3);
+}
+
+.connected-nav__avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.2);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.connected-nav__avatar:hover {
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.3);
+}
+
+.app-shell--learning:has(.learn-os-page--reader) {
+  --reader-nav-height: 0rem;
+}
+
+.app-shell--learning:has(.learn-os-page--reader) .connected-nav {
+  display: none;
+}
+
+.app-shell--home,
+.app-shell--onboarding,
+.app-shell--global-terminal,
+.app-shell--news,
+.app-shell--pro-lab,
+.app-shell--backtest-studio,
+.app-shell--financial-health,
+.app-shell--learning,
+.app-shell--goals,
+.app-shell--guided-investing,
+.app-shell--insights,
+.app-shell--community,
+.app-shell--auth-login,
+.app-shell--auth-register {
+  background: #020302;
+}
+
+.app-shell--home .app-shell__ambient,
+.app-shell--onboarding .app-shell__ambient,
+.app-shell--global-terminal .app-shell__ambient,
+.app-shell--news .app-shell__ambient,
+.app-shell--pro-lab .app-shell__ambient,
+.app-shell--backtest-studio .app-shell__ambient,
+.app-shell--financial-health .app-shell__ambient,
+.app-shell--learning .app-shell__ambient,
+.app-shell--goals .app-shell__ambient,
+.app-shell--guided-investing .app-shell__ambient,
+.app-shell--insights .app-shell__ambient,
+.app-shell--community .app-shell__ambient,
+.app-shell--auth-login .app-shell__ambient,
+.app-shell--auth-register .app-shell__ambient,
+.app-shell--home .app-shell__masthead,
+.app-shell--onboarding .app-shell__masthead,
+.app-shell--global-terminal .app-shell__masthead,
+.app-shell--news .app-shell__masthead,
+.app-shell--pro-lab .app-shell__masthead,
+.app-shell--backtest-studio .app-shell__masthead,
+.app-shell--financial-health .app-shell__masthead,
+.app-shell--learning .app-shell__masthead,
+.app-shell--goals .app-shell__masthead,
+.app-shell--guided-investing .app-shell__masthead,
+.app-shell--insights .app-shell__masthead,
+.app-shell--community .app-shell__masthead,
+.app-shell--auth-login .app-shell__masthead,
+.app-shell--auth-register .app-shell__masthead {
+  display: none;
+}
+
+.app-shell--home .app-shell__frame,
+.app-shell--onboarding .app-shell__frame,
+.app-shell--global-terminal .app-shell__frame,
+.app-shell--news .app-shell__frame,
+.app-shell--pro-lab .app-shell__frame,
+.app-shell--backtest-studio .app-shell__frame,
+.app-shell--financial-health .app-shell__frame,
+.app-shell--learning .app-shell__frame,
+.app-shell--goals .app-shell__frame,
+.app-shell--guided-investing .app-shell__frame,
+.app-shell--insights .app-shell__frame,
+.app-shell--community .app-shell__frame,
+.app-shell--auth-login .app-shell__frame,
+.app-shell--auth-register .app-shell__frame {
+  width: 100vw;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.app-shell--home .surface-panel,
+.app-shell--onboarding .surface-panel,
+.app-shell--global-terminal .surface-panel,
+.app-shell--news .surface-panel,
+.app-shell--pro-lab .surface-panel,
+.app-shell--backtest-studio .surface-panel,
+.app-shell--financial-health .surface-panel,
+.app-shell--learning .surface-panel,
+.app-shell--goals .surface-panel,
+.app-shell--guided-investing .surface-panel,
+.app-shell--insights .surface-panel,
+.app-shell--community .surface-panel,
+.app-shell--auth-login .surface-panel,
+.app-shell--auth-register .surface-panel {
+  min-height: 100vh;
+}
+
+.app-shell--home .surface-panel,
+.app-shell--onboarding .surface-panel,
+.app-shell--news .surface-panel,
+.app-shell--pro-lab .surface-panel,
+.app-shell--financial-health .surface-panel,
+.app-shell--learning .surface-panel,
+.app-shell--goals .surface-panel,
+.app-shell--guided-investing .surface-panel,
+.app-shell--insights .surface-panel,
+.app-shell--community .surface-panel {
+  min-height: calc(100vh - 5.2rem);
+}
+
+.app-shell--home .surface-panel,
+.app-shell--onboarding .surface-panel,
+.app-shell--global-terminal .surface-panel,
+.app-shell--news .surface-panel,
+.app-shell--pro-lab .surface-panel,
+.app-shell--backtest-studio .surface-panel,
+.app-shell--financial-health .surface-panel,
+.app-shell--learning .surface-panel,
+.app-shell--goals .surface-panel,
+.app-shell--guided-investing .surface-panel,
+.app-shell--insights .surface-panel,
+.app-shell--community .surface-panel,
+.app-shell--auth-login .surface-panel,
+.app-shell--auth-register .surface-panel {
+  gap: 0;
+  background: transparent !important;
+}
+
+.app-shell--home .surface-panel > section:not(.page),
+.app-shell--home .surface-panel > article,
+.app-shell--onboarding .surface-panel > section:not(.page),
+.app-shell--onboarding .surface-panel > article,
+.app-shell--global-terminal .surface-panel > section:not(.page),
+.app-shell--global-terminal .surface-panel > article,
+.app-shell--news .surface-panel > section:not(.page),
+.app-shell--news .surface-panel > article,
+.app-shell--pro-lab .surface-panel > section:not(.page),
+.app-shell--pro-lab .surface-panel > article,
+.app-shell--backtest-studio .surface-panel > section:not(.page),
+.app-shell--backtest-studio .surface-panel > article,
+.app-shell--financial-health .surface-panel > section:not(.page),
+.app-shell--financial-health .surface-panel > article,
+.app-shell--learning .surface-panel > section:not(.page),
+.app-shell--learning .surface-panel > article,
+.app-shell--goals .surface-panel > section:not(.page),
+.app-shell--goals .surface-panel > article,
+.app-shell--guided-investing .surface-panel > section:not(.page),
+.app-shell--guided-investing .surface-panel > article,
+.app-shell--insights .surface-panel > section:not(.page),
+.app-shell--insights .surface-panel > article,
+.app-shell--community .surface-panel > section:not(.page),
+.app-shell--community .surface-panel > article,
+.app-shell--auth-login .surface-panel > section:not(.page),
+.app-shell--auth-login .surface-panel > article,
+.app-shell--auth-register .surface-panel > section:not(.page),
+.app-shell--auth-register .surface-panel > article {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-panel {
+    transition: none;
+    transform: none;
+    filter: none;
+  }
+}
