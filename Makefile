@@ -5,7 +5,7 @@ install:
 	cd frontend && npm ci
 
 dev:
-	uvicorn risk_dashboard.api.main:app --reload --app-dir src
+	uvicorn risk_dashboard.api.main:app --reload --app-dir src --host 0.0.0.0
 
 dev-frontend:
 	cd frontend && npm run dev

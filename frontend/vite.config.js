@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/dashboard-static/',
   server: {
+    // Lắng nghe mọi interface — truy cập từ máy khác qua http://<IP-LAN>:5173
+    host: true,
     proxy: {
       '/dashboard/state': 'http://127.0.0.1:8000',
       '/dashboard/history': 'http://127.0.0.1:8000',
@@ -23,5 +25,8 @@ export default defineConfig({
       '/backtest': 'http://127.0.0.1:8000',
       '/watchlist': 'http://127.0.0.1:8000',
     },
+  },
+  preview: {
+    host: true,
   },
 })

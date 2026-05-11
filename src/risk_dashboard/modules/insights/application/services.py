@@ -16,6 +16,7 @@ from risk_dashboard.modules.home_onboarding.infrastructure.repositories.sqlite i
     SqliteOnboardingProfileRepository,
 )
 from risk_dashboard.modules.insights.domain.entities import InsightCard, InsightDriver, InsightMetric
+from risk_dashboard.modules.insights.application import dashboard_data
 from risk_dashboard.modules.insights.domain.policies import (
     build_company_health_card,
     build_cross_asset_card,
@@ -31,25 +32,13 @@ from risk_dashboard.modules.insights.schemas.responses import (
     InsightContextualExplainerResponse,
     AiCompanionContextResponse,
     AiCompanionPromptResponse,
-    CrossAssetPointResponse,
-    CrossAssetPulseResponse,
-    CrossAssetSeriesResponse,
-    InsightNarrativeResponse,
-    InsightSourceQualityResponse,
     InsightsDashboardResponse,
-    InsightsDataQualityResponse,
     InsightDisclaimerResponse,
     InsightDriverResponse,
     InsightMetricResponse,
     InsightsSafetyResponse,
     InsightsHomeResponse,
     LearnLinkResponse,
-    MacroEventResponse,
-    MarketSummaryResponse,
-    ScenarioItemResponse,
-    SectorRotationItemResponse,
-    SnapshotCardResponse,
-    TrendRadarItemResponse,
     WatchlistImpactResponse,
 )
 from risk_dashboard.modules.trust_safety.application.services import TrustSafetyService
@@ -104,33 +93,19 @@ class GetInsightsDashboard:
     def execute(self, *, session_id: str | None = None, user_mode: str = "investor", range_key: str = "1M") -> InsightsDashboardResponse:
         as_of_dt = datetime.now(timezone(timedelta(hours=7))).replace(microsecond=0)
         as_of = as_of_dt.isoformat()
-        quality = _build_dashboard_quality(as_of)
-        trend_radar = _build_trend_radar()
-        cross_asset = _build_cross_asset_pulse(range_key=range_key)
-        scenarios = _build_scenario_monitor()
-        sector_rotation = _build_sector_rotation()
+        guided = GetGuidedMarketContext().execute()
+        market_summary = dashboard_data.build_market_summary_real(guided)
+        narrative = dashboard_data.build_market_narrative_real(guided, as_of=as_of)
+        cross_asset, cross_fallbacks = dashboard_data.build_cross_asset_pulse_real(range_key=range_key)
+        trend_radar = dashboard_data.build_trend_radar_real(range_key=range_key)
+        scenarios = dashboard_data.build_scenario_monitor_real(guided)
+        sector_rotation = dashboard_data.build_sector_rotation_real()
+        macro_calendar = dashboard_data.build_macro_calendar_real(as_of=as_of_dt)
         learn_links = _build_learn_links()
         watchlist = _build_watchlist_impact(session_id)
         safety = _build_insights_safety()
-        narrative = InsightNarrativeResponse(
-            headline="Thị trường thận trọng trước áp lực USD và lãi suất",
-            summary=(
-                "Thị trường đang trong trạng thái trung lập nghiêng thận trọng. USD duy trì sức mạnh, "
-                "lãi suất toàn cầu còn cao và dòng tiền có xu hướng ưu tiên nhóm chất lượng/phòng thủ."
-            ),
-            key_points=[
-                "USD mạnh lên gây áp lực lên tài sản rủi ro và nhóm nhạy với vốn ngoại.",
-                "Lợi suất tăng khiến định giá cổ phiếu nhạy hơn với tin vĩ mô.",
-                "Thanh khoản ổn định, nhưng độ rộng thị trường chưa xác nhận một pha risk-on rõ.",
-            ],
-            caveats=[
-                "Insights là bối cảnh phân tích, không phải khuyến nghị mua/bán.",
-                "Một số nguồn cross-asset đang dùng read-model fallback nếu live feed chưa sẵn sàng.",
-            ],
-            what_to_monitor=["USD/VND", "lợi suất", "độ rộng thị trường", "giá dầu", "thanh khoản"],
-            confidence="medium",
-            generated_at=as_of,
-        )
+        quality = dashboard_data.build_dashboard_quality_real(as_of=as_of, fallbacks=list(cross_fallbacks))
+        snapshot_cards = dashboard_data.build_snapshot_cards(market_summary)
         emit_product_event(
             event_name="insights_dashboard_requested",
             module="insights",
@@ -142,67 +117,14 @@ class GetInsightsDashboard:
         return InsightsDashboardResponse(
             as_of=as_of,
             user_mode=user_mode,
-            market_summary=MarketSummaryResponse(
-                regime="neutral_cautious",
-                risk_level="watch",
-                cross_asset_theme="FX + Rates",
-                top_driver="USD strength",
-                alerts_count=2,
-                summary="Thị trường trung lập nghiêng thận trọng do USD mạnh và kỳ vọng lãi suất còn cao.",
-            ),
-            snapshot_cards=[
-                SnapshotCardResponse(
-                    key="market_regime",
-                    label="Market Regime",
-                    value="Neutral to Cautious",
-                    status="watch",
-                    icon="pulse",
-                    severity="medium",
-                    explanation="Động lượng chưa xấu, nhưng áp lực tỷ giá và lãi suất làm bối cảnh thận trọng hơn.",
-                ),
-                SnapshotCardResponse(
-                    key="risk_level",
-                    label="Risk Level",
-                    value="Watch",
-                    status="watch",
-                    icon="shield",
-                    severity="medium",
-                    explanation="Risk context cần theo dõi, chưa phải trạng thái stress.",
-                ),
-                SnapshotCardResponse(
-                    key="cross_asset_theme",
-                    label="Cross-Asset",
-                    value="FX + Rates",
-                    status="active",
-                    icon="globe",
-                    severity="medium",
-                    explanation="Tỷ giá và lãi suất đang là hai theme chi phối cross-asset.",
-                ),
-                SnapshotCardResponse(
-                    key="top_driver",
-                    label="Top Driver",
-                    value="USD strength",
-                    status="active",
-                    icon="bolt",
-                    severity="medium",
-                    explanation="USD mạnh làm tăng áp lực lên EM và tài sản rủi ro.",
-                ),
-                SnapshotCardResponse(
-                    key="alerts",
-                    label="Alerts",
-                    value="2 active",
-                    status="alert",
-                    icon="bell",
-                    severity="high",
-                    explanation="Có cảnh báo về FX pressure và rate sensitivity.",
-                ),
-            ],
+            market_summary=market_summary,
+            snapshot_cards=snapshot_cards,
             market_narrative=narrative,
             trend_radar=trend_radar,
             cross_asset_pulse=cross_asset,
             scenario_monitor=scenarios,
             sector_rotation=sector_rotation,
-            macro_calendar=_build_macro_calendar(as_of_dt),
+            macro_calendar=macro_calendar,
             watchlist_impact=watchlist,
             learn_links=learn_links,
             ai_companion=AiCompanionContextResponse(
@@ -214,8 +136,8 @@ class GetInsightsDashboard:
                     AiCompanionPromptResponse(label="Kịch bản nào nên theo dõi?", intent="explain_scenarios"),
                 ],
                 context_bundle={
-                    "market_summary": "neutral_cautious/watch",
-                    "top_driver": "USD strength",
+                    "market_summary": f"{market_summary.regime}/{market_summary.risk_level}",
+                    "top_driver": market_summary.top_driver,
                     "safety": "no_buy_sell_recommendation",
                     "data_quality": quality.overall_freshness,
                 },
@@ -276,35 +198,6 @@ def _resolve_level(*, session_id: str | None, level: str | None) -> str:
     return infer_level(session_level=level, knowledge_level=None, persona_segment=None)
 
 
-def _build_dashboard_quality(as_of: str) -> InsightsDataQualityResponse:
-    return InsightsDataQualityResponse(
-        overall_freshness="fresh",
-        last_updated=as_of,
-        sources=[
-            InsightSourceQualityResponse(
-                source="market_read_model",
-                last_updated=as_of,
-                freshness_status="fresh",
-                confidence="medium",
-            ),
-            InsightSourceQualityResponse(
-                source="cross_asset_cache",
-                last_updated=as_of,
-                freshness_status="fresh",
-                confidence="medium",
-                fallback_used=True,
-            ),
-            InsightSourceQualityResponse(
-                source="sector_rotation_read_model",
-                last_updated=as_of,
-                freshness_status="delayed",
-                confidence="medium",
-            ),
-        ],
-        fallback_used=["cross_asset_cache"],
-    )
-
-
 def _build_insights_safety() -> InsightsSafetyResponse:
     return InsightsSafetyResponse(
         no_buy_sell_recommendation=True,
@@ -312,146 +205,6 @@ def _build_insights_safety() -> InsightsSafetyResponse:
         allowed_actions=["review_exposure", "learn_more", "open_scenario", "ask_ai", "save_insight"],
         prohibited_actions=["buy", "sell", "all_in", "short_now"],
     )
-
-
-def _build_trend_radar() -> list[TrendRadarItemResponse]:
-    return [
-        TrendRadarItemResponse(
-            theme="Rates",
-            category="rates",
-            status="deteriorating",
-            short_summary="Lợi suất tăng nhẹ, áp lực chưa giảm.",
-            sparkline_series=[42, 45, 44, 48, 53, 49, 55, 51],
-            signal_strength=62,
-            confidence="medium",
-        ),
-        TrendRadarItemResponse(
-            theme="FX",
-            category="fx",
-            status="volatile",
-            short_summary="USD duy trì mạnh, áp lực lên tiền tệ EM.",
-            sparkline_series=[50, 48, 52, 46, 49, 47, 51, 50],
-            signal_strength=72,
-            confidence="medium",
-        ),
-        TrendRadarItemResponse(
-            theme="Energy",
-            category="commodities",
-            status="volatile",
-            short_summary="Dầu biến động trong biên rộng.",
-            sparkline_series=[48, 52, 50, 55, 49, 47, 45, 46],
-            signal_strength=54,
-            confidence="medium",
-        ),
-        TrendRadarItemResponse(
-            theme="Equity Breadth",
-            category="equity",
-            status="improving",
-            short_summary="Độ rộng thị trường cải thiện nhẹ.",
-            sparkline_series=[38, 42, 46, 51, 49, 45, 47, 50],
-            signal_strength=58,
-            confidence="medium",
-        ),
-    ]
-
-
-def _build_cross_asset_pulse(*, range_key: str) -> CrossAssetPulseResponse:
-    base_date = datetime(2026, 4, 21, tzinfo=timezone(timedelta(hours=7)))
-    raw = {
-        "vn_index": ("VN-Index", "%", [1000, 1008, 1012, 1009, 1018, 1026, 1032, 1032]),
-        "usd_vnd": ("USD/VND", "%", [25400, 25430, 25410, 25470, 25520, 25510, 25560, 25552]),
-        "gold": ("Gold (USD/oz)", "%", [2300, 2325, 2348, 2360, 2378, 2395, 2408, 2463]),
-        "brent_oil": ("Brent Oil (USD/bbl)", "%", [86, 84, 82, 80, 79, 81, 80, 82.3]),
-    }
-    series: list[CrossAssetSeriesResponse] = []
-    for key, (label, unit, values) in raw.items():
-        start = float(values[0])
-        points = [
-            CrossAssetPointResponse(
-                date=(base_date + timedelta(days=index * 7)).date().isoformat(),
-                raw_value=float(value),
-                normalized_value=round(float(value) / start * 100.0, 2),
-            )
-            for index, value in enumerate(values)
-        ]
-        latest_change = round((float(values[-1]) / start - 1.0) * 100.0, 2)
-        series.append(
-            CrossAssetSeriesResponse(
-                asset_key=key,
-                label=label,
-                unit=unit,
-                values=points,
-                latest_change_pct=latest_change,
-                freshness_status="fresh",
-                confidence="medium",
-            )
-        )
-    return CrossAssetPulseResponse(range=range_key, series=series)
-
-
-def _build_scenario_monitor() -> list[ScenarioItemResponse]:
-    return [
-        ScenarioItemResponse(
-            scenario_key="base_case",
-            label="Base case",
-            probability=0.60,
-            impact_level="low",
-            affected_themes=["liquidity", "quality"],
-            summary="Tăng trưởng chậm lại, lạm phát hạ nhiệt dần.",
-            assumptions=["USD không tăng sốc", "lãi suất đi ngang", "thanh khoản ổn định"],
-            recommended_review="Theo dõi xác nhận từ thanh khoản và độ rộng.",
-        ),
-        ScenarioItemResponse(
-            scenario_key="fx_stress",
-            label="FX stress",
-            probability=0.25,
-            impact_level="medium",
-            affected_themes=["USD strength", "Emerging Outflow"],
-            summary="USD mạnh lên, dòng vốn rút khỏi EM.",
-            assumptions=["DXY tăng", "USD/VND chịu áp lực", "khẩu vị rủi ro giảm"],
-            recommended_review="Review exposure với nhóm nhạy tỷ giá.",
-        ),
-        ScenarioItemResponse(
-            scenario_key="rate_shock",
-            label="Rate shock",
-            probability=0.15,
-            impact_level="high",
-            affected_themes=["Rates Up", "Liquidity"],
-            summary="Lợi suất tăng mạnh, thanh khoản thắt chặt.",
-            assumptions=["lợi suất tăng", "duration assets bị chiết khấu", "risk premium tăng"],
-            recommended_review="Mở scenario để xem độ nhạy lãi suất.",
-        ),
-    ]
-
-
-def _build_sector_rotation() -> list[SectorRotationItemResponse]:
-    return [
-        SectorRotationItemResponse(sector="Banking", short_term_view="tích cực", medium_term_view="trung tính", relative_strength=0.62, momentum_score=68, breadth_score=61, flow_score=None, status="positive", explanation="Ngắn hạn đang mạnh hơn VN-Index, nhưng trung hạn chưa bứt hẳn."),
-        SectorRotationItemResponse(sector="Energy", short_term_view="trung tính", medium_term_view="tích cực", relative_strength=0.48, momentum_score=52, breadth_score=49, flow_score=None, status="watch", explanation="Biến động hàng hóa hỗ trợ trung hạn nhưng ngắn hạn còn nhiễu."),
-        SectorRotationItemResponse(sector="Retail", short_term_view="trung tính", medium_term_view="trung tính", relative_strength=0.45, momentum_score=50, breadth_score=47, flow_score=None, status="neutral", explanation="Chưa có xác nhận rotation rõ."),
-        SectorRotationItemResponse(sector="Real Estate", short_term_view="tiêu cực", medium_term_view="trung tính", relative_strength=0.34, momentum_score=38, breadth_score=35, flow_score=None, status="negative", explanation="Nhạy với lãi suất và thanh khoản, cần theo dõi rủi ro."),
-    ]
-
-
-def _build_macro_calendar(as_of: datetime) -> list[MacroEventResponse]:
-    events = [
-        ("us-cpi-may", "US CPI (MoM) - May", 2, "US", "high", ["Rates Up", "USD Strength"], "Fed/official calendar"),
-        ("fed-chair-speech", "Fed Chair Powell Speech", 3, "US", "high", ["Global Risk", "Rates"], "Fed calendar"),
-        ("sbv-policy-update", "SBV Policy Update", 5, "VN", "medium", ["USD/VND", "Liquidity"], "SBV/public calendar"),
-    ]
-    return [
-        MacroEventResponse(
-            event_id=event_id,
-            event_name=name,
-            event_time=(as_of + timedelta(days=days)).replace(hour=9, minute=30).isoformat(),
-            region=region,
-            impact_level=impact,
-            related_themes=themes,
-            time_remaining=f"{days} ngày còn lại",
-            source=source,
-        )
-        for event_id, name, days, region, impact, themes, source in events
-    ]
 
 
 def _build_watchlist_impact(session_id: str | None) -> WatchlistImpactResponse:

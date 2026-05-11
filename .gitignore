@@ -47,5 +47,7 @@ frontend/.playwright-cli/
 # ── Misc cache ───────────────────────
 .home-vnstock/
 .ipython/
+.jupyter/
 .matplotlib/
+.pycache_tmp/
 notebooks/.ipynb_checkpoints/

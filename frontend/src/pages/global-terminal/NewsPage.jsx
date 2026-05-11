@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import {
@@ -9,6 +9,8 @@ import {
   saveNewsArticle,
   unsaveNewsArticle,
 } from '../../modules/data-hub'
+import { getNewsEconomicCalendarEmbedUrl } from './newsEconomicCalendarUrl.js'
+import { finnhubCell, formatFinnhubEconTimeCell } from './newsFinnhubCalendarUtils.js'
 import './news.css'
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -84,11 +86,6 @@ const HEADER_BADGES = [
 const FEED_LIST_INITIAL = 12
 const FEED_LIST_STEP = 12
 
-/** Finnhub calendar rows in DOM (still capped server-side). */
-const FINNHUB_CAL_INITIAL = 15
-const FINNHUB_CAL_STEP = 15
-const FINNHUB_CAL_MAX = 60
-
 // ── Main Component ─────────────────────────────────────────────────────
 
 export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
@@ -130,15 +127,16 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   /** Finnhub macro desk (calendar + quotes); server caches to protect rate limits. */
   const [macroDesk, setMacroDesk] = useState(null)
 
+  /** Full economic calendar in overlay iframe */
+  const [econCalendarIframeOpen, setEconCalendarIframeOpen] = useState(false)
+  const [econCalendarIframeKey, setEconCalendarIframeKey] = useState(0)
+
   const [feedVisible, setFeedVisible] = useState(FEED_LIST_INITIAL)
-  const [finnhubCalVisible, setFinnhubCalVisible] = useState(FINNHUB_CAL_INITIAL)
 
   const apiPreset = preset === 'balanced' ? '' : preset
   const feedRef = useRef(null)
   const feedScrollRef = useRef(null)
   const feedSentinelRef = useRef(null)
-  const finnhubScrollRef = useRef(null)
-  const finnhubSentinelRef = useRef(null)
 
   // ── Fetch feed ───────────────────────────────────────────────────────
 
@@ -215,12 +213,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   useEffect(() => {
     setFeedVisible(FEED_LIST_INITIAL)
   }, [category, query, preset, apiPreset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
-
-  useEffect(() => {
-    const win = macroDesk?.calendar
-    if (!win?.from || !win?.to) return
-    setFinnhubCalVisible(FINNHUB_CAL_INITIAL)
-  }, [macroDesk?.calendar?.from, macroDesk?.calendar?.to])
 
   // ── Handlers ─────────────────────────────────────────────────────────
 
@@ -316,13 +308,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   const feedArticles = articles.slice(0, feedCap)
 
   const finnhubCalEvents = macroDesk?.calendar?.events || []
-  const finnhubCalCap = Math.min(
-    finnhubCalVisible,
-    finnhubCalEvents.length,
-    FINNHUB_CAL_MAX,
-  )
-  const finnhubCalSlice = finnhubCalEvents.slice(0, finnhubCalCap)
-  const finnhubCalTotal = Math.min(finnhubCalEvents.length, FINNHUB_CAL_MAX)
 
   useEffect(() => {
     if (!activeArticleId || !articles.length) return
@@ -348,22 +333,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
     return () => io.disconnect()
   }, [articles.length, feedVisible])
 
-  useEffect(() => {
-    const root = finnhubScrollRef.current
-    const target = finnhubSentinelRef.current
-    if (!root || !target || finnhubCalVisible >= finnhubCalTotal) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))
-        }
-      },
-      { root, rootMargin: '80px 0px', threshold: 0 },
-    )
-    io.observe(target)
-    return () => io.disconnect()
-  }, [finnhubCalTotal, finnhubCalVisible])
-
   const todayBrief = payload?.today_brief || []
   const clusters = payload?.clusters || []
   const pulse = payload?.pulse || {}
@@ -375,6 +344,48 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   const freshness = payload?.freshness || 'loading'
   const sourceCount = payload?.source_count || 0
   const successfulSourceCount = payload?.successful_source_count || 0
+
+  const pulseSentiment = useMemo(() => {
+    const n = Number(pulse.article_count) || articles.length || 0
+    const pos = Number(pulse.positive_count) || 0
+    const neg = Number(pulse.negative_count) || 0
+    const neu = Math.max(0, n - pos - neg)
+    const pct = (c) => (n > 0 ? Math.min(100, Math.round((c / n) * 100)) : 0)
+    return { n, pos, neg, neu, posPct: pct(pos), negPct: pct(neg), neuPct: pct(neu) }
+  }, [pulse.article_count, pulse.positive_count, pulse.negative_count, articles.length])
+
+  const topImpactCats = useMemo(() => (pulse.top_categories || []).slice(0, 3), [pulse.top_categories])
+  const maxImpactCount = useMemo(
+    () => Math.max(1, ...topImpactCats.map((c) => Number(c.count) || 0)),
+    [topImpactCats],
+  )
+  const previewEconEvents = useMemo(() => finnhubCalEvents.slice(0, 5), [finnhubCalEvents])
+  const topBrief = todayBrief[0]
+
+  useNewsSparkleMotion()
+
+  useEffect(() => {
+    if (!econCalendarIframeOpen) return undefined
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [econCalendarIframeOpen])
+
+  useEffect(() => {
+    if (!econCalendarIframeOpen) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') setEconCalendarIframeOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [econCalendarIframeOpen])
+
+  function openEconomicCalendarIframe() {
+    setEconCalendarIframeKey((k) => k + 1)
+    setEconCalendarIframeOpen(true)
+  }
 
   // ── Render ───────────────────────────────────────────────────────────
 
@@ -478,32 +489,187 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   return (
     <>
       <section className="news-desk">
-        {/* ── Header ────────────────────────────────────────────────── */}
-        <header className="news-desk__hero">
-          <div className="news-desk__hero-copy">
-            <p>News Intelligence</p>
-            <h1>News Intelligence</h1>
-            <span>{freshness} · {successfulSourceCount}/{sourceCount} sources connected</span>
-            <p className="news-desk__lede">
-              Đọc tin tức như bối cảnh, không phải tín hiệu mua/bán.
-            </p>
-            <div className="news-desk__hero-badges">
-              {HEADER_BADGES.map((b) => (
-                <span key={b.label} className={`news-desk__hero-badge ${b.variant === 'caution' ? 'is-caution' : ''}`}>
-                  {b.label}
-                </span>
-              ))}
+        <div className="news-sparkle-home">
+          <div className="news-sparkle-hero">
+            <div className="news-sparkle-hero-bg" aria-hidden />
+            <div className="news-sparkle-hero-inner">
+              <div className="news-sparkle-hero-copy">
+                <p className="news-sparkle-kicker">News Intelligence</p>
+                <div className="news-sparkle-shield">
+                  <span className="news-sparkle-shield-ic" aria-hidden>🛡</span>
+                  <span>Đọc tin tức như bối cảnh, không phải khuyến nghị mua/bán.</span>
+                </div>
+                <h1 className="news-sparkle-title">News Intelligence</h1>
+                <p className="news-sparkle-status">
+                  <span className={`news-sparkle-dot is-${freshness === 'fresh' ? 'fresh' : 'stale'}`} aria-hidden />
+                  {freshness} · {successfulSourceCount}/{sourceCount} nguồn đang kết nối
+                </p>
+                <p className="news-sparkle-desc">
+                  Theo dõi sự kiện, nguồn tin và tác động thị trường — có lớp giải thích AI, luôn phân biệt bối cảnh với tín hiệu giao dịch.
+                </p>
+                <div className="news-sparkle-badges">
+                  {HEADER_BADGES.map((b) => (
+                    <span key={b.label} className={`news-sparkle-badge ${b.variant === 'caution' ? 'is-caution' : ''}`}>{b.label}</span>
+                  ))}
+                </div>
+                <nav className="news-sparkle-actions" aria-label="Thao tác nhanh">
+                  <button type="button" className="news-sparkle-btn news-sparkle-btn--dark" onClick={() => setChatOpen(true)}>
+                    <span aria-hidden>✦</span> Ask Analyst
+                  </button>
+                  <button type="button" className="news-sparkle-btn news-sparkle-btn--light" onClick={handleRefresh}>
+                    ↻ Refresh feeds
+                  </button>
+                  <button
+                    type="button"
+                    className="news-sparkle-btn news-sparkle-btn--outline"
+                    onClick={() => {
+                      setMobileTab('pulse')
+                      window.requestAnimationFrame(() => {
+                        document.getElementById('news-desk-pulse-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                      })
+                    }}>
+                    📊 Market Pulse
+                  </button>
+                  {onOpenGlobalTerminal ? (
+                    <button type="button" className="news-sparkle-btn news-sparkle-btn--outline" onClick={onOpenGlobalTerminal}>Terminal</button>
+                  ) : null}
+                  <button type="button" className="news-sparkle-btn news-sparkle-btn--outline" onClick={onBack}>Home</button>
+                </nav>
+              </div>
+
+              <div className="news-sparkle-dash">
+                <div className="news-sparkle-dash-grid">
+                  <article className="news-sparkle-card news-sparkle-card--brief">
+                    <header className="news-sparkle-card-head">
+                      <span className="news-sparkle-card-kicker">Today brief</span>
+                      <span className="news-sparkle-pill">Top story</span>
+                    </header>
+                    {topBrief ? (
+                      <button type="button" className="news-sparkle-brief-hit" onClick={() => { setActiveArticleId(topBrief.article_id); setMobileTab('detail') }}>
+                        <span className="news-sparkle-brief-meta">{topBrief.source} · {topBrief.time || formatNewsDate(topBrief.published_at)}</span>
+                        <strong className="news-sparkle-brief-title">{topBrief.headline}</strong>
+                        <p className="news-sparkle-brief-why">{topBrief.why_it_matters}</p>
+                        <span className="news-sparkle-brief-cta">Đọc tóm tắt &amp; AI →</span>
+                      </button>
+                    ) : (
+                      <p className="news-sparkle-muted">Chưa có brief — đổi filter hoặc refresh.</p>
+                    )}
+                  </article>
+
+                  <article className="news-sparkle-card news-sparkle-card--pulse">
+                    <header className="news-sparkle-card-head">
+                      <span className="news-sparkle-card-kicker">Market pulse</span>
+                      <span className="news-sparkle-live">Live</span>
+                    </header>
+                    <ul className="news-sparkle-pulse-rows">
+                      <li><span>Tổng tin</span><b>{pulse.article_count ?? articles.length}</b></li>
+                      <li><span>High impact</span><b className="is-up">{pulse.high_impact_count ?? 0}</b></li>
+                      <li><span>Critical</span><b>{pulse.critical_count ?? 0}</b></li>
+                      <li><span>Negative</span><b className="is-down">{pulse.negative_count ?? 0}</b></li>
+                    </ul>
+                    <p className="news-sparkle-card-foot">Theo cửa sổ filter hiện tại · <button type="button" className="news-sparkle-linkbtn" onClick={() => { setMobileTab('pulse'); document.getElementById('news-desk-pulse-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }}>Xem chi tiết pulse</button></p>
+                  </article>
+
+                  <article className="news-sparkle-card news-sparkle-card--impact">
+                    <header className="news-sparkle-card-head">
+                      <span className="news-sparkle-card-kicker">Top impact areas</span>
+                      <span className="news-sparkle-pill is-warn">Theo category</span>
+                    </header>
+                    {topImpactCats.length ? (
+                      <ul className="news-sparkle-impact-list">
+                        {topImpactCats.map((c) => (
+                          <li key={c.label}>
+                            <span className="news-sparkle-impact-label">{c.label}</span>
+                            <span className="news-sparkle-impact-bar" aria-hidden>
+                              <i style={{ width: `${(Number(c.count) / maxImpactCount) * 100}%` }} />
+                            </span>
+                            <b>{c.count}</b>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="news-sparkle-muted">Chưa đủ dữ liệu phân loại.</p>
+                    )}
+                  </article>
+
+                  <article className="news-sparkle-card news-sparkle-card--sent">
+                    <header className="news-sparkle-card-head">
+                      <span className="news-sparkle-card-kicker">Sentiment mix</span>
+                    </header>
+                    <div className="news-sparkle-sent-wrap">
+                      <div
+                        className="news-sparkle-donut"
+                        style={{
+                          background: `conic-gradient(#34d399 0% ${pulseSentiment.posPct}%, #fbbf24 ${pulseSentiment.posPct}% ${pulseSentiment.posPct + pulseSentiment.neuPct}%, #fb7185 ${pulseSentiment.posPct + pulseSentiment.neuPct}% 100%)`,
+                        }}
+                        role="img"
+                        aria-label={`Sentiment positive ${pulseSentiment.posPct} percent, neutral ${pulseSentiment.neuPct}, negative ${pulseSentiment.negPct}`}
+                      />
+                      <ul className="news-sparkle-sent-legend">
+                        <li><i className="dot pos" /> Positive <b>{pulseSentiment.posPct}%</b></li>
+                        <li><i className="dot neu" /> Neutral <b>{pulseSentiment.neuPct}%</b></li>
+                        <li><i className="dot neg" /> Negative <b>{pulseSentiment.negPct}%</b></li>
+                      </ul>
+                    </div>
+                    <p className="news-sparkle-card-foot">Dựa trên {successfulSourceCount}/{sourceCount} nguồn trong batch</p>
+                  </article>
+                </div>
+
+                {macroDesk?.enabled && previewEconEvents.length ? (
+                  <div className="news-sparkle-cal-strip">
+                    <div className="news-sparkle-cal-strip-head">
+                      <span>Lịch sắp tới</span>
+                      <button
+                        type="button"
+                        className="news-sparkle-linkbtn"
+                        onClick={openEconomicCalendarIframe}>
+                        Bảng đầy đủ ↓
+                      </button>
+                    </div>
+                    <ul className="news-sparkle-cal-list">
+                      {previewEconEvents.map((ev, i) => {
+                        const tc = formatFinnhubEconTimeCell(ev)
+                        return (
+                          <li key={`p-${i}-${ev.country}-${String(ev.event).slice(0, 24)}`}>
+                            <span className="news-sparkle-cal-time">{tc.main}{tc.utcLabel ? ` ${tc.utcLabel}` : ''}</span>
+                            <span className="news-sparkle-cal-cc">{finnhubCell(ev.country)}</span>
+                            <span className="news-sparkle-cal-ev">{String(ev.event).slice(0, 72)}{String(ev.event).length > 72 ? '…' : ''}</span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <div className="news-sparkle-latest">
+                  <span className="news-sparkle-latest-ic" aria-hidden>🔔</span>
+                  <div>
+                    <p className="news-sparkle-latest-k">Latest update</p>
+                    {articles[0] ? (
+                      <p className="news-sparkle-latest-t">
+                        <strong>{articles[0].source}</strong> · {formatNewsDate(articles[0].published_at)} — {articles[0].headline}
+                      </p>
+                    ) : (
+                      <p className="news-sparkle-muted">Chưa có tin trong cửa sổ.</p>
+                    )}
+                  </div>
+                  {articles[0] ? (
+                    <button type="button" className="news-sparkle-btn news-sparkle-btn--mini" onClick={() => { setActiveArticleId(articles[0].article_id); setMobileTab('detail') }}>Xem chi tiết</button>
+                  ) : null}
+                </div>
+              </div>
             </div>
+            <button
+              type="button"
+              className="news-sparkle-scrollhint"
+              onClick={() => document.getElementById('news-desk-main')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+              <span>Khám phá feed &amp; bộ lọc</span>
+              <span className="news-sparkle-scrollhint-chev" aria-hidden>⌄</span>
+            </button>
           </div>
-          <nav className="news-desk__hero-actions">
-            <button type="button" className="news-desk__button news-desk__button--ghost" onClick={() => setChatOpen(true)}>Ask Analyst</button>
-            <button type="button" className="news-desk__button news-desk__button--primary" onClick={handleRefresh}>Refresh feeds</button>
-            {onOpenGlobalTerminal ? (
-              <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onOpenGlobalTerminal}>Global Terminal</button>
-            ) : null}
-            <button type="button" className="news-desk__button news-desk__button--ghost" onClick={onBack}>Home</button>
-          </nav>
-        </header>
+        </div>
+
+        <div id="news-desk-main" className="news-desk__main-panel">
 
         {/* ── Control Bar ───────────────────────────────────────────── */}
         <section className="news-desk__control-bar" aria-label="News filters">
@@ -576,153 +742,15 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           </div>
         </section>
 
-        {/* ── Economic calendar: full width, above Today Brief / desk ── */}
-        {macroDesk?.enabled ? (
-          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế Finnhub">
-            <div className="news-desk__econ-calendar-head">
-              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
-              <span className="news-desk__econ-calendar-source">Finnhub</span>
-            </div>
-            <div className="news-desk__finnhub-head">
-              <p className="news-desk__finnhub-lede">
-                Sự kiện vĩ mô đã lên lịch (chỉ số, họp NHNN, phát biểu…). Dùng để theo dõi giờ công bố — không phải tư vấn đầu tư.
-              </p>
-              <div className="news-desk__finnhub-tzline" aria-label="Múi giờ">
-                <span className="news-desk__finnhub-pill">Giờ công bố: UTC</span>
-                <span className="news-desk__finnhub-pill news-desk__finnhub-pill--muted">≈ Việt Nam: UTC + 7 (xem cột Giờ)</span>
-              </div>
-            </div>
-            <details className="news-desk__finnhub-help">
-              <summary>Cách đọc nhanh</summary>
-              <ul>
-                <li><strong>QG</strong>: quốc gia / vùng (CA, EU…).</li>
-                <li><strong>Mức</strong>: độ “ồn ào” thường gặp trên lịch (high / medium / low), không phải xếp hạng đầu tư.</li>
-                <li><strong>Dự báo / Thực tế / Trước</strong>: chỉ khi là chỉ số có số; phát biểu / ngày lễ thường trống — bình thường.</li>
-                <li><strong>Cả ngày</strong>: không có mốc giờ từ nguồn — không đồng nghĩa 00:00.</li>
-              </ul>
-            </details>
-            {macroDesk.calendar?.events?.length ? (
-              <>
-                <p className="news-desk__finnhub-range">
-                  Hiển thị {finnhubCalSlice.length}/{finnhubCalTotal} sự kiện (tối đa {FINNHUB_CAL_MAX} gần nhất)
-                  {finnhubCalSlice.length < finnhubCalTotal ? ' · cuộn trong khung hoặc “Xem thêm”' : ''}
-                </p>
-                <div className="news-desk__finnhub-cal-scroll" ref={finnhubScrollRef}>
-                  <table className="news-desk__finnhub-table">
-                    <caption className="news-desk__finnhub-caption">
-                      Finnhub · {macroDesk.calendar.from} → {macroDesk.calendar.to}
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th scope="col" className="news-desk__finnhub-th-time">
-                          <span className="news-desk__finnhub-th-main">Giờ</span>
-                          <span className="news-desk__finnhub-th-sub">UTC · VN</span>
-                        </th>
-                        <th scope="col">QG</th>
-                        <th scope="col">Mức</th>
-                        <th scope="col">Sự kiện</th>
-                        <th scope="col">Dự báo</th>
-                        <th scope="col">Thực tế</th>
-                        <th scope="col">Trước</th>
-                      </tr>
-                    </thead>
-                    {groupFinnhubEconomicDays(finnhubCalSlice).map((g) => (
-                      <Fragment key={g.day}>
-                        <tbody className="news-desk__finnhub-tbody">
-                          <tr className="news-desk__finnhub-dayrow">
-                            <td colSpan={7}>
-                              <div className="news-desk__finnhub-dayrow-inner">
-                                <span className="news-desk__finnhub-dayrow-title">{g.dayLabel}</span>
-                                {g.day !== 'unknown' ? (
-                                  <span className="news-desk__finnhub-dayrow-iso">{g.day}</span>
-                                ) : null}
-                              </div>
-                            </td>
-                          </tr>
-                          {g.items.map((ev, i) => {
-                            const timeCell = formatFinnhubEconTimeCell(ev)
-                            const rk = `e-${g.day}-${i}-${ev.country}-${String(ev.event).slice(0, 40)}`
-                            return (
-                              <tr key={rk} className="news-desk__finnhub-row">
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--time">
-                                  <span className="news-desk__finnhub-time-main">{timeCell.main}</span>
-                                  {timeCell.utcLabel ? (
-                                    <span className="news-desk__finnhub-time-zone">{timeCell.utcLabel}</span>
-                                  ) : null}
-                                  {timeCell.vnLine ? (
-                                    <span className="news-desk__finnhub-time-vn">{timeCell.vnLine}</span>
-                                  ) : null}
-                                  {timeCell.sub ? (
-                                    <span className="news-desk__finnhub-time-sub">{timeCell.sub}</span>
-                                  ) : null}
-                                </td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--cc">{finnhubCell(ev.country)}</td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--impact">
-                                  <span className={`news-desk__finnhub-impact is-${((ev.impact && String(ev.impact).trim()) ? String(ev.impact).toLowerCase() : 'none')}`}>
-                                    {finnhubCell(ev.impact)}
-                                  </span>
-                                </td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--event">{finnhubCell(ev.event)}</td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.estimate, ev.unit)}</td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.actual, ev.unit)}</td>
-                                <td className="news-desk__finnhub-td news-desk__finnhub-td--num">{finnhubNumCell(ev.prev, ev.unit)}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </Fragment>
-                    ))}
-                  </table>
-                  {finnhubCalSlice.length < finnhubCalTotal ? (
-                    <>
-                      <div ref={finnhubSentinelRef} className="news-desk__list-sentinel" aria-hidden />
-                      <div className="news-desk__load-more-wrap">
-                        <button
-                          type="button"
-                          className="news-desk__button news-desk__button--ghost news-desk__load-more"
-                          onClick={() => setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))}>
-                          Xem thêm lịch ({finnhubCalTotal - finnhubCalSlice.length} sự kiện)
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              </>
-            ) : macroDesk.calendar_error ? (
-              <p className="news-desk__state news-desk__state--warning">Lịch: {macroDesk.calendar_error}</p>
-            ) : (
-              <p className="news-desk__state">Chưa có sự kiện trong cửa sổ ngày.</p>
-            )}
-            <p className="news-desk__finnhub-foot">
-              Làm mới ~{Math.round((macroDesk.cache?.calendar_ttl_sec ?? 0) / 60)} phút
-              {macroDesk.as_of ? ` · cập nhật ${formatNewsDate(macroDesk.as_of)}` : ''}
-            </p>
-          </section>
-        ) : macroDesk?.client_error ? (
-          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế">
-            <div className="news-desk__econ-calendar-head">
-              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
-            </div>
-            <p className="news-desk__state news-desk__state--warning">Không tải được Finnhub (mạng hoặc server).</p>
-          </section>
-        ) : macroDesk && !macroDesk.enabled ? (
-          <section id="news-econ-calendar" className="news-desk__econ-calendar news-desk__finnhub news-desk__finnhub--prominent" aria-label="Lịch kinh tế">
-            <div className="news-desk__econ-calendar-head">
-              <h2 className="news-desk__econ-calendar-title">Lịch kinh tế</h2>
-            </div>
-            <p className="news-desk__state">Macro Finnhub: thêm <code>FINNHUB_API_KEY</code> vào <code>.env</code> rồi restart backend.</p>
-          </section>
-        ) : null}
-
-        {/* ── Today Brief ───────────────────────────────────────────── */}
-        {todayBrief.length > 0 ? (
-          <section className="news-desk__today-brief" aria-label="Today Brief">
+        {/* ── Today Brief (các tin còn lại; tin đầu đã ở hero) ─────────── */}
+        {todayBrief.length > 1 ? (
+          <section id="news-today-brief-rest" className="news-desk__today-brief" aria-label="Today Brief thêm">
             <div className="news-desk__section-head">
               <h2>Today Brief</h2>
-              <span>{todayBrief.length} key stories</span>
+              <span>{todayBrief.length - 1} tin nổi bật khác</span>
             </div>
             <div className="news-desk__brief-grid">
-              {todayBrief.map((item) => (
+              {todayBrief.slice(1).map((item) => (
                 <TodayBriefCard
                   key={item.article_id}
                   item={item}
@@ -954,7 +982,7 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           </article>
 
           {/* Market Pulse Panel */}
-          <aside className={`news-desk__pulse ${mobileTab !== 'pulse' ? 'is-mobile-hidden' : ''}`}>
+          <aside id="news-desk-pulse-panel" className={`news-desk__pulse ${mobileTab !== 'pulse' ? 'is-mobile-hidden' : ''}`}>
             <div className="news-desk__panel-head">
               <div>
                 <p>Market pulse</p>
@@ -1060,13 +1088,73 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
         <footer className="news-desk__safety-footer">
           <span>Tin tức là bối cảnh phân tích, không phải khuyến nghị mua/bán.</span>
         </footer>
+        </div>
       </section>
       {typeof document === 'undefined' ? analystNode : createPortal(analystNode, document.body)}
+      {econCalendarIframeOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="news-desk__econ-cal-iframe-backdrop"
+              role="presentation"
+              onClick={() => setEconCalendarIframeOpen(false)}>
+              <div
+                className="news-desk__econ-cal-iframe-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="news-econ-cal-iframe-title"
+                onClick={(e) => e.stopPropagation()}>
+                <div className="news-desk__econ-cal-iframe-head">
+                  <h2 id="news-econ-cal-iframe-title" className="news-desk__econ-cal-iframe-title">
+                    Lịch kinh tế
+                  </h2>
+                  <button
+                    type="button"
+                    className="news-desk__econ-cal-iframe-close"
+                    onClick={() => setEconCalendarIframeOpen(false)}
+                    aria-label="Đóng">
+                    ×
+                  </button>
+                </div>
+                <iframe
+                  key={econCalendarIframeKey}
+                  className="news-desk__econ-cal-iframe-el"
+                  src={getNewsEconomicCalendarEmbedUrl()}
+                  title="Lịch kinh tế Finnhub"
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   )
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────
+
+function useNewsSparkleMotion() {
+  useEffect(() => {
+    const hero = document.querySelector('.news-sparkle-hero')
+    if (!hero) return undefined
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) return undefined
+
+    function handlePointerMove(event) {
+      const rect = hero.getBoundingClientRect()
+      const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+      const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+      hero.style.setProperty('--news-hero-x', x.toFixed(3))
+      hero.style.setProperty('--news-hero-y', y.toFixed(3))
+    }
+
+    hero.addEventListener('pointermove', handlePointerMove)
+
+    return () => {
+      hero.removeEventListener('pointermove', handlePointerMove)
+    }
+  }, [])
+}
 
 function TodayBriefCard({ item, isActive, isSaved, onSelect, onSave, onAskAi }) {
   return (
@@ -1135,110 +1223,5 @@ function formatNewsDate(value) {
   if (!value) return '--'
   return new Date(value).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function formatFinnhubDayHeadingVi(ymd) {
-  const [y, m, d] = ymd.split('-').map((x) => Number(x))
-  if (!y || !m || !d) return ymd
-  const dt = new Date(Date.UTC(y, m - 1, d))
-  return dt.toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
-function parseFinnhubEconDay(dateRaw) {
-  if (dateRaw == null || dateRaw === '') return null
-  const s = String(dateRaw)
-  const ymd = s.includes('T') ? s.split('T')[0] : s.slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
-  return ymd
-}
-
-function finnhubCell(v) {
-  if (v == null || v === '') return '—'
-  return String(v)
-}
-
-function finnhubNumCell(v, unit) {
-  if (v == null || v === '') return '—'
-  const u = unit && String(unit).trim() ? ` ${unit}` : ''
-  return `${v}${u}`
-}
-
-/** Milliseconds UTC for sorting; robust to Finnhub date/time shapes. */
-function finnhubEventInstantUtc(ev) {
-  const ymd = parseFinnhubEconDay(ev.date)
-  if (!ymd) return 0
-  const t = ev.time
-  if (t == null || t === '') return Date.parse(`${ymd}T00:00:00Z`)
-  if (typeof t === 'number') {
-    const ms = t < 2e12 ? t * 1000 : t
-    return Number.isNaN(ms) ? Date.parse(`${ymd}T12:00:00Z`) : ms
-  }
-  const s = String(t).trim()
-  if (/\d{4}-\d{2}-\d{2}T\d/.test(s)) {
-    const ms = Date.parse(s)
-    return Number.isNaN(ms) ? Date.parse(`${ymd}T12:00:00Z`) : ms
-  }
-  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
-  if (m) {
-    const hh = Number(m[1])
-    const mm = Number(m[2])
-    return Date.parse(
-      `${ymd}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`,
-    )
-  }
-  return Date.parse(`${ymd}T12:00:00Z`)
-}
-
-/** Time column: UTC + approx Vietnam (UTC+7) when a definite time exists. */
-function formatFinnhubEconTimeCell(ev) {
-  const t = ev.time
-  if (t == null || t === '') {
-    return { main: '—', utcLabel: null, vnLine: null, sub: 'Cả ngày' }
-  }
-  const ms = finnhubEventInstantUtc(ev)
-  if (!Number.isFinite(ms) || ms <= 0) {
-    return { main: '—', utcLabel: null, vnLine: null, sub: '' }
-  }
-  const utcHm = new Date(ms).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  })
-  const vnHm = new Date(ms).toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  })
-  return {
-    main: utcHm,
-    utcLabel: 'UTC',
-    vnLine: `≈ ${vnHm} VN`,
-    sub: '',
-  }
-}
-
-function groupFinnhubEconomicDays(events) {
-  const map = new Map()
-  for (const ev of events) {
-    const day = parseFinnhubEconDay(ev.date) || 'unknown'
-    if (!map.has(day)) map.set(day, [])
-    map.get(day).push(ev)
-  }
-  const keys = [...map.keys()].filter((k) => k !== 'unknown').sort()
-  if (map.has('unknown')) keys.push('unknown')
-  return keys.map((day) => {
-    const items = (map.get(day) || []).slice().sort((a, b) => finnhubEventInstantUtc(a) - finnhubEventInstantUtc(b))
-    return {
-      day,
-      dayLabel: day === 'unknown' ? 'Không rõ ngày' : formatFinnhubDayHeadingVi(day),
-      items,
-    }
   })
 }

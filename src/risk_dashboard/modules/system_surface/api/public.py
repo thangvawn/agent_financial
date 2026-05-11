@@ -72,6 +72,7 @@ def dashboard() -> str:
 @router.get("/global-terminal", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/markets", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/news", response_class=HTMLResponse, tags=["Frontend"])
+@router.get("/news/economic-calendar", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/news-desk", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/learn", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/learning", response_class=HTMLResponse, tags=["Frontend"])

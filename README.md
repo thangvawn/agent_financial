@@ -1,466 +1,300 @@
 # Risk Dashboard
 
-Hệ thống phân tích rủi ro định lượng cho thị trường chứng khoán Việt Nam.
+Hệ thống phân tích rủi ro định lượng cho thị trường chứng khoán Việt Nam: **dữ liệu → quant engine (XGBoost/GARCH/HMM/SHAP/VAR) → multi-agent LLM → FastAPI → React**.
 
-Pipeline: **Dữ liệu → Quant Engine (XGBoost/GARCH/HMM/SHAP/VAR) → Multi-Agent LLM → FastAPI → React Dashboard**.
+Tài liệu này giúp người mới **clone repo và chạy được** (Docker hoặc máy local).
 
 ---
 
 ## Mục lục
 
-- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Cài đặt nhanh (local)](#cài-đặt-nhanh-local)
-- [Chạy bằng Docker](#chạy-bằng-docker)
-- [Nạp dữ liệu](#nạp-dữ-liệu)
-- [Chạy phân tích](#chạy-phân-tích)
-- [API Endpoints](#api-endpoints)
-- [CLI Commands](#cli-commands)
-- [Chạy tests](#chạy-tests)
-- [Cấu trúc dự án](#cấu-trúc-dự-án)
-- [Cấu hình](#cấu-hình)
+- [Yêu cầu](#yêu-cầu)
+- [Clone repo](#clone-repo)
+- [Cách 1 — Docker (khuyến nghị)](#cách-1--docker-khuyến-nghị)
+- [Cách 2 — Chạy trên máy (Python + Node)](#cách-2--chạy-trên-máy-python--node)
+- [Biến môi trường `.env`](#biến-môi-trường-env)
+- [Nạp dữ liệu lần đầu](#nạp-dữ-liệu-lần-đầu)
+- [URL sau khi chạy](#url-sau-khi-chạy)
+- [Truy cập từ máy khác (LAN / ngrok)](#truy-cập-từ-máy-khác-lan--ngrok)
+- [Lệnh thường dùng (Makefile)](#lệnh-thường-dùng-makefile)
+- [Tests & chất lượng code](#tests--chất-lượng-code)
+- [API & CLI (tham khảo)](#api--cli-tham-khảo)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
+- [Đẩy code lên Git (gợi ý)](#đẩy-code-lên-git-gợi-ý)
 
 ---
 
-## Yêu cầu hệ thống
+## Yêu cầu
 
-| Thành phần | Phiên bản tối thiểu |
-|------------|---------------------|
-| Python | 3.10+ |
-| Node.js | 20+ (cho frontend) |
-| Docker | 24+ (nếu chạy Docker) |
+| Thành phần | Ghi chú |
+|------------|---------|
+| **Git** | Để clone |
+| **Docker Desktop** (cách 1) | Docker 24+, `docker compose` |
+| **Python 3.10+** (cách 2) | Khuyến nghị 3.12 để gần với image Docker |
+| **Node.js 20+** (cách 2, frontend dev) | Khi chạy Vite riêng |
+| **Mạng** | Lần đầu cần internet để cài package và tải dữ liệu |
 
 ---
 
-## Cài đặt nhanh (local)
-
-### Bước 1 — Clone repo
+## Clone repo
 
 ```bash
-git clone https://github.com/thangvawn/agent_financial.git
-cd agent_financial
+git clone <URL-repo-của-bạn>.git
+cd <tên-thư-mục-repo>
 ```
 
-### Bước 2 — Tạo môi trường Python
+Ví dụ sau giả sử bạn đang đứng ở **thư mục gốc của repo** (nơi có `pyproject.toml`, `docker-compose.yml`).
 
-```bash
-python -m venv .venv
-source .venv/bin/activate    # macOS / Linux
-# .venv\Scripts\activate     # Windows
-```
+---
 
-### Bước 3 — Cài dependencies
+## Cách 1 — Docker (khuyến nghị)
 
-```bash
-# Cài tất cả (backend + dev tools + auto macro)
-pip install -e ".[dev,auto]"
+Phù hợp khi muốn **một lệnh có API + dashboard build sẵn** (port **8000**).
 
-# Cài frontend
-cd frontend && npm install && cd ..
-```
-
-Hoặc dùng Makefile:
-
-```bash
-make install
-```
-
-### Bước 4 — Cấu hình `.env`
+### 1. Tạo file môi trường
 
 ```bash
 cp .env.example .env
 ```
 
-Mở file `.env` và điền:
+Chỉnh tối thiểu `OPENAI_API_KEY` nếu cần chat AI (xem [Biến môi trường](#biến-môi-trường-env)).
 
-```
-OPENAI_API_KEY=sk-your-key-here    # Bắt buộc cho chat AI
-AI_ASSISTANT_AGENT_ENABLED=1       # Bật agent runtime cho chatbot
-AI_ASSISTANT_MODEL=gpt-4o-mini     # Model dùng cho agent compose
-API_SECRET_KEY=                     # Để trống = API public
-LOG_LEVEL=INFO
-```
-
-### Bước 5 — Nạp dữ liệu lần đầu
+### 2. Build và chạy
 
 ```bash
-# Tải VNINDEX + VN30 từ vnstock + macro tự động từ World Bank
+docker compose build
+docker compose up -d
+docker compose logs -f app
+```
+
+Đợi log không còn lỗi import / uvicorn báo **Application startup complete**.
+
+### 3. Nạp dữ liệu panel (bắt buộc để dashboard không 503)
+
+Image Docker cài extra `auto` (macro tự động); lệnh crawl VN cần **`vnstock`** — cách đơn giản là chạy **một lần trên máy host** (dùng chung thư mục `./data` với container):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[vnstock,auto]"
 risk-fetch-universe --start 2015-01-01 --end 2026-04-06 --macro auto --out ./data/cache
 ```
 
-> Lệnh này cần mạng internet, mất khoảng 2-5 phút. Kết quả lưu vào `data/cache/`.
-
-### Bước 6 — Chạy Backend API
+Sau đó restart app nếu cần:
 
 ```bash
-make dev
-# hoặc: uvicorn risk_dashboard.api.main:app --reload --app-dir src
+docker compose restart app
 ```
 
-Backend chạy tại `http://localhost:8000`.
+### 4. Mở trình duyệt
 
-### Bước 7 — Chạy Frontend (dev mode)
+| URL | Mô tả |
+|-----|--------|
+| [http://localhost:8000/dashboard](http://localhost:8000/dashboard) | Dashboard React (do backend phục vụ) |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger |
+| [http://localhost:8000/health](http://localhost:8000/health) | Health check |
 
-Mở terminal mới:
+Tắt stack:
 
 ```bash
-make dev-frontend
-# hoặc: cd frontend && npm run dev
+docker compose down
 ```
 
-Frontend chạy tại `http://localhost:5173` (tự động proxy API sang port 8000).
-
-### Bước 7 (thay thế) — Build frontend để backend serve trực tiếp
-
-```bash
-make build
-# hoặc: cd frontend && npm run build
-```
-
-Sau khi build, truy cập `http://localhost:8000/dashboard` — backend serve trực tiếp React app.
+`./data` được **mount** vào container — cache/model trong `data/` (theo `.gitignore`) vẫn nằm trên máy bạn.
 
 ---
 
-## Chạy bằng Docker
+## Cách 2 — Chạy trên máy (Python + Node)
 
-### Bước 1 — Chuẩn bị `.env`
+### 1. Môi trường Python
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
+
+### 2. Cài backend + frontend
+
+```bash
+make install
+# tương đương: pip install -e ".[dev,auto]" && cd frontend && npm ci
+```
+
+### 3. `.env`
 
 ```bash
 cp .env.example .env
-# Sửa OPENAI_API_KEY trong .env
+# sửa OPENAI_API_KEY và các key tùy chọn (mục dưới)
 ```
 
-### Bước 2 — Build & chạy
+### 4. Nạp dữ liệu
 
 ```bash
-# Build image
-docker compose build
-
-# Chạy nền
-docker compose up -d
-
-# Xem logs
-docker compose logs -f app
+pip install -e ".[vnstock,auto]"
+risk-fetch-universe --start 2015-01-01 --end 2026-04-06 --macro auto --out ./data/cache
 ```
 
-Hoặc dùng Makefile:
+### 5. Chạy backend
 
 ```bash
-make docker-build
-make up
-make logs
+make dev
+# Backend: http://localhost:8000 (lắng nghe 0.0.0.0 — có thể mở bằng IP LAN)
 ```
 
-### Bước 3 — Truy cập
+### 6. (Tuỳ chọn) Frontend dev — Vite + proxy API
 
-| URL | Mô tả |
-|-----|-------|
-| http://localhost:8000/dashboard | React Dashboard |
-| http://localhost:8000/docs | Swagger API (tương tác) |
-| http://localhost:8000/redoc | ReDoc API (đọc) |
-| http://localhost:8000/health | Health check |
-
-### Quản lý Docker
+Terminal khác:
 
 ```bash
-docker compose ps          # Xem trạng thái
-docker compose restart app # Restart app
-docker compose down        # Tắt tất cả
-docker compose down -v     # Tắt + xóa volumes
-docker compose up -d --build  # Rebuild khi code thay đổi
+make dev-frontend
 ```
 
-> Thư mục `./data` được mount vào container — dữ liệu không mất khi tắt/xóa container.
+Mở URL mà Vite in ra (thường có thêm base path **`/dashboard-static/`**). API được proxy sang port **8000**.
 
-### Test media local cho Learn Hub (video/audio/sách)
-
-Bạn có thể upload file test vào thư mục:
-
-- `data/learning_assets/videos/` (`mp4`, `webm`, `mov`, `m4v`, `avi`, `mkv`, ...)
-- `data/learning_assets/audios/` (`mp3`, `wav`, `m4a`, `aac`, `ogg`, `flac`, ...)
-- `data/learning_assets/books/` (`pdf`, `epub`, `mobi`, `txt`, `docx`)
-- `data/learning_assets/images/` (thumbnail, optional)
-
-Backend tự serve public qua URL:
-
-- `/learning-assets/videos/<ten-file>`
-- `/learning-assets/audios/<ten-file>`
-- `/learning-assets/books/<ten-file>`
-- `/learning-assets/images/<ten-file>`
-
-Ví dụ:
-
-- file local: `data/learning_assets/videos/cashflow-101.mp4`
-- URL dùng trong frontend/CMS: `/learning-assets/videos/cashflow-101.mp4`
-
-Phù hợp để test local trước; sau này đổi base URL sang cloud storage/CDN mà không cần đổi flow Learn Hub.
-
----
-
-## Nạp dữ liệu
-
-### Tự động (từ vnstock + World Bank)
+### 7. (Tuỳ chọn) Chỉ build frontend, xem qua backend
 
 ```bash
-# Cần cài trước: pip install -e ".[vnstock,auto]"
-risk-fetch-universe --start 2015-01-01 --end 2026-04-06 \
-  --macro auto --out ./data/cache
-```
-
-### Từ file CSV
-
-**Dữ liệu thị trường** — cần cột: `tradingDate` (hoặc `date`), `close`, `volume`.
-
-```bash
-risk-eod-ingest --start 2024-01-01 --end 2024-12-31 \
-  --market csv --market-csv path/to/market.csv \
-  --macro-csv path/to/macro.csv \
-  --output-dir ./data_outputs
-```
-
-**Dữ liệu vĩ mô (tháng)** — cần cột: `period_end`, `usd_vnd_rate`, `usd_vnd_1m_change_pct`, `sbv_interest_rate_pct`. Tùy chọn: `cpi_yoy_pct`, `fdi_disbursement_yoy_pct`.
-
-Xem mẫu tại:
-- `tests/fixtures/sample_market.csv`
-- `tests/fixtures/sample_macro.csv`
-- `tests/fixtures/sample_official_macro.csv`
-
-### Vĩ mô tự động (không cần CSV)
-
-```bash
-pip install -e ".[auto]"
-risk-eod-ingest --start 2024-01-01 --end 2024-12-31 \
-  --market csv --market-csv path/to/market.csv \
-  --macro-auto --output-dir ./data_outputs
-```
-
-Nguồn tự động: tỷ giá USD/VND từ Yahoo Finance, CPI/lãi suất/FDI từ World Bank API (ước lượng, không thay số liệu chính thức GSO/SBV).
-
----
-
-## Chạy phân tích
-
-### Trên giao diện Dashboard
-
-1. Mở `http://localhost:8000/dashboard` (hoặc `http://localhost:5173` nếu dev mode)
-2. Chọn **As Of Date** → bấm **Chạy Phân tích EOD**
-3. Kết quả: Risk Score, Regime, SHAP, xác suất giảm điểm
-4. Tab **Mô phỏng Kịch bản**: kéo slider tỷ giá / lãi suất → bấm **Chạy Mô phỏng**
-5. Tab **Financial Analysis**: nhập ticker (VD: `FPT`) → bấm **Phân tích BCTC**
-6. Nút chat 💬 góc phải: hỏi AI về rủi ro, stress test, danh mục
-
-### Qua API
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Chạy EOD
-curl -X POST http://localhost:8000/eod/run \
-  -H "Content-Type: application/json" \
-  -d '{"as_of": "2026-03-29"}'
-
-# Mô phỏng kịch bản
-curl -X POST http://localhost:8000/scenario/rerun \
-  -H "Content-Type: application/json" \
-  -d '{"as_of": "2026-03-29", "usd_vnd_rate": 25500}'
-
-# Chat với AI
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"as_of": "2026-03-29", "message": "VN-INDEX hôm nay thế nào?"}'
-
-# Phân tích BCTC
-curl http://localhost:8000/financials/FPT/analysis
+make build
+# Rồi mở http://localhost:8000/dashboard
 ```
 
 ---
 
-## API Endpoints
+## Biến môi trường `.env`
 
-| Method | Path | Mô tả |
-|--------|------|-------|
-| GET | `/health` | Health check (panel + model status) |
-| GET | `/dashboard` | React Dashboard UI |
-| GET | `/dashboard/state` | Trạng thái panel dữ liệu |
-| GET | `/dashboard/history` | Lịch sử Risk Score + VN-INDEX |
-| GET | `/dashboard/live` | Dữ liệu realtime (DNSE) |
-| GET | `/dashboard/money-flow` | Dòng tiền ngành |
-| POST | `/eod/run` | Chạy phân tích EOD đầy đủ |
-| POST | `/scenario/rerun` | Mô phỏng kịch bản vĩ mô |
-| POST | `/chat` | Chat với Multi-Agent AI |
-| GET | `/research/model-report` | Báo cáo model benchmark |
-| GET | `/financials/{ticker}/analysis` | Phân tích BCTC theo ticker |
-| POST | `/financials/import` | Import dataset BCTC từ JSON |
-| POST | `/admin/load-panel` | Nạp panel thủ công |
-| GET | `/docs` | Swagger UI (interactive) |
-| GET | `/redoc` | ReDoc (read-only) |
+Copy từ [`.env.example`](.env.example). **Không commit** file `.env` lên Git (đã có trong `.gitignore`).
 
-> Nếu `API_SECRET_KEY` được đặt trong `.env`, tất cả request (trừ `/health`, `/docs`) phải gửi header `X-API-Key`.
+| Biến | Bắt buộc? | Mô tả |
+|------|-----------|--------|
+| `OPENAI_API_KEY` | Có nếu dùng chat / agent LLM | Key OpenAI |
+| `AI_ASSISTANT_AGENT_ENABLED` | Không | `1` bật agent, `0` fallback không LLM |
+| `AI_ASSISTANT_MODEL` | Không | Model chat (vd. `gpt-4o-mini`) |
+| `TAVILY_API_KEY` | Không | Tin tức / news analyst nếu bật Tavily |
+| `ELEVENLABS_*` | Không | Giọng ElevenLabs; để trống vẫn dùng voice local |
+| `API_SECRET_KEY` | Không | Nếu đặt, gửi header `X-API-Key` cho API (trừ một số route công khai) |
+| `FINNHUB_API_KEY` | Không | Lịch vĩ mô / quote (xem comment trong `.env.example`) |
+| `LOG_LEVEL` | Không | `INFO`, `DEBUG`, … |
+
+Chi tiết thêm: xem comment trong `.env.example`.
 
 ---
 
-## CLI Commands
+## Nạp dữ liệu lần đầu
 
-| Lệnh | Chức năng |
-|-------|-----------|
-| `risk-fetch-universe` | Crawl VNINDEX + VN30, sinh training panel |
-| `risk-eod-ingest` | Ingest dữ liệu thị trường + vĩ mô → Parquet |
-| `risk-eod-job` | Ingest + đăng ký vào SQLite registry |
-| `risk-fetch-data` | Tải dữ liệu thị trường |
-| `risk-fetch-financials` | Tải BCTC doanh nghiệp |
-| `risk-train-model` | Train model rủi ro offline |
-| `risk-benchmark-models` | So sánh các thuật toán ML |
-| `risk-benchmark-features` | So sánh các bộ features |
-| `risk-model-report` | Sinh báo cáo model |
+- **Tự động VNINDEX + VN30 + macro:** cần `pip install -e ".[vnstock,auto]"` rồi `risk-fetch-universe ...` (như trên).
+- **CSV tùy chỉnh:** `risk-eod-ingest` — mẫu cột trong `tests/fixtures/sample_*.csv`.
+- **Macro chỉ tự động (yfinance/World Bank):** extra `auto`, dùng `risk-eod-ingest --macro-auto` (xem `risk-eod-ingest --help`).
+
+Không có cache panel trong `data/cache/`, backend thường trả **503 / “panel not loaded”** trên các route dashboard.
 
 ---
 
-## Chạy tests
+## URL sau khi chạy
+
+| Môi trường | Dashboard | API tài liệu |
+|------------|-----------|----------------|
+| Docker / `make dev` | `http://localhost:8000/dashboard` | `http://localhost:8000/docs` |
+| `make dev-frontend` | URL **Network** do Vite in (cổng **5173**) + path base | Gọi qua proxy tới `:8000` |
+
+---
+
+## Truy cập từ máy khác (LAN / ngrok)
+
+- **Cùng Wi‑Fi:** trên máy host lấy IP LAN (vd. `192.168.x.x`), máy khác mở `http://<IP-LAN>:8000/dashboard`. Backend Docker/`make dev` đã bind `0.0.0.0`.
+- **Qua Internet:** dùng [ngrok](https://ngrok.com/) (hoặc Cloudflare Tunnel): `ngrok http 8000`, rồi mở URL `https://....` ngrok cấp + `/dashboard`.
+
+---
+
+## Lệnh thường dùng (Makefile)
 
 ```bash
-# Chạy tất cả tests
+make install        # Python [dev,auto] + frontend npm ci
+make dev            # Uvicorn reload, host 0.0.0.0, port 8000
+make dev-frontend   # Vite dev server
+make build          # Build frontend vào frontend/dist
+make test / make test-cov
+make lint / make fmt
+make docker-build   # docker compose build
+make up / make down / make logs
+make clean          # Xóa cache test / coverage local
+```
+
+---
+
+## Tests & chất lượng code
+
+```bash
 make test
-# hoặc: pytest
-
-# Chạy với coverage report
 make test-cov
-# hoặc: pytest --cov=risk_dashboard --cov-report=term-missing
-
-# Chạy 1 file cụ thể
-pytest tests/test_api.py -v
-
-# Lint code
 make lint
-# hoặc: ruff check src/ tests/
-
-# Format code
 make fmt
 ```
 
 ---
 
-## Cấu trúc dự án
+## API & CLI (tham khảo)
 
-```
-agent_financial/
-├── src/risk_dashboard/         # Package Python chính
-│   ├── api/                    # FastAPI endpoints + middleware
-│   │   ├── main.py             #   App, routes, panel management
-│   │   └── middleware.py        #   API key auth + request logging
-│   ├── agents/                 # Multi-Agent LLM system
-│   │   ├── graph.py            #   EOD narrative pipeline
-│   │   ├── multi_agent.py      #   LangGraph orchestrator (6 agents)
-│   │   ├── narrative.py        #   Narrative generation
-│   │   ├── reviewer.py         #   Compliance reviewer
-│   │   ├── router.py           #   Intent routing
-│   │   └── tools/              #   LangChain tools per domain
-│   │       ├── macro.py        #     Macro indicators
-│   │       ├── fundamental.py  #     Financial metrics
-│   │       ├── quant.py        #     Risk score, stress test, VaR
-│   │       ├── sector.py       #     Sector money flow
-│   │       └── portfolio.py    #     Portfolio metrics
-│   ├── quant/                  # Quantitative engine
-│   │   ├── eod_pipeline.py     #   Main EOD flow
-│   │   ├── xgb_engine.py       #   GradientBoosting risk model
-│   │   ├── advanced_engine.py  #   HMM regime + GARCH volatility
-│   │   ├── analytics.py        #   VaR, CVaR, stress test, Basel
-│   │   ├── var_engine.py       #   Vector Autoregression
-│   │   ├── shap_explain.py     #   SHAP feature attribution
-│   │   ├── scenario.py         #   What-if macro simulation
-│   │   └── model_benchmark.py  #   Model comparison framework
-│   ├── data/                   # Data ingestion & connectors
-│   │   ├── market_connector.py #   CSV / vnstock market data
-│   │   ├── macro_connector.py  #   CSV macro data
-│   │   ├── macro_auto.py       #   World Bank / yfinance auto
-│   │   ├── macro_official.py   #   Official CSV (GSO format)
-│   │   ├── financials.py       #   BCTC via vnstock
-│   │   ├── ingest.py           #   Training panel builder
-│   │   └── etl.py              #   Mixed-frequency alignment
-│   ├── schemas/                # Pydantic models
-│   ├── storage/                # SQLite registry
-│   ├── pipeline/               # Panel materialization
-│   └── cli/                    # 9 CLI entry points
-├── frontend/                   # React + Vite dashboard
-│   └── src/
-│       ├── App.jsx             #   Route shell entry
-│       ├── app/                #   AppShell + route mapping
-│       ├── pages/              #   Domain-grouped pages
-│       ├── modules/            #   Frontend API clients/hooks by domain
-│       ├── shared/             #   Shared assistant + analytics utilities
-│       ├── ErrorBoundary.jsx   #   Error handling UI
-│       └── index.css           #   Global styles
-├── tests/                      # 22 test modules + fixtures
-├── data/                       # Runtime data (gitignored: .pkl, .parquet)
-│   ├── models/                 #   Trained models + benchmarks
-│   ├── cache/                  #   Parquet panel cache
-│   └── financials/             #   BCTC cache
-├── Dockerfile                  # Multi-stage build
-├── docker-compose.yml          # App + Redis
-├── Makefile                    # Dev shortcuts
-├── pyproject.toml              # Python dependencies + config
-└── .github/workflows/ci.yml   # GitHub Actions CI
+- **API đầy đủ:** khi server chạy, mở Swagger tại `/docs`.
+- **CLI chính:** `risk-fetch-universe`, `risk-eod-ingest`, `risk-train-model`, `risk-fetch-financials`, … (khai báo trong `pyproject.toml` → `[project.scripts]`).
+
+Ví dụ `curl` nhanh:
+
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/eod/run \
+  -H "Content-Type: application/json" \
+  -d '{"as_of": "2026-03-29"}'
 ```
 
 ---
 
-## Cấu hình
+## Cấu trúc thư mục
 
-Tất cả cấu hình qua file `.env` (copy từ `.env.example`):
-
-| Biến | Bắt buộc | Mô tả |
-|------|----------|-------|
-| `OPENAI_API_KEY` | Có (cho chat) | API key OpenAI, dùng cho multi-agent chat |
-| `AI_ASSISTANT_AGENT_ENABLED` | Không | `1` để bật agent runtime, `0` để fallback deterministic |
-| `AI_ASSISTANT_MODEL` | Không | Model dùng cho chatbot agent khi có `OPENAI_API_KEY` |
-| `ELEVENLABS_API_KEY` | Không | Bật voice realtime server-side cho AI Assistant (không có key sẽ fallback voice local) |
-| `ELEVENLABS_VOICE_ID` | Không | Voice mặc định khi gọi ElevenLabs TTS |
-| `ELEVENLABS_MODEL_ID` | Không | Model TTS mặc định (khuyến nghị low-latency) |
-| `API_SECRET_KEY` | Không | Đặt giá trị để bật API key gate, để trống = public |
-| `LOG_LEVEL` | Không | `DEBUG`, `INFO` (mặc định), `WARNING`, `ERROR` |
-
-### Extras (pip)
-
-| Extra | Lệnh cài | Mục đích |
-|-------|----------|----------|
-| `dev` | `pip install -e ".[dev]"` | pytest, ruff, httpx |
-| `auto` | `pip install -e ".[auto]"` | yfinance (macro tự động) |
-| `vnstock` | `pip install -e ".[vnstock]"` | vnstock (dữ liệu HOSE) |
-| `xgboost` | `pip install -e ".[xgboost]"` | XGBoost (thay thế sklearn) |
+```
+├── src/risk_dashboard/   # Backend Python (API, quant, agents, CLI)
+├── frontend/             # React + Vite
+├── tests/                # Pytest (bộ test chính)
+├── scripts/manual/     # Script smoke / thử API thủ công (không phải pytest)
+├── docs/word/          # Tài liệu Word (.docx) — đề cương, proposal, v.v.
+├── data/                 # Runtime (cache, model, … — phần lớn gitignored)
+├── Dockerfile
+├── docker-compose.yml    # app + Redis
+├── Makefile
+├── pyproject.toml
+└── .env.example
+```
 
 ---
 
 ## Xử lý lỗi thường gặp
 
-| Lỗi | Nguyên nhân | Cách sửa |
-|-----|-------------|----------|
-| `Panel not loaded` / `503` | Chưa nạp dữ liệu | Chạy `risk-fetch-universe` rồi restart backend |
-| `OPENAI_API_KEY not set` | Thiếu key cho chat | Điền key vào `.env` |
-| Voice trả về local thay vì ElevenLabs | Thiếu `ELEVENLABS_API_KEY` hoặc lỗi mạng TTS | Điền key ElevenLabs, kiểm tra outbound network |
-| `port 8000 already in use` | Đang chạy process khác | `lsof -i :8000` rồi kill, hoặc dùng `--port 8001` |
-| `ModuleNotFoundError` | Chưa cài package | `pip install -e ".[dev,auto]"` |
-| `sklearn version mismatch` | Model train bằng version cũ | Xóa `data/models/latest_model.pkl`, restart để retrain |
-| Docker `Cannot connect` | Docker Desktop chưa chạy | Mở Docker Desktop |
-| Frontend trắng | Chưa build hoặc chưa chạy dev | `make build` hoặc `make dev-frontend` |
-| `vnstock` lỗi mạng | API nguồn không ổn định | Dùng `--market csv` với file CSV thay thế |
+| Hiện tượng | Hướng xử lý |
+|------------|-------------|
+| `Panel not loaded` / `503` | Chạy `risk-fetch-universe` (hoặc ingest khác) để có dữ liệu trong `data/cache/`, restart backend |
+| `OPENAI_API_KEY not set` | Điền vào `.env` nếu cần chat LLM |
+| `port 8000 already in use` | `lsof -i :8000` (macOS/Linux) rồi dừng process, hoặc đổi port uvicorn/Docker |
+| Docker không lên | Bật Docker Desktop; `docker compose logs app` |
+| Frontend trắng | Với chỉ backend: cần `make build` hoặc image Docker đã build frontend |
+| `ModuleNotFoundError` | `pip install -e ".[dev,auto]"` trong đúng venv |
+| `vnstock` / mạng lỗi | Thử lại sau; hoặc dùng CSV + `risk-eod-ingest` |
 
 ---
 
-## Makefile shortcuts
+## Đẩy code lên Git (gợi ý)
 
-```bash
-make install        # Cài tất cả dependencies
-make dev            # Chạy backend (hot reload)
-make dev-frontend   # Chạy frontend (hot reload)
-make test           # Chạy tests
-make test-cov       # Tests + coverage report
-make lint           # Kiểm tra code style
-make fmt            # Tự động format code
-make build          # Build frontend production
-make docker-build   # Build Docker image
-make up             # Docker compose up
-make down           # Docker compose down
-make logs           # Xem logs container
-make clean          # Xóa cache files
-```
+1. **Không** commit `.env`, `node_modules/`, `data/cache/`, file model `.pkl` nhạy cảm (xem `.gitignore`).
+2. Đảm bảo `.env.example` chỉ chứa **placeholder**, không dán key thật.
+3. Tạo repo trên GitHub/GitLab → `git remote add origin <URL>` → `git push -u origin main` (hoặc nhánh bạn dùng).
+
+Người khác clone về chỉ cần làm theo [Cách 1](#cách-1--docker-khuyến-nghị) hoặc [Cách 2](#cách-2--chạy-trên-máy-python--node) ở trên.
+
+---
+
+## Learn Hub — file media local (tùy chọn)
+
+Đặt file thử vào:
+
+- `data/learning_assets/videos/`, `audios/`, `books/`, `images/`
+
+URL phục vụ tĩnh (khi backend chạy), ví dụ: `/learning-assets/videos/<tên-file>.mp4`. Chi tiết cấu trúc thư mục xem comment trong repo / `.gitignore` (`learning_assets`).

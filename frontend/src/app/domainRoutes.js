@@ -10,6 +10,7 @@ export const DOMAIN_ROUTES = {
   '/global-terminal': 'global_terminal',
   '/markets': 'global_terminal',
   '/news': 'news',
+  '/news/economic-calendar': 'news_economic_calendar',
   '/news-desk': 'news',
   '/guided-investing': 'guided_investing',
   '/insights': 'insights',

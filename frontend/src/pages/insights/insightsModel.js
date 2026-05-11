@@ -83,8 +83,9 @@ export function adaptDashboard(payload) {
       confidence: titleCase(payload.market_narrative?.confidence) || DEFAULT_INSIGHTS.narrative.confidence,
       monitors: payload.market_narrative?.what_to_monitor?.length ? payload.market_narrative.what_to_monitor : DEFAULT_INSIGHTS.narrative.monitors,
     },
+    trendRadar: payload.trend_radar?.length ? payload.trend_radar.map(adaptTrendRadarRow) : DEFAULT_INSIGHTS.trendRadar,
     crossAssetSeries: payload.cross_asset_pulse?.series?.length
-      ? payload.cross_asset_pulse.series.slice(0, 5).map((item, index) => ({
+      ? payload.cross_asset_pulse.series.slice(0, 8).map((item, index) => ({
         key: item.asset_key,
         label: item.label,
         color: DEFAULT_INSIGHTS.crossAssetSeries[index]?.color || '#0d8a82',
@@ -92,9 +93,135 @@ export function adaptDashboard(payload) {
         values: item.values.map((point) => point.normalized_value),
       }))
       : DEFAULT_INSIGHTS.crossAssetSeries,
+    scenarios: payload.scenario_monitor?.length ? payload.scenario_monitor.map(adaptScenarioRow) : DEFAULT_INSIGHTS.scenarios,
+    sectors: payload.sector_rotation?.length ? payload.sector_rotation.map(adaptSectorRow) : DEFAULT_INSIGHTS.sectors,
+    macroEvents: payload.macro_calendar?.length ? payload.macro_calendar.map(adaptMacroEvent) : DEFAULT_INSIGHTS.macroEvents,
+    learnLinks: payload.learn_links?.length
+      ? payload.learn_links.map((l) => ({
+        id: l.lesson_id,
+        title: l.title,
+        subtext: l.reason || l.concept || '',
+        duration: `${l.estimated_minutes} phút đọc`,
+      }))
+      : DEFAULT_INSIGHTS.learnLinks,
+    watchlistImpact: adaptWatchlistImpact(payload.watchlist_impact),
   }
 }
 
 function titleCase(value = '') {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+}
+
+function adaptTrendRadarRow(item) {
+  return {
+    key: trendRadarUiKey(item.category),
+    label: item.theme,
+    value: `${item.signal_strength}/100`,
+    status: trendRadarUiStatus(item.status),
+    note: item.short_summary,
+    series: item.sparkline_series || [],
+  }
+}
+
+function trendRadarUiKey(category) {
+  const m = { fx: 'fx', rates: 'rates', commodities: 'energy', equity: 'breadth', liquidity: 'liquidity' }
+  return m[category] || category || 'fx'
+}
+
+function trendRadarUiStatus(status) {
+  const u = String(status || '').toLowerCase()
+  const map = {
+    volatile: 'Elevated',
+    stable: 'Adequate',
+    unknown: 'Mixed',
+    improving: 'Low',
+    deteriorating: 'High',
+    mixed: 'Mixed',
+  }
+  return map[u] || titleCase(status || 'Mixed')
+}
+
+function adaptScenarioRow(item) {
+  return {
+    key: item.scenario_key,
+    name: item.label,
+    summary: item.summary,
+    probability: Math.round(Number(item.probability) || 0),
+    impact: scenarioImpactLabel(item.impact_level),
+  }
+}
+
+function scenarioImpactLabel(level) {
+  const u = String(level || '').toLowerCase()
+  if (u === 'high') return 'High'
+  if (u === 'low') return 'Low'
+  return 'Medium'
+}
+
+function adaptSectorRow(item) {
+  return {
+    sector: item.sector,
+    view: sectorViewLabel(item.short_term_view),
+    score: Number(item.momentum_score) || 0,
+  }
+}
+
+function sectorViewLabel(v) {
+  const key = String(v || '').toLowerCase()
+  const map = {
+    'tích cực': 'Tích cực',
+    'tiêu cực': 'Tiêu cực',
+    'trung tính': 'Trung tính',
+    unknown: 'Trung tính',
+  }
+  return map[key] || titleCase(v || 'Trung tính')
+}
+
+function adaptMacroEvent(ev) {
+  return {
+    date: formatEventDate(ev.event_time),
+    name: ev.event_name,
+    impact: macroImpactLabel(ev.impact_level),
+  }
+}
+
+function formatEventDate(iso) {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    return `${dd}/${mm}`
+  } catch {
+    return '—'
+  }
+}
+
+function macroImpactLabel(level) {
+  const u = String(level || '').toLowerCase()
+  if (u === 'high') return 'Cao'
+  if (u === 'medium') return 'Trung bình'
+  return 'Thấp'
+}
+
+function adaptWatchlistImpact(w) {
+  if (!w || w.state === 'empty') return DEFAULT_INSIGHTS.watchlistImpact
+  const themes = w.theme_impacts || []
+  if (themes.length) {
+    return themes.map((ti) => ({
+      ticker: (ti.affected_tickers && ti.affected_tickers[0]) || '—',
+      theme: ti.theme,
+      level: titleCase(ti.exposure_level || 'medium'),
+      note: ti.explanation || '',
+    }))
+  }
+  const tickers = w.impacted_tickers || []
+  const notes = w.risk_notes || []
+  if (!tickers.length) return DEFAULT_INSIGHTS.watchlistImpact
+  return tickers.map((ticker, i) => ({
+    ticker,
+    theme: (w.exposure_themes && w.exposure_themes[i]) || 'Portfolio',
+    level: 'Medium',
+    note: notes[i] || '',
+  }))
 }

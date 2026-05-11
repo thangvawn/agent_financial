@@ -458,7 +458,7 @@
   border: 0 !important;
   border-radius: 0 !important;
   padding: 0 !important;
-  background: transparent !important;
+  /* Không ép nền trong suốt: retail pages (.fh-page, goals, …) cần canvas sáng; transparent + gap = “vạch đen” trên #020302 */
   box-shadow: none !important;
   backdrop-filter: none !important;
 }

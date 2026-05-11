@@ -9,7 +9,7 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  /* Nền do từng page định nghĩa (.fh-page, .insights-v2, …); không dùng transparent để tránh lộ app-shell #020302 trong gap */
   box-shadow: none;
 }
 

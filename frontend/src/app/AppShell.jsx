@@ -13,6 +13,7 @@ import {
   HomePage,
   InsightsPage,
   LearningHomePage,
+  NewsEconCalendarPage,
   NewsPage,
   OnboardingPage,
   ProLabAdminPage,
@@ -33,6 +34,7 @@ const SURFACE_LABELS = {
   goals: 'Goals',
   global_terminal: 'Global Terminal',
   news: 'News Desk',
+  news_economic_calendar: 'Lịch kinh tế',
   community: 'Community',
   community_moderation: 'Community Moderation',
   guided_investing: 'BCTC Analysis',
@@ -268,6 +270,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     )
   }
 
+  if (renderedView === 'news_economic_calendar') {
+    content = (
+      <NewsEconCalendarPage onBackToNews={handleOpenNews} />
+    )
+  }
+
   if (renderedView === 'community') {
     content = (
       <CommunityPage
@@ -398,9 +406,24 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     )
   }
 
+  const isEconCalendarEmbed =
+    view === 'news_economic_calendar' &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('embed') === '1'
+
+  if (isEconCalendarEmbed) {
+    return (
+      <div className="app-shell app-shell--embed-calendar app-shell--public app-shell--transition-entered">
+        <main className="app-shell__embed-calendar-main">
+          <NewsEconCalendarPage embed onBackToNews={handleOpenNews} />
+        </main>
+      </div>
+    )
+  }
+
   const tone = renderedView.includes('admin') ? 'operator' : (renderedView === 'pro_lab' || renderedView === 'backtest_studio') ? 'pro' : 'public'
   const isAuthView = renderedView === 'auth_login' || renderedView === 'auth_register'
-  const hideAssistant = isAuthView || ['backtest_studio', 'global_terminal', 'news'].includes(renderedView)
+  const hideAssistant = isAuthView || ['backtest_studio', 'global_terminal', 'news', 'news_economic_calendar'].includes(renderedView)
   const connectedNavActions = {
     openHome: () => setView('home'),
     openFinancialHealth: () => setView('financial_health'),
@@ -415,8 +438,10 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     openLogin: () => setView('auth_login'),
   }
 
+  const shellSkin = renderedView === 'news_economic_calendar' ? 'news' : renderedView
+
   return (
-    <div className={`app-shell app-shell--${renderedView.replaceAll('_', '-')} app-shell--${tone} app-shell--transition-${transitionPhase}`}>
+    <div className={`app-shell app-shell--${shellSkin.replaceAll('_', '-')} app-shell--${tone} app-shell--transition-${transitionPhase}`}>
       <div className="app-shell__ambient app-shell__ambient--one" />
       <div className="app-shell__ambient app-shell__ambient--two" />
       <div className="app-shell__frame">

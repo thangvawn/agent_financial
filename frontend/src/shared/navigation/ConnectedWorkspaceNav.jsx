@@ -108,7 +108,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions 
           <button
             key={item.id}
             type="button"
-            className={`connected-nav__tab ${currentView === item.id ? 'connected-nav__tab--active' : ''}`}
+            className={`connected-nav__tab ${(currentView === item.id || (item.id === 'news' && currentView === 'news_economic_calendar')) ? 'connected-nav__tab--active' : ''}`}
             onClick={() => open(item)}
           >
             {item.label}
