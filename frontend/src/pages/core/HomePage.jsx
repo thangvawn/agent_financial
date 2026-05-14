@@ -15,6 +15,8 @@ export default function HomePage({
   refreshKey = 0,
   onOpenFinancialHealth,
   onOpenLearning,
+  onOpenSimulationLab,
+  onOpenAssignments,
   onOpenGoals,
   onOpenGuidedInvesting,
   onOpenInsights,
@@ -50,6 +52,8 @@ export default function HomePage({
         onMarketInteracted={unlockMarketModules}
         onOpenFinancialHealth={onOpenFinancialHealth}
         onOpenLearning={onOpenLearning}
+        onOpenSimulationLab={onOpenSimulationLab}
+        onOpenAssignments={onOpenAssignments}
         onOpenGoals={onOpenGoals}
         onOpenGuidedInvesting={onOpenGuidedInvesting}
         onOpenInsights={onOpenInsights}
@@ -71,6 +75,8 @@ export default function HomePage({
       onMarketInteracted={unlockMarketModules}
       onOpenFinancialHealth={onOpenFinancialHealth}
       onOpenLearning={onOpenLearning}
+      onOpenSimulationLab={onOpenSimulationLab}
+      onOpenAssignments={onOpenAssignments}
       onOpenGoals={onOpenGoals}
       onOpenGuidedInvesting={onOpenGuidedInvesting}
       onOpenInsights={onOpenInsights}

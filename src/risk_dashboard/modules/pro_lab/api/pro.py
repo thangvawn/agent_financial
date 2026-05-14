@@ -285,6 +285,10 @@ def pro_lab_run_backtest(
             start_date=req.start_date,
             end_date=req.end_date,
             initial_capital=req.initial_capital,
+            timeframe=req.timeframe,
+            commission_pct=req.commission_pct,
+            slippage_pct=req.slippage_pct,
+            strategy_text=req.strategy_text,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

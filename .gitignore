@@ -14,8 +14,15 @@ dist/
 build/
 
 # ── Data & Models (runtime) ─────────
+data/*.db
+data/*.db.*
 data/cache/
 data/risk_dashboard.db
+data/app_state.db
+data/app_state.db.*
+data/global_market_prices/*.json
+data/global_market_prices/history/*.json
+data/financials/cache/*.json
 data/models/*.pkl
 data/financials/.runtime-home/
 data/trading_lab/*.jsonl
@@ -28,12 +35,14 @@ data/learning_assets/**
 !data/learning_assets/images/.gitkeep
 
 data_outputs/
+output/
 *.parquet
 
 # ── Frontend ─────────────────────────
 frontend/node_modules/
 frontend/dist/
 frontend/output/
+.playwright-cli
 .playwright-cli/
 frontend/.playwright-cli/
 
@@ -45,9 +54,18 @@ frontend/.playwright-cli/
 *.swo
 
 # ── Misc cache ───────────────────────
+.local-dev/*
+!.local-dev/.venv-requirements-backup-*.txt
+.ruff_cache
+.ruff_cache/
+.home-vnstock
 .home-vnstock/
+.ipython
 .ipython/
+.jupyter
 .jupyter/
+.matplotlib
 .matplotlib/
+.pycache_tmp
 .pycache_tmp/
 notebooks/.ipynb_checkpoints/

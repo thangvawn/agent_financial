@@ -17,5 +17,6 @@ def _repo() -> SqliteAnalyticsMonitoringRepository:
 
 
 @router.post("/analytics/events", response_model=AnalyticsIngestResponse)
+@router.post("/telemetry/ingest", response_model=AnalyticsIngestResponse)
 def ingest_analytics_events(req: AnalyticsIngestRequest) -> AnalyticsIngestResponse:
     return IngestAnalyticsEvents(repo=_repo()).execute(req)

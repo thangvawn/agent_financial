@@ -1,5 +1,6 @@
 const QUEUE = []
 let flushTimer = null
+const INGEST_URL = '/api/v1/public/telemetry/ingest'
 
 function buildEvent(payload) {
   return {
@@ -26,10 +27,10 @@ async function flushQueue() {
   try {
     if (navigator.sendBeacon && body.length < 60_000) {
       const blob = new Blob([body], { type: 'application/json' })
-      navigator.sendBeacon('/api/v1/public/analytics/events', blob)
+      navigator.sendBeacon(INGEST_URL, blob)
       return
     }
-    await fetch('/api/v1/public/analytics/events', {
+    await fetch(INGEST_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
@@ -59,4 +60,3 @@ window.addEventListener('visibilitychange', () => {
     void flushQueue()
   }
 })
-

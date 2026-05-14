@@ -4,12 +4,12 @@ const SESSION_KEY = 'public-beta.session_id'
 const USER_KEY = 'public-beta.user_profile'
 
 function generateSessionId() {
-  return 'sess_' + crypto.randomUUID()
+  return 'classroom_' + crypto.randomUUID()
 }
 
 /**
- * Auth hook — mock mode.
- * When a real backend is available, swap the mock logic for API calls.
+ * Guest classroom session hook.
+ * This is not production authentication; it labels local learning sessions clearly.
  */
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(false)
@@ -18,9 +18,6 @@ export function useAuth() {
   const login = useCallback(async (email, password) => {
     setError('')
     setIsLoading(true)
-
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
 
     if (!email || !password) {
       setIsLoading(false)
@@ -34,9 +31,13 @@ export function useAuth() {
       return null
     }
 
-    // Mock: accept any valid-looking email + password
     const sessionId = generateSessionId()
-    const profile = { email, name: email.split('@')[0] }
+    const profile = {
+      email,
+      name: email.split('@')[0],
+      session_mode: 'guest_classroom',
+      auth_note: 'Local classroom session - not a production account',
+    }
 
     window.localStorage.setItem(SESSION_KEY, sessionId)
     window.localStorage.setItem(USER_KEY, JSON.stringify(profile))
@@ -48,8 +49,6 @@ export function useAuth() {
   const register = useCallback(async (name, email, password, confirmPassword) => {
     setError('')
     setIsLoading(true)
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     if (!name || !email || !password) {
       setIsLoading(false)
@@ -77,7 +76,12 @@ export function useAuth() {
     }
 
     const sessionId = generateSessionId()
-    const profile = { email, name }
+    const profile = {
+      email,
+      name,
+      session_mode: 'guest_classroom',
+      auth_note: 'Local classroom session - not a production account',
+    }
 
     window.localStorage.setItem(SESSION_KEY, sessionId)
     window.localStorage.setItem(USER_KEY, JSON.stringify(profile))

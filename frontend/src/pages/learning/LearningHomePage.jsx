@@ -57,6 +57,7 @@ export default function LearningHomePage({
     () => buildLearningDashboard({ data, lesson, contextCards, videoAssets, audioAssets, bookAssets, resourceBundle }),
     [audioAssets, bookAssets, contextCards, data, lesson, resourceBundle, videoAssets],
   )
+  useLearnDashboardMotion()
 
   useEffect(() => {
     let cancelled = false
@@ -279,287 +280,275 @@ export default function LearningHomePage({
 
   return (
     <section className="learn-os-page">
-      <header className="learn-os-hero learn-os-hero--dashboard">
-        <div className="learn-os-hero__copy">
+      <header className="learn-os-topbar">
+        <div>
           <h1>Learn Hub</h1>
-          <p>
-            Không gian học tập tài chính được cá nhân hóa, giúp bạn xây nền tảng vững chắc và tự tin đưa ra quyết định tài chính thông minh.
-          </p>
-          <div className="learn-os-hero__summary-bar">
-            <svg viewBox="0 0 36 36" className="learn-os-hero__progress-ring">
-              <path className="learn-os-hero__progress-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              <path className="learn-os-hero__progress-val" strokeDasharray={`${data?.completion_pct || 12}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-            </svg>
-            <strong>{completionText} complete</strong>
-            <span className="learn-os-hero__divider">|</span>
-            <span>Current path: <strong>{data?.path_label || 'Financial Foundations'}</strong></span>
-          </div>
-          <div className="learn-os-pills learn-os-pills--hero">
-            <span><CheckCircleIcon size={14} className="mr-1 inline" /> Beginner friendly</span>
-            <span><StarIcon size={14} className="mr-1 inline" /> Personalized</span>
-            <span><ClockIcon size={14} className="mr-1 inline" /> {Math.max(lesson?.estimated_minutes || 3, 3)}-7 min lessons</span>
-          </div>
-          <div className="learn-os-hero__actions mt-2">
-            <button type="button" className="learn-os-btn learn-os-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
-              <PlayIcon size={16} /> Tiếp tục học
-            </button>
-            <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => setRefreshKey((v) => v + 1)}>
-              <BookIcon size={16} /> Khám phá lộ trình
-            </button>
-            <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => document.getElementById('learn-lesson-card')?.scrollIntoView({ behavior: 'smooth' })}>
-              <HeadphonesIcon size={16} /> Hỏi Tutor
-            </button>
-          </div>
+          <p>Explore financial knowledge. Learn at your pace. Master your future.</p>
         </div>
-        <div className="learn-os-hero__path">
-          <p className="learn-os-hero__path-title">Lộ trình học của bạn</p>
-          <div className="learn-os-path-steps">
-            <article className="learn-os-path-step is-active">
-              <div className="learn-os-path-step__node"><PlantIcon size={24} /></div>
-              <div className="learn-os-path-step__index">1</div>
-              <strong>Foundations</strong>
-              <span>Nền tảng tài chính</span>
-            </article>
-            <article className="learn-os-path-step">
-              <div className="learn-os-path-step__node"><ShieldPlusIcon size={24} /></div>
-              <div className="learn-os-path-step__index">2</div>
-              <strong>Risk</strong>
-              <span>Quản trị rủi ro</span>
-            </article>
-            <article className="learn-os-path-step">
-              <div className="learn-os-path-step__node"><FlagIcon size={24} /></div>
-              <div className="learn-os-path-step__index">3</div>
-              <strong>Goals</strong>
-              <span>Lập kế hoạch</span>
-            </article>
-            <article className="learn-os-path-step">
-              <div className="learn-os-path-step__node"><LineChartIcon size={24} /></div>
-              <div className="learn-os-path-step__index">4</div>
-              <strong>Investing</strong>
-              <span>Đầu tư cơ bản</span>
-            </article>
-          </div>
+        <label className="learn-os-search">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" placeholder="Search for courses, topics, books..." />
+        </label>
+        <div className="learn-os-topbar-actions">
+          <button type="button" aria-label="Notifications">!</button>
+          <button type="button" aria-label="Settings">⚙</button>
         </div>
       </header>
 
-      <section className="learn-os-dashboard-stats">
-        <article className="learn-os-status-card">
-          <div className="learn-os-status-card__icon text-teal-600"><FlameIcon size={24} /></div>
-          <div className="learn-os-status-card__content">
-            <span>Learning Streak</span>
-            <strong>{dashboard.stats[0].value}</strong>
-            <small>{dashboard.stats[0].subtext}</small>
-          </div>
-          <ArrowRightIcon size={18} className="text-slate-400 justify-self-end" />
-        </article>
-        <article className="learn-os-status-card">
-          <div className="learn-os-status-card__icon text-teal-600"><BookIcon size={24} /></div>
-          <div className="learn-os-status-card__content">
-            <span>Completed Lessons</span>
-            <strong>{dashboard.stats[1].value}</strong>
-            <small>{dashboard.stats[1].subtext}</small>
-          </div>
-          <ArrowRightIcon size={18} className="text-slate-400 justify-self-end" />
-        </article>
-        <article className="learn-os-status-card">
-          <div className="learn-os-status-card__icon text-teal-600"><TargetIcon size={24} /></div>
-          <div className="learn-os-status-card__content">
-            <span>Current Path</span>
-            <strong>{dashboard.stats[2].value}</strong>
-            <small>{dashboard.stats[2].subtext}</small>
-          </div>
-          <ArrowRightIcon size={18} className="text-slate-400 justify-self-end" />
-        </article>
-        <article className="learn-os-status-card">
-          <div className="learn-os-status-card__icon text-amber-500"><LightbulbIcon size={24} /></div>
-          <div className="learn-os-status-card__content">
-            <span>Recommended Next</span>
-            <strong>{dashboard.stats[3].value}</strong>
-            <small>{dashboard.stats[3].subtext}</small>
-          </div>
-          <ArrowRightIcon size={18} className="text-slate-400 justify-self-end" />
-        </article>
-      </section>
-
-      <section className="learn-os-dashboard-grid">
-        <article className="learn-os-card learn-os-card--recommended">
-          <header className="learn-os-card__head">
-            <h2>Được đề xuất cho bạn</h2>
-            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>Xem tất cả</button>
-          </header>
-          <div className="learn-os-recommended-list">
-            <article className="learn-os-recommended-item">
-              <div className="learn-os-recommended-item__thumb"><PiggyBankIcon size={40} className="text-pink-400" /></div>
-              <div>
-                <strong>{dashboard.recommended[0].title}</strong>
-                <p>{dashboard.recommended[0].summary}</p>
-              </div>
-              <div className="learn-os-recommended-item__meta">
-                <span><ClockIcon size={14} className="inline mr-1" />{dashboard.recommended[0].minutes} min</span>
-                <em>{dashboard.recommended[0].level}</em>
-              </div>
-              <ArrowRightIcon size={18} className="text-slate-400 mx-2" />
-            </article>
-            <article className="learn-os-recommended-item">
-              <div className="learn-os-recommended-item__thumb"><CalculatorIcon size={40} className="text-teal-500" /></div>
-              <div>
-                <strong>{dashboard.recommended[1].title}</strong>
-                <p>{dashboard.recommended[1].summary}</p>
-              </div>
-              <div className="learn-os-recommended-item__meta">
-                <span><ClockIcon size={14} className="inline mr-1" />{dashboard.recommended[1].minutes} min</span>
-                <em>{dashboard.recommended[1].level}</em>
-              </div>
-              <ArrowRightIcon size={18} className="text-slate-400 mx-2" />
-            </article>
-            <article className="learn-os-recommended-item">
-              <div className="learn-os-recommended-item__thumb"><ScaleIcon size={40} className="text-amber-500" /></div>
-              <div>
-                <strong>{dashboard.recommended[2].title}</strong>
-                <p>{dashboard.recommended[2].summary}</p>
-              </div>
-              <div className="learn-os-recommended-item__meta">
-                <span><ClockIcon size={14} className="inline mr-1" />{dashboard.recommended[2].minutes} min</span>
-                <em className="text-amber-600 bg-amber-50">{dashboard.recommended[2].level}</em>
-              </div>
-              <ArrowRightIcon size={18} className="text-slate-400 mx-2" />
-            </article>
-          </div>
-        </article>
-
-        <article className="learn-os-card">
-          <header className="learn-os-card__head">
-            <h2>Lộ trình học</h2>
-            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>Xem tất cả</button>
-          </header>
-          <div className="learn-os-track-list">
-            {dashboard.trackRows.map((item, index) => {
-              const icons = [<PlantIcon size={20} />, <ShieldPlusIcon size={20} />, <FlagIcon size={20} />, <LineChartIcon size={20} />]
-              return (
-                <article key={item.id} className="learn-os-track-row">
-                  <div className={`learn-os-track-icon ${item.progress > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
-                    {icons[index]}
-                  </div>
-                  <div className="learn-os-track-info">
-                    <strong>{item.title}</strong>
-                    <span>{item.subtitle}</span>
-                  </div>
-                  <div className="learn-os-track-row__bar-wrap">
-                    <div className="learn-os-track-row__bar">
-                      <i style={{ width: `${item.progress}%` }} />
-                    </div>
-                  </div>
-                  <div className="learn-os-track-info-end">
-                    <b>{item.progress > 0 ? `${item.progress}%` : '0%'}</b>
-                    <span>{item.progress > 0 ? `${Math.round(item.progress * 1.5)} / 150 bài` : '0 / 120 bài'}</span>
-                  </div>
-                  <em className={item.progress > 0 ? '' : 'is-idle'}>{item.status}</em>
-                  <ArrowRightIcon size={18} className="text-slate-400 ml-1" />
-                </article>
-              )
-            })}
-          </div>
-        </article>
-      </section>
-
-      <article className="learn-os-card learn-os-card--topics">
-        <header className="learn-os-card__head">
-          <h2>Thư viện chủ đề</h2>
-          <button type="button" className="learn-os-link-btn" onClick={() => setAssetRefreshKey((v) => v + 1)}>Xem tất cả chủ đề</button>
+      <section className="learn-os-topic-carousel learn-reveal" aria-label="Explore topics">
+        <header className="learn-os-section-title">
+          <h2>Explore Topics</h2>
+          <button type="button" onClick={() => setAssetRefreshKey((v) => v + 1)}>View all</button>
         </header>
-        <div className="learn-os-topic-grid">
+        <div className="learn-os-topic-strip">
           {[
-            { label: 'Saving', sub: 'Tiết kiệm', icon: <PiggyBankIcon size={24} /> },
-            { label: 'Budgeting', sub: 'Ngân sách', icon: <CalculatorIcon size={24} /> },
-            { label: 'Debt', sub: 'Quản lý nợ', icon: <ScaleIcon size={24} /> },
-            { label: 'Emergency Fund', sub: 'Quỹ khẩn cấp', icon: <ShieldIcon size={24} /> },
-            { label: 'Risk', sub: 'Quản trị rủi ro', icon: <ShieldPlusIcon size={24} /> },
-            { label: 'News', sub: 'Tin tức', icon: <FileTextIcon size={24} /> },
-            { label: 'BCTC Basics', sub: 'Phân tích BCTC', icon: <BarChartIcon size={24} /> },
-            { label: 'Portfolio Basics', sub: 'Danh mục đầu tư', icon: <PieChartIcon size={24} /> }
-          ].map((item) => (
-            <button key={item.label} type="button" className="learn-os-topic-pill" onClick={() => setQuestion(`Giải thích chủ đề ${item.label} cho người mới.`)}>
-              <div className="learn-os-topic-icon">{item.icon}</div>
+            { label: 'Microeconomics', count: '32 Courses', icon: <BarChartIcon size={22} /> },
+            { label: 'Macroeconomics', count: '28 Courses', icon: <GlobeIcon size={22} /> },
+            { label: 'CFA Program', count: '45 Courses', icon: <BookIcon size={22} /> },
+            { label: 'Risk Management', count: '24 Courses', icon: <ShieldIcon size={22} /> },
+            { label: 'Corporate Finance', count: '26 Courses', icon: <CalculatorIcon size={22} /> },
+            { label: 'Investments', count: '30 Courses', icon: <PieChartIcon size={22} /> },
+          ].map((topic, index) => (
+            <button
+              key={topic.label}
+              type="button"
+              className={`learn-os-topic-tile ${index === 0 ? 'is-active' : ''}`}
+              onClick={() => setQuestion(`Giải thích ${topic.label} cho người mới học tài chính.`)}
+            >
+              <span>{topic.icon}</span>
+              <strong>{topic.label}</strong>
+              <small>{topic.count}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="learn-os-progress-panel learn-reveal" aria-label="Learning progress overview">
+        <article className="learn-os-progress-card">
+          <header className="learn-os-mini-head">
+            <span><TrendingUpIcon size={16} /></span>
+            <strong>Your Learning Progress</strong>
+          </header>
+          <div className="learn-os-progress-card__body">
+            <div className="learn-os-ring-wrap">
+              <svg viewBox="0 0 36 36" className="learn-os-progress-ring">
+                <path className="learn-os-progress-ring__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className="learn-os-progress-ring__value" strokeDasharray={`${data?.completion_pct || 12}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
               <div>
-                <strong>{item.label}</strong>
-                <span>{item.sub}</span>
+                <strong>{completionText}</strong>
+                <span>Overall Progress</span>
+              </div>
+            </div>
+            <dl className="learn-os-progress-metrics">
+              <div>
+                <dt>Courses Enrolled</dt>
+                <dd>{dashboard.stats[2].value}</dd>
+              </div>
+              <div>
+                <dt>Completed</dt>
+                <dd>{dashboard.stats[1].value}</dd>
+              </div>
+              <div>
+                <dt>Study Streak</dt>
+                <dd>{dashboard.stats[0].value}</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+
+        <article className="learn-os-goal-card">
+          <span>This Week's Goal</span>
+          <strong>Learn 5 lessons</strong>
+          <div className="learn-os-goal-line">
+            <i style={{ width: `${Math.min(100, Math.max(24, (data?.completion_pct || 45) + 18))}%` }} />
+          </div>
+          <small>{Math.min(5, Math.max(1, Math.round((data?.completion_pct || 45) / 18)))} / 5 lessons</small>
+          <blockquote>The beautiful thing about learning is that no one can take it away from you.</blockquote>
+        </article>
+
+        <article className="learn-os-activity-card">
+          <header className="learn-os-activity-head">
+            <strong>Your Activity</strong>
+            <span>Less <i /> <i /> <i /> More</span>
+          </header>
+          <div className="learn-os-activity-grid" aria-hidden="true">
+            {Array.from({ length: 49 }, (_, index) => (
+              <span key={index} className={`is-${(index * 7 + Math.floor(index / 5)) % 5}`} />
+            ))}
+          </div>
+          <div className="learn-os-activity-days">
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+          </div>
+        </article>
+      </section>
+
+      <section className="learn-os-continue learn-reveal">
+        <header className="learn-os-section-title">
+          <h2>Continue Learning</h2>
+          <button type="button" onClick={() => document.getElementById('learn-lesson-card')?.scrollIntoView({ behavior: 'smooth' })}>View all</button>
+        </header>
+        <div className="learn-os-course-strip">
+          {[
+            { title: 'Microeconomics Basics', meta: 'Chapter 3: Supply and Demand', tag: 'Video', progress: 75, tone: 'is-navy', icon: <LineChartIcon size={34} /> },
+            { title: 'Macroeconomics Overview', meta: 'Chapter 2: GDP & Economic Growth', tag: 'Course', progress: 40, tone: 'is-emerald', icon: <GlobeIcon size={34} /> },
+            { title: 'CFA Level I - Quantitative Methods', meta: 'Reading 5: Time Value of Money', tag: 'Course', progress: 60, tone: 'is-purple', icon: <BookIcon size={34} /> },
+            { title: 'Risk Management Fundamentals', meta: 'Chapter 1: Risk Concepts', tag: 'Video', progress: 20, tone: 'is-amber', icon: <ShieldIcon size={34} /> },
+            { title: 'The Intelligent Investor', meta: 'by Benjamin Graham', tag: 'Book', progress: 33, tone: 'is-paper', icon: <FileTextIcon size={34} /> },
+          ].map((item) => (
+            <button key={item.title} type="button" className="learn-os-course-card" onClick={() => document.getElementById('learn-lesson-card')?.scrollIntoView({ behavior: 'smooth' })}>
+              <div className={`learn-os-course-card__cover ${item.tone}`}>
+                {item.icon}
+                <span>{item.tag}</span>
+              </div>
+              <strong>{item.title}</strong>
+              <p>{item.meta}</p>
+              <div className="learn-os-course-card__bar">
+                <i style={{ width: `${item.progress}%` }} />
+                <small>{item.progress}%</small>
               </div>
             </button>
           ))}
         </div>
-      </article>
+      </section>
 
-      <section className="learn-os-dashboard-grid learn-os-dashboard-grid--bottom">
+      <section className="learn-os-main-row learn-reveal">
+        <article className="learn-os-card learn-os-card--recommended">
+          <header className="learn-os-card__head">
+            <h2>Recommended for You</h2>
+            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
+          </header>
+          <div className="learn-os-recommended-list">
+            <article className="learn-os-recommended-item">
+              <div className="learn-os-recommended-item__thumb is-cover-dark">CREDIT<br />ANALYSIS</div>
+              <div>
+                <strong>Credit Analysis Essentials</strong>
+                <p>Learn how to evaluate credit risk and make better lending decisions.</p>
+              </div>
+              <div className="learn-os-recommended-item__meta">
+                <span>Course · Intermediate</span>
+                <em>4.6</em>
+              </div>
+            </article>
+            <article className="learn-os-recommended-item">
+              <div className="learn-os-recommended-item__thumb is-cover-dark">FINANCIAL<br />MODELING</div>
+              <div>
+                <strong>Financial Modeling with Excel</strong>
+                <p>Build robust financial models and forecast with confidence.</p>
+              </div>
+              <div className="learn-os-recommended-item__meta">
+                <span>Course · Intermediate</span>
+                <em>4.7</em>
+              </div>
+            </article>
+          </div>
+        </article>
+
+        <article className="learn-os-card learn-os-card--stats">
+          <header className="learn-os-card__head">
+            <h2>Learning Statistics</h2>
+            <span className="learn-os-chip-alt">This Month</span>
+          </header>
+          <div className="learn-os-stat-grid">
+            {[
+              ['Total Study Time', '48h 30m', '12% vs last month'],
+              ['Lessons Completed', '86', '18% vs last month'],
+              ['Quizzes Completed', '42', '20% vs last month'],
+              ['Avg. Score', '78%', '8% vs last month'],
+            ].map(([label, value, delta]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+                <small>{delta}</small>
+              </div>
+            ))}
+          </div>
+          <div className="learn-os-line-chart" aria-hidden="true">
+            <svg viewBox="0 0 760 180" preserveAspectRatio="none">
+              <path className="learn-os-line-chart__grid" d="M0 40H760 M0 90H760 M0 140H760" />
+              <path className="learn-os-line-chart__fill" d="M0 130 C80 116 120 92 184 92 C240 92 244 122 300 114 C365 104 392 136 456 104 C532 66 552 24 620 78 C680 126 702 116 760 98 L760 180 L0 180 Z" />
+              <path className="learn-os-line-chart__line" d="M0 130 C80 116 120 92 184 92 C240 92 244 122 300 114 C365 104 392 136 456 104 C532 66 552 24 620 78 C680 126 702 116 760 98" />
+              {[0, 184, 300, 456, 560, 680, 760].map((x, index) => (
+                <circle key={x} cx={x} cy={[130, 92, 114, 104, 38, 116, 98][index]} r="5" />
+              ))}
+            </svg>
+            <div className="learn-os-chart-labels">
+              {['May 1', 'May 8', 'May 15', 'May 22', 'May 29', 'May 31'].map((label) => <span key={label}>{label}</span>)}
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section className="learn-os-dashboard-grid learn-os-dashboard-grid--bottom learn-reveal">
         <article className="learn-os-card">
           <header className="learn-os-card__head">
-            <div>
-              <h2>Học từ hôm nay</h2>
-              <p>Các chủ đề thị trường nổi bật và bài học gợi ý phù hợp.</p>
-            </div>
-            <button type="button" className="learn-os-link-btn" onClick={() => onOpenInsights?.()}>Xem tất cả</button>
+            <h2>Reading Library</h2>
+            <button type="button" className="learn-os-link-btn" onClick={() => setAssetRefreshKey((v) => v + 1)}>View all</button>
           </header>
-          <div className="learn-os-learn-grid">
-            {dashboard.learnToday.map((item, index) => {
-              const icons = [<TrendingUpIcon size={32} className="text-teal-500" />, <GlobeIcon size={32} className="text-teal-600" />, <PercentIcon size={32} className="text-teal-600" />]
-              return (
-                <button key={item.title} type="button" className="learn-os-learn-card" onClick={() => runPracticalCta(item.ctaType)}>
-                  <div className="learn-os-learn-icon">{icons[index]}</div>
-                  <div className="learn-os-learn-card-content">
-                    <strong>{item.title}</strong>
-                    <p>{item.summary}</p>
-                    <span className="learn-os-learn-meta"><ClockIcon size={14} className="inline mr-1" /> {item.meta}</span>
-                  </div>
-                </button>
-              )
-            })}
+          <div className="learn-os-reading-row">
+            {[
+              ['The Intelligent Investor', 'Benjamin Graham', 'Saved', 'is-cover-dark'],
+              ['Security Analysis 6th Edition', 'Benjamin Graham', 'Reading', 'is-cover-dark'],
+              ['Common Stocks and Uncommon Profits', 'Philip A. Fisher', 'Saved', 'is-cover-paper'],
+              ["Poor Charlie's Almanack", 'Charlie Munger', 'Reading', 'is-cover-blue'],
+            ].map(([title, author, state, tone]) => (
+              <button key={title} type="button" className="learn-os-book-mini" onClick={() => setQuestion(`Tóm tắt sách ${title} cho sinh viên tài chính.`)}>
+                <span className={tone}>{title.split(' ').slice(0, 2).join(' ')}</span>
+                <strong>{title}</strong>
+                <small>{author}</small>
+                <em>{state}</em>
+              </button>
+            ))}
           </div>
         </article>
 
         <article className="learn-os-card">
           <header className="learn-os-card__head">
-            <div>
-              <h2>Tutor Prompts</h2>
-              <p>Đặt câu hỏi và học cùng AI Tutor của bạn.</p>
-            </div>
-            <button type="button" className="learn-os-link-btn" onClick={handleTutor}>Xem tất cả</button>
+            <h2>Upcoming Live Classes</h2>
+            <button type="button" className="learn-os-link-btn" onClick={handleTutor}>View all</button>
           </header>
-          <div className="learn-os-prompt-strip">
+          <div className="learn-os-live-list">
             {[
-              { prompt: 'Giải thích quỹ khẩn cấp', icon: <ShieldIcon size={20} className="text-teal-600" /> },
-              { prompt: 'Biên lợi nhuận là gì?', icon: <BarChartIcon size={20} className="text-teal-600" /> },
-              { prompt: 'Tôi nên học gì trước khi đầu tư?', icon: <TargetIcon size={20} className="text-teal-600" /> }
-            ].map((item) => (
-              <button key={item.prompt} type="button" className="learn-os-prompt-chip" onClick={() => applyPrompt(item.prompt)}>
-                {item.icon}
-                <span>{item.prompt}</span>
-                <ArrowRightIcon size={16} className="text-slate-400 ml-auto" />
+              ['JUN 03', 'Understanding Interest Rates & Bond Pricing', 'Prof. David Lin', '07:00 PM'],
+              ['JUN 07', 'Equity Valuation Methods', 'Maria Chen', '06:00 PM'],
+              ['JUN 10', 'Portfolio Risk & Diversification', 'James Patel', '07:00 PM'],
+            ].map(([date, title, teacher, time]) => (
+              <button key={title} type="button" className="learn-os-live-row" onClick={() => setQuestion(`Chuẩn bị câu hỏi cho lớp ${title}.`)}>
+                <span>{date}</span>
+                <strong>{title}<small>{teacher} · Live Webinar</small></strong>
+                <em>{time}</em>
+                <b>Register</b>
               </button>
             ))}
           </div>
         </article>
       </section>
 
-      <section className="learn-os-dashboard-grid learn-os-dashboard-grid--footer">
+      <section className="learn-os-dashboard-grid learn-os-dashboard-grid--footer learn-reveal">
         <article className="learn-os-card">
           <header className="learn-os-card__head">
             <div>
-              <h2>Tiến độ học tập tuần này</h2>
-              <p>Phút học mỗi ngày</p>
+              <h2>Study Plan</h2>
+              <p>May 26 - June 1, 2025</p>
             </div>
-            <span className="learn-os-chip-alt">Tuần này v</span>
+            <span className="learn-os-chip-alt">Today</span>
           </header>
-          <div className="learn-os-progress-bars">
-            <div className="learn-os-progress-y-axis">
-              <span>60 min</span>
-              <span>30 min</span>
-              <span>0 min</span>
+          <div className="learn-os-study-plan">
+            <div className="learn-os-calendar-strip">
+              {['Mon 26', 'Tue 27', 'Wed 28', 'Thu 29', 'Fri 30', 'Sat 31', 'Sun 1'].map((day, index) => (
+                <span key={day} className={index === 0 ? 'is-active' : ''}>{day}</span>
+              ))}
             </div>
-            {dashboard.weeklyProgress.map((item) => (
-              <div key={item.day} className="learn-os-progress-bars__item">
-                <strong>{item.minutes} min</strong>
-                <i style={{ height: `${item.height}%` }} />
-                <span>{item.day}<br/><small>12/05</small></span>
-              </div>
+            {[
+              ['Complete: GDP & Economic Growth', 'Macroeconomics Overview', '30m'],
+              ['Watch: Supply and Demand in Action', 'Microeconomics Basics', '45m'],
+              ['Quiz: Market Equilibrium', 'Microeconomics Basics', '20m'],
+            ].map(([task, sub, time], index) => (
+              <label key={task} className="learn-os-task-row">
+                <input type="checkbox" defaultChecked={index === 0} />
+                <strong>{task}<small>{sub}</small></strong>
+                <em>{time}</em>
+              </label>
             ))}
           </div>
         </article>
@@ -567,20 +556,26 @@ export default function LearningHomePage({
         <article className="learn-os-card">
           <header className="learn-os-card__head">
             <div>
-              <h2>Thành tựu của bạn</h2>
+              <h2>Achievements</h2>
             </div>
-            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>Xem tất cả</button>
+            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
           </header>
           <div className="learn-os-achievement-grid">
-            {dashboard.achievements.map((item, index) => {
-              const icons = [<StarIcon size={32} fill="currentColor" />, <BookIcon size={32} fill="currentColor" />, <LightbulbIcon size={32} fill="currentColor" />]
+            {[
+              ['First Steps', 'Complete your first course', 'Earned', 'is-green'],
+              ['Consistent Learner', 'Maintain a 7-day study streak', 'Earned', 'is-amber'],
+              ['Quiz Master', 'Score 80% or higher in 10 quizzes', '7/10', 'is-teal'],
+              ['Course Explorer', 'Complete 10 courses', '8/10', 'is-purple'],
+            ].map((item, index) => {
+              const icons = [<StarIcon size={28} fill="currentColor" />, <FlameIcon size={28} fill="currentColor" />, <LightbulbIcon size={28} fill="currentColor" />, <BookIcon size={28} />]
               return (
-                <article key={item.title} className="learn-os-achievement">
-                  <div className={`learn-os-achievement-badge ${item.tone}`}>
+                <article key={item[0]} className="learn-os-achievement">
+                  <div className={`learn-os-achievement-badge ${item[3]}`}>
                     {icons[index]}
                   </div>
-                  <strong>{item.title}</strong>
-                  <span>{item.subtitle}</span>
+                  <strong>{item[0]}</strong>
+                  <span>{item[1]}</span>
+                  <em>{item[2]}</em>
                 </article>
               )
             })}
@@ -588,7 +583,33 @@ export default function LearningHomePage({
         </article>
       </section>
 
-      <article className="learn-os-card learn-os-card--media">
+      <section className="learn-os-card learn-os-community learn-reveal">
+        <header className="learn-os-card__head">
+          <h2>Community & Support</h2>
+        </header>
+        <div className="learn-os-community-grid">
+          <article>
+            <h3>Top Discussions</h3>
+            {['How to build a strong DCF model?', 'Career advice for aspiring CFA candidates', 'Best resources for learning derivatives'].map((item) => (
+              <button key={item} type="button" onClick={() => onOpenCommunity?.('learning')}>{item}<span>24m</span></button>
+            ))}
+          </article>
+          <article>
+            <h3>Ask the Mentor</h3>
+            <p>Get answers from finance professionals and educators.</p>
+            <div className="learn-os-avatar-row"><span>A</span><span>M</span><span>J</span><em>+8</em></div>
+            <button type="button" className="learn-os-btn learn-os-btn--primary" onClick={handleTutor}>Ask a Question</button>
+          </article>
+          <article>
+            <h3>Study Groups</h3>
+            {['CFA Level I Aspirants', 'Financial Modeling Enthusiasts', 'Investment Club'].map((item) => (
+              <button key={item} type="button" onClick={() => onOpenCommunity?.('learning')}>{item}<b>Join</b></button>
+            ))}
+          </article>
+        </div>
+      </section>
+
+      <article className="learn-os-card learn-os-card--media learn-reveal">
         <header className="learn-os-card__head">
           <div>
             <p className="learn-os-eyebrow">Media Library</p>
@@ -681,7 +702,7 @@ export default function LearningHomePage({
         </section>
       </article>
 
-      <section className="learn-os-layout">
+      <section className="learn-os-layout learn-reveal">
         <article id="learn-lesson-card" className="learn-os-card learn-os-card--lesson">
           <header className="learn-os-card__head">
             <div>
@@ -910,7 +931,7 @@ export default function LearningHomePage({
         </div>
       </section>
 
-      <footer className="learn-os-footer-note">
+      <footer className="learn-os-footer-note learn-reveal">
         <p>
           Learn Hub ưu tiên giáo dục và quản trị rủi ro. Nội dung không phải khuyến nghị mua/bán cá nhân hóa.
         </p>
@@ -927,9 +948,40 @@ export default function LearningHomePage({
           ) : null}
         </div>
       </footer>
-
     </section>
   )
+}
+
+function useLearnDashboardMotion() {
+  useEffect(() => {
+    const root = document.querySelector('.learn-os-page')
+    if (!root) return undefined
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const items = Array.from(root.querySelectorAll('.learn-reveal'))
+    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+      items.forEach((item) => item.classList.add('is-visible'))
+      return undefined
+    }
+
+    root.classList.add('is-motion-ready')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        })
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+    )
+
+    items.forEach((item) => observer.observe(item))
+    return () => {
+      observer.disconnect()
+      root.classList.remove('is-motion-ready')
+    }
+  }, [])
 }
 
 function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
@@ -986,24 +1038,9 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
     })
   }, [scrollTargetPageId])
 
-  useEffect(() => {
-    function handleWindowPaste(event) {
-      const target = event.target
-      if (target?.tagName === 'TEXTAREA') return
-      pasteImagesFromClipboard(event)
-    }
-
-    window.addEventListener('paste', handleWindowPaste)
-    return () => window.removeEventListener('paste', handleWindowPaste)
-  }, [resolvedActivePageId])
-
   useEffect(() => () => {
     if (pageBadgeTimerRef.current) window.clearTimeout(pageBadgeTimerRef.current)
   }, [])
-
-  function snapshotCanvas() {
-    return ''
-  }
 
   function revealPageBadge(pageId) {
     if (!pageId) return
@@ -1032,16 +1069,6 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
     if (!pageId) return
   }
 
-  async function handleImageUpload(event) {
-    const files = Array.from(event.target.files || [])
-    if (!files.length) return
-    const next = await Promise.all(files.map(fileToDataUrl))
-    const normalized = next.filter(Boolean)
-    if (!normalized.length) return
-    appendInlineImages(resolvedActivePageId, normalized)
-    event.target.value = ''
-  }
-
   async function pasteImagesFromClipboard(event, pageId = resolvedActivePageId) {
     const items = Array.from(event.clipboardData?.items || [])
     const files = items
@@ -1056,13 +1083,18 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
     appendInlineImages(pageId, normalized)
   }
 
-  async function handleNotePaste(event) {
-    await pasteImagesFromClipboard(event)
-  }
+  useEffect(() => {
+    function handleWindowPaste(event) {
+      const target = event.target
+      if (target?.tagName === 'TEXTAREA') return
+      pasteImagesFromClipboard(event)
+    }
 
-  function removeImage(index) {
-    removeImageFromPage(resolvedActivePageId, index)
-  }
+    window.addEventListener('paste', handleWindowPaste)
+    return () => window.removeEventListener('paste', handleWindowPaste)
+    // pasteImagesFromClipboard closes over the active page id through the dependency above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedActivePageId])
 
   function appendInlineImages(pageId, srcList) {
     updatePageById(pageId || resolvedActivePageId, (page) => {
@@ -1070,6 +1102,16 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
       const nextImages = srcList.map((src, index) => createNoteImage(src, existing.length + index))
       return { images: [...existing, ...nextImages] }
     })
+  }
+
+  async function handleImageUpload(event) {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    const next = await Promise.all(files.map(fileToDataUrl))
+    const normalized = next.filter(Boolean)
+    if (!normalized.length) return
+    appendInlineImages(resolvedActivePageId, normalized)
+    event.target.value = ''
   }
 
   function updatePageById(pageId, patch) {
@@ -1127,54 +1169,6 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
     setEditorMode('type')
   }
 
-  function handleDuplicatePage() {
-    if (!activePage) return
-    syncCanvasInto(resolvedActivePageId)
-    const sourcePage = activePage
-    let createdId = ''
-    setPages((current) => {
-      const index = current.findIndex((page) => page.id === resolvedActivePageId)
-      const createdPage = createNotebookPage({
-        title: `${sourcePage.title || `Trang ${activePageIndex + 1}`} (copy)`,
-        noteText: sourcePage.noteText,
-        images: sourcePage.images,
-        drawingDataUrl: sourcePage.drawingDataUrl,
-      })
-      createdId = createdPage.id
-      if (index < 0) return [...current, createdPage]
-      const next = [...current]
-      next.splice(index + 1, 0, createdPage)
-      return next
-    })
-    if (createdId) setActivePageId(createdId)
-    if (createdId) revealPageBadge(createdId)
-    setEditorMode('type')
-  }
-
-  function handleDeletePage() {
-    if (!activePage) return
-    if (pages.length <= 1) {
-      const blank = createNotebookPage({ title: 'Trang 1' })
-      setPages([blank])
-      setActivePageId(blank.id)
-      drawPersistedCanvas(null, canvasRef.current)
-      setEditorMode('type')
-      return
-    }
-
-    syncCanvasInto(resolvedActivePageId)
-    let nextActiveId = ''
-    setPages((current) => {
-      const index = current.findIndex((page) => page.id === resolvedActivePageId)
-      const next = current.filter((page) => page.id !== resolvedActivePageId)
-      const fallback = next[Math.max(0, index - 1)] || next[0]
-      nextActiveId = fallback?.id || ''
-      return next
-    })
-    if (nextActiveId) setActivePageId(nextActiveId)
-    setEditorMode('type')
-  }
-
   function saveReaderState() {
     const storageKey = readerStorageKey(sessionId, book.asset_id)
     const savedIso = new Date().toISOString()
@@ -1200,15 +1194,6 @@ function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
   function closeAndPersist() {
     saveReaderState()
     onClose()
-  }
-
-  function pointerDown(event) {
-  }
-
-  function pointerMove(event) {
-  }
-
-  function pointerUp() {
   }
 
   function switchMode(nextMode) {

@@ -49,20 +49,20 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   }
 
   return (
-    <section className="auth-page" aria-label={isRegister ? 'Đăng ký tài khoản' : 'Đăng nhập'}>
+    <section className="auth-page" aria-label={isRegister ? 'Đăng ký tài khoản' : 'Mở classroom session'}>
       {/* ─── Left: Hero ─── */}
       <div className="auth-hero">
         <div className="auth-hero-content">
           <div className="auth-hero-brand">
             <i aria-hidden="true" />
-            <strong>Northstar Finance</strong>
+            <strong>Northstar Finance Classroom</strong>
           </div>
           <h1>
             Hiểu tài chính.{'\n'}
             Hành động thông minh hơn.
           </h1>
           <p>
-            Nền tảng AI giúp bạn quản lý tài chính cá nhân, đặt mục tiêu, học kiến thức và phân tích thị trường — tất cả trong một hệ sinh thái an toàn.
+            Không gian guest classroom để sinh viên học tài chính, chạy mô phỏng, đọc dữ liệu thị trường và lưu tiến độ ngay trên máy học tập.
           </p>
           <div className="auth-hero-features">
             <div className="auth-hero-feature">
@@ -101,28 +101,16 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
             <span>Về trang chủ</span>
           </button>
           <div className="auth-card-header">
-            <h2>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h2>
+            <h2>{isRegister ? 'Tạo classroom session' : 'Mở classroom session'}</h2>
             <p>
               {isRegister
-                ? 'Bắt đầu hành trình tài chính thông minh cùng Northstar.'
-                : 'Chào mừng bạn quay lại Northstar Finance.'}
+                ? 'Tạo guest classroom session để lưu tiến độ học và mô phỏng trên thiết bị này.'
+                : 'Mở guest classroom session. Đây chưa phải tài khoản production.'}
             </p>
           </div>
 
-          {/* Social Login */}
-          <div className="auth-social-row">
-            <button type="button" className="auth-social-button" id="auth-google-btn">
-              <GoogleIcon />
-              Google
-            </button>
-            <button type="button" className="auth-social-button" id="auth-apple-btn">
-              <AppleIcon />
-              Apple
-            </button>
-          </div>
-
           <div className="auth-divider">
-            <span>hoặc dùng email</span>
+            <span>Guest classroom session - không xác thực production</span>
           </div>
 
           {/* Form */}
@@ -206,7 +194,7 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                   onChange={(event) => setAgreedTerms(event.target.checked)}
                 />
                 <span>
-                  Tôi đồng ý với{' '}
+                  Tôi hiểu đây là guest classroom session, không phải tài khoản giao dịch hay tài khoản production. Tôi đồng ý với{' '}
                   <a href="#terms" onClick={(e) => e.preventDefault()}>
                     Điều khoản sử dụng
                   </a>{' '}
@@ -237,9 +225,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                   Đang xử lý...
                 </>
               ) : isRegister ? (
-                'Tạo tài khoản'
+                'Tạo classroom session'
               ) : (
-                'Đăng nhập'
+                'Mở classroom session'
               )}
             </button>
           </form>
@@ -251,9 +239,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
               </button>
             ) : null}
             <p className="auth-toggle-text">
-              {isRegister ? 'Đã có tài khoản? ' : 'Chưa có tài khoản? '}
+              {isRegister ? 'Đã có classroom session? ' : 'Cần session học mới? '}
               <button type="button" className="auth-toggle-link" onClick={handleSwitchMode} id="auth-toggle-mode-btn">
-                {isRegister ? 'Đăng nhập' : 'Đăng ký miễn phí'}
+                {isRegister ? 'Mở session đã có' : 'Tạo classroom session'}
               </button>
             </p>
           </div>

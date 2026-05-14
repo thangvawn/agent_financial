@@ -220,6 +220,116 @@ def test_financial_import_and_analysis_end_to_end(tmp_path, monkeypatch):
     assert "highlights" in payload
 
 
+def test_financial_sections_endpoints_return_tab_payloads(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
+    dataset = _load_sample_dataset()
+    client = TestClient(app)
+
+    imported = client.post("/financials/import", json={"dataset": dataset.model_dump(mode="json")})
+    assert imported.status_code == 200
+
+    sections = client.get("/financials/FPT/sections")
+    assert sections.status_code == 200
+    payload = sections.json()
+    section_ids = [item["section"] for item in payload["sections"]]
+    assert section_ids == [
+        "overview",
+        "income_statement",
+        "balance_sheet",
+        "cash_flow",
+        "ratios",
+        "horizontal_analysis",
+        "vertical_analysis",
+        "risk_alerts",
+        "report",
+    ]
+
+    overview = client.get("/financials/FPT/sections/overview")
+    assert overview.status_code == 200
+    assert overview.json()["company"]["ticker"] == "FPT"
+
+    income = client.get("/financials/FPT/sections/ket-qua-kinh-doanh")
+    assert income.status_code == 200
+    assert income.json()["section"] == "income_statement"
+    assert income.json()["table"]
+
+    invalid = client.get("/financials/FPT/sections/not-a-section")
+    assert invalid.status_code == 404
+
+
+def test_bctc_income_statement_educational_apis(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
+    monkeypatch.setenv("RISK_DASHBOARD_APP_STATE_DB", str(tmp_path / "app_state.db"))
+    dataset = _load_sample_dataset()
+    client = TestClient(app)
+
+    imported = client.post("/financials/import", json={"dataset": dataset.model_dump(mode="json")})
+    assert imported.status_code == 200
+
+    overview = client.get(
+        "/api/bctc/income-statement/overview",
+        params={"company_id": "FPT", "period": "2025-Q4", "compare_with": "same_period_last_year"},
+    )
+    assert overview.status_code == 200
+    overview_payload = overview.json()
+    kpis = {item["key"]: item for item in overview_payload["kpis"]}
+    assert {"revenue", "gross_profit", "ebit", "net_profit", "gross_margin", "net_margin"} <= set(kpis)
+    assert kpis["gross_margin"]["formula"]["id"] == "gross_margin"
+    assert kpis["gross_margin"]["calculation_status"] == "ok"
+    assert kpis["revenue"]["evidence"]["current_period"] == "2025-Q4"
+    assert "khuyến nghị" in overview_payload["disclaimer"].lower()
+
+    table = client.get("/api/bctc/income-statement/table", params={"company_id": "FPT"})
+    assert table.status_code == 200
+    assert table.json()["rows"]
+
+    trends = client.get("/api/bctc/income-statement/trends", params={"company_id": "FPT", "metrics": "revenue,net_profit"})
+    assert trends.status_code == 200
+    assert trends.json()["points"]
+    assert set(trends.json()["points"][-1]) <= {"period", "year", "quarter", "revenue", "net_profit"}
+
+    formulas = client.get("/api/bctc/income-statement/formulas")
+    assert formulas.status_code == 200
+    assert any(item["id"] == "net_margin" for item in formulas.json()["formulas"])
+
+    explain = client.get(
+        "/api/bctc/income-statement/explain-line-item",
+        params={"line_item_key": "revenue", "student_level": "beginner"},
+    )
+    assert explain.status_code == 200
+    assert explain.json()["learning_questions"]
+
+    insights = client.get("/api/bctc/income-statement/insights", params={"company_id": "FPT", "period": "2025-Q4"})
+    assert insights.status_code == 200
+    assert all({"rule_id", "message", "severity", "evidence_json"} <= set(item) for item in insights.json()["insights"])
+
+    questions = client.get("/api/bctc/income-statement/questions", params={"company_id": "FPT", "student_level": "advanced"})
+    assert questions.status_code == 200
+    assert len(questions.json()["learning_flow"]) == 8
+
+    note = client.post(
+        "/api/bctc/income-statement/student-notes",
+        json={
+            "student_id": "student-1",
+            "company_id": "FPT",
+            "period": "2025-Q4",
+            "note_content": "Doanh thu tăng, cần kiểm tra thêm biên lợi nhuận và giá vốn.",
+            "related_metrics": ["revenue", "gross_margin"],
+        },
+    )
+    assert note.status_code == 200
+    assert note.json()["ok"] is True
+    assert note.json()["note_id"].startswith("income-note-")
+
+    review = client.get(
+        "/api/bctc/income-statement/instructor-review",
+        params={"company_id": "FPT", "period": "2025-Q4"},
+    )
+    assert review.status_code == 200
+    assert review.json()["note_count"] == 1
+    assert review.json()["notes"][0]["student_id"] == "student-1"
+
+
 def test_financial_status_endpoint():
     client = TestClient(app)
     response = client.get("/financials/status")

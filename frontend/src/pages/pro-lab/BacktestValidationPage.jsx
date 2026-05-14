@@ -61,33 +61,78 @@ const CAVEATS = [
 
 /* ── SVG Chart Helpers ───────────────────────────────────────── */
 
-function CumulativeReturnChart() {
-  const strategyPoints = [
-    [0, 0], [60, 12], [120, 8], [180, 28], [240, 22], [300, 45],
-    [360, 38], [420, 62], [480, 55], [540, 78], [600, 72], [660, 95],
-    [720, 110], [780, 105], [840, 128], [900, 135], [960, 148],
-    [1020, 158], [1080, 165], [1140, 172], [1200, 178.6],
+function BacktestCandlestickChart() {
+  const candles = [
+    { o: 102, h: 108, l: 99, c: 106, v: 38 },
+    { o: 106, h: 112, l: 104, c: 110, v: 46 },
+    { o: 110, h: 114, l: 105, c: 107, v: 41 },
+    { o: 107, h: 118, l: 106, c: 116, v: 54 },
+    { o: 116, h: 123, l: 113, c: 121, v: 63 },
+    { o: 121, h: 125, l: 116, c: 118, v: 48 },
+    { o: 118, h: 128, l: 117, c: 126, v: 68 },
+    { o: 126, h: 133, l: 124, c: 131, v: 72 },
+    { o: 131, h: 136, l: 127, c: 129, v: 59 },
+    { o: 129, h: 141, l: 128, c: 138, v: 78 },
+    { o: 138, h: 144, l: 134, c: 142, v: 82 },
+    { o: 142, h: 146, l: 137, c: 139, v: 62 },
+    { o: 139, h: 151, l: 138, c: 149, v: 88 },
+    { o: 149, h: 156, l: 146, c: 153, v: 91 },
+    { o: 153, h: 159, l: 150, c: 151, v: 70 },
+    { o: 151, h: 164, l: 149, c: 162, v: 96 },
+    { o: 162, h: 170, l: 158, c: 168, v: 104 },
+    { o: 168, h: 173, l: 163, c: 165, v: 79 },
+    { o: 165, h: 178, l: 164, c: 175, v: 108 },
+    { o: 175, h: 183, l: 171, c: 180, v: 112 },
   ];
-  const benchmarkPoints = [
-    [0, 0], [60, 8], [120, 5], [180, 18], [240, 14], [300, 30],
-    [360, 25], [420, 42], [480, 38], [540, 52], [600, 48], [660, 60],
-    [720, 68], [780, 55], [840, 72], [900, 78], [960, 85],
-    [1020, 92], [1080, 98], [1140, 105], [1200, 112.4],
-  ];
-
-  const toPath = (pts) =>
-    pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${200 - y}`).join(" ");
+  const minPrice = Math.min(...candles.map((item) => item.l)) - 4;
+  const maxPrice = Math.max(...candles.map((item) => item.h)) + 4;
+  const priceHeight = 168;
+  const volumeTop = 176;
+  const width = 1200;
+  const step = width / candles.length;
+  const candleWidth = 28;
+  const yForPrice = (price) => priceHeight - ((price - minPrice) / (maxPrice - minPrice)) * priceHeight + 12;
+  const maxVolume = Math.max(...candles.map((item) => item.v));
 
   return (
     <svg viewBox="0 0 1200 220" className="bv-chart-svg">
-      {[0, 50, 100, 150, 200].map((y) => (
-        <line key={y} x1="0" y1={200 - y} x2="1200" y2={200 - y} stroke="#1a2e28" strokeWidth="1" />
+      {[0, 42, 84, 126, 168].map((y) => (
+        <line key={y} x1="0" y1={12 + y} x2="1200" y2={12 + y} stroke="#1a2e28" strokeWidth="1" />
       ))}
       {[0, 200, 400, 600, 800, 1000, 1200].map((x) => (
         <line key={x} x1={x} y1="0" x2={x} y2="220" stroke="#1a2e28" strokeWidth="1" />
       ))}
-      <path d={toPath(benchmarkPoints)} fill="none" stroke="#5e7a72" strokeWidth="2" opacity="0.7" />
-      <path d={toPath(strategyPoints)} fill="none" stroke="#4fd1b4" strokeWidth="2.5" />
+      {candles.map((item, index) => {
+        const x = index * step + step / 2;
+        const up = item.c >= item.o;
+        const color = up ? "#4fd1b4" : "#e85d75";
+        const bodyY = Math.min(yForPrice(item.o), yForPrice(item.c));
+        const bodyHeight = Math.max(3, Math.abs(yForPrice(item.o) - yForPrice(item.c)));
+        const volumeHeight = (item.v / maxVolume) * 32;
+        return (
+          <g key={index}>
+            <line x1={x} y1={yForPrice(item.h)} x2={x} y2={yForPrice(item.l)} stroke={color} strokeWidth="2" />
+            <rect
+              x={x - candleWidth / 2}
+              y={bodyY}
+              width={candleWidth}
+              height={bodyHeight}
+              rx="2"
+              fill={up ? "rgba(79, 209, 180, 0.72)" : "rgba(232, 93, 117, 0.72)"}
+              stroke={color}
+              strokeWidth="1.5"
+            />
+            <rect
+              x={x - candleWidth / 2}
+              y={volumeTop + (34 - volumeHeight)}
+              width={candleWidth}
+              height={volumeHeight}
+              rx="2"
+              fill={up ? "rgba(79, 209, 180, 0.24)" : "rgba(232, 93, 117, 0.24)"}
+            />
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -218,10 +263,10 @@ export default function BacktestValidationPage({ onBack }) {
             </div>
           </div>
 
-          {/* Cumulative Return Chart */}
+          {/* Candlestick Backtest Chart */}
           <div className="bv-card">
             <div className="bv-card__head">
-              <h3 className="bv-card__title">Cumulative Return</h3>
+              <h3 className="bv-card__title">Candlestick Backtest</h3>
               <div className="bv-card__controls">
                 <div className="bv-period-btns">
                   {["1Y", "3Y", "5Y", "All"].map((p) => (
@@ -247,15 +292,15 @@ export default function BacktestValidationPage({ onBack }) {
               </div>
             </div>
             <div className="bv-chart-wrap">
-              <CumulativeReturnChart />
+              <BacktestCandlestickChart />
               <div className="bv-chart-legend">
                 <span className="bv-legend-item">
                   <span className="bv-legend-dot" style={{ background: "#4fd1b4" }} />
-                  Strategy 178.6%
+                  Bullish candles
                 </span>
                 <span className="bv-legend-item">
-                  <span className="bv-legend-dot" style={{ background: "#5e7a72" }} />
-                  Benchmark SPY 112.4%
+                  <span className="bv-legend-dot" style={{ background: "#e85d75" }} />
+                  Bearish candles
                 </span>
               </div>
             </div>

@@ -4,6 +4,7 @@ export { default as CommunityModerationPage } from './admin/CommunityModerationP
 export { default as ContentOpsAdminPage } from './admin/ContentOpsAdminPage.jsx'
 export { default as TrustSafetyAdminPage } from './admin/TrustSafetyAdminPage.jsx'
 export { default as CommunityPage } from './community/CommunityPage.jsx'
+export { default as EducationPlatformPage } from './education/EducationPlatformPage.jsx'
 export { default as HomePage } from './core/HomePage.jsx'
 export { default as MarketOverviewPage } from './core/MarketOverviewPage.jsx'
 export { default as OnboardingPage } from './core/OnboardingPage.jsx'

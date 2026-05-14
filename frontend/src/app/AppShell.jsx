@@ -6,6 +6,7 @@ import {
   CommunityModerationPage,
   CommunityPage,
   ContentOpsAdminPage,
+  EducationPlatformPage,
   FinancialHealthPage,
   GoalsPage,
   GlobalTerminalPage,
@@ -30,6 +31,8 @@ const SURFACE_LABELS = {
   home: 'Home',
   financial_health: 'Financial Health',
   learning: 'Learn Hub',
+  financial_statement_simulator: 'Financial Statement Simulator',
+  assignments: 'Assignments',
   content_ops_admin: 'Content Ops',
   goals: 'Goals',
   global_terminal: 'Global Terminal',
@@ -49,16 +52,20 @@ const SURFACE_LABELS = {
 }
 
 const PAGE_TRANSITION_MS = 180
+const DEPRECATED_VIEW_ALIASES = {
+  simulation_lab: 'global_terminal',
+}
 
 export default function AppShell({ initialView = 'home', view: controlledView, onNavigate }) {
-  const [internalView, setInternalView] = useState(() => initialView)
-  const view = controlledView || internalView
+  const [internalView, setInternalView] = useState(() => normalizeView(initialView))
+  const view = normalizeView(controlledView || internalView)
   const [renderedView, setRenderedView] = useState(() => view)
   const [transitionPhase, setTransitionPhase] = useState('entered')
   const [sessionId, setSessionId] = useState('')
   const [homeRefreshKey, setHomeRefreshKey] = useState(0)
   const [focusedGoalId, setFocusedGoalId] = useState('')
   const [guidedFocusCard, setGuidedFocusCard] = useState('market_context')
+  const [proLabBacktestContext, setProLabBacktestContext] = useState({ selectedBlueprintId: '', workspace: null, accessToken: '' })
   const [communityFocusSpace, setCommunityFocusSpace] = useState('')
   const previousViewRef = useRef('')
 
@@ -128,11 +135,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   function setView(nextView, options) {
+    const normalizedView = normalizeView(nextView)
     if (onNavigate) {
-      onNavigate(nextView, options)
+      onNavigate(normalizedView, options)
       return
     }
-    setInternalView(nextView)
+    setInternalView(normalizedView)
   }
 
   function handleFinancialHealthCompleted() {
@@ -169,11 +177,28 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     setView('pro_lab')
   }
 
+  function handleOpenSimulationLab() {
+    handleOpenGlobalTerminal()
+  }
+
+  function handleOpenFinancialStatementSimulator() {
+    setView('financial_statement_simulator')
+  }
+
+  function handleOpenAssignments() {
+    setView('assignments')
+  }
+
   function handleOpenProLabAdmin() {
     setView('pro_lab_admin')
   }
 
-  function handleOpenBacktestStudio() {
+  function handleOpenBacktestStudio(context = {}) {
+    setProLabBacktestContext({
+      selectedBlueprintId: context.selectedBlueprintId || '',
+      workspace: context.workspace || null,
+      accessToken: context.accessToken || '',
+    })
     setView('backtest_studio')
   }
 
@@ -234,6 +259,15 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   if (renderedView === 'content_ops_admin') {
     content = <ContentOpsAdminPage onBack={() => setView('learning')} />
+  }
+
+  if (['financial_statement_simulator', 'assignments'].includes(renderedView)) {
+    content = (
+      <EducationPlatformPage
+        surface={renderedView}
+        onBack={() => setView('home')}
+      />
+    )
   }
 
   if (renderedView === 'goals') {
@@ -333,8 +367,10 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   if (renderedView === 'backtest_studio') {
     content = (
       <ProLabBacktestStudioPage
-        selectedBlueprintId=""
-        workspace={null}
+        sessionId={sessionId}
+        selectedBlueprintId={proLabBacktestContext.selectedBlueprintId}
+        workspace={proLabBacktestContext.workspace}
+        accessToken={proLabBacktestContext.accessToken}
         onBack={() => setView('pro_lab')}
         onOpenBlueprints={() => setView('pro_lab')}
       />
@@ -394,6 +430,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
         refreshKey={homeRefreshKey}
         onOpenFinancialHealth={() => setView('financial_health')}
         onOpenLearning={() => setView('learning')}
+        onOpenSimulationLab={handleOpenSimulationLab}
+        onOpenAssignments={handleOpenAssignments}
         onOpenGoals={handleOpenGoals}
         onOpenGuidedInvesting={handleOpenGuidedInvesting}
         onOpenInsights={handleOpenInsights}
@@ -428,6 +466,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     openHome: () => setView('home'),
     openFinancialHealth: () => setView('financial_health'),
     openLearning: () => setView('learning'),
+    openSimulationLab: handleOpenSimulationLab,
+    openAssignments: handleOpenAssignments,
     openGoals: handleOpenGoals,
     openGuidedInvesting: handleOpenGuidedInvesting,
     openInsights: handleOpenInsights,
@@ -447,12 +487,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       <div className="app-shell__frame">
         <header className="app-shell__masthead">
           <div>
-            <p className="app-shell__brand">North Star Public</p>
+            <p className="app-shell__brand">Northstar Finance Lab</p>
             <p className="app-shell__surface">{SURFACE_LABELS[renderedView] || 'Workspace'}</p>
           </div>
           <div className="app-shell__masthead-actions">
             <span className={`app-shell__badge app-shell__badge--${tone}`}>
-              {tone === 'operator' ? 'Operator Surface' : tone === 'pro' ? 'Research Surface' : 'Retail Surface'}
+              {tone === 'operator' ? 'Instructor / Admin Surface' : tone === 'pro' ? 'Paper Research Surface' : 'Education Surface'}
             </span>
             {sessionId && renderedView !== 'home' && renderedView !== 'onboarding' ? (
               <button type="button" className="button-ghost" onClick={() => setView('home')}>
@@ -475,4 +515,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+}
+
+function normalizeView(view) {
+  return DEPRECATED_VIEW_ALIASES[view] || view
 }

@@ -243,13 +243,15 @@ def test_pro_lab_surface_boundaries(monkeypatch):
         json={
             "user_id": session_id,
             "blueprint_id": blueprint_id,
-            "start_date": "2023-01-01",
-            "end_date": "2025-12-31",
+            "start_date": "2025-01-01",
+            "end_date": "2025-06-30",
             "initial_capital": 100000000,
+            "timeframe": "1h",
         },
     )
     assert backtest.status_code == 200
     assert backtest.json()["experiment_type"] == "backtest_lab"
+    assert backtest.json()["engine_result"]["interval"] == "1h"
 
     report = client.get(
         f"/api/v1/pro/pro-lab/experiments/{backtest.json()['experiment_id']}/report",

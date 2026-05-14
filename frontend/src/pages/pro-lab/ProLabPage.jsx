@@ -19,11 +19,11 @@ import {
   updateProLabBlueprint,
 } from '../../modules/pro-lab'
 import AutoCopyPaperPage from './AutoCopyPaperPage'
-import BacktestValidationPage from './BacktestValidationPage'
 import BlueprintSwarmPage from './BlueprintSwarmPage'
 import DataRouterExportPage from './DataRouterExportPage'
 import JournalReportPage from './JournalReportPage'
 import OptimizerScenarioPage from './OptimizerScenarioPage'
+import ProLabBacktestStudioPage from './ProLabBacktestStudioPage'
 import ProLabBlueprintsPage from './ProLabBlueprintsPage'
 import ProLabExperimentsPage from './ProLabExperimentsPage'
 import ProLabOverviewPage from './ProLabOverviewPage'
@@ -61,7 +61,7 @@ const MODULE_LIST = [
   { id: 'strategy-copilot', label: 'Strategy Copilot' },
   { id: 'blueprint-swarm', label: 'Blueprint / Swarm' },
   { id: 'optimizer-scenario', label: 'Optimizer / Scenario' },
-  { id: 'backtest-validation', label: 'Backtest / Validation' },
+  { id: 'backtest-validation', label: 'Chart / Backtest Studio' },
   { id: 'data-router-export', label: 'Data Router / Export' },
   { id: 'journal-report', label: 'Journal / Report' },
   { id: 'auto-copy', label: 'Auto / Copy Paper' },
@@ -288,9 +288,10 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
         {
           user_id: sessionId,
           blueprint_id: selectedBlueprintId,
-          start_date: '2023-01-01',
-          end_date: '2025-12-31',
+          start_date: recentIsoDate(180),
+          end_date: recentIsoDate(0),
           initial_capital: 100000000,
+          timeframe: '1h',
         },
         accessToken,
       )
@@ -347,7 +348,7 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
 
   function handleSubpageChange(nextSubpage) {
     if (nextSubpage === 'backtest-studio') {
-      onOpenBacktestStudio?.()
+      onOpenBacktestStudio?.({ selectedBlueprintId, workspace, accessToken })
       return
     }
     setSubpage(nextSubpage)
@@ -452,7 +453,14 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
         <OptimizerScenarioPage onBack={() => setSubpage('overview')} />
       )}
       {subpage === 'backtest-validation' && (
-        <BacktestValidationPage onBack={() => setSubpage('overview')} />
+        <ProLabBacktestStudioPage
+          sessionId={sessionId}
+          selectedBlueprintId={selectedBlueprintId}
+          workspace={workspace}
+          accessToken={accessToken}
+          onBack={() => setSubpage('overview')}
+          onOpenBlueprints={() => setSubpage('blueprints')}
+        />
       )}
       {subpage === 'data-router-export' && (
         <DataRouterExportPage onBack={() => setSubpage('overview')} />
@@ -549,6 +557,12 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
       )}
     </section>
   )
+}
+
+function recentIsoDate(daysAgo) {
+  const value = new Date()
+  value.setDate(value.getDate() - daysAgo)
+  return value.toISOString().slice(0, 10)
 }
 
 function ProLabHero({ onBack }) {
@@ -683,7 +697,7 @@ function QuickControlsPanel() {
   )
 }
 
-function RecentExperimentsTable({ experiments, onExportReport }) {
+function RecentExperimentsTable() {
   const demoExperiments = [
     { id: 'E-1247', strategy: 'Mean Reversion v3', status: 'Completed', statusColor: 'green', lastRun: 'May 16, 2025 10:22 AM', sharpe: '1.38', returnOOS: '18.42%', returnVal: '-8.21%', maxDD: '', hasPlay: true },
     { id: 'E-1246', strategy: 'Trend Following v2', status: 'Completed', statusColor: 'green', lastRun: 'May 16, 2025 9:41 AM', sharpe: '1.12', returnOOS: '14.37%', returnVal: '-7.14%', maxDD: '', hasPlay: true },

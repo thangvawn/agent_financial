@@ -1,64 +1,36 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { trackAnalyticsEvent } from '../analytics/trackEvent'
 
 const FLOW = [
   {
+    id: 'learning',
+    label: 'Learn',
+    short: 'Short lessons',
+    group: 'education',
+    action: 'openLearning',
+  },
+  {
     id: 'global_terminal',
-    label: 'Terminal',
-    short: 'Live market board',
-    group: 'market',
+    label: 'Global Terminal',
+    short: 'Cross-asset market desk',
+    group: 'analysis',
     action: 'openGlobalTerminal',
+  },
+  {
+    id: 'guided_investing',
+    label: 'BCTC',
+    short: 'Financial statement analysis',
+    group: 'analysis',
+    action: 'openGuidedInvesting',
+    payload: 'market_context',
   },
   {
     id: 'news',
     label: 'News',
     short: 'Market narrative',
-    group: 'market',
+    group: 'analysis',
     action: 'openNews',
-  },
-  {
-    id: 'insights',
-    label: 'Insights',
-    short: 'What changed',
-    group: 'intelligence',
-    action: 'openInsights',
-  },
-  {
-    id: 'guided_investing',
-    label: 'BCTC',
-    short: 'Financial analysis',
-    group: 'intelligence',
-    action: 'openGuidedInvesting',
-    payload: 'market_context',
-  },
-  {
-    id: 'learning',
-    label: 'Learn',
-    short: 'Understand concepts',
-    group: 'education',
-    action: 'openLearning',
-  },
-  {
-    id: 'financial_health',
-    label: 'Health',
-    short: 'Personal baseline',
-    group: 'personal',
-    action: 'openFinancialHealth',
-  },
-  {
-    id: 'goals',
-    label: 'Goals',
-    short: 'Plan next step',
-    group: 'personal',
-    action: 'openGoals',
-    payload: '',
-  },
-  {
-    id: 'community',
-    label: 'Community',
-    short: 'Learn with guardrails',
-    group: 'retention',
-    action: 'openCommunity',
-    payload: '',
   },
   {
     id: 'pro_lab',
@@ -70,7 +42,32 @@ const FLOW = [
 ]
 
 export default function ConnectedWorkspaceNav({ currentView, sessionId, actions }) {
-  if (currentView?.includes('admin') || currentView === 'backtest_studio' || currentView === 'global_terminal') return null
+  const [isScrolled, setIsScrolled] = useState(() => getScrollY() > 18)
+  const [isHidden, setIsHidden] = useState(false)
+  const lastScrollYRef = useRef(getScrollY())
+
+  useEffect(() => {
+    function handleScroll() {
+      const nextScrollY = getScrollY()
+      const delta = nextScrollY - lastScrollYRef.current
+      setIsScrolled(nextScrollY > 18)
+      setIsHidden(nextScrollY > 140 && delta > 6)
+      lastScrollYRef.current = nextScrollY
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      setIsHidden(false)
+      lastScrollYRef.current = getScrollY()
+      setIsScrolled(getScrollY() > 18)
+    })
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [currentView])
+
+  if (currentView?.includes('admin') || currentView === 'backtest_studio') return null
 
   function open(item) {
     const handler = actions?.[item.action]
@@ -90,8 +87,17 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions 
     handler(item.payload)
   }
 
+  function revealNav() {
+    setIsHidden(false)
+  }
+
   return (
-    <nav className="connected-nav" aria-label="Connected product navigation">
+    <div
+      className={`connected-nav-shell ${isHidden ? 'connected-nav-shell--hidden' : ''}`}
+      onMouseEnter={revealNav}
+      onFocus={revealNav}
+    >
+      <nav className={`connected-nav ${isScrolled ? 'connected-nav--scrolled' : 'connected-nav--top'}`} aria-label="Connected product navigation">
       <div className="connected-nav__brand">
         <i className="connected-nav__mark" aria-hidden="true" />
         <strong>Northstar Finance</strong>
@@ -134,8 +140,14 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions 
           {getInitial(sessionId)}
         </button>
       )}
-    </nav>
+      </nav>
+    </div>
   )
+}
+
+function getScrollY() {
+  if (typeof window === 'undefined') return 0
+  return window.scrollY || window.document?.documentElement?.scrollTop || 0
 }
 
 function getInitial(sessionId) {
@@ -144,5 +156,6 @@ function getInitial(sessionId) {
     if (profile?.name) return profile.name.charAt(0).toUpperCase()
     if (profile?.email) return profile.email.charAt(0).toUpperCase()
   } catch { /* ignore */ }
+  if (sessionId) return String(sessionId).charAt(0).toUpperCase()
   return 'U'
 }

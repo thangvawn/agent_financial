@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import os
 from datetime import datetime, timezone, tzinfo
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -259,6 +260,20 @@ CREATE TABLE IF NOT EXISTS guided_journal_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_guided_journal_user_id ON guided_journal_entries(user_id);
+
+CREATE TABLE IF NOT EXISTS student_income_statement_notes (
+  note_id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  company_id TEXT NOT NULL,
+  financial_period TEXT NOT NULL,
+  note_content TEXT NOT NULL,
+  related_metrics_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_income_notes_student ON student_income_statement_notes(student_id);
+CREATE INDEX IF NOT EXISTS idx_income_notes_company_period ON student_income_statement_notes(company_id, financial_period);
 
 CREATE TABLE IF NOT EXISTS guided_saved_portfolios (
   portfolio_id TEXT PRIMARY KEY,
@@ -817,7 +832,7 @@ def _normalize_news_articles_timestamps(conn: sqlite3.Connection) -> None:
 
 
 def open_app_state_db(db_path: str | Path | None = None) -> sqlite3.Connection:
-    path = Path(db_path or get_settings().app_state_db_path)
+    path = Path(db_path or os.getenv("RISK_DASHBOARD_APP_STATE_DB") or get_settings().app_state_db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row

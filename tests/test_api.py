@@ -46,6 +46,26 @@ def test_dashboard_page_and_state(synthetic_panel):
     assert payload["rows"] == len(synthetic_panel)
 
 
+def test_frontend_spa_routes_return_index():
+    c = TestClient(app)
+
+    for path in ("/assignments", "/simulation-lab"):
+        page = c.get(path)
+        assert page.status_code == 200
+        assert '<div id="root"></div>' in page.text
+
+
+def test_removed_reports_and_classroom_routes_return_not_found():
+    c = TestClient(app)
+    assert c.get("/reports").status_code == 404
+    assert c.get("/classroom").status_code == 404
+
+
+def test_removed_ai_tutor_route_returns_not_found():
+    c = TestClient(app)
+    assert c.get("/ai-tutor").status_code == 404
+
+
 @mock.patch("risk_dashboard.api.main.cross_asset_prices_mod.build_cross_asset_dashboard")
 def test_dashboard_cross_asset_returns_payload(mock_cross_asset):
     mock_cross_asset.return_value = {

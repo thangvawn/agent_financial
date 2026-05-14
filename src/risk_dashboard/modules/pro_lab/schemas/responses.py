@@ -39,6 +39,7 @@ class ProLabExperimentResponse(BaseModel):
     reviewer_id: str | None = None
     notebook_sections: list[dict[str, object]]
     caveats: list[str]
+    engine_result: dict[str, object] | None = None
 
 
 class ProLabAuditResponse(BaseModel):

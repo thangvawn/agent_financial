@@ -21,6 +21,25 @@ export async function fetchFinancialAnalysis(ticker, { refresh = false } = {}) {
   return expectJson(response)
 }
 
+export async function fetchFinancialSections(ticker, { refresh = false } = {}) {
+  const symbol = (ticker || '').toUpperCase().trim()
+  const params = new URLSearchParams()
+  if (refresh) params.set('refresh', '1')
+  const query = params.toString()
+  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/sections${query ? `?${query}` : ''}`)
+  return expectJson(response)
+}
+
+export async function fetchFinancialSection(ticker, section, { refresh = false } = {}) {
+  const symbol = (ticker || '').toUpperCase().trim()
+  const normalizedSection = (section || '').trim()
+  const params = new URLSearchParams()
+  if (refresh) params.set('refresh', '1')
+  const query = params.toString()
+  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/sections/${encodeURIComponent(normalizedSection)}${query ? `?${query}` : ''}`)
+  return expectJson(response)
+}
+
 export async function fetchFinancialQualityCharts(ticker, { refresh = false } = {}) {
   const symbol = (ticker || '').toUpperCase().trim()
   const params = new URLSearchParams()

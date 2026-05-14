@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import replace
+from datetime import date, datetime, timezone
 
 from risk_dashboard.modules.analytics_monitoring.application.emitter import emit_product_event
 from risk_dashboard.modules.home_onboarding.infrastructure.repositories.sqlite import SqliteOnboardingProfileRepository
@@ -47,6 +48,7 @@ from risk_dashboard.modules.pro_lab.schemas.responses import (
 )
 from risk_dashboard.modules.trust_safety.application.services import TrustSafetyService
 from risk_dashboard.platform.security.access_control import SqliteAccessControlRepository, issue_token_for_actor
+from risk_dashboard.quant.backtest import run_vn_portfolio_backtest
 
 
 def is_pro_lab_local_test_open() -> bool:
@@ -194,6 +196,7 @@ class GetProLabWorkspace:
             reviewer_id=item.reviewer_id,
             notebook_sections=list(item.output_payload.get("notebook_sections", [])),
             caveats=list(item.output_payload.get("caveats", [])),
+            engine_result=item.output_payload.get("engine_result"),
         )
 
 
@@ -748,13 +751,54 @@ class RunBacktestLab:
         start_date: str,
         end_date: str,
         initial_capital: float,
+        timeframe: str = "1d",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+        strategy_text: str | None = None,
         surface: str = "pro",
     ) -> ProLabExperimentResponse:
         blueprint = self.blueprints.get(blueprint_id=blueprint_id)
         if blueprint is None or blueprint.user_id != user_id:
             raise ValueError("Không tìm thấy blueprint cho user này.")
-        asset_count = max(len(blueprint.asset_universe), 1)
-        benchmark_gap = round(min(asset_count * 0.8, 6.0), 2)
+        start_day = _parse_iso_date(start_date, field_name="start_date")
+        end_day = _parse_iso_date(end_date, field_name="end_date")
+        try:
+            result = run_vn_portfolio_backtest(
+                list(blueprint.asset_universe),
+                start_day,
+                end_day,
+                initial_capital,
+                equal_weight=True,
+                include_benchmark=True,
+                strategy=_strategy_config_from_text(strategy_text),
+                interval=timeframe,
+            )
+        except Exception as exc:
+            # Keep the workspace usable in offline/test environments where
+            # market data providers are unavailable.
+            result = _build_offline_backtest_result(
+                tickers=list(blueprint.asset_universe),
+                start_date=start_day,
+                end_date=end_day,
+                initial_capital=initial_capital,
+                timeframe=timeframe,
+                reason=str(exc),
+            )
+        result = {
+            **result,
+            "execution_costs": {
+                "commission_pct": float(commission_pct),
+                "slippage_pct": float(slippage_pct),
+                "mode": "captured_for_research_context",
+            },
+            "strategy_text": strategy_text.strip() if strategy_text else None,
+        }
+        metrics = result.get("metrics", {})
+        warnings = result.get("warnings", [])
+        final_value = _last_equity_value(result)
+        total_return = metrics.get("total_return_pct")
+        max_drawdown = metrics.get("max_drawdown_pct")
+        sharpe = metrics.get("sharpe") or metrics.get("sharpe_ratio")
         experiment = ProLabExperiment(
             experiment_id=new_pro_lab_experiment_id(),
             user_id=user_id,
@@ -765,6 +809,10 @@ class RunBacktestLab:
                 "start_date": start_date,
                 "end_date": end_date,
                 "initial_capital": initial_capital,
+                "timeframe": timeframe,
+                "commission_pct": commission_pct,
+                "slippage_pct": slippage_pct,
+                "strategy_text": strategy_text,
             },
             output_payload={
                 "notebook_sections": [
@@ -772,25 +820,35 @@ class RunBacktestLab:
                     {
                         "title": "Setup",
                         "body": (
-                            f"Backtest sandbox từ {start_date} đến {end_date}, benchmark {blueprint.benchmark}, "
-                            f"rebalance {blueprint.rebalance_frequency}."
+                            f"Backtest chạy trên dữ liệu giá lịch sử {timeframe} từ {start_date} đến {end_date}, "
+                            f"benchmark VN-Index khi tải được, danh mục equal-weight theo blueprint. "
+                            f"Cost context: commission {commission_pct:.2f}%, slippage {slippage_pct:.2f}%."
                         ),
                     },
                     {
-                        "title": "Summary",
+                        "title": "Kết quả định lượng",
                         "body": (
-                            f"Blueprint gồm {asset_count} tài sản. Relative performance gap vs benchmark giả lập là {benchmark_gap}%."
+                            f"Final value: {_format_metric(final_value)}; total return: {_format_pct(total_return)}; "
+                            f"max drawdown: {_format_pct(max_drawdown)}; Sharpe: {_format_metric(sharpe)}."
+                        ),
+                    },
+                    {
+                        "title": "Dữ liệu và cảnh báo",
+                        "body": (
+                            f"Nguồn: {result.get('source', 'historical price feed')}. "
+                            f"Warnings: {'; '.join(str(item) for item in warnings) if warnings else 'không có cảnh báo lớn từ engine.'}"
                         ),
                     },
                     {
                         "title": "Caveat-first reading",
-                        "body": "Kết quả này để review giả định và benchmark discipline, không phải promise cho tương lai.",
+                        "body": "Kết quả này là mô phỏng lịch sử để sinh viên đọc giả định, benchmark và drawdown; không phải dự báo hay khuyến nghị giao dịch.",
                     },
                 ],
                 "caveats": [
-                    "Backtest lab hiện dùng sandbox assumptions đơn giản hóa, chưa phản ánh execution realism đầy đủ.",
+                    "Backtest hiện là buy-and-hold equal-weight trừ khi strategy text map được sang rule engine nội bộ; phí/trượt giá đang được ghi nhận như context nghiên cứu, chưa trừ trực tiếp khỏi mọi nhánh engine.",
                     "Không nên biến output này thành public marketing claim hay trade signal.",
                 ],
+                "engine_result": result,
             },
         )
         self.experiments.save(experiment)
@@ -813,6 +871,109 @@ class RunBacktestLab:
             properties={"experiment_id": experiment.experiment_id, "scenario_type": "backtest_lab"},
         )
         return GetProLabWorkspace(self.blueprints, self.experiments)._to_experiment(experiment)
+
+
+def _last_equity_value(result: dict[str, object]) -> object:
+    series = result.get("series")
+    if isinstance(series, dict):
+        portfolio = series.get("portfolio")
+        if isinstance(portfolio, list) and portfolio:
+            last = portfolio[-1]
+            if isinstance(last, dict):
+                return last.get("value")
+    if isinstance(series, list) and series:
+        last = series[-1]
+        if isinstance(last, dict):
+            return last.get("portfolio_value") or last.get("equity") or last.get("value")
+    return None
+
+
+def _build_offline_backtest_result(
+    *,
+    tickers: list[str],
+    start_date: date,
+    end_date: date,
+    initial_capital: float,
+    timeframe: str,
+    reason: str,
+) -> dict[str, object]:
+    normalized = [item.strip().upper() for item in tickers if item and item.strip()]
+    asset_count = max(len(normalized), 1)
+    start_ts = _to_unix_seconds(start_date)
+    end_ts = _to_unix_seconds(end_date)
+    warning = (
+        "Historical market feed unavailable, so Pro Lab returned an offline educational fallback. "
+        f"Original engine message: {reason}"
+    )
+    return {
+        "tickers": normalized,
+        "weights": {ticker: round(1 / asset_count, 6) for ticker in normalized},
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "interval": timeframe,
+        "initial_capital": float(initial_capital),
+        "metrics": {
+            "final_value": float(initial_capital),
+            "ending_value": float(initial_capital),
+            "total_return_pct": 0.0,
+            "max_drawdown_pct": 0.0,
+            "sharpe": 0.0,
+            "trading_days": 2,
+        },
+        "series": {
+            "portfolio": [
+                {"time": start_ts, "value": float(initial_capital)},
+                {"time": end_ts, "value": float(initial_capital)},
+            ]
+        },
+        "monthly_returns": [],
+        "ath_segments": [],
+        "benchmark_label": None,
+        "warnings": [warning],
+        "source": "offline_fallback",
+    }
+
+
+def _strategy_config_from_text(strategy_text: str | None) -> dict[str, float] | None:
+    text = (strategy_text or "").lower()
+    if not text:
+        return None
+    if "volume" not in text and "btc" not in text and "stop" not in text:
+        return None
+    return {
+        "volume_spike_multiplier": 2.0,
+        "btc_daily_change_min_pct": 3.0,
+        "stop_loss_pct": 4.0,
+    }
+
+
+def _to_unix_seconds(value: date) -> int:
+    return int(datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp())
+
+
+def _parse_iso_date(value: str, *, field_name: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} phải có định dạng YYYY-MM-DD.") from exc
+
+
+def _format_metric(value: object) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value):,.2f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_pct(value: object) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value):.2f}%"
+    except (TypeError, ValueError):
+        return str(value)
 
 
 class ListAuditLogs:

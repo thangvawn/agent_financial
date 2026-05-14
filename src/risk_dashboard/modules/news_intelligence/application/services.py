@@ -106,7 +106,7 @@ class NewsIntelligenceService:
                 """
                 SELECT * FROM news_articles
                 WHERE category = ? AND article_id != ? AND sort_ts >= ?
-                ORDER BY sort_ts DESC, fetched_at DESC, article_id ASC
+                ORDER BY importance_score DESC, sort_ts DESC, fetched_at DESC, article_id ASC
                 LIMIT 5
                 """,
                 (article.category, article_id, article.sort_ts - 86400),
@@ -397,12 +397,12 @@ class NewsIntelligenceService:
             needle = f"%{query.strip()}%"
             params.extend([needle, needle, needle])
         params.append(limit)
-        # Main feed: newest by publication (sort_ts). Importance-based ranking is reserved for today_brief.
+        # Main feed ranks important items first; recency/source tie-breakers keep ordering deterministic.
         rows = conn.execute(
             f"""
             SELECT * FROM news_articles
             WHERE {' AND '.join(where)}
-            ORDER BY sort_ts DESC, fetched_at DESC, article_id ASC
+            ORDER BY importance_score DESC, sort_ts DESC, fetched_at DESC, article_id ASC
             LIMIT ?
             """,
             params,

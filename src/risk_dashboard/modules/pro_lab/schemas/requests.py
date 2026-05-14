@@ -28,6 +28,10 @@ class ProLabBacktestRunRequest(BaseModel):
     start_date: str = Field(..., min_length=8, max_length=20)
     end_date: str = Field(..., min_length=8, max_length=20)
     initial_capital: float = Field(..., ge=1000.0, le=1e15)
+    timeframe: str = Field(default="1d", min_length=2, max_length=10)
+    commission_pct: float = Field(default=0.0, ge=0.0, le=20.0)
+    slippage_pct: float = Field(default=0.0, ge=0.0, le=20.0)
+    strategy_text: str | None = Field(default=None, max_length=5000)
 
 
 class ProLabBlueprintUpdateRequest(BaseModel):

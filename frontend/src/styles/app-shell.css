@@ -3,6 +3,7 @@
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: visible;
+  --connected-nav-safe-area: 5.1rem;
 }
 
 .app-shell__ambient {
@@ -32,7 +33,7 @@
   position: relative;
   width: min(1180px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 1.4rem 0 3rem;
+  padding: 5.7rem 0 3rem;
 }
 
 .app-shell__masthead {
@@ -126,53 +127,62 @@
   filter: blur(0);
 }
 
-.connected-nav {
-  position: fixed;
-  top: 0.6rem;
-  left: 50%;
+.connected-nav-shell {
+  position: sticky;
+  top: 0;
+  left: 0;
   z-index: 1000;
+  width: 100%;
+  transition: transform 0.24s ease;
+}
+
+.connected-nav-shell--hidden {
+  transform: translateY(calc(-100% - 1px));
+}
+
+.connected-nav-shell:hover,
+.connected-nav-shell:focus-within {
+  transform: translateY(0);
+}
+
+.connected-nav {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 1.2rem;
   align-items: center;
-  width: min(1780px, calc(100vw - 1.5rem));
+  width: 100%;
   margin: 0;
-  padding: 0.6rem 1.4rem;
-  border: 1px solid rgba(16, 43, 45, 0.06);
-  border-radius: 100px;
-  background: rgba(255, 255, 253, 0.92);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 8px 32px rgba(28, 50, 47, 0.06);
-  backdrop-filter: blur(24px) saturate(1.2);
-  transform: translateX(-50%);
-  transition: box-shadow 0.3s ease, background 0.3s ease;
+  padding: 0.82rem clamp(1rem, 2.4vw, 2.2rem);
+  border: 1px solid rgba(16, 43, 45, 0.08);
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: rgba(255, 255, 253, 0.42);
+  box-shadow: none;
+  backdrop-filter: blur(26px) saturate(1.25);
+  transition:
+    padding 0.24s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
 
+.connected-nav--scrolled,
 .connected-nav:hover {
+  padding-top: 0.56rem;
+  padding-bottom: 0.56rem;
+  background: rgba(255, 255, 253, 0.9);
+  border-color: rgba(16, 43, 45, 0.12);
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.05),
-    0 12px 40px rgba(28, 50, 47, 0.08);
+    0 12px 34px rgba(28, 50, 47, 0.1);
 }
 
-.connected-nav + .surface-panel {
-  margin-top: 5.6rem;
+.connected-nav--top {
+  border-color: rgba(16, 43, 45, 0.04);
 }
 
-.app-shell--home .connected-nav + .surface-panel,
-.app-shell--onboarding .connected-nav + .surface-panel,
-.app-shell--global-terminal .connected-nav + .surface-panel,
-.app-shell--news .connected-nav + .surface-panel,
-.app-shell--pro-lab .connected-nav + .surface-panel,
-.app-shell--backtest-studio .connected-nav + .surface-panel,
-.app-shell--financial-health .connected-nav + .surface-panel,
-.app-shell--learning .connected-nav + .surface-panel,
-.app-shell--goals .connected-nav + .surface-panel,
-.app-shell--guided-investing .connected-nav + .surface-panel,
-.app-shell--insights .connected-nav + .surface-panel,
-.app-shell--community .connected-nav + .surface-panel,
-.app-shell--auth-login .connected-nav + .surface-panel,
-.app-shell--auth-register .connected-nav + .surface-panel {
+.connected-nav-shell + .surface-panel {
   margin-top: 0;
 }
 
@@ -193,11 +203,20 @@
     linear-gradient(45deg, transparent 42%, #15a79d 42%, #15a79d 58%, transparent 58%);
 }
 
+.connected-nav--scrolled .connected-nav__mark {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
 .connected-nav__brand strong {
   color: #0f2b2d;
   font-size: 1.12rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+}
+
+.connected-nav--scrolled .connected-nav__brand strong {
+  font-size: 1.02rem;
 }
 
 .connected-nav__tabs {
@@ -206,13 +225,18 @@
   align-items: center;
   overflow-x: auto;
   padding-left: 0.3rem;
+  scrollbar-width: none;
+}
+
+.connected-nav__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .connected-nav__tab {
   width: auto;
   position: relative;
-  min-height: 2.6rem;
-  padding: 0.52rem 1rem;
+  min-height: 2.48rem;
+  padding: 0.5rem 0.94rem;
   border: 0;
   background: transparent;
   color: #4b6367;
@@ -223,6 +247,11 @@
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+}
+
+.connected-nav--scrolled .connected-nav__tab {
+  min-height: 2.24rem;
+  padding: 0.42rem 0.84rem;
 }
 
 .connected-nav__tab:hover {
@@ -320,6 +349,8 @@
 .app-shell--backtest-studio,
 .app-shell--financial-health,
 .app-shell--learning,
+.app-shell--financial-statement-simulator,
+.app-shell--assignments,
 .app-shell--goals,
 .app-shell--guided-investing,
 .app-shell--insights,
@@ -337,6 +368,8 @@
 .app-shell--backtest-studio .app-shell__ambient,
 .app-shell--financial-health .app-shell__ambient,
 .app-shell--learning .app-shell__ambient,
+.app-shell--financial-statement-simulator .app-shell__ambient,
+.app-shell--assignments .app-shell__ambient,
 .app-shell--goals .app-shell__ambient,
 .app-shell--guided-investing .app-shell__ambient,
 .app-shell--insights .app-shell__ambient,
@@ -351,6 +384,8 @@
 .app-shell--backtest-studio .app-shell__masthead,
 .app-shell--financial-health .app-shell__masthead,
 .app-shell--learning .app-shell__masthead,
+.app-shell--financial-statement-simulator .app-shell__masthead,
+.app-shell--assignments .app-shell__masthead,
 .app-shell--goals .app-shell__masthead,
 .app-shell--guided-investing .app-shell__masthead,
 .app-shell--insights .app-shell__masthead,
@@ -368,6 +403,8 @@
 .app-shell--backtest-studio .app-shell__frame,
 .app-shell--financial-health .app-shell__frame,
 .app-shell--learning .app-shell__frame,
+.app-shell--financial-statement-simulator .app-shell__frame,
+.app-shell--assignments .app-shell__frame,
 .app-shell--goals .app-shell__frame,
 .app-shell--guided-investing .app-shell__frame,
 .app-shell--insights .app-shell__frame,
@@ -387,6 +424,8 @@
 .app-shell--backtest-studio .surface-panel,
 .app-shell--financial-health .surface-panel,
 .app-shell--learning .surface-panel,
+.app-shell--financial-statement-simulator .surface-panel,
+.app-shell--assignments .surface-panel,
 .app-shell--goals .surface-panel,
 .app-shell--guided-investing .surface-panel,
 .app-shell--insights .surface-panel,
@@ -402,6 +441,8 @@
 .app-shell--pro-lab .surface-panel,
 .app-shell--financial-health .surface-panel,
 .app-shell--learning .surface-panel,
+.app-shell--financial-statement-simulator .surface-panel,
+.app-shell--assignments .surface-panel,
 .app-shell--goals .surface-panel,
 .app-shell--guided-investing .surface-panel,
 .app-shell--insights .surface-panel,
@@ -417,6 +458,8 @@
 .app-shell--backtest-studio .surface-panel,
 .app-shell--financial-health .surface-panel,
 .app-shell--learning .surface-panel,
+.app-shell--financial-statement-simulator .surface-panel,
+.app-shell--assignments .surface-panel,
 .app-shell--goals .surface-panel,
 .app-shell--guided-investing .surface-panel,
 .app-shell--insights .surface-panel,
@@ -443,6 +486,10 @@
 .app-shell--financial-health .surface-panel > article,
 .app-shell--learning .surface-panel > section:not(.page),
 .app-shell--learning .surface-panel > article,
+.app-shell--financial-statement-simulator .surface-panel > section:not(.page),
+.app-shell--financial-statement-simulator .surface-panel > article,
+.app-shell--assignments .surface-panel > section:not(.page),
+.app-shell--assignments .surface-panel > article,
 .app-shell--goals .surface-panel > section:not(.page),
 .app-shell--goals .surface-panel > article,
 .app-shell--guided-investing .surface-panel > section:not(.page),
@@ -461,6 +508,23 @@
   /* Không ép nền trong suốt: retail pages (.fh-page, goals, …) cần canvas sáng; transparent + gap = “vạch đen” trên #020302 */
   box-shadow: none !important;
   backdrop-filter: none !important;
+}
+
+.app-shell--home .surface-panel,
+.app-shell--onboarding .surface-panel,
+.app-shell--global-terminal .surface-panel,
+.app-shell--news .surface-panel,
+.app-shell--pro-lab .surface-panel,
+.app-shell--financial-health .surface-panel,
+.app-shell--learning .surface-panel,
+.app-shell--goals .surface-panel,
+.app-shell--guided-investing .surface-panel,
+.app-shell--insights .surface-panel,
+.app-shell--community .surface-panel,
+.app-shell--financial-statement-simulator .surface-panel,
+.app-shell--assignments .surface-panel {
+  padding-top: 0 !important;
+  min-height: calc(100vh - var(--connected-nav-safe-area)) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

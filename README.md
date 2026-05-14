@@ -252,18 +252,23 @@ curl -X POST http://localhost:8000/eod/run \
 ## Cấu trúc thư mục
 
 ```
-├── src/risk_dashboard/   # Backend Python (API, quant, agents, CLI)
-├── frontend/             # React + Vite
-├── tests/                # Pytest (bộ test chính)
-├── scripts/manual/     # Script smoke / thử API thủ công (không phải pytest)
-├── docs/word/          # Tài liệu Word (.docx) — đề cương, proposal, v.v.
-├── data/                 # Runtime (cache, model, … — phần lớn gitignored)
+├── src/risk_dashboard/     # Backend Python package: API, modules, quant, agents, CLI
+├── frontend/               # Frontend app riêng: React + Vite
+├── tests/                  # Pytest test suite
+├── scripts/                # Script vận hành / batch / smoke thủ công
+├── docs/                   # Tài liệu dự án, research, proposal, notes
+│   ├── project/            # Tài liệu quản lý dự án, ghi chú, worklog
+│   └── research/word/      # Tài liệu Word (.docx): đề cương, proposal, định hướng
+├── notebooks/              # Notebook nghiên cứu / phân tích thử nghiệm
+├── data/                   # Runtime data/cache/model/local DB; không xem là source code
 ├── Dockerfile
 ├── docker-compose.yml    # app + Redis
 ├── Makefile
 ├── pyproject.toml
 └── .env.example
 ```
+
+Chi tiết quy ước đặt file xem [docs/STRUCTURE.md](docs/STRUCTURE.md).
 
 ---
 

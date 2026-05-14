@@ -313,6 +313,32 @@ class GetHomeState:
         )
 
 
+class GetHomePreview:
+    def execute(self, *, session_id: str = "guest") -> HomeResponse:
+        decision = decide_route(
+            primary_goal="understand_finance_basics",
+            knowledge_level="beginner",
+            risk_tolerance_prelim="very_cautious",
+            primary_interest="basics",
+            current_state="no_clear_financial_system",
+        )
+        state = build_home_state(session_id=session_id, decision=decision)
+        return HomeResponse(
+            session_id=session_id,
+            persona_segment=state.persona_segment,
+            primary_route=state.primary_route,
+            guided_investing_eligible=decision.guided_investing_eligible,
+            pro_eligible=decision.pro_eligible,
+            next_best_action_type=state.next_best_action_type,
+            next_best_action_ref=state.next_best_action_ref,
+            trust_message=state.trust_message,
+            blocks=[HomeBlockResponse(**block.__dict__) for block in state.blocks],
+            health_snapshot=None,
+            goal_snapshot=None,
+            community_snapshot=_build_community_snapshot_summary(session_id),
+        )
+
+
 def _build_blocks(
     state,
     financial_health_snapshot: FinancialHealthSnapshot | None,

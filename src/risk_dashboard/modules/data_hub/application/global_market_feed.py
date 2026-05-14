@@ -11,6 +11,7 @@ import pandas as pd
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 GLOBAL_MARKET_CACHE_DIR = _PROJECT_ROOT / "data" / "global_market_prices"
+_SUPPORTED_HISTORY_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "4h", "1d", "1wk", "1mo", "1y"}
 
 
 @dataclass(frozen=True)
@@ -152,8 +153,8 @@ class GlobalMarketFeedProducer:
         return {"as_of": _utc_now_iso(), "source": "yahoo_finance", "items": items}
 
     def _fetch_yahoo_history(self, *, instrument: FeedInstrument, period: str, interval: str) -> dict[str, Any]:
-        safe_period = period if period in {"1mo", "3mo", "6mo", "1y", "2y", "5y"} else "6mo"
-        safe_interval = interval if interval in {"1d", "1wk", "1mo"} else "1d"
+        safe_period = _normalize_history_period(period, interval)
+        safe_interval = _download_interval_for_history(interval)
         try:
             import yfinance as yf
 
@@ -168,10 +169,13 @@ class GlobalMarketFeedProducer:
         except Exception:
             return {"as_of": _utc_now_iso(), "source": "yahoo_finance", "points": []}
 
-        closes = _extract_close_series(frame, instrument.yahoo_symbol)
+        normalized = _extract_ohlcv_frame(frame, instrument.yahoo_symbol)
+        normalized = _resample_history_frame(normalized, interval)
+        closes = normalized["close"] if not normalized.empty and "close" in normalized.columns else pd.Series(dtype=float)
         points: list[dict[str, Any]] = []
         previous: float | None = None
-        for index, value in closes.tail(260).items():
+        for index, row in normalized.tail(_history_point_limit(interval)).iterrows():
+            value = row.get("close")
             if pd.isna(value):
                 continue
             price = float(value)
@@ -181,6 +185,11 @@ class GlobalMarketFeedProducer:
                 {
                     "date": _timestamp_iso(index),
                     "price": round(price, 6),
+                    "open": round(float(row.get("open", price)), 6),
+                    "high": round(float(row.get("high", price)), 6),
+                    "low": round(float(row.get("low", price)), 6),
+                    "close": round(price, 6),
+                    "volume": round(float(row.get("volume", 0.0)), 4),
                     "change_pct": round(change_pct, 4),
                 }
             )
@@ -242,6 +251,94 @@ def _extract_close_series(frame: pd.DataFrame, yahoo_symbol: str) -> pd.Series:
         return pd.to_numeric(series, errors="coerce").dropna()
     except Exception:
         return pd.Series(dtype=float)
+
+
+def _extract_field_series(frame: pd.DataFrame, yahoo_symbol: str, field: str) -> pd.Series:
+    if frame is None or frame.empty:
+        return pd.Series(dtype=float)
+    try:
+        if isinstance(frame.columns, pd.MultiIndex):
+            if (field, yahoo_symbol) in frame.columns:
+                series = frame[(field, yahoo_symbol)]
+            elif (yahoo_symbol, field) in frame.columns:
+                series = frame[(yahoo_symbol, field)]
+            else:
+                return pd.Series(dtype=float)
+        elif field in frame.columns:
+            series = frame[field]
+        else:
+            return pd.Series(dtype=float)
+        series = pd.to_numeric(series, errors="coerce")
+        series.index = pd.to_datetime(series.index)
+        if hasattr(series.index, "tz") and series.index.tz is not None:
+            series.index = series.index.tz_localize(None)
+        return series.dropna().sort_index()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def _extract_ohlcv_frame(frame: pd.DataFrame, yahoo_symbol: str) -> pd.DataFrame:
+    if frame is None or frame.empty:
+        return pd.DataFrame()
+    data = {}
+    for field in ("Open", "High", "Low", "Close", "Volume"):
+        series = _extract_field_series(frame, yahoo_symbol, field)
+        if series.empty and field != "Volume":
+            return pd.DataFrame()
+        data[field.lower()] = series
+    out = pd.DataFrame(data).dropna(subset=["open", "high", "low", "close"]).sort_index()
+    out = out[~out.index.duplicated(keep="last")]
+    return out
+
+
+def _normalize_history_period(period: str, interval: str) -> str:
+    safe_period = period if period in {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"} else "6mo"
+    if interval == "1m" and safe_period not in {"1d", "5d"}:
+        return "5d"
+    if interval in {"5m", "15m", "30m"} and safe_period not in {"1d", "5d", "1mo"}:
+        return "1mo"
+    if interval in {"1h", "4h"} and safe_period not in {"5d", "1mo", "3mo", "6mo", "1y"}:
+        return "1y"
+    if interval == "1y" and safe_period in {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"}:
+        return "5y"
+    return safe_period
+
+
+def _download_interval_for_history(interval: str) -> str:
+    normalized = interval if interval in _SUPPORTED_HISTORY_INTERVALS else "1d"
+    if normalized in {"1h", "4h"}:
+        return "60m"
+    if normalized == "1y":
+        return "1mo"
+    return normalized
+
+
+def _resample_history_frame(frame: pd.DataFrame, interval: str) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    if interval == "4h":
+        return (
+            frame.resample("4h")
+            .agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+            .dropna(subset=["open", "high", "low", "close"])
+        )
+    if interval == "1y":
+        return (
+            frame.resample("YE")
+            .agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+            .dropna(subset=["open", "high", "low", "close"])
+        )
+    return frame
+
+
+def _history_point_limit(interval: str) -> int:
+    if interval in {"1m", "5m", "15m", "30m"}:
+        return 1200
+    if interval in {"1h", "4h"}:
+        return 600
+    if interval in {"1wk", "1mo", "1y"}:
+        return 520
+    return 260
 
 
 def _series_updated_at(series: pd.Series) -> str:

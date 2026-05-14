@@ -11,6 +11,7 @@ from risk_dashboard.modules.goals.infrastructure.repositories.sqlite import (
 from risk_dashboard.modules.home_onboarding.application.services import (
     AnswerOnboardingQuestion,
     CompleteOnboarding,
+    GetHomePreview,
     GetHomeState,
     StartOnboarding,
 )
@@ -99,4 +100,6 @@ def personalized_home(session_id: str) -> HomeResponse:
             goal_home_reader=_goal_home_reader(),
         ).execute(session_id=session_id)
     except ValueError as exc:
+        if "before onboarding" in str(exc).lower():
+            return GetHomePreview().execute(session_id=session_id)
         raise HTTPException(status_code=404, detail=str(exc)) from exc

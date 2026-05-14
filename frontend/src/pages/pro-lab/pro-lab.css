@@ -1559,6 +1559,123 @@
 .backtest-studio__metric.is-up strong { color: #4ade80; }
 .backtest-studio__metric.is-down strong { color: #f87171; }
 
+.backtest-studio__timeframes {
+  display: inline-grid;
+  grid-template-columns: repeat(10, minmax(34px, auto));
+  gap: 4px;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid rgba(218, 234, 230, 0.12);
+  border-radius: 8px;
+  background: rgba(7, 16, 22, 0.42);
+}
+
+.backtest-studio__timeframes button {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  color: rgba(218, 234, 230, 0.7);
+  background: transparent;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.backtest-studio__timeframes button:hover,
+.backtest-studio__timeframes button.is-active {
+  color: #071016;
+  background: #4fd1b4;
+}
+
+.backtest-studio__result-chart,
+.backtest-studio__monthly {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(218, 234, 230, 0.1);
+  border-radius: 8px;
+  background: rgba(7, 16, 22, 0.48);
+}
+
+.backtest-studio__result-chart-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backtest-studio__result-chart h4,
+.backtest-studio__monthly h4 {
+  margin: 0;
+  color: #edf7f5;
+  font-size: 0.86rem;
+}
+
+.backtest-studio__result-chart-head div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.backtest-studio__result-chart-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(218, 234, 230, 0.72);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.backtest-studio__result-chart-head span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--series-color);
+}
+
+.backtest-studio__mini-chart {
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(10, 15, 21, 0.72);
+}
+
+.backtest-studio__monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 6px;
+}
+
+.backtest-studio__monthly-grid div {
+  display: grid;
+  gap: 4px;
+  min-height: 54px;
+  padding: 8px;
+  border: 1px solid rgba(218, 234, 230, 0.08);
+  border-radius: 6px;
+}
+
+.backtest-studio__monthly-grid div.is-positive {
+  background: rgba(57, 217, 138, calc(0.08 + var(--intensity) * 0.28));
+}
+
+.backtest-studio__monthly-grid div.is-negative {
+  background: rgba(255, 107, 107, calc(0.07 + var(--intensity) * 0.3));
+}
+
+.backtest-studio__monthly-grid span {
+  color: rgba(218, 234, 230, 0.64);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.backtest-studio__monthly-grid strong {
+  color: #ffffff;
+  font-size: 0.92rem;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Pro Lab fullscreen dark cockpit
    ═══════════════════════════════════════════════════════════════ */
@@ -1570,8 +1687,11 @@
 .app-shell--pro-lab .app-shell__content,
 .app-shell--pro-lab .surface-panel {
   min-height: 100vh !important;
-  padding: 0 !important;
   background: #071016 !important;
+}
+
+.app-shell--pro-lab .surface-panel {
+  min-height: calc(100vh - var(--connected-nav-safe-area)) !important;
 }
 
 .app-shell--pro-lab .pl {
@@ -1606,19 +1726,25 @@
   #071016 !important;
 }
 
-.app-shell--pro-lab .connected-nav {
+.app-shell--pro-lab .connected-nav-shell {
   display: grid !important;
-  position: fixed;
-  top: 0.75rem;
-  left: 50%;
-  z-index: 30;
-  width: min(1880px, calc(100vw - 24px));
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
   margin: 0;
-  border: 1px solid rgba(218, 234, 230, 0.12) !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.app-shell--pro-lab .connected-nav {
+  position: relative;
+  width: 100%;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(218, 234, 230, 0.12) !important;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(18px);
-  transform: translateX(-50%);
 }
 
 .app-shell--pro-lab .connected-nav,

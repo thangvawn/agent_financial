@@ -11,6 +11,7 @@ import {
 } from 'lightweight-charts'
 
 import { fetchInstrumentHistory } from '../../modules/data-hub'
+import { runProLabBacktest } from '../../modules/pro-lab'
 
 const DEFAULT_STRATEGY = `Strategy idea:
 - Buy when price closes above 20-day moving average.
@@ -19,7 +20,8 @@ const DEFAULT_STRATEGY = `Strategy idea:
 
 const DEFAULT_FORM = {
   symbol: 'BTC',
-  period: '1y',
+  period: '5d',
+  timeframe: '5m',
   initialCapital: 100000,
   commissionPct: 0.1,
   slippagePct: 0.05,
@@ -27,10 +29,25 @@ const DEFAULT_FORM = {
   chartType: 'candles',
   showMa20: true,
   showMa50: true,
+  showMa200: true,
+  showVolume: true,
   showEquity: true,
 }
 
-export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspace, onBack, onOpenBlueprints }) {
+const TIMEFRAME_PRESETS = [
+  { value: '1m', label: '1m' },
+  { value: '5m', label: '5m' },
+  { value: '15m', label: '15m' },
+  { value: '30m', label: '30m' },
+  { value: '1h', label: '1h' },
+  { value: '4h', label: '4h' },
+  { value: '1d', label: '1D' },
+  { value: '1wk', label: '1W' },
+  { value: '1mo', label: '1M' },
+  { value: '1y', label: '1Y' },
+]
+
+export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintId, workspace, accessToken, onBack, onOpenBlueprints }) {
   const [form, setForm] = useState(DEFAULT_FORM)
   const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -44,7 +61,8 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
   const priceSeriesRef = useRef(null)
   const ma20SeriesRef = useRef(null)
   const ma50SeriesRef = useRef(null)
-  const signalSeriesRef = useRef(null)
+  const ma200SeriesRef = useRef(null)
+  const volumeSeriesRef = useRef(null)
   const equitySeriesRef = useRef(null)
 
   const points = useMemo(() => normalizePoints(history?.points || []), [history])
@@ -62,7 +80,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
       try {
         const payload = await fetchInstrumentHistory(form.symbol.trim().toUpperCase(), {
           period: form.period,
-          interval: '1d',
+          interval: resolveHistoryInterval(form.timeframe),
         })
         if (cancelled) return
         setHistory(payload)
@@ -78,7 +96,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
     return () => {
       cancelled = true
     }
-  }, [form.symbol, form.period])
+  }, [form.symbol, form.period, form.timeframe])
 
   useEffect(() => {
     if (!chartContainerRef.current || chartRef.current) return undefined
@@ -123,17 +141,30 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
       priceLineVisible: false,
       lastValueVisible: false,
     })
-    const signalSeries = chart.addSeries(HistogramSeries, {
-      priceScaleId: 'left',
+    const ma200Series = chart.addSeries(LineSeries, {
+      color: '#c084fc',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    })
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceScaleId: 'volume',
       lastValueVisible: false,
       priceLineVisible: false,
+    })
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: {
+        top: 0.82,
+        bottom: 0,
+      },
     })
 
     chartRef.current = chart
     priceSeriesRef.current = null
     ma20SeriesRef.current = ma20Series
     ma50SeriesRef.current = ma50Series
-    signalSeriesRef.current = signalSeries
+    ma200SeriesRef.current = ma200Series
+    volumeSeriesRef.current = volumeSeries
     equitySeriesRef.current = equitySeries
 
     const resizeChart = () => {
@@ -151,7 +182,8 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
       priceSeriesRef.current = null
       ma20SeriesRef.current = null
       ma50SeriesRef.current = null
-      signalSeriesRef.current = null
+      ma200SeriesRef.current = null
+      volumeSeriesRef.current = null
       equitySeriesRef.current = null
     }
   }, [isExpanded])
@@ -183,12 +215,11 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
     ma50SeriesRef.current?.setData(
       form.showMa50 ? movingAverageSeries(visiblePoints, 50) : [],
     )
-    signalSeriesRef.current?.setData(
-      visiblePoints.map((item) => ({
-        time: item.time,
-        value: item.signal || 0,
-        color: item.signal > 0 ? 'rgba(79, 209, 180, 0.45)' : item.signal < 0 ? 'rgba(255, 99, 99, 0.45)' : 'rgba(0,0,0,0)',
-      })),
+    ma200SeriesRef.current?.setData(
+      form.showMa200 ? movingAverageSeries(visiblePoints, 200) : [],
+    )
+    volumeSeriesRef.current?.setData(
+      form.showVolume ? volumeSeriesData(visiblePoints) : [],
     )
     if (form.showEquity && result?.equityCurve?.length) {
       equitySeriesRef.current?.setData(result.equityCurve.slice(0, visiblePoints.length))
@@ -196,7 +227,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
       equitySeriesRef.current?.setData([])
     }
     chartRef.current?.timeScale().fitContent()
-  }, [visiblePoints, result, form.chartType, form.showMa20, form.showMa50, form.showEquity])
+  }, [visiblePoints, result, form.chartType, form.showMa20, form.showMa50, form.showMa200, form.showVolume, form.showEquity])
 
   useEffect(() => {
     if (!isPlaying || !points.length) return undefined
@@ -213,7 +244,17 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
   }, [isPlaying, points.length])
 
   function updateForm(key, value) {
-    setForm((current) => ({ ...current, [key]: value }))
+    setForm((current) => {
+      if (key === 'timeframe') {
+        const nextOptions = periodOptionsFor(value)
+        return {
+          ...current,
+          timeframe: value,
+          period: nextOptions.includes(current.period) ? current.period : nextOptions[0],
+        }
+      }
+      return { ...current, [key]: value }
+    })
   }
 
   function handleDraftWithLlm() {
@@ -227,19 +268,32 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
     }))
   }
 
-  function runBacktest() {
-    if (points.length < 40) {
-      setError('Cần ít nhất khoảng 40 điểm dữ liệu để chạy backtest sandbox.')
+  async function runBacktest() {
+    if (!selectedBlueprintId || !sessionId || !accessToken) {
+      setError('Cần mở từ Pro Lab, chọn blueprint và có access token trước khi chạy backend backtest.')
       return
     }
+    setLoading(true)
     setError('')
-    const output = simulateMovingAverageStrategy(points, {
-      initialCapital: Number(form.initialCapital || 100000),
-      commissionPct: Number(form.commissionPct || 0),
-      slippagePct: Number(form.slippagePct || 0),
-    })
-    setResult(output)
-    setReplayIndex(points.length)
+    try {
+      const payload = await runProLabBacktest({
+        user_id: sessionId,
+        blueprint_id: selectedBlueprintId,
+        start_date: resolveStartDate(points, form.period),
+        end_date: resolveEndDate(points),
+        initial_capital: Number(form.initialCapital || 100000),
+        timeframe: form.timeframe,
+        commission_pct: Number(form.commissionPct || 0),
+        slippage_pct: Number(form.slippagePct || 0),
+        strategy_text: form.strategyText,
+      }, accessToken)
+      setResult(adaptBackendBacktestResult(payload))
+      setReplayIndex(points.length)
+    } catch (err) {
+      setError(err.message || 'Không chạy được backend backtest.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -249,8 +303,8 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
           <p className="pro-lab-eyebrow">TradingView-style Sandbox</p>
           <h2>Backtest Studio</h2>
           <p>
-            Replay biểu đồ lịch sử, nhập chiến lược bằng ngôn ngữ tự nhiên, tạo LLM draft và chạy sandbox backtest.
-            MVP hiện dùng moving-average parser đơn giản, chưa phải engine execution thật.
+            Xem nến OHLC đa khung thời gian từ phút, giờ, ngày, tuần, tháng đến năm; overlay MA, volume, RSI và chạy backtest theo cùng timeframe.
+            Đây là paper lab để đọc xu hướng và giả thuyết kỹ thuật, không phải tín hiệu giao dịch.
           </p>
         </div>
         <div className="pro-lab-badges">
@@ -272,6 +326,18 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
               <h3>{history?.symbol || form.symbol.toUpperCase()} · {history?.name || 'History feed'}</h3>
             </div>
             <div className="backtest-studio__toolbar">
+              <div className="backtest-studio__timeframes" aria-label="Timeframe presets">
+                {TIMEFRAME_PRESETS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={form.timeframe === item.value ? 'is-active' : ''}
+                    onClick={() => updateForm('timeframe', item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <select value={form.chartType} onChange={(event) => updateForm('chartType', event.target.value)}>
                 <option value="candles">Candles</option>
                 <option value="bars">Bars</option>
@@ -281,6 +347,8 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
               </select>
               <label><input type="checkbox" checked={form.showMa20} onChange={(event) => updateForm('showMa20', event.target.checked)} /> MA20</label>
               <label><input type="checkbox" checked={form.showMa50} onChange={(event) => updateForm('showMa50', event.target.checked)} /> MA50</label>
+              <label><input type="checkbox" checked={form.showMa200} onChange={(event) => updateForm('showMa200', event.target.checked)} /> MA200</label>
+              <label><input type="checkbox" checked={form.showVolume} onChange={(event) => updateForm('showVolume', event.target.checked)} /> Volume</label>
               <label><input type="checkbox" checked={form.showEquity} onChange={(event) => updateForm('showEquity', event.target.checked)} /> Equity</label>
               <button type="button" onClick={() => setReplayIndex(1)} disabled={!points.length}>Reset</button>
               <button type="button" onClick={() => setIsPlaying((current) => !current)} disabled={!points.length}>
@@ -308,7 +376,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
           />
           <div className="backtest-studio__foot">
             <span>{visiblePoints[0]?.date || '--'}</span>
-            <span>{history?.freshness || 'degraded'} · {history?.source || 'data-hub'}</span>
+            <span>{history?.freshness || 'degraded'} · {history?.source || 'data-hub'} · {form.timeframe}</span>
             <span>{visiblePoints[visiblePoints.length - 1]?.date || '--'}</span>
           </div>
         </main>
@@ -320,6 +388,8 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
           <Metric label="Volatility" value={`${technicalSnapshot.volatilityPct.toFixed(2)}%`} />
           <Metric label="MA20" value={technicalSnapshot.ma20 ? formatMoney(technicalSnapshot.ma20) : '--'} />
           <Metric label="MA50" value={technicalSnapshot.ma50 ? formatMoney(technicalSnapshot.ma50) : '--'} />
+          <Metric label="MA200" value={technicalSnapshot.ma200 ? formatMoney(technicalSnapshot.ma200) : '--'} />
+          <Metric label="Structure" value={technicalSnapshot.structure} tone={technicalSnapshot.structure === 'Breakout' ? 'up' : technicalSnapshot.structure === 'Breakdown' ? 'down' : ''} />
         </section>
 
         <section className="backtest-studio__bottom-layout">
@@ -334,7 +404,13 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
               <label>
                 Period
                 <select value={form.period} onChange={(event) => updateForm('period', event.target.value)}>
-                  {['3mo', '6mo', '1y', '2y'].map((item) => <option key={item} value={item}>{item}</option>)}
+                  {periodOptionsFor(form.timeframe).map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label>
+                Timeframe
+                <select value={form.timeframe} onChange={(event) => updateForm('timeframe', event.target.value)}>
+                  {TIMEFRAME_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
               <label>
@@ -356,7 +432,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
             </label>
             <div className="pro-lab-actions-row">
               <button type="button" onClick={handleDraftWithLlm}>LLM draft</button>
-              <button type="button" onClick={runBacktest} disabled={loading || !points.length}>Run backtest</button>
+              <button type="button" onClick={runBacktest} disabled={loading || !points.length || !selectedBlueprintId}>Run backend backtest</button>
               {!selectedBlueprint ? <button type="button" onClick={onOpenBlueprints}>Create blueprint</button> : null}
             </div>
           </aside>
@@ -371,7 +447,33 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
                 <Metric label="Max DD" value={`${result.metrics.maxDrawdownPct.toFixed(2)}%`} tone="down" />
                 <Metric label="Trades" value={String(result.metrics.trades)} />
                 <Metric label="Win rate" value={`${result.metrics.winRatePct.toFixed(1)}%`} />
+                <Metric label="Sharpe" value={formatMetric(result.metrics.sharpe)} />
+                <Metric label="Vol annual" value={formatPercentMetric(result.metrics.volatilityAnnualPct)} />
               </div>
+              {result.meta ? (
+                <div className="pro-lab-log-list">
+                  <div><strong>Feed</strong><span>{result.meta.source || 'n/a'}</span></div>
+                  <div><strong>Timeframe</strong><span>{result.meta.interval || '--'}</span></div>
+                  <div><strong>Range</strong><span>{result.meta.range || '--'}</span></div>
+                  <div><strong>Cost</strong><span>{result.meta.cost || '--'}</span></div>
+                </div>
+              ) : null}
+              <ResultSeriesChart
+                title="Equity vs Benchmark"
+                series={[
+                  { label: 'Portfolio', color: '#4fd1b4', data: result.series.portfolio },
+                  { label: result.meta?.benchmarkLabel || 'Benchmark', color: '#75a7ff', data: result.series.benchmark },
+                ]}
+                height={230}
+                valueMode="money"
+              />
+              <ResultSeriesChart
+                title="Drawdown"
+                series={[{ label: 'Drawdown %', color: '#ff6b6b', data: result.series.drawdown }]}
+                height={160}
+                valueMode="percent"
+              />
+              <MonthlyReturnStrip months={result.monthlyReturns} />
               <div className="pro-lab-log-list">
                 {result.caveats.map((item) => (
                   <div key={item}><strong>Caveat</strong><span>{item}</span></div>
@@ -389,7 +491,7 @@ export default function ProLabBacktestStudioPage({ selectedBlueprintId, workspac
               </div>
             </>
           ) : (
-            <p>Chưa chạy backtest. Nhập chiến lược hoặc dùng LLM draft rồi bấm Run backtest.</p>
+            <p>Chưa chạy backtest. Mở từ Pro Lab với một blueprint, sau đó bấm Run backend backtest để dùng dữ liệu lịch sử thật.</p>
           )}
           </aside>
         </section>
@@ -407,6 +509,108 @@ function Metric({ label, value, tone = '' }) {
   )
 }
 
+function ResultSeriesChart({ title, series, height = 220, valueMode = 'money' }) {
+  const containerRef = useRef(null)
+  const chartRef = useRef(null)
+  const seriesRefs = useRef([])
+  const cleanedSeries = useMemo(
+    () => series.filter((item) => Array.isArray(item.data) && item.data.length),
+    [series],
+  )
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#dbe7e3',
+      },
+      grid: {
+        vertLines: { color: 'rgba(219, 231, 227, 0.05)' },
+        horzLines: { color: 'rgba(219, 231, 227, 0.07)' },
+      },
+      rightPriceScale: { borderColor: 'rgba(219, 231, 227, 0.12)' },
+      timeScale: { borderColor: 'rgba(219, 231, 227, 0.12)', timeVisible: true },
+      localization: {
+        priceFormatter: (value) => (valueMode === 'percent' ? `${Number(value).toFixed(1)}%` : formatMoney(value)),
+      },
+      width: containerRef.current.clientWidth,
+      height,
+    })
+    chartRef.current = chart
+    const resizeChart = () => {
+      if (!containerRef.current || !chartRef.current) return
+      chartRef.current.applyOptions({ width: containerRef.current.clientWidth, height })
+    }
+    window.addEventListener('resize', resizeChart)
+    return () => {
+      window.removeEventListener('resize', resizeChart)
+      chart.remove()
+      chartRef.current = null
+      seriesRefs.current = []
+    }
+  }, [height, valueMode])
+
+  useEffect(() => {
+    if (!chartRef.current) return
+    for (const item of seriesRefs.current) {
+      chartRef.current.removeSeries(item)
+    }
+    seriesRefs.current = cleanedSeries.map((item) => {
+      const line = chartRef.current.addSeries(LineSeries, {
+        color: item.color,
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      })
+      line.setData(item.data)
+      return line
+    })
+    chartRef.current.timeScale().fitContent()
+  }, [cleanedSeries])
+
+  return (
+    <section className="backtest-studio__result-chart">
+      <div className="backtest-studio__result-chart-head">
+        <h4>{title}</h4>
+        <div>
+          {cleanedSeries.map((item) => (
+            <span key={item.label} style={{ '--series-color': item.color }}>{item.label}</span>
+          ))}
+        </div>
+      </div>
+      <div className="backtest-studio__mini-chart" ref={containerRef} style={{ minHeight: height }} />
+    </section>
+  )
+}
+
+function MonthlyReturnStrip({ months }) {
+  const items = Array.isArray(months) ? months.slice(-18) : []
+  if (!items.length) return null
+  return (
+    <section className="backtest-studio__monthly">
+      <h4>Monthly returns</h4>
+      <div className="backtest-studio__monthly-grid">
+        {items.map((item) => {
+          const value = Number(item.return_pct || 0)
+          const intensity = Math.min(Math.abs(value) / 12, 1)
+          return (
+            <div
+              key={item.period || item.time}
+              className={value >= 0 ? 'is-positive' : 'is-negative'}
+              style={{ '--intensity': intensity }}
+              title={`${item.period}: ${value.toFixed(2)}%`}
+            >
+              <span>{item.period}</span>
+              <strong>{value.toFixed(1)}%</strong>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function normalizePoints(points) {
   return points
     .map((item, index, array) => {
@@ -420,7 +624,7 @@ function normalizePoints(points) {
       const volume = Number(item.volume || 0)
       return {
         date,
-        time: date,
+        time: normalizeChartTime(date) || date,
         price: close,
         open,
         high,
@@ -501,23 +705,46 @@ function movingAverageSeries(points, windowSize) {
     .filter(Boolean)
 }
 
+function volumeSeriesData(points) {
+  return points.map((item) => ({
+    time: item.time,
+    value: item.volume || 0,
+    color: item.close >= item.open ? 'rgba(79, 209, 180, 0.24)' : 'rgba(255, 99, 99, 0.24)',
+  }))
+}
+
 function buildTechnicalSnapshot(points) {
   const last = points[points.length - 1]
   const ma20 = points.length ? movingAverage(points, points.length - 1, 20) : null
   const ma50 = points.length ? movingAverage(points, points.length - 1, 50) : null
+  const ma200 = points.length ? movingAverage(points, points.length - 1, 200) : null
   const rsi = calculateRsi(points, 14)
   const volatilityPct = calculateVolatility(points, 20)
+  const structure = detectMarketStructure(points)
   let trend = 'Neutral'
-  if (ma20 && ma50 && last?.price > ma20 && ma20 > ma50) trend = 'Bullish'
-  if (ma20 && ma50 && last?.price < ma20 && ma20 < ma50) trend = 'Bearish'
+  if (ma20 && ma50 && last?.price > ma20 && ma20 > ma50 && (!ma200 || ma50 > ma200)) trend = 'Bullish'
+  if (ma20 && ma50 && last?.price < ma20 && ma20 < ma50 && (!ma200 || ma50 < ma200)) trend = 'Bearish'
   return {
     lastPrice: last?.price || 0,
     ma20,
     ma50,
+    ma200,
     rsi,
     volatilityPct,
+    structure,
     trend,
   }
+}
+
+function detectMarketStructure(points) {
+  if (points.length < 22) return 'Building'
+  const last = points.at(-1)
+  const lookback = points.slice(-21, -1)
+  const high = Math.max(...lookback.map((item) => item.high))
+  const low = Math.min(...lookback.map((item) => item.low))
+  if (last.close > high) return 'Breakout'
+  if (last.close < low) return 'Breakdown'
+  return 'Range'
 }
 
 function calculateRsi(points, windowSize) {
@@ -545,76 +772,112 @@ function calculateVolatility(points, windowSize) {
   }).slice(1)
   const mean = returns.reduce((sum, item) => sum + item, 0) / returns.length
   const variance = returns.reduce((sum, item) => sum + (item - mean) ** 2, 0) / returns.length
-  return Math.sqrt(variance) * Math.sqrt(252) * 100
+  const periodsPerYear = inferPeriodsPerYear(points)
+  return Math.sqrt(variance) * Math.sqrt(periodsPerYear) * 100
 }
 
-function simulateMovingAverageStrategy(points, config) {
-  const initialCapital = config.initialCapital
-  let cash = initialCapital
-  let units = 0
-  let inPosition = false
-  let entryPrice = 0
-  let winningTrades = 0
-  const trades = []
-  const equityCurve = []
-  const enriched = points.map((item, index) => {
-    const ma20 = movingAverage(points, index, 20)
-    const ma50 = movingAverage(points, index, 50)
-    return { ...item, ma20, ma50, signal: 0 }
-  })
-
-  for (let index = 1; index < enriched.length; index += 1) {
-    const previous = enriched[index - 1]
-    const current = enriched[index]
-    const canUseCross = previous.ma20 && previous.ma50 && current.ma20 && current.ma50
-    const buy = canUseCross && previous.ma20 <= previous.ma50 && current.ma20 > current.ma50
-    const sell = canUseCross && previous.ma20 >= previous.ma50 && current.ma20 < current.ma50
-    const costRate = (config.commissionPct + config.slippagePct) / 100
-
-    if (buy && !inPosition) {
-      const executionPrice = current.price * (1 + costRate)
-      units = cash / executionPrice
-      cash = 0
-      inPosition = true
-      entryPrice = executionPrice
-      current.signal = 1
-      trades.push({ side: 'BUY', date: current.date, price: executionPrice })
-    } else if (sell && inPosition) {
-      const executionPrice = current.price * (1 - costRate)
-      cash = units * executionPrice
-      units = 0
-      inPosition = false
-      current.signal = -1
-      if (executionPrice > entryPrice) winningTrades += 1
-      trades.push({ side: 'SELL', date: current.date, price: executionPrice })
-    }
-
-    const equity = cash + units * current.price
-    equityCurve.push({ time: current.time, value: equity })
-  }
-
-  const lastPrice = enriched[enriched.length - 1].price
-  const finalEquity = cash + units * lastPrice
-  const totalReturnPct = ((finalEquity - initialCapital) / initialCapital) * 100
-  const maxDrawdownPct = calculateMaxDrawdown(equityCurve.map((item) => item.value))
-  const sellTrades = trades.filter((item) => item.side === 'SELL').length
-
+function adaptBackendBacktestResult(payload) {
+  const engine = findEngineResult(payload)
+  const metrics = engine.metrics || {}
+  const rawSeries = engine.series || {}
+  const portfolioSeries = normalizeBackendSeries(rawSeries.portfolio)
+  const benchmarkSeries = normalizeBackendSeries(rawSeries.benchmark)
+  const drawdownSeries = normalizeBackendSeries(rawSeries.drawdown_pct)
+  const finalEquity = portfolioSeries.at(-1)?.value || Number(metrics.final_value || metrics.ending_value || 0)
+  const strategyMetrics = engine.strategy?.metrics || {}
   return {
     metrics: {
       finalEquity,
-      totalReturnPct,
-      maxDrawdownPct,
-      trades: trades.length,
-      winRatePct: sellTrades ? (winningTrades / sellTrades) * 100 : 0,
+      totalReturnPct: Number(metrics.total_return_pct || 0),
+      maxDrawdownPct: Number(metrics.max_drawdown_pct || 0),
+      trades: Number(strategyMetrics.trade_count || metrics.trade_count || metrics.trading_days || portfolioSeries.length || 0),
+      winRatePct: Number(metrics.win_rate_pct || strategyMetrics.win_rate_pct || 0),
+      sharpe: numericOrNull(metrics.sharpe || metrics.sharpe_ratio),
+      volatilityAnnualPct: numericOrNull(metrics.volatility_annual_pct),
     },
-    trades,
-    equityCurve,
-    caveats: [
-      'MVP strategy parser đang dùng MA20/MA50 cross mặc định, chưa parse đầy đủ mọi prompt.',
-      'Kết quả là paper sandbox, không phải tín hiệu mua/bán hoặc khuyến nghị cá nhân hóa.',
-      'Chưa mô phỏng đầy đủ thanh khoản, thuế, partial fills, corporate actions hoặc survivorship bias.',
-    ],
+    trades: buildTradeRows(engine),
+    equityCurve: portfolioSeries,
+    series: {
+      portfolio: portfolioSeries,
+      benchmark: benchmarkSeries,
+      drawdown: drawdownSeries,
+    },
+    monthlyReturns: engine.monthly_returns || [],
+    caveats: payload.caveats || [],
+    meta: {
+      interval: engine.interval || payload.engine_result?.interval || '',
+      source: engine.source || payload.engine_result?.source || '',
+      range: `${engine.start_date || '--'} -> ${engine.end_date || '--'}`,
+      benchmarkLabel: engine.benchmark_label || '',
+      cost: engine.execution_costs
+        ? `${Number(engine.execution_costs.commission_pct || 0).toFixed(2)}% commission, ${Number(engine.execution_costs.slippage_pct || 0).toFixed(2)}% slippage`
+        : '',
+    },
   }
+}
+
+function normalizeBackendSeries(series) {
+  if (!Array.isArray(series)) return []
+  return series
+    .map((item) => ({
+      time: normalizeChartTime(item.time),
+      value: Number(item.value),
+    }))
+    .filter((item) => item.time && Number.isFinite(item.value))
+}
+
+function normalizeChartTime(value) {
+  if (typeof value === 'number') return value
+  if (!value) return null
+  const parsed = Date.parse(String(value))
+  if (!Number.isFinite(parsed)) return String(value).slice(0, 10)
+  return Math.floor(parsed / 1000)
+}
+
+function numericOrNull(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function findEngineResult(payload) {
+  const sectionPayload = payload?.notebook_sections?.find((section) => section.engine_result)?.engine_result
+  return payload?.engine_result || payload?.output_payload?.engine_result || sectionPayload || {}
+}
+
+function buildTradeRows(engine) {
+  const strategyTrades = engine.strategy?.trades
+  if (Array.isArray(strategyTrades) && strategyTrades.length) {
+    return strategyTrades.map((trade) => ({
+      side: trade.exit_reason === 'stop_loss' ? 'STOP' : 'TRADE',
+      date: trade.exit_date || trade.entry_date || '--',
+      price: trade.exit_price || trade.entry_price || 0,
+    }))
+  }
+  const portfolio = engine.series?.portfolio || []
+  if (!portfolio.length) return []
+  return [
+    { side: 'START', date: formatSeriesTime(portfolio[0].time), price: portfolio[0].value },
+    { side: 'END', date: formatSeriesTime(portfolio.at(-1).time), price: portfolio.at(-1).value },
+  ]
+}
+
+function resolveStartDate(points, period) {
+  if (points[0]?.date) return normalizeDateOnly(points[0].date)
+  const end = new Date(resolveEndDate(points))
+  const months = period === '3mo' ? 3 : period === '6mo' ? 6 : period === '2y' ? 24 : 12
+  end.setMonth(end.getMonth() - months)
+  return end.toISOString().slice(0, 10)
+}
+
+function resolveEndDate(points) {
+  const last = points.at(-1)?.date
+  return last ? normalizeDateOnly(last) : new Date().toISOString().slice(0, 10)
+}
+
+function formatSeriesTime(unixSeconds) {
+  if (!unixSeconds) return '--'
+  const value = new Date(Number(unixSeconds) * 1000).toISOString()
+  return value.includes('T') ? value.slice(0, 16).replace('T', ' ') : value.slice(0, 10)
 }
 
 function movingAverage(points, index, windowSize) {
@@ -623,18 +886,53 @@ function movingAverage(points, index, windowSize) {
   return slice.reduce((sum, item) => sum + item.price, 0) / windowSize
 }
 
-function calculateMaxDrawdown(values) {
-  let peak = values[0] || 0
-  let maxDrawdown = 0
-  for (const value of values) {
-    peak = Math.max(peak, value)
-    if (peak > 0) {
-      maxDrawdown = Math.min(maxDrawdown, ((value - peak) / peak) * 100)
-    }
-  }
-  return maxDrawdown
-}
-
 function formatMoney(value) {
   return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+function formatMetric(value) {
+  return value === null || value === undefined ? '--' : Number(value).toFixed(2)
+}
+
+function formatPercentMetric(value) {
+  return value === null || value === undefined ? '--' : `${Number(value).toFixed(2)}%`
+}
+
+function resolveHistoryInterval(timeframe) {
+  return TIMEFRAME_PRESETS.some((item) => item.value === timeframe) ? timeframe : '1d'
+}
+
+function periodOptionsFor(timeframe) {
+  if (timeframe === '1m') return ['1d', '5d']
+  if (['5m', '15m', '30m'].includes(timeframe)) return ['1d', '5d', '1mo']
+  if (['1h', '4h'].includes(timeframe)) return ['5d', '1mo', '3mo', '6mo', '1y']
+  if (timeframe === '1d') return ['1mo', '3mo', '6mo', '1y', '2y', '5y']
+  if (timeframe === '1wk') return ['6mo', '1y', '2y', '5y', '10y']
+  if (timeframe === '1mo') return ['1y', '2y', '5y', '10y', 'max']
+  if (timeframe === '1y') return ['5y', '10y', 'max']
+  return ['3mo', '6mo', '1y', '2y']
+}
+
+function normalizeDateOnly(value) {
+  const text = String(value || '')
+  return text.includes('T') ? text.slice(0, 10) : text
+}
+
+function inferPeriodsPerYear(points) {
+  if (points.length < 2) return 252
+  const first = Date.parse(points[0].date || points[0].time || '')
+  const second = Date.parse(points[1].date || points[1].time || '')
+  const diffMs = Math.abs(second - first)
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return 252
+  const hourMs = 60 * 60 * 1000
+  if (diffMs <= 2 * 60 * 1000) return 365 * 24 * 60
+  if (diffMs <= 7 * 60 * 1000) return 365 * 24 * 12
+  if (diffMs <= 20 * 60 * 1000) return 365 * 24 * 4
+  if (diffMs <= 45 * 60 * 1000) return 365 * 24 * 2
+  if (diffMs <= 90 * 60 * 1000) return 252 * 6
+  if (diffMs <= 4.5 * hourMs) return 252 * 2
+  if (diffMs >= 330 * 24 * hourMs) return 1
+  if (diffMs >= 26 * 24 * hourMs) return 12
+  if (diffMs >= 5 * 24 * hourMs) return 52
+  return 252
 }

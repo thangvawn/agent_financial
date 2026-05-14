@@ -33,6 +33,19 @@ _MIN_DAYS_VAR = 30
 _MIN_DAYS_BENCHMARK_RELATIVE = 30
 _ROLLING_VOL_WINDOW = 21
 _DEFAULT_BTC_SYMBOL = "BTC-USD"
+_SUPPORTED_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "4h", "1d", "1wk", "1mo", "1y"}
+_ANNUALIZATION_PERIODS = {
+    "1m": 365 * 24 * 60,
+    "5m": 365 * 24 * 12,
+    "15m": 365 * 24 * 4,
+    "30m": 365 * 24 * 2,
+    "1h": 252 * 6,
+    "4h": 252 * 2,
+    "1d": 252,
+    "1wk": 52,
+    "1mo": 12,
+    "1y": 1,
+}
 
 
 def _clean_ticker(raw: str) -> str:
@@ -83,7 +96,14 @@ def _yf_symbol(ticker: str) -> str:
     return f"{ticker.upper()}.VN"
 
 
-def _normalize_ohlcv_frame(raw: pd.DataFrame) -> pd.DataFrame:
+def _normalize_index(index: pd.Index, *, keep_time: bool) -> pd.DatetimeIndex:
+    normalized = pd.to_datetime(index)
+    if hasattr(normalized, "tz") and normalized.tz is not None:
+        normalized = normalized.tz_localize(None)
+    return normalized if keep_time else normalized.normalize()
+
+
+def _normalize_ohlcv_frame(raw: pd.DataFrame, *, keep_time: bool = False) -> pd.DataFrame:
     if raw is None or raw.empty:
         return pd.DataFrame()
 
@@ -93,10 +113,7 @@ def _normalize_ohlcv_frame(raw: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     out = df[list(needed)].copy()
-    idx = pd.to_datetime(out.index)
-    if hasattr(idx, "tz") and idx.tz is not None:
-        idx = idx.tz_localize(None)
-    out.index = idx.normalize()
+    out.index = _normalize_index(out.index, keep_time=keep_time)
     out = out[~out.index.duplicated(keep="last")]
     out = out.sort_index()
     for col in needed:
@@ -104,7 +121,12 @@ def _normalize_ohlcv_frame(raw: pd.DataFrame) -> pd.DataFrame:
     return out.dropna(how="any")
 
 
-def _ohlcv_frames_from_download(raw: pd.DataFrame, symbols_plain: list[str]) -> dict[str, pd.DataFrame]:
+def _ohlcv_frames_from_download(
+    raw: pd.DataFrame,
+    symbols_plain: list[str],
+    *,
+    keep_time: bool = False,
+) -> dict[str, pd.DataFrame]:
     if raw is None or raw.empty:
         raise ValueError("Không có dữ liệu OHLCV.")
 
@@ -118,20 +140,20 @@ def _ohlcv_frames_from_download(raw: pd.DataFrame, symbols_plain: list[str]) -> 
                 if key not in raw.columns:
                     raise ValueError(f"Thiếu dữ liệu {field} cho {ticker} ({symbol}).")
                 cols[field.lower()] = raw[key]
-            frame = _normalize_ohlcv_frame(pd.DataFrame(cols))
+            frame = _normalize_ohlcv_frame(pd.DataFrame(cols), keep_time=keep_time)
             if frame.empty:
                 raise ValueError(f"Không chuẩn hóa được OHLCV cho {ticker}.")
             out[ticker] = frame
         return out
 
     ticker = symbols_plain[0]
-    frame = _normalize_ohlcv_frame(raw)
+    frame = _normalize_ohlcv_frame(raw, keep_time=keep_time)
     if frame.empty:
         raise ValueError(f"Không chuẩn hóa được OHLCV cho {ticker}.")
     return {ticker: frame}
 
 
-def _close_to_df(raw: pd.DataFrame, symbols_plain: list[str]) -> pd.DataFrame:
+def _close_to_df(raw: pd.DataFrame, symbols_plain: list[str], *, keep_time: bool = False) -> pd.DataFrame:
     """Chuẩn hóa output yfinance thành DataFrame cột = mã (không .VN)."""
     if raw is None or raw.empty:
         raise ValueError("Không có dữ liệu giá.")
@@ -141,7 +163,10 @@ def _close_to_df(raw: pd.DataFrame, symbols_plain: list[str]) -> pd.DataFrame:
 
     close = raw["Close"]
     if isinstance(close, pd.Series):
-        return close.to_frame(name=symbols_plain[0])
+        single = close.to_frame(name=symbols_plain[0])
+        single.index = _normalize_index(single.index, keep_time=keep_time)
+        single = single[~single.index.duplicated(keep="last")]
+        return single.sort_index()
 
     # DataFrame: cột là mã yfinance (FPT.VN, ...)
     out = pd.DataFrame()
@@ -150,17 +175,104 @@ def _close_to_df(raw: pd.DataFrame, symbols_plain: list[str]) -> pd.DataFrame:
         if col not in close.columns:
             raise ValueError(f"Không tìm thấy cột giá cho {t} ({col}).")
         out[t] = close[col]
+    out.index = _normalize_index(out.index, keep_time=keep_time)
+    out = out[~out.index.duplicated(keep="last")]
+    out = out.sort_index()
     return out
+
+
+def _normalize_interval(interval: str | None) -> str:
+    value = str(interval or "1d").strip().lower()
+    if value not in _SUPPORTED_INTERVALS:
+        raise ValueError("timeframe chỉ hỗ trợ 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1wk, 1mo hoặc 1y.")
+    return value
+
+
+def _bars_per_year(interval: str) -> int:
+    return _ANNUALIZATION_PERIODS.get(interval, 252)
+
+
+def _validate_interval_date_range(start: date, end: date, interval: str) -> None:
+    days = (end - start).days
+    if interval == "1m" and days > 7:
+        raise ValueError("timeframe 1m hiện chỉ hỗ trợ tối đa khoảng 7 ngày dữ liệu.")
+    if interval in {"5m", "15m", "30m"} and days > 60:
+        raise ValueError("timeframe phút hiện chỉ hỗ trợ tối đa khoảng 60 ngày dữ liệu.")
+    if interval in {"1h", "4h"} and days > 370:
+        raise ValueError("timeframe intraday hiện chỉ hỗ trợ tối đa khoảng 1 năm dữ liệu.")
+
+
+def _download_interval_for(interval: str) -> str:
+    if interval in {"1m", "5m", "15m", "30m"}:
+        return interval
+    if interval in {"1h", "4h"}:
+        return "60m"
+    if interval == "1y":
+        return "1mo"
+    return interval
+
+
+def _normalize_close_series(series: pd.Series | pd.DataFrame, *, keep_time: bool) -> pd.Series:
+    close = series.squeeze()
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    close.index = _normalize_index(close.index, keep_time=keep_time)
+    close = pd.to_numeric(close, errors="coerce").dropna().sort_index()
+    close = close[~close.index.duplicated(keep="last")]
+    return close
+
+
+def _resample_close_frame(close: pd.DataFrame, interval: str) -> pd.DataFrame:
+    if interval == "4h":
+        aggregated = close.resample("4h").last().dropna(how="all")
+    elif interval == "1y":
+        aggregated = close.resample("YE").last().dropna(how="all")
+    else:
+        return close
+    return aggregated.dropna(how="any")
+
+
+def _resample_ohlcv_frames(frames: dict[str, pd.DataFrame], interval: str) -> dict[str, pd.DataFrame]:
+    if interval not in {"4h", "1y"}:
+        return frames
+    out: dict[str, pd.DataFrame] = {}
+    for ticker, frame in frames.items():
+        rule = "4h" if interval == "4h" else "YE"
+        grouped = frame.resample(rule).agg(
+            {
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            }
+        )
+        grouped = grouped.dropna(how="any")
+        if grouped.empty:
+            raise ValueError(f"Không đủ dữ liệu intraday để gộp {interval} cho {ticker}.")
+        out[ticker] = grouped
+    return out
+
+
+def _resample_benchmark(close: pd.Series | None, interval: str) -> pd.Series | None:
+    if close is None or close.empty or interval not in {"4h", "1y"}:
+        return close
+    aggregated = close.resample("4h" if interval == "4h" else "YE").last().dropna()
+    return aggregated if not aggregated.empty else None
 
 
 def fetch_vn_close_separate_benchmark(
     tickers: list[str],
     start: date,
     end: date,
+    *,
+    interval: str = "1d",
 ) -> tuple[pd.DataFrame, pd.Series | None]:
     """Tải giá cổ phiếu VN và chuỗi VN-Index riêng (symbol khác định dạng)."""
     import yfinance as yf
 
+    normalized_interval = _normalize_interval(interval)
+    keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
 
@@ -168,45 +280,51 @@ def fetch_vn_close_separate_benchmark(
         stock_syms,
         start=start,
         end=end_adj,
+        interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
         threads=True,
     )
-    stocks = _close_to_df(raw_stocks, tickers)
+    stocks = _close_to_df(raw_stocks, tickers, keep_time=keep_time)
+    stocks = _resample_close_frame(stocks, normalized_interval)
     bench_close: pd.Series | None = None
     try:
         raw_b = yf.download(
             "^VNINDEX",
             start=start,
             end=end_adj,
+            interval=_download_interval_for(normalized_interval),
             auto_adjust=True,
             progress=False,
         )
         if raw_b is not None and not raw_b.empty and "Close" in raw_b.columns:
-            bench_close = raw_b["Close"].squeeze()
-            if isinstance(bench_close, pd.DataFrame):
-                bench_close = bench_close.iloc[:, 0]
+            bench_close = _normalize_close_series(raw_b["Close"], keep_time=keep_time)
+            bench_close = _resample_benchmark(bench_close, normalized_interval)
     except Exception as exc:
         logger.info("Benchmark ^VNINDEX không tải được: %s", exc)
 
     return stocks, bench_close
 
 
-def fetch_vn_stocks_only(tickers: list[str], start: date, end: date) -> pd.DataFrame:
+def fetch_vn_stocks_only(tickers: list[str], start: date, end: date, *, interval: str = "1d") -> pd.DataFrame:
     """Chỉ tải cổ phiếu VN (không gọi benchmark)."""
     import yfinance as yf
 
+    normalized_interval = _normalize_interval(interval)
+    keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
     raw_stocks = yf.download(
         stock_syms,
         start=start,
         end=end_adj,
+        interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
         threads=True,
     )
-    return _close_to_df(raw_stocks, tickers)
+    close = _close_to_df(raw_stocks, tickers, keep_time=keep_time)
+    return _resample_close_frame(close, normalized_interval)
 
 
 def fetch_vn_ohlcv_with_regime_inputs(
@@ -215,10 +333,13 @@ def fetch_vn_ohlcv_with_regime_inputs(
     end: date,
     *,
     include_benchmark: bool,
+    interval: str = "1d",
 ) -> tuple[dict[str, pd.DataFrame], pd.Series | None, pd.Series]:
     """Tải OHLCV cho cổ phiếu VN + benchmark tùy chọn + chuỗi BTC xác nhận risk-on."""
     import yfinance as yf
 
+    normalized_interval = _normalize_interval(interval)
+    keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
 
@@ -226,11 +347,13 @@ def fetch_vn_ohlcv_with_regime_inputs(
         stock_syms,
         start=start,
         end=end_adj,
+        interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
         threads=True,
     )
-    stock_frames = _ohlcv_frames_from_download(raw_stocks, tickers)
+    stock_frames = _ohlcv_frames_from_download(raw_stocks, tickers, keep_time=keep_time)
+    stock_frames = _resample_ohlcv_frames(stock_frames, normalized_interval)
 
     bench_close: pd.Series | None = None
     if include_benchmark:
@@ -239,13 +362,13 @@ def fetch_vn_ohlcv_with_regime_inputs(
                 "^VNINDEX",
                 start=start,
                 end=end_adj,
+                interval=_download_interval_for(normalized_interval),
                 auto_adjust=True,
                 progress=False,
             )
             if raw_b is not None and not raw_b.empty and "Close" in raw_b.columns:
-                bench_close = raw_b["Close"].squeeze()
-                if isinstance(bench_close, pd.DataFrame):
-                    bench_close = bench_close.iloc[:, 0]
+                bench_close = _normalize_close_series(raw_b["Close"], keep_time=keep_time)
+                bench_close = _resample_benchmark(bench_close, normalized_interval)
         except Exception as exc:
             logger.info("Benchmark ^VNINDEX không tải được: %s", exc)
 
@@ -253,16 +376,15 @@ def fetch_vn_ohlcv_with_regime_inputs(
         _DEFAULT_BTC_SYMBOL,
         start=start - timedelta(days=7),
         end=end_adj,
+        interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
     )
     if raw_btc is None or raw_btc.empty or "Close" not in raw_btc.columns:
         raise ValueError("Không tải được dữ liệu BTC-USD để xác nhận tín hiệu chiến lược.")
-    btc_close = raw_btc["Close"].squeeze()
-    if isinstance(btc_close, pd.DataFrame):
-        btc_close = btc_close.iloc[:, 0]
-    btc_close.index = pd.to_datetime(btc_close.index).tz_localize(None)
-    btc_close = btc_close.sort_index()
+    btc_close = _normalize_close_series(raw_btc["Close"], keep_time=keep_time)
+    resampled_btc = _resample_benchmark(btc_close, normalized_interval)
+    btc_close = resampled_btc if resampled_btc is not None else btc_close
 
     return stock_frames, bench_close, btc_close
 
@@ -273,6 +395,7 @@ def compute_buy_and_hold(
     initial_capital: float,
     *,
     benchmark_close: pd.Series | None = None,
+    periods_per_year: int = 252,
 ) -> dict[str, Any]:
     """
     close: hàng = ngày, cột = mã (đã align).
@@ -306,6 +429,7 @@ def compute_buy_and_hold(
         initial_capital=float(initial_capital),
         benchmark_close=benchmark_close,
         warnings=[],
+        periods_per_year=periods_per_year,
     )
     hhi = float(sum(float(weights[k]) ** 2 for k in weights))
     summary["metrics"]["concentration_herfindahl"] = round(hhi, 4)
@@ -318,6 +442,7 @@ def _summarize_equity_curve(
     initial_capital: float,
     benchmark_close: pd.Series | None = None,
     warnings: list[str] | None = None,
+    periods_per_year: int = 252,
 ) -> dict[str, Any]:
     warnings = list(warnings or [])
     equity_curve = equity_curve.sort_index().dropna()
@@ -334,13 +459,13 @@ def _summarize_equity_curve(
 
     total_return_pct = float((equity_curve.iloc[-1] / float(initial_capital) - 1.0) * 100.0)
     n_days = int(len(equity_curve))
-    years = n_days / 252.0
+    years = n_days / float(periods_per_year or 252)
     if years > 0 and float(initial_capital) > 0:
         cagr_pct = float((equity_curve.iloc[-1] / float(initial_capital)) ** (1.0 / years) - 1.0) * 100.0
     else:
         cagr_pct = float("nan")
 
-    vol_pct = float(port_ret.std() * np.sqrt(252) * 100.0) if port_ret.std() > 0 else float("nan")
+    vol_pct = float(port_ret.std() * np.sqrt(periods_per_year or 252) * 100.0) if port_ret.std() > 0 else float("nan")
 
     sharpe = sharpe_ratio(port_ret, RISK_FREE_ANNUAL)
     sortino = sortino_ratio(port_ret, RISK_FREE_ANNUAL)
@@ -355,7 +480,7 @@ def _summarize_equity_curve(
         if np.isfinite(cv):
             cvar_95_pct = round(float(cv) * 100.0, 4)
 
-    roll = port_ret.rolling(_ROLLING_VOL_WINDOW).std() * np.sqrt(252) * 100.0
+    roll = port_ret.rolling(_ROLLING_VOL_WINDOW).std() * np.sqrt(periods_per_year or 252) * 100.0
     rolling_vol_annual_pct = [
         {"time": _to_ts(idx), "value": round(float(v), 2)}
         for idx, v in roll.items()
@@ -556,6 +681,7 @@ def backtest_volume_btc_stoploss_strategy(
     btc_close: pd.Series,
     benchmark_close: pd.Series | None,
     config: dict[str, float],
+    interval: str = "1d",
 ) -> dict[str, Any]:
     _validate_strategy_config(config)
 
@@ -668,6 +794,7 @@ def backtest_volume_btc_stoploss_strategy(
         initial_capital=float(initial_capital),
         benchmark_close=benchmark_close,
         warnings=[],
+        periods_per_year=_bars_per_year(interval),
     )
 
     hhi = float(sum(float(weights[k]) ** 2 for k in weights))
@@ -712,9 +839,12 @@ def run_vn_portfolio_backtest(
     weights: dict[str, float] | None = None,
     include_benchmark: bool = True,
     strategy: dict[str, Any] | None = None,
+    interval: str = "1d",
 ) -> dict[str, Any]:
     """Tải giá yfinance + chạy buy-and-hold."""
     validate_date_range(start, end)
+    normalized_interval = _normalize_interval(interval)
+    _validate_interval_date_range(start, end, normalized_interval)
     tix = parse_ticker_list(tickers)
     w = normalize_weights(tix, equal_weight=equal_weight, weights=weights)
     strategy_cfg = dict(strategy or {})
@@ -725,6 +855,7 @@ def run_vn_portfolio_backtest(
             start,
             end,
             include_benchmark=include_benchmark,
+            interval=normalized_interval,
         )
         result = backtest_volume_btc_stoploss_strategy(
             stock_frames,
@@ -733,12 +864,13 @@ def run_vn_portfolio_backtest(
             btc_close=btc_close,
             benchmark_close=bench_raw if include_benchmark else None,
             config=_clean_strategy_config(strategy_cfg),
+            interval=normalized_interval,
         )
     else:
         if include_benchmark:
-            stocks, bench_raw = fetch_vn_close_separate_benchmark(tix, start, end)
+            stocks, bench_raw = fetch_vn_close_separate_benchmark(tix, start, end, interval=normalized_interval)
         else:
-            stocks = fetch_vn_stocks_only(tix, start, end)
+            stocks = fetch_vn_stocks_only(tix, start, end, interval=normalized_interval)
             bench_raw = None
 
         result = compute_buy_and_hold(
@@ -746,10 +878,12 @@ def run_vn_portfolio_backtest(
             w,
             initial_capital,
             benchmark_close=bench_raw if include_benchmark else None,
+            periods_per_year=_bars_per_year(normalized_interval),
         )
 
     payload = {
         "tickers": tix,
+        "interval": normalized_interval,
         "weights": {k: round(v, 6) for k, v in w.items()},
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
@@ -758,9 +892,9 @@ def run_vn_portfolio_backtest(
         "series": result["series"],
         "monthly_returns": result.get("monthly_returns", []),
         "ath_segments": result.get("ath_segments", []),
-        "benchmark_label": "VN-Index (^VNINDEX), cùng vốn ban đầu" if include_benchmark else None,
+        "benchmark_label": f"VN-Index (^VNINDEX), cùng vốn ban đầu ({normalized_interval})" if include_benchmark else None,
         "warnings": result["warnings"],
-        "source": "yfinance (auto_adjust)",
+        "source": f"yfinance (auto_adjust, {normalized_interval})",
     }
     if result.get("strategy"):
         payload["strategy"] = result["strategy"]
