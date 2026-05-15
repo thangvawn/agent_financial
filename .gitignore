@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+*-client-*.json
+gen-lang-client-*.json
+*service-account*.json
 
 # ── Python ───────────────────────────
 .venv/

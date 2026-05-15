@@ -34,12 +34,16 @@ from risk_dashboard.modules.learning.infrastructure.catalog_reader import (
 )
 from risk_dashboard.modules.learning.schemas.responses import (
     LearningCoachResponse,
+    LearningCourseSummaryResponse,
     LearningCmsStatusResponse,
     LearningCourseAdminResponse,
     LearningContextResponse,
+    LearningDashboardMetricResponse,
     LearningHomeResponse,
     LearningLessonAdminResponse,
+    LearningPathLessonResponse,
     LearningLessonResponse,
+    LearningTopicResponse,
     LearningPathAdminResponse,
     LearningQuizSubmitResponse,
     LearningTutorResponse,
@@ -47,11 +51,30 @@ from risk_dashboard.modules.learning.schemas.responses import (
 
 
 class GetLearningHome:
-    def __init__(self, reader: LearningHomeReader) -> None:
+    def __init__(
+        self,
+        reader: LearningHomeReader,
+        catalog: LearningCatalogReader | None = None,
+        progress: LearningProgressRepository | None = None,
+    ) -> None:
         self.reader = reader
+        self.catalog = catalog
+        self.progress = progress
 
     def execute(self, *, user_id: str) -> LearningHomeResponse:
         state = self.reader.get_home_state(user_id=user_id)
+        topics: list[LearningTopicResponse] = []
+        courses: list[LearningCourseSummaryResponse] = []
+        path_lessons: list[LearningPathLessonResponse] = []
+        stats: list[LearningDashboardMetricResponse] = []
+        if self.catalog is not None and self.progress is not None:
+            topics, courses, path_lessons, stats = _build_home_runtime_payload(
+                user_id=user_id,
+                path_id=state.path_id,
+                next_lesson_id=state.next_lesson_id,
+                catalog=self.catalog,
+                progress=self.progress,
+            )
         emit_product_event(
             event_name="learning_home_viewed",
             module="learning",
@@ -69,6 +92,10 @@ class GetLearningHome:
             completed_lessons=state.completed_lessons,
             completion_pct=state.completion_pct,
             feature_flag="module.learning.enabled",
+            topics=topics,
+            courses=courses,
+            path_lessons=path_lessons,
+            stats=stats,
         )
 
 
@@ -688,3 +715,137 @@ def _to_lesson_response(lesson: LearningLesson, progress: LearningProgress | Non
         progress_status=progress.status if progress is not None else None,
         quiz_score=progress.quiz_score if progress is not None else None,
     )
+
+
+def _build_home_runtime_payload(
+    *,
+    user_id: str,
+    path_id: str,
+    next_lesson_id: str,
+    catalog: LearningCatalogReader,
+    progress: LearningProgressRepository,
+) -> tuple[
+    list[LearningTopicResponse],
+    list[LearningCourseSummaryResponse],
+    list[LearningPathLessonResponse],
+    list[LearningDashboardMetricResponse],
+]:
+    all_lessons = {lesson.lesson_id: lesson for lesson in catalog.list_lessons()}
+    courses = catalog.list_courses()
+    path = catalog.get_path(path_id=path_id)
+    progress_items = progress.list_by_path(user_id=user_id, path_id=path_id)
+    progress_by_lesson = {item.lesson_id: item for item in progress_items}
+
+    topic_rows: dict[str, dict[str, object]] = {}
+    for course in courses:
+        row = topic_rows.setdefault(
+            course.tier,
+            {
+                "topic_id": course.tier,
+                "label": _tier_label(course.tier),
+                "tier": course.tier,
+                "course_count": 0,
+                "lesson_ids": set(),
+            },
+        )
+        row["course_count"] = int(row["course_count"]) + 1
+        lesson_ids = row["lesson_ids"]
+        if isinstance(lesson_ids, set):
+            lesson_ids.update(course.lesson_ids)
+
+    topics = [
+        LearningTopicResponse(
+            topic_id=str(row["topic_id"]),
+            label=str(row["label"]),
+            tier=str(row["tier"]),
+            course_count=int(row["course_count"]),
+            lesson_count=len(row["lesson_ids"]) if isinstance(row["lesson_ids"], set) else 0,
+        )
+        for row in topic_rows.values()
+    ]
+
+    course_summaries: list[LearningCourseSummaryResponse] = []
+    for course in courses:
+        completed = sum(
+            1
+            for lesson_id in course.lesson_ids
+            if progress_by_lesson.get(lesson_id) is not None
+            and progress_by_lesson[lesson_id].status == "completed"
+        )
+        total = len(course.lesson_ids)
+        course_summaries.append(
+            LearningCourseSummaryResponse(
+                course_id=course.course_id,
+                title=course.title,
+                description=course.description,
+                tier=course.tier,
+                lesson_count=total,
+                completed_lessons=completed,
+                progress_pct=round((completed / total) * 100) if total else 0,
+            )
+        )
+
+    path_lesson_rows: list[LearningPathLessonResponse] = []
+    for lesson_id in path.lesson_ids:
+        lesson = all_lessons.get(lesson_id)
+        if lesson is None:
+            continue
+        saved = progress_by_lesson.get(lesson_id)
+        path_lesson_rows.append(
+            LearningPathLessonResponse(
+                lesson_id=lesson.lesson_id,
+                title=lesson.title,
+                summary=lesson.summary,
+                tier=lesson.tier,
+                content_type=lesson.content_type,
+                estimated_minutes=lesson.estimated_minutes,
+                status=saved.status if saved is not None else ("next" if lesson.lesson_id == next_lesson_id else "not_started"),
+                quiz_score=saved.quiz_score if saved is not None else None,
+                is_next=lesson.lesson_id == next_lesson_id,
+            )
+        )
+
+    completed_count = sum(1 for item in progress_items if item.status == "completed")
+    quiz_attempts = sum(item.attempt_count for item in progress_items)
+    scores = [item.quiz_score for item in progress_items if item.quiz_score is not None]
+    total_minutes = sum(
+        all_lessons[item.lesson_id].estimated_minutes
+        for item in progress_items
+        if item.status == "completed" and item.lesson_id in all_lessons
+    )
+    metrics = [
+        LearningDashboardMetricResponse(
+            metric_id="completed_lessons",
+            label="Lessons completed",
+            value=str(completed_count),
+            detail=f"{len(path_lesson_rows)} lessons in current path",
+        ),
+        LearningDashboardMetricResponse(
+            metric_id="quiz_attempts",
+            label="Quiz attempts",
+            value=str(quiz_attempts),
+            detail="Stored in SQLite progress",
+        ),
+        LearningDashboardMetricResponse(
+            metric_id="study_minutes",
+            label="Estimated study time",
+            value=f"{total_minutes}m",
+            detail="Completed lesson minutes",
+        ),
+        LearningDashboardMetricResponse(
+            metric_id="average_score",
+            label="Average quiz score",
+            value=f"{round(sum(scores) / len(scores))}%" if scores else "N/A",
+            detail="From submitted quizzes" if scores else "No quiz submitted yet",
+        ),
+    ]
+    return topics, course_summaries, path_lesson_rows, metrics
+
+
+def _tier_label(tier: str) -> str:
+    labels = {
+        "financial_basics": "Financial Basics",
+        "basic_investing_literacy": "Investing Literacy",
+        "product_tool_literacy": "Product & Tool Literacy",
+    }
+    return labels.get(tier, tier.replace("_", " ").title())

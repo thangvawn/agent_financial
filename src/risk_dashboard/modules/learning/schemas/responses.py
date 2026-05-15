@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LearningHomeResponse(BaseModel):
@@ -12,6 +12,47 @@ class LearningHomeResponse(BaseModel):
     completed_lessons: int
     completion_pct: int
     feature_flag: str
+    topics: list["LearningTopicResponse"] = Field(default_factory=list)
+    courses: list["LearningCourseSummaryResponse"] = Field(default_factory=list)
+    path_lessons: list["LearningPathLessonResponse"] = Field(default_factory=list)
+    stats: list["LearningDashboardMetricResponse"] = Field(default_factory=list)
+
+
+class LearningTopicResponse(BaseModel):
+    topic_id: str
+    label: str
+    tier: str
+    course_count: int
+    lesson_count: int
+
+
+class LearningCourseSummaryResponse(BaseModel):
+    course_id: str
+    title: str
+    description: str
+    tier: str
+    lesson_count: int
+    completed_lessons: int
+    progress_pct: int
+
+
+class LearningPathLessonResponse(BaseModel):
+    lesson_id: str
+    title: str
+    summary: str
+    tier: str
+    content_type: str
+    estimated_minutes: int
+    status: str
+    quiz_score: int | None = None
+    is_next: bool = False
+
+
+class LearningDashboardMetricResponse(BaseModel):
+    metric_id: str
+    label: str
+    value: str
+    detail: str | None = None
 
 
 class LearningGlossaryTermResponse(BaseModel):

@@ -1,0 +1,120 @@
+{
+  "sync_id": "20260514T172906Z",
+  "created_at": "2026-05-14T17:29:06.315962+00:00",
+  "folder_name": "Quant Science",
+  "folder_id": "1wMezNrOcN6vnN4s5-jlx1QmmBpcA2E2-",
+  "output_dir": "data/quant_science_drive",
+  "downloaded_count": 11,
+  "files": [
+    {
+      "file_id": "1iLC6U-NmhvatRu7BTUD0hwEHlV8nHdEj",
+      "name": "Machine Learning for Asset Managers (Da dich).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Machine Learning for Asset Managers (Da dich).pdf",
+      "local_path": "data/quant_science_drive/Book/Machine Learning for Asset Managers (Da dich).pdf",
+      "size_bytes": 6737019,
+      "modified_time": "2025-04-16T09:01:16.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1iLC6U-NmhvatRu7BTUD0hwEHlV8nHdEj/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1IUNyaFS4mB-YDuaVOKhEGzEn9dRugQ_I",
+      "name": "Reinforcement Learning for Finance A... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Reinforcement Learning for Finance A... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Reinforcement Learning for Finance A... (Z-Library).pdf",
+      "size_bytes": 11199885,
+      "modified_time": "2025-04-15T13:58:42.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1IUNyaFS4mB-YDuaVOKhEGzEn9dRugQ_I/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1gtk6rfEZPmsSWUkoo2otlaBcevxl3sw5",
+      "name": "The Book of Alternative Data A Guide... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/The Book of Alternative Data A Guide... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/The Book of Alternative Data A Guide... (Z-Library).pdf",
+      "size_bytes": 22097146,
+      "modified_time": "2025-04-15T11:18:44.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1gtk6rfEZPmsSWUkoo2otlaBcevxl3sw5/view?usp=drivesdk"
+    },
+    {
+      "file_id": "12ocY3pi9f8RMIpHn9n4A94lFAIRDekZ8",
+      "name": "Machine Learning for Asset Managers (... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Machine Learning for Asset Managers (... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Machine Learning for Asset Managers (... (Z-Library).pdf",
+      "size_bytes": 4563635,
+      "modified_time": "2025-04-15T11:17:40.000Z",
+      "web_view_link": "https://drive.google.com/file/d/12ocY3pi9f8RMIpHn9n4A94lFAIRDekZ8/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1NPHHD0GdICtRvJHTOgdyQ_HH-Sy0LBco",
+      "name": "Market Microstructure Intermediaries... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Market Microstructure Intermediaries... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Market Microstructure Intermediaries... (Z-Library).pdf",
+      "size_bytes": 13206581,
+      "modified_time": "2025-04-15T11:16:38.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1NPHHD0GdICtRvJHTOgdyQ_HH-Sy0LBco/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1TAzxMd0VU8AAtyU-Osl9SsRo9F3Y2yOl",
+      "name": "Investing Amid Low Expected Returns M... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Investing Amid Low Expected Returns M... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Investing Amid Low Expected Returns M... (Z-Library).pdf",
+      "size_bytes": 6986081,
+      "modified_time": "2025-04-15T11:15:20.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1TAzxMd0VU8AAtyU-Osl9SsRo9F3Y2yOl/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1PTvCzkCQsR0__RXJKWTNWcAAV75xGSw5",
+      "name": "Python for Finance. (Yves Hilpisch) (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Python for Finance. (Yves Hilpisch) (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Python for Finance. (Yves Hilpisch) (Z-Library).pdf",
+      "size_bytes": 33575131,
+      "modified_time": "2025-04-15T11:14:33.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1PTvCzkCQsR0__RXJKWTNWcAAV75xGSw5/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1tciUOuXVQUIbp92d3Q8nMIT_D155RKo1",
+      "name": "Options, Futures, and Other Derivativ... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Options, Futures, and Other Derivativ... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Options, Futures, and Other Derivativ... (Z-Library).pdf",
+      "size_bytes": 23996894,
+      "modified_time": "2025-04-15T11:13:55.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1tciUOuXVQUIbp92d3Q8nMIT_D155RKo1/view?usp=drivesdk"
+    },
+    {
+      "file_id": "16T8I88oD-M6xCCs03RWF2uBIleaAsGzu",
+      "name": "Statistics and Data Analysis for Fina... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Statistics and Data Analysis for Fina... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Statistics and Data Analysis for Fina... (Z-Library).pdf",
+      "size_bytes": 11003956,
+      "modified_time": "2025-04-15T11:13:15.000Z",
+      "web_view_link": "https://drive.google.com/file/d/16T8I88oD-M6xCCs03RWF2uBIleaAsGzu/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1Nwic3YM8CFyThRiQWQ29moKBytyuHJzr",
+      "name": "Paul Wilmott Introduces Quantitative... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Paul Wilmott Introduces Quantitative... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Paul Wilmott Introduces Quantitative... (Z-Library).pdf",
+      "size_bytes": 19746464,
+      "modified_time": "2025-04-15T11:12:26.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1Nwic3YM8CFyThRiQWQ29moKBytyuHJzr/view?usp=drivesdk"
+    },
+    {
+      "file_id": "1OGBuEPCdvM0Vfh_NLP2DN9s-S8-OfwIe",
+      "name": "Advances in Financial Machine Learnin... (Z-Library).pdf",
+      "mime_type": "application/pdf",
+      "drive_path": "Quant Science/Book/Advances in Financial Machine Learnin... (Z-Library).pdf",
+      "local_path": "data/quant_science_drive/Book/Advances in Financial Machine Learnin... (Z-Library).pdf",
+      "size_bytes": 15839041,
+      "modified_time": "2025-04-15T11:10:16.000Z",
+      "web_view_link": "https://drive.google.com/file/d/1OGBuEPCdvM0Vfh_NLP2DN9s-S8-OfwIe/view?usp=drivesdk"
+    }
+  ]
+}

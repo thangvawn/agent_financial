@@ -53,6 +53,11 @@ def test_learning_home_lesson_quiz_and_context_flow():
     assert home.status_code == 200
     home_payload = home.json()
     assert home_payload["path_id"] == "starter-foundations"
+    assert home_payload["topics"]
+    assert home_payload["courses"]
+    assert home_payload["path_lessons"]
+    assert home_payload["stats"]
+    assert home_payload["path_lessons"][0]["lesson_id"] == "money-basics-101"
     lesson_id = home_payload["next_lesson_id"]
 
     lesson = client.get(f"/api/v1/public/learning/lessons/{lesson_id}?session_id={session_id}")

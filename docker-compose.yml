@@ -8,11 +8,25 @@ services:
     env_file:
       - .env
     volumes:
+      - ./src:/app/src
       - ./data:/app/data
+      - ./frontend/dist:/app/frontend/dist
+    command: uvicorn risk_dashboard.api.main:app --host 0.0.0.0 --port 8000 --reload --app-dir src
     restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
+      frontend:
+        condition: service_started
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+      - frontend-node-modules:/app/frontend/node_modules
+    command: sh -c "npm ci --no-audit --no-fund && npm run build -- --watch"
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -29,3 +43,4 @@ services:
 
 volumes:
   redis-data:
+  frontend-node-modules:

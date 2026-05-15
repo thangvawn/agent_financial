@@ -48,7 +48,7 @@ export function resolveDomainRoute(pathname = '/') {
 }
 
 export function resolvePathForView(view = 'home') {
-  return VIEW_PATHS[view] || '/home'
+  return withBasePath(VIEW_PATHS[view] || '/home')
 }
 
 function normalizeRoutePath(pathname = '/') {
@@ -56,4 +56,10 @@ function normalizeRoutePath(pathname = '/') {
   if (base && pathname.startsWith(`${base}/`)) return pathname.slice(base.length) || '/'
   if (base && pathname === base) return '/'
   return pathname
+}
+
+function withBasePath(path = '/') {
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, '') || ''
+  if (!base || base === '/') return path
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }

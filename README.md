@@ -65,10 +65,10 @@ Chỉnh tối thiểu `OPENAI_API_KEY` nếu cần chat AI (xem [Biến môi tr�
 ```bash
 docker compose build
 docker compose up -d
-docker compose logs -f app
+docker compose logs -f app frontend
 ```
 
-Đợi log không còn lỗi import / uvicorn báo **Application startup complete**.
+Đợi log không còn lỗi import / uvicorn báo **Application startup complete** và service `frontend` bắt đầu watch build. Sau lần build đầu tiên, sửa UI trong `frontend/src` sẽ tự build lại `frontend/dist`; chỉ cần refresh `http://localhost:8000/`, không cần `docker compose build` hay `docker compose up` lại.
 
 ### 3. Nạp dữ liệu panel (bắt buộc để dashboard không 503)
 
@@ -158,6 +158,8 @@ Mở URL mà Vite in ra (thường có thêm base path **`/dashboard-static/`**)
 make build
 # Rồi mở http://localhost:8000/dashboard
 ```
+
+Khi dùng Docker Compose mặc định, bước này thường không cần nữa vì service `frontend` đã chạy `npm run build -- --watch` và backend đã mount `./frontend/dist`.
 
 ---
 

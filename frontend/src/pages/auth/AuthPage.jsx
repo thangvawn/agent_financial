@@ -49,20 +49,20 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   }
 
   return (
-    <section className="auth-page" aria-label={isRegister ? 'Đăng ký tài khoản' : 'Mở classroom session'}>
+    <section className="auth-page" aria-label={isRegister ? 'Đăng ký tài khoản' : 'Đăng nhập tài khoản'}>
       {/* ─── Left: Hero ─── */}
       <div className="auth-hero">
         <div className="auth-hero-content">
           <div className="auth-hero-brand">
             <i aria-hidden="true" />
-            <strong>Northstar Finance Classroom</strong>
+            <strong>Northstar Finance</strong>
           </div>
           <h1>
             Hiểu tài chính.{'\n'}
             Hành động thông minh hơn.
           </h1>
           <p>
-            Không gian guest classroom để sinh viên học tài chính, chạy mô phỏng, đọc dữ liệu thị trường và lưu tiến độ ngay trên máy học tập.
+            Tạo tài khoản để lưu tiến độ học tài chính, theo dõi mục tiêu, đọc dữ liệu thị trường và tiếp tục hành trình phân tích của bạn.
           </p>
           <div className="auth-hero-features">
             <div className="auth-hero-feature">
@@ -101,16 +101,16 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
             <span>Về trang chủ</span>
           </button>
           <div className="auth-card-header">
-            <h2>{isRegister ? 'Tạo classroom session' : 'Mở classroom session'}</h2>
+            <h2>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h2>
             <p>
               {isRegister
-                ? 'Tạo guest classroom session để lưu tiến độ học và mô phỏng trên thiết bị này.'
-                : 'Mở guest classroom session. Đây chưa phải tài khoản production.'}
+                ? 'Đăng ký tài khoản Northstar Finance để cá nhân hóa trải nghiệm học và phân tích.'
+                : 'Đăng nhập để mở workspace tài chính cá nhân của bạn.'}
             </p>
           </div>
 
           <div className="auth-divider">
-            <span>Guest classroom session - không xác thực production</span>
+            <span>Northstar Finance Account</span>
           </div>
 
           {/* Form */}
@@ -194,7 +194,7 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                   onChange={(event) => setAgreedTerms(event.target.checked)}
                 />
                 <span>
-                  Tôi hiểu đây là guest classroom session, không phải tài khoản giao dịch hay tài khoản production. Tôi đồng ý với{' '}
+                  Tôi đồng ý với{' '}
                   <a href="#terms" onClick={(e) => e.preventDefault()}>
                     Điều khoản sử dụng
                   </a>{' '}
@@ -225,9 +225,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                   Đang xử lý...
                 </>
               ) : isRegister ? (
-                'Tạo classroom session'
+                'Tạo tài khoản'
               ) : (
-                'Mở classroom session'
+                'Đăng nhập'
               )}
             </button>
           </form>
@@ -239,9 +239,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
               </button>
             ) : null}
             <p className="auth-toggle-text">
-              {isRegister ? 'Đã có classroom session? ' : 'Cần session học mới? '}
+              {isRegister ? 'Đã có tài khoản? ' : 'Chưa có tài khoản? '}
               <button type="button" className="auth-toggle-link" onClick={handleSwitchMode} id="auth-toggle-mode-btn">
-                {isRegister ? 'Mở session đã có' : 'Tạo classroom session'}
+                {isRegister ? 'Đăng nhập' : 'Tạo tài khoản'}
               </button>
             </p>
           </div>

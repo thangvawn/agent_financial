@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from risk_dashboard.modules.admin_cms.domain.entities import CmsContentItem, CmsContentVersion, utc_now_iso
 from risk_dashboard.modules.admin_cms.infrastructure.repositories.sqlite import SqliteAdminCmsRepository
 from risk_dashboard.modules.learning.domain.entities import (
     LearningCourse,
@@ -117,6 +118,7 @@ class SqliteLearningCatalog(LearningCatalogReader):
         content_ops_repo: SqliteAdminCmsRepository | None = None,
     ) -> None:
         self.content_ops_repo = content_ops_repo or SqliteAdminCmsRepository()
+        ensure_learning_catalog_seeded(self.content_ops_repo)
 
     def get_course(self, *, course_id: str) -> LearningCourse:
         return self._resolve_course(course_id)
@@ -140,72 +142,56 @@ class SqliteLearningCatalog(LearningCatalogReader):
         return self.get_path(path_id=mapping.get(persona_segment, "starter-foundations"))
 
     def get_context_lesson_id(self, *, trigger: str) -> str:
+        explainer = self.get_context_explainer(trigger=trigger)
+        if explainer is not None and explainer["linked_lesson_ids"]:
+            lesson_id = str(explainer["linked_lesson_ids"][0])
+            self.get_lesson(lesson_id=lesson_id)
+            return lesson_id
         lesson_id = CONTEXT_TRIGGER_TO_LESSON.get(trigger, "money-basics-101")
         self.get_lesson(lesson_id=lesson_id)
         return lesson_id
 
     def list_courses(self) -> list[LearningCourse]:
-        content_ops_published = {
-            item.slug: _course_from_content_ops(item=item, payload=version.payload)
-            for item, version in self.content_ops_repo.list_published_content(content_type="course")
-        }
-        ordered_ids = list(dict.fromkeys([*COURSES.keys(), *content_ops_published.keys()]))
-        return [
-            content_ops_published.get(course_id, COURSES[course_id])
-            for course_id in ordered_ids
-            if course_id in content_ops_published or course_id in COURSES
-        ]
+        content_ops_published = _published_by_slug(
+            self.content_ops_repo.list_published_content(content_type="course"),
+            lambda item, payload: _course_from_content_ops(item=item, payload=payload),
+        )
+        return list(content_ops_published.values())
 
     def list_paths(self) -> list[LearningPath]:
-        content_ops_published = {
-            item.slug: _path_from_content_ops(item=item, payload=version.payload)
-            for item, version in self.content_ops_repo.list_published_content(content_type="path")
-        }
-        ordered_ids = list(dict.fromkeys([*PATHS.keys(), *content_ops_published.keys()]))
-        return [
-            content_ops_published.get(path_id, PATHS[path_id])
-            for path_id in ordered_ids
-            if path_id in content_ops_published or path_id in PATHS
-        ]
+        content_ops_published = _published_by_slug(
+            self.content_ops_repo.list_published_content(content_type="path"),
+            lambda item, payload: _path_from_content_ops(item=item, payload=payload),
+        )
+        return list(content_ops_published.values())
 
     def list_lessons(self) -> list[LearningLesson]:
-        content_ops_published = {
-            item.slug: self._lesson_from_content_ops(item=item, payload=version.payload)
-            for item, version in self.content_ops_repo.list_published_content(content_type="lesson")
-        }
-        ordered_ids = list(dict.fromkeys([*LESSONS.keys(), *content_ops_published.keys()]))
-        return [
-            content_ops_published.get(lesson_id, LESSONS[lesson_id])
-            for lesson_id in ordered_ids
-            if lesson_id in content_ops_published or lesson_id in LESSONS
-        ]
+        content_ops_published = _published_by_slug(
+            self.content_ops_repo.list_published_content(content_type="lesson"),
+            lambda item, payload: self._lesson_from_content_ops(item=item, payload=payload),
+        )
+        return list(content_ops_published.values())
 
     def _resolve_course(self, course_id: str) -> LearningCourse:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="course", slug=course_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return _course_from_content_ops(item=item, payload=version.payload)
-        if course_id not in COURSES:
-            raise KeyError(course_id)
-        return COURSES[course_id]
+        raise KeyError(course_id)
 
     def _resolve_path(self, path_id: str) -> LearningPath:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="path", slug=path_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return _path_from_content_ops(item=item, payload=version.payload)
-        if path_id not in PATHS:
-            raise KeyError(path_id)
-        return PATHS[path_id]
+        raise KeyError(path_id)
 
     def _resolve_lesson(self, lesson_id: str) -> LearningLesson:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=lesson_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return self._lesson_from_content_ops(item=item, payload=version.payload)
-        if lesson_id not in LESSONS:
-            raise KeyError(lesson_id)
-        return LESSONS[lesson_id]
+        raise KeyError(lesson_id)
 
     def get_context_explainer(self, *, trigger: str) -> dict[str, Any] | None:
         document = self.content_ops_repo.find_published_content(content_type="contextual_explainer", slug=trigger)
@@ -243,6 +229,96 @@ class SqliteLearningCatalog(LearningCatalogReader):
         )
 
 
+def ensure_learning_catalog_seeded(repo: SqliteAdminCmsRepository) -> None:
+    for lesson in LESSONS.values():
+        _seed_published_content(
+            repo=repo,
+            content_type="lesson",
+            slug=lesson.lesson_id,
+            title=lesson.title,
+            payload=serialize_lesson(lesson),
+        )
+    for course in COURSES.values():
+        _seed_published_content(
+            repo=repo,
+            content_type="course",
+            slug=course.course_id,
+            title=course.title,
+            payload=serialize_course(course),
+        )
+    for path in PATHS.values():
+        _seed_published_content(
+            repo=repo,
+            content_type="path",
+            slug=path.path_id,
+            title=path.title,
+            payload=serialize_path(path),
+        )
+    for trigger, lesson_id in CONTEXT_TRIGGER_TO_LESSON.items():
+        lesson = LESSONS.get(lesson_id)
+        _seed_published_content(
+            repo=repo,
+            content_type="contextual_explainer",
+            slug=trigger,
+            title=f"{trigger.replace('_', ' ').title()} explainer",
+            payload={
+                "surface": "learning",
+                "title": f"{trigger.replace('_', ' ').title()} explainer",
+                "body": [lesson.summary if lesson is not None else "Contextual learning explainer."],
+                "linked_lesson_ids": [lesson_id],
+                "guardrail_note": "Educational context only; not individualized financial advice.",
+            },
+        )
+
+
+def _seed_published_content(
+    *,
+    repo: SqliteAdminCmsRepository,
+    content_type: str,
+    slug: str,
+    title: str,
+    payload: dict[str, Any],
+) -> None:
+    if repo.find_published_content(content_type=content_type, slug=slug) is not None:
+        return
+    content_id = f"seed_learning_{content_type}_{slug}"
+    if repo.get_item(content_id=content_id) is not None:
+        return
+    now = utc_now_iso()
+    item = CmsContentItem(
+        content_id=content_id,
+        content_type=content_type,
+        slug=slug,
+        title=title,
+        locale="vi-VN",
+        owner_team="education",
+        risk_category="education",
+        workflow_state="published",
+        current_version=1,
+        published_version=1,
+        created_by="system_seed",
+        updated_by="system_seed",
+        created_at=now,
+        updated_at=now,
+    )
+    version = CmsContentVersion(
+        version_id=f"{content_id}_v1",
+        content_id=content_id,
+        version_number=1,
+        payload=payload,
+        status="published",
+        origin="system_seed",
+        change_summary="Seed default learning catalog into Content Ops runtime store.",
+        created_by="system_seed",
+        reviewed_by="system_seed",
+        published_by="system_seed",
+        created_at=now,
+        published_at=now,
+    )
+    repo.save_item(item)
+    repo.save_version(version)
+
+
 def _course_from_content_ops(*, item, payload: dict[str, Any]) -> LearningCourse:
     return LearningCourse(
         course_id=str(payload.get("course_id") or item.slug),
@@ -252,6 +328,15 @@ def _course_from_content_ops(*, item, payload: dict[str, Any]) -> LearningCourse
         lesson_ids=[str(value) for value in payload.get("lesson_ids", []) if value],
         status="published",
     )
+
+
+def _published_by_slug(rows: list[tuple[Any, Any]], factory) -> dict[str, Any]:
+    published: dict[str, Any] = {}
+    for item, version in rows:
+        if item.slug in published:
+            continue
+        published[item.slug] = factory(item, version.payload)
+    return published
 
 
 def _path_from_content_ops(*, item, payload: dict[str, Any]) -> LearningPath:

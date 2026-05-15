@@ -52,9 +52,11 @@ const SURFACE_LABELS = {
 }
 
 const PAGE_TRANSITION_MS = 180
+const AUTHENTICATED_LANDING_VIEW = 'global_terminal'
 const DEPRECATED_VIEW_ALIASES = {
   simulation_lab: 'global_terminal',
 }
+const PUBLIC_VIEWS = new Set(['home', 'auth_login', 'auth_register'])
 
 export default function AppShell({ initialView = 'home', view: controlledView, onNavigate }) {
   const [internalView, setInternalView] = useState(() => normalizeView(initialView))
@@ -67,6 +69,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const [guidedFocusCard, setGuidedFocusCard] = useState('market_context')
   const [proLabBacktestContext, setProLabBacktestContext] = useState({ selectedBlueprintId: '', workspace: null, accessToken: '' })
   const [communityFocusSpace, setCommunityFocusSpace] = useState('')
+  const [pendingPostAuthView, setPendingPostAuthView] = useState('')
   const previousViewRef = useRef('')
 
   useEffect(() => {
@@ -94,15 +97,25 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       const locationView = initialView
       setSessionId(savedSessionId)
       if (!controlledView) {
-        setView(savedView === 'learning_admin' ? locationView : (savedView || locationView))
+        const restoredView = savedView === 'learning_admin' ? locationView : (savedView || locationView)
+        const nextView = normalizeView(restoredView === 'home' ? AUTHENTICATED_LANDING_VIEW : restoredView)
+        if (onNavigate) onNavigate(nextView)
+        else setInternalView(nextView)
       }
     }
-  }, [controlledView, initialView])
+  }, [controlledView, initialView, onNavigate])
 
   useEffect(() => {
     if (sessionId) window.localStorage.setItem('public-beta.session_id', sessionId)
     window.localStorage.setItem('public-beta.view', view)
   }, [sessionId, view])
+
+  useEffect(() => {
+    if (sessionId || isPublicView(view)) return
+    setPendingPostAuthView(view)
+    if (onNavigate) onNavigate('auth_login', { replace: true })
+    else setInternalView('auth_login')
+  }, [onNavigate, sessionId, view])
 
   useEffect(() => {
     const previousView = previousViewRef.current
@@ -143,6 +156,16 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     setInternalView(normalizedView)
   }
 
+  function openProtectedView(nextView, options) {
+    const normalizedView = normalizeView(nextView)
+    if (!sessionId) {
+      setPendingPostAuthView(normalizedView)
+      setView('auth_login')
+      return
+    }
+    setView(normalizedView, options)
+  }
+
   function handleFinancialHealthCompleted() {
     setHomeRefreshKey((current) => current + 1)
   }
@@ -153,40 +176,36 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   function handleOpenGoals(goalId = '') {
     setFocusedGoalId(goalId)
-    setView('goals')
+    openProtectedView('goals')
   }
 
   function handleOpenGuidedInvesting(focusCard = 'market_context') {
     setGuidedFocusCard(focusCard)
-    setView('guided_investing')
+    openProtectedView('guided_investing')
   }
 
   function handleOpenInsights() {
-    setView('insights')
+    openProtectedView('insights')
   }
 
   function handleOpenGlobalTerminal() {
-    setView('global_terminal')
+    openProtectedView('global_terminal')
   }
 
   function handleOpenNews() {
-    setView('news')
+    openProtectedView('news')
   }
 
   function handleOpenProLab() {
-    setView('pro_lab')
+    openProtectedView('pro_lab')
   }
 
   function handleOpenSimulationLab() {
     handleOpenGlobalTerminal()
   }
 
-  function handleOpenFinancialStatementSimulator() {
-    setView('financial_statement_simulator')
-  }
-
   function handleOpenAssignments() {
-    setView('assignments')
+    openProtectedView('assignments')
   }
 
   function handleOpenProLabAdmin() {
@@ -212,7 +231,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   function handleOpenCommunity(spaceId = '') {
     setCommunityFocusSpace(spaceId)
-    setView('community')
+    openProtectedView('community')
   }
 
   function handleOpenCommunityModeration() {
@@ -222,11 +241,22 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   function handleAuthSuccess(payload) {
     setSessionId(payload.session_id)
     setHomeRefreshKey((current) => current + 1)
-    setView('home')
+    setView(pendingPostAuthView || AUTHENTICATED_LANDING_VIEW)
+    setPendingPostAuthView('')
   }
 
   function handleAuthSwitchMode(newMode) {
     setView(newMode === 'register' ? 'auth_register' : 'auth_login')
+  }
+
+  function handleLogout() {
+    window.localStorage.removeItem('public-beta.session_id')
+    window.localStorage.removeItem('public-beta.user_profile')
+    window.localStorage.removeItem('public-beta.view')
+    setSessionId('')
+    setPendingPostAuthView('')
+    setHomeRefreshKey((current) => current + 1)
+    setView('home', { replace: true })
   }
 
   let content = null
@@ -428,8 +458,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       <HomePage
         sessionId={sessionId}
         refreshKey={homeRefreshKey}
-        onOpenFinancialHealth={() => setView('financial_health')}
-        onOpenLearning={() => setView('learning')}
+        onOpenFinancialHealth={() => openProtectedView('financial_health')}
+        onOpenLearning={() => openProtectedView('learning')}
         onOpenSimulationLab={handleOpenSimulationLab}
         onOpenAssignments={handleOpenAssignments}
         onOpenGoals={handleOpenGoals}
@@ -438,7 +468,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
         onOpenGlobalTerminal={handleOpenGlobalTerminal}
         onOpenProLab={handleOpenProLab}
         onOpenCommunity={handleOpenCommunity}
-        onOpenOnboarding={() => setView('onboarding')}
+        onOpenOnboarding={() => openProtectedView('onboarding')}
         onSessionInvalid={handleSessionInvalid}
       />
     )
@@ -464,8 +494,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const hideAssistant = isAuthView || ['backtest_studio', 'global_terminal', 'news', 'news_economic_calendar'].includes(renderedView)
   const connectedNavActions = {
     openHome: () => setView('home'),
-    openFinancialHealth: () => setView('financial_health'),
-    openLearning: () => setView('learning'),
+    openFinancialHealth: () => openProtectedView('financial_health'),
+    openLearning: () => openProtectedView('learning'),
     openSimulationLab: handleOpenSimulationLab,
     openAssignments: handleOpenAssignments,
     openGoals: handleOpenGoals,
@@ -476,6 +506,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     openCommunity: handleOpenCommunity,
     openProLab: handleOpenProLab,
     openLogin: () => setView('auth_login'),
+    openRegister: () => setView('auth_register'),
+    openLogout: handleLogout,
   }
 
   const shellSkin = renderedView === 'news_economic_calendar' ? 'news' : renderedView
@@ -494,15 +526,15 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
             <span className={`app-shell__badge app-shell__badge--${tone}`}>
               {tone === 'operator' ? 'Instructor / Admin Surface' : tone === 'pro' ? 'Paper Research Surface' : 'Education Surface'}
             </span>
-            {sessionId && renderedView !== 'home' && renderedView !== 'onboarding' ? (
-              <button type="button" className="button-ghost" onClick={() => setView('home')}>
-                Về Home
+            {sessionId && !['home', 'onboarding', 'global_terminal'].includes(renderedView) ? (
+              <button type="button" className="button-ghost" onClick={handleOpenGlobalTerminal}>
+                Terminal
               </button>
             ) : null}
           </div>
         </header>
         <main className="app-shell__content">
-          <ConnectedWorkspaceNav currentView={renderedView} sessionId={sessionId} actions={connectedNavActions} />
+          <ConnectedWorkspaceNav currentView={renderedView} sessionId={sessionId} actions={connectedNavActions} showTabs={Boolean(sessionId)} />
           <div className="surface-panel" key={renderedView} data-transition-phase={transitionPhase}>
             {content}
           </div>
@@ -519,4 +551,8 @@ function prefersReducedMotion() {
 
 function normalizeView(view) {
   return DEPRECATED_VIEW_ALIASES[view] || view
+}
+
+function isPublicView(view) {
+  return PUBLIC_VIEWS.has(normalizeView(view))
 }

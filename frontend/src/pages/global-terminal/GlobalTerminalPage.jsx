@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { fetchGlobalTerminal, fetchInstrumentHistory } from '../../modules/data-hub'
 import './global-terminal.css'
 
-export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLab, onOpenNews }) {
+export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpenNews }) {
   const [payload, setPayload] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -93,7 +93,6 @@ export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLa
     return (
       <section className="global-terminal global-terminal--loading">
         <p>Global terminal unavailable: {error}</p>
-        <button type="button" onClick={onBack}>Back</button>
       </section>
     )
   }
@@ -103,6 +102,8 @@ export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLa
   const visibleWidgetKeys = new Set(payload?.terminal?.visible_widget_keys || [])
   const shouldShow = (key) => visibleWidgetKeys.has(key)
   const terminalTabs = payload?.navigation?.tabs || DEFAULT_TERMINAL_TABS
+  const selectedQuote = findQuote(widgets, selectedSymbol) || (widgets.global_indices || [])[0]
+  const stripItems = buildMarketStripItems(widgets, payload?.ticker_tape || [])
 
   return (
     <section className="global-terminal">
@@ -144,23 +145,23 @@ export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLa
             {tab.label}
           </button>
         ))}
-        <button type="button" onClick={onOpenProLab}>QUANT LAB</button>
         <button type="button" onClick={onOpenInsights}>OPEN INSIGHTS</button>
         <button type="button" onClick={onOpenNews}>NEWS DESK</button>
         <button type="button" onClick={onOpenProLab}>PRO LAB</button>
-        <button type="button" onClick={onBack}>HOME</button>
       </div>
 
       <TickerTape items={payload?.ticker_tape || []} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} />
+      <MarketStrip items={stripItems} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} />
 
       <div className="global-terminal__workspace">
-        <div className="global-terminal__grid">
-          {shouldShow('global_indices') ? <TerminalTable title="GLOBAL INDICES" accent="orange" items={widgets.global_indices || []} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
-          {shouldShow('fx_majors') ? <TerminalTable title="FOREX - MAJOR PAIRS" accent="violet" items={widgets.fx_majors || []} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
-          {shouldShow('commodities') ? <TerminalTable title="COMMODITIES" accent="gold" items={widgets.commodities || []} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
-          {shouldShow('crypto') ? <TerminalTable title="CRYPTO BETA" accent="cyan" items={widgets.crypto || []} onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
+        <aside className="global-terminal__left-rail">
+          {shouldShow('global_indices') ? <TerminalTable title="VN & GLOBAL INDICES" accent="orange" items={sortMarketItems(widgets.global_indices || [])} compact onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
+          {shouldShow('fx_majors') ? <TerminalTable title="FX WATCH" accent="violet" items={widgets.fx_majors || []} compact onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
           {shouldShow('ai_chat') ? <AiChatTerminalPanel onOpenInsights={onOpenInsights} onOpenNews={onOpenNews} /> : null}
-          {shouldShow('chart') ? <QuoteCard quote={findQuote(widgets, selectedSymbol) || (widgets.global_indices || [])[0]} /> : null}
+        </aside>
+
+        <main className="global-terminal__focus">
+          {shouldShow('chart') ? <QuoteCard quote={selectedQuote} /> : null}
           {shouldShow('chart') ? (
             <InstrumentChart
               history={history}
@@ -171,11 +172,13 @@ export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLa
             />
           ) : null}
           {shouldShow('market_news') ? <NewsTape items={widgets.market_news || []} onOpenNews={onOpenNews} /> : null}
-        </div>
+        </main>
 
         <aside className="global-terminal__right-rail">
           {shouldShow('market_pulse') ? <MarketPulse pulse={pulse} /> : null}
           {shouldShow('global_snapshot') ? <TerminalTable title="GLOBAL SNAPSHOT" accent="blue" items={widgets.global_snapshot || []} compact onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
+          {shouldShow('commodities') ? <TerminalTable title="COMMODITIES" accent="gold" items={widgets.commodities || []} compact onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
+          {shouldShow('crypto') ? <TerminalTable title="CRYPTO BETA" accent="cyan" items={widgets.crypto || []} compact onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} /> : null}
           <TopicHealth topics={payload?.topics || []} />
           <TrustBox trust={payload?.trust} />
         </aside>
@@ -189,6 +192,27 @@ export default function GlobalTerminalPage({ onBack, onOpenInsights, onOpenProLa
         <span className="is-ready">READY</span>
       </footer>
     </section>
+  )
+}
+
+function MarketStrip({ items, onSelect, selectedSymbol }) {
+  if (!items.length) return null
+  return (
+    <div className="global-terminal__market-strip" aria-label="Market overview">
+      {items.map((item) => (
+        <button
+          type="button"
+          key={`strip-${item.symbol}`}
+          className={item.symbol === selectedSymbol ? 'is-selected' : ''}
+          onClick={() => onSelect(item.symbol)}
+        >
+          <span>{item.symbol}</span>
+          <strong>{formatPrice(item.price)}</strong>
+          <em className={Number(item.change_pct) >= 0 ? 'is-up' : 'is-down'}>{formatChange(item.change_pct)}</em>
+          <small>{item.name || item.focus || 'Market'}</small>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -530,4 +554,34 @@ function findQuote(widgets, symbol) {
     ...(widgets.commodities || []),
     ...(widgets.crypto || []),
   ].find((item) => item.symbol === symbol)
+}
+
+function buildMarketStripItems(widgets, tickerTape) {
+  const lookup = new Map()
+  ;[
+    ...(widgets.global_indices || []),
+    ...(widgets.global_snapshot || []),
+    ...(widgets.fx_majors || []),
+    ...(widgets.commodities || []),
+    ...(widgets.crypto || []),
+    ...tickerTape,
+  ].forEach((item) => {
+    if (item?.symbol && !lookup.has(item.symbol)) lookup.set(item.symbol, item)
+  })
+  const priority = ['VNINDEX', 'VN30', 'HNXINDEX', 'SPX', 'NDX', 'DXY', 'US10Y', 'XAU', 'WTI', 'BTC']
+  const prioritized = priority.map((symbol) => lookup.get(symbol)).filter(Boolean)
+  const fallback = Array.from(lookup.values()).filter((item) => !priority.includes(item.symbol))
+  return [...prioritized, ...fallback].slice(0, 8)
+}
+
+function sortMarketItems(items) {
+  const priority = ['VNINDEX', 'VN30', 'HNXINDEX', 'UPCOM', 'SPX', 'NDX', 'DJI']
+  return [...items].sort((a, b) => {
+    const left = priority.indexOf(a.symbol)
+    const right = priority.indexOf(b.symbol)
+    if (left === -1 && right === -1) return 0
+    if (left === -1) return 1
+    if (right === -1) return -1
+    return left - right
+  })
 }

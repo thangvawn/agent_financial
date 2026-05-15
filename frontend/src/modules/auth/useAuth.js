@@ -4,12 +4,12 @@ const SESSION_KEY = 'public-beta.session_id'
 const USER_KEY = 'public-beta.user_profile'
 
 function generateSessionId() {
-  return 'classroom_' + crypto.randomUUID()
+  return 'account_' + crypto.randomUUID()
 }
 
 /**
- * Guest classroom session hook.
- * This is not production authentication; it labels local learning sessions clearly.
+ * Local account hook for the demo app.
+ * The current implementation persists account state on this browser.
  */
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(false)
@@ -35,8 +35,8 @@ export function useAuth() {
     const profile = {
       email,
       name: email.split('@')[0],
-      session_mode: 'guest_classroom',
-      auth_note: 'Local classroom session - not a production account',
+      session_mode: 'local_account',
+      auth_note: 'Local browser account for demo workspace',
     }
 
     window.localStorage.setItem(SESSION_KEY, sessionId)
@@ -79,8 +79,8 @@ export function useAuth() {
     const profile = {
       email,
       name,
-      session_mode: 'guest_classroom',
-      auth_note: 'Local classroom session - not a production account',
+      session_mode: 'local_account',
+      auth_note: 'Local browser account for demo workspace',
     }
 
     window.localStorage.setItem(SESSION_KEY, sessionId)

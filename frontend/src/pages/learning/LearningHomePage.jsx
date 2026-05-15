@@ -8,7 +8,6 @@ import {
   fetchLearningCoach,
   fetchLearningContext,
   fetchLearningLesson,
-  getLessonResourceBundle,
   submitLearningQuiz,
   useLearningHome,
 } from '../../modules/learning'
@@ -50,8 +49,12 @@ export default function LearningHomePage({
   const [audioAssets, setAudioAssets] = useState([])
   const [bookAssets, setBookAssets] = useState([])
   const [activeBook, setActiveBook] = useState(null)
+  const [activeLearnView, setActiveLearnView] = useState('lesson')
 
-  const resourceBundle = useMemo(() => getLessonResourceBundle(lesson), [lesson])
+  const resourceBundle = useMemo(
+    () => buildRealResourceBundle({ lesson, videoAssets, audioAssets, bookAssets }),
+    [audioAssets, bookAssets, lesson, videoAssets],
+  )
   const completionText = useMemo(() => `${Math.max(0, data?.completion_pct || 0)}%`, [data?.completion_pct])
   const dashboard = useMemo(
     () => buildLearningDashboard({ data, lesson, contextCards, videoAssets, audioAssets, bookAssets, resourceBundle }),
@@ -279,36 +282,38 @@ export default function LearningHomePage({
   }
 
   return (
-    <section className="learn-os-page">
+    <section className={`learn-os-page learn-os-page--${activeLearnView}`}>
       <header className="learn-os-topbar">
         <div>
           <h1>Learn Hub</h1>
-          <p>Explore financial knowledge. Learn at your pace. Master your future.</p>
+          <p>{data.path_label} · {completionText} hoàn thành · dữ liệu runtime từ backend.</p>
         </div>
-        <label className="learn-os-search">
-          <span aria-hidden="true">⌕</span>
-          <input type="search" placeholder="Search for courses, topics, books..." />
-        </label>
-        <div className="learn-os-topbar-actions">
-          <button type="button" aria-label="Notifications">!</button>
-          <button type="button" aria-label="Settings">⚙</button>
-        </div>
+        <nav className="learn-os-view-tabs" aria-label="Learn Hub views">
+          {[
+            ['lesson', 'Bài học', 'Học, quiz, hỏi Tutor'],
+            ['path', 'Lộ trình', 'Courses, topics, tiến độ'],
+            ['library', 'Thư viện', 'Media local'],
+          ].map(([id, label, hint]) => (
+            <button
+              key={id}
+              type="button"
+              className={activeLearnView === id ? 'is-active' : ''}
+              onClick={() => setActiveLearnView(id)}
+            >
+              <strong>{label}</strong>
+              <span>{hint}</span>
+            </button>
+          ))}
+        </nav>
       </header>
 
       <section className="learn-os-topic-carousel learn-reveal" aria-label="Explore topics">
         <header className="learn-os-section-title">
-          <h2>Explore Topics</h2>
-          <button type="button" onClick={() => setAssetRefreshKey((v) => v + 1)}>View all</button>
+          <h2>Topics từ backend</h2>
+          <button type="button" onClick={() => setRefreshKey((v) => v + 1)}>Làm mới</button>
         </header>
         <div className="learn-os-topic-strip">
-          {[
-            { label: 'Microeconomics', count: '32 Courses', icon: <BarChartIcon size={22} /> },
-            { label: 'Macroeconomics', count: '28 Courses', icon: <GlobeIcon size={22} /> },
-            { label: 'CFA Program', count: '45 Courses', icon: <BookIcon size={22} /> },
-            { label: 'Risk Management', count: '24 Courses', icon: <ShieldIcon size={22} /> },
-            { label: 'Corporate Finance', count: '26 Courses', icon: <CalculatorIcon size={22} /> },
-            { label: 'Investments', count: '30 Courses', icon: <PieChartIcon size={22} /> },
-          ].map((topic, index) => (
+          {dashboard.topics.map((topic, index) => (
             <button
               key={topic.label}
               type="button"
@@ -385,18 +390,12 @@ export default function LearningHomePage({
 
       <section className="learn-os-continue learn-reveal">
         <header className="learn-os-section-title">
-          <h2>Continue Learning</h2>
-          <button type="button" onClick={() => document.getElementById('learn-lesson-card')?.scrollIntoView({ behavior: 'smooth' })}>View all</button>
+          <h2>Courses & tracks</h2>
+          <button type="button" onClick={() => setActiveLearnView('lesson')}>Mở bài học</button>
         </header>
         <div className="learn-os-course-strip">
-          {[
-            { title: 'Microeconomics Basics', meta: 'Chapter 3: Supply and Demand', tag: 'Video', progress: 75, tone: 'is-navy', icon: <LineChartIcon size={34} /> },
-            { title: 'Macroeconomics Overview', meta: 'Chapter 2: GDP & Economic Growth', tag: 'Course', progress: 40, tone: 'is-emerald', icon: <GlobeIcon size={34} /> },
-            { title: 'CFA Level I - Quantitative Methods', meta: 'Reading 5: Time Value of Money', tag: 'Course', progress: 60, tone: 'is-purple', icon: <BookIcon size={34} /> },
-            { title: 'Risk Management Fundamentals', meta: 'Chapter 1: Risk Concepts', tag: 'Video', progress: 20, tone: 'is-amber', icon: <ShieldIcon size={34} /> },
-            { title: 'The Intelligent Investor', meta: 'by Benjamin Graham', tag: 'Book', progress: 33, tone: 'is-paper', icon: <FileTextIcon size={34} /> },
-          ].map((item) => (
-            <button key={item.title} type="button" className="learn-os-course-card" onClick={() => document.getElementById('learn-lesson-card')?.scrollIntoView({ behavior: 'smooth' })}>
+          {dashboard.courseCards.map((item) => (
+            <button key={item.title} type="button" className="learn-os-course-card" onClick={() => setActiveLearnView('lesson')}>
               <div className={`learn-os-course-card__cover ${item.tone}`}>
                 {item.icon}
                 <span>{item.tag}</span>
@@ -419,43 +418,29 @@ export default function LearningHomePage({
             <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
           </header>
           <div className="learn-os-recommended-list">
-            <article className="learn-os-recommended-item">
-              <div className="learn-os-recommended-item__thumb is-cover-dark">CREDIT<br />ANALYSIS</div>
-              <div>
-                <strong>Credit Analysis Essentials</strong>
-                <p>Learn how to evaluate credit risk and make better lending decisions.</p>
-              </div>
-              <div className="learn-os-recommended-item__meta">
-                <span>Course · Intermediate</span>
-                <em>4.6</em>
-              </div>
-            </article>
-            <article className="learn-os-recommended-item">
-              <div className="learn-os-recommended-item__thumb is-cover-dark">FINANCIAL<br />MODELING</div>
-              <div>
-                <strong>Financial Modeling with Excel</strong>
-                <p>Build robust financial models and forecast with confidence.</p>
-              </div>
-              <div className="learn-os-recommended-item__meta">
-                <span>Course · Intermediate</span>
-                <em>4.7</em>
-              </div>
-            </article>
+            {dashboard.recommended.map((item) => (
+              <article key={item.title} className="learn-os-recommended-item">
+                <div className="learn-os-recommended-item__thumb is-cover-dark">{item.badge}</div>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.summary}</p>
+                </div>
+                <div className="learn-os-recommended-item__meta">
+                  <span>{item.meta}</span>
+                  <em>{item.score}</em>
+                </div>
+              </article>
+            ))}
           </div>
         </article>
 
         <article className="learn-os-card learn-os-card--stats">
           <header className="learn-os-card__head">
-            <h2>Learning Statistics</h2>
-            <span className="learn-os-chip-alt">This Month</span>
+            <h2>Runtime stats</h2>
+            <span className="learn-os-chip-alt">SQLite</span>
           </header>
           <div className="learn-os-stat-grid">
-            {[
-              ['Total Study Time', '48h 30m', '12% vs last month'],
-              ['Lessons Completed', '86', '18% vs last month'],
-              ['Quizzes Completed', '42', '20% vs last month'],
-              ['Avg. Score', '78%', '8% vs last month'],
-            ].map(([label, value, delta]) => (
+            {dashboard.statGrid.map(({ label, value, delta }) => (
               <div key={label}>
                 <span>{label}</span>
                 <strong>{value}</strong>
@@ -486,19 +471,15 @@ export default function LearningHomePage({
             <button type="button" className="learn-os-link-btn" onClick={() => setAssetRefreshKey((v) => v + 1)}>View all</button>
           </header>
           <div className="learn-os-reading-row">
-            {[
-              ['The Intelligent Investor', 'Benjamin Graham', 'Saved', 'is-cover-dark'],
-              ['Security Analysis 6th Edition', 'Benjamin Graham', 'Reading', 'is-cover-dark'],
-              ['Common Stocks and Uncommon Profits', 'Philip A. Fisher', 'Saved', 'is-cover-paper'],
-              ["Poor Charlie's Almanack", 'Charlie Munger', 'Reading', 'is-cover-blue'],
-            ].map(([title, author, state, tone]) => (
-              <button key={title} type="button" className="learn-os-book-mini" onClick={() => setQuestion(`Tóm tắt sách ${title} cho sinh viên tài chính.`)}>
-                <span className={tone}>{title.split(' ').slice(0, 2).join(' ')}</span>
-                <strong>{title}</strong>
-                <small>{author}</small>
-                <em>{state}</em>
+            {dashboard.readingLibrary.map((item) => (
+              <button key={item.asset_id} type="button" className="learn-os-book-mini" onClick={() => setActiveBook(item)}>
+                <span className="is-cover-paper">{shortTitle(item.title, 18)}</span>
+                <strong>{item.title}</strong>
+                <small>{item.file_name}</small>
+                <em>{formatBytes(item.size_bytes)}</em>
               </button>
             ))}
+            {!dashboard.readingLibrary.length ? <p className="learn-os-muted">Chưa có sách trong thư viện local.</p> : null}
           </div>
         </article>
 
@@ -508,16 +489,12 @@ export default function LearningHomePage({
             <button type="button" className="learn-os-link-btn" onClick={handleTutor}>View all</button>
           </header>
           <div className="learn-os-live-list">
-            {[
-              ['JUN 03', 'Understanding Interest Rates & Bond Pricing', 'Prof. David Lin', '07:00 PM'],
-              ['JUN 07', 'Equity Valuation Methods', 'Maria Chen', '06:00 PM'],
-              ['JUN 10', 'Portfolio Risk & Diversification', 'James Patel', '07:00 PM'],
-            ].map(([date, title, teacher, time]) => (
-              <button key={title} type="button" className="learn-os-live-row" onClick={() => setQuestion(`Chuẩn bị câu hỏi cho lớp ${title}.`)}>
-                <span>{date}</span>
-                <strong>{title}<small>{teacher} · Live Webinar</small></strong>
-                <em>{time}</em>
-                <b>Register</b>
+            {dashboard.pathLessons.slice(0, 3).map((item, index) => (
+              <button key={item.lesson_id} type="button" className="learn-os-live-row" onClick={() => setQuestion(`Giải thích bài ${item.title} cho tôi.`)}>
+                <span>{item.status === 'completed' ? 'DONE' : item.is_next ? 'NEXT' : `L${index + 1}`}</span>
+                <strong>{item.title}<small>{contentTypeLabel(item.content_type)} · {tierLabel(item.tier)}</small></strong>
+                <em>{item.estimated_minutes}m</em>
+                <b>{item.status === 'completed' ? 'Review' : 'Study'}</b>
               </button>
             ))}
           </div>
@@ -535,19 +512,15 @@ export default function LearningHomePage({
           </header>
           <div className="learn-os-study-plan">
             <div className="learn-os-calendar-strip">
-              {['Mon 26', 'Tue 27', 'Wed 28', 'Thu 29', 'Fri 30', 'Sat 31', 'Sun 1'].map((day, index) => (
+              {dashboard.studyDays.map((day, index) => (
                 <span key={day} className={index === 0 ? 'is-active' : ''}>{day}</span>
               ))}
             </div>
-            {[
-              ['Complete: GDP & Economic Growth', 'Macroeconomics Overview', '30m'],
-              ['Watch: Supply and Demand in Action', 'Microeconomics Basics', '45m'],
-              ['Quiz: Market Equilibrium', 'Microeconomics Basics', '20m'],
-            ].map(([task, sub, time], index) => (
-              <label key={task} className="learn-os-task-row">
-                <input type="checkbox" defaultChecked={index === 0} />
-                <strong>{task}<small>{sub}</small></strong>
-                <em>{time}</em>
+            {dashboard.studyPlan.map((item) => (
+              <label key={item.lesson_id} className="learn-os-task-row">
+                <input type="checkbox" readOnly checked={item.status === 'completed'} />
+                <strong>{item.task}<small>{item.sub}</small></strong>
+                <em>{item.time}</em>
               </label>
             ))}
           </div>
@@ -561,12 +534,7 @@ export default function LearningHomePage({
             <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
           </header>
           <div className="learn-os-achievement-grid">
-            {[
-              ['First Steps', 'Complete your first course', 'Earned', 'is-green'],
-              ['Consistent Learner', 'Maintain a 7-day study streak', 'Earned', 'is-amber'],
-              ['Quiz Master', 'Score 80% or higher in 10 quizzes', '7/10', 'is-teal'],
-              ['Course Explorer', 'Complete 10 courses', '8/10', 'is-purple'],
-            ].map((item, index) => {
+            {dashboard.achievements.map((item, index) => {
               const icons = [<StarIcon size={28} fill="currentColor" />, <FlameIcon size={28} fill="currentColor" />, <LightbulbIcon size={28} fill="currentColor" />, <BookIcon size={28} />]
               return (
                 <article key={item[0]} className="learn-os-achievement">
@@ -1855,10 +1823,137 @@ function formatBytes(bytes) {
   return `${amount.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
+function buildRealResourceBundle({ lesson, videoAssets, audioAssets, bookAssets }) {
+  const tier = lesson?.tier || ''
+  const titleNeedle = normalizeSearchText(`${lesson?.title || ''} ${lesson?.summary || ''} ${tierLabel(tier)}`)
+  const matchesLesson = (item) => {
+    const haystack = normalizeSearchText(`${item.title || ''} ${item.file_name || ''}`)
+    return titleNeedle.split(' ').some((token) => token.length > 3 && haystack.includes(token))
+  }
+  const videos = [...(videoAssets || []), ...(audioAssets || [])]
+    .filter(matchesLesson)
+    .slice(0, 3)
+    .map((item) => ({
+      id: item.asset_id,
+      title: item.title,
+      duration: `${formatBytes(item.size_bytes)} · ${fileExtension(item.file_name).toUpperCase()}`,
+      href: item.url,
+    }))
+  const books = (bookAssets || [])
+    .filter(matchesLesson)
+    .slice(0, 3)
+    .map((item) => ({
+      id: item.asset_id,
+      title: item.title,
+      summary: `${item.file_name} · ${formatBytes(item.size_bytes)}`,
+      href: item.url,
+    }))
+  return {
+    videos,
+    books,
+    practical: buildPracticalActions(lesson),
+  }
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function buildPracticalActions(lesson) {
+  if (!lesson) return []
+  if (lesson.content_type === 'practical_tool_lesson' && lesson.lesson_id?.includes('goal')) {
+    return [{ id: 'goals', title: 'Áp dụng bài học bằng cách cập nhật mục tiêu thật.', ctaLabel: 'Mở Goals', ctaType: 'goals' }]
+  }
+  if (lesson.tier === 'product_tool_literacy') {
+    return [{ id: 'insights', title: 'Xem dữ liệu trong app để nối bài học với bối cảnh thật.', ctaLabel: 'Mở Insights', ctaType: 'insights' }]
+  }
+  if (lesson.tier === 'basic_investing_literacy') {
+    return [{ id: 'guided', title: 'Đọc rủi ro và drawdown bằng Guided Investing.', ctaLabel: 'Mở Guided Investing', ctaType: 'guided_investing' }]
+  }
+  return [{ id: 'health', title: 'Dùng Financial Health để kiểm tra baseline cá nhân.', ctaLabel: 'Mở Financial Health', ctaType: 'financial_health' }]
+}
+
 function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audioAssets, bookAssets, resourceBundle }) {
   const completion = Math.max(0, data?.completion_pct || 0)
-  const lessonMinutes = Math.max(lesson?.estimated_minutes || 5, 5)
+  const pathLessons = data?.path_lessons?.length ? data.path_lessons : []
+  const courseRows = data?.courses?.length ? data.courses : []
+  const metricRows = data?.stats?.length ? data.stats : []
+  const topics = data?.topics?.length
+    ? data.topics.map((topic, index) => ({
+        label: topic.label,
+        count: `${topic.course_count} courses · ${topic.lesson_count} lessons`,
+        icon: topicIcon(topic.tier, index),
+      }))
+    : [{
+        label: data?.path_label || 'Current Path',
+        count: `${pathLessons.length || 0} lessons`,
+        icon: <BookIcon size={22} />,
+      }]
+  const courseCards = courseRows.length
+    ? courseRows.map((course, index) => ({
+        title: course.title,
+        meta: `${course.lesson_count} lessons · ${tierLabel(course.tier)}`,
+        tag: 'Course',
+        progress: course.progress_pct,
+        tone: ['is-navy', 'is-emerald', 'is-purple', 'is-amber', 'is-paper'][index % 5],
+        icon: topicIcon(course.tier, index, 34),
+      }))
+    : pathLessons.map((item, index) => ({
+        title: item.title,
+        meta: `${contentTypeLabel(item.content_type)} · ${item.estimated_minutes}m`,
+        tag: item.status === 'completed' ? 'Done' : 'Lesson',
+        progress: item.status === 'completed' ? 100 : item.is_next ? Math.max(10, completion) : 0,
+        tone: ['is-navy', 'is-emerald', 'is-purple', 'is-amber', 'is-paper'][index % 5],
+        icon: <BookIcon size={34} />,
+      }))
+  const recommended = [
+    ...(lesson ? [{
+      title: lesson.title,
+      summary: lesson.summary,
+      meta: `${contentTypeLabel(lesson.content_type)} · ${lesson.estimated_minutes}m`,
+      score: lesson.progress_status === 'completed' ? 'Done' : 'Next',
+      badge: shortBadge(lesson.title),
+    }] : []),
+    ...pathLessons
+      .filter((item) => item.lesson_id !== lesson?.lesson_id)
+      .slice(0, 2)
+      .map((item) => ({
+        title: item.title,
+        summary: item.summary,
+        meta: `${contentTypeLabel(item.content_type)} · ${item.estimated_minutes}m`,
+        score: item.status === 'completed' ? 'Done' : 'Path',
+        badge: shortBadge(item.title),
+      })),
+  ]
+  const statGrid = metricRows.length
+    ? metricRows.map((item) => ({ label: item.label, value: item.value, delta: item.detail || 'SQLite runtime' }))
+    : [
+        { label: 'Lessons Completed', value: `${data?.completed_lessons || 0}`, delta: 'Current path progress' },
+        { label: 'Path Progress', value: `${completion}%`, delta: data?.path_label || 'Active path' },
+      ]
+  const readingLibrary = (bookAssets || []).slice(0, 4)
+  const studyPlan = pathLessons.slice(0, 3).map((item) => ({
+    lesson_id: item.lesson_id,
+    task: item.status === 'completed' ? `Review: ${item.title}` : `Complete: ${item.title}`,
+    sub: tierLabel(item.tier),
+    time: `${item.estimated_minutes}m`,
+    status: item.status,
+  }))
+  const completedCount = Number(metricRows.find((item) => item.metric_id === 'completed_lessons')?.value || data?.completed_lessons || 0)
   return {
+    topics,
+    courseCards,
+    recommended,
+    statGrid,
+    readingLibrary,
+    pathLessons,
+    studyDays: nextSevenStudyDays(),
+    studyPlan,
     pathSteps: [
       { id: 'foundations', title: 'Foundations', subtitle: 'Nền tảng tài chính', state: 'is-active' },
       { id: 'risk', title: 'Risk', subtitle: 'Quản trị rủi ro', state: completion >= 25 ? 'is-active' : 'is-idle' },
@@ -1871,33 +1966,12 @@ function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audio
       { label: 'Current Path', value: data?.path_label || 'Financial Foundations', subtext: `Đã hoàn thành ${completion}%` },
       { label: 'Recommended Next', value: data?.next_lesson_title || 'Ngân sách là gì?', subtext: 'Bài học tiếp theo trong lộ trình' },
     ],
-    recommended: [
-      {
-        title: data?.next_lesson_title || 'Quỹ khẩn cấp: Tại sao và bắt đầu từ đâu?',
-        summary: lesson?.summary || data?.recommendation_summary || 'Hiểu tầm quan trọng của quỹ khẩn cấp và cách xây dựng quỹ dự phòng.',
-        minutes: lessonMinutes,
-        level: tierLabel(lesson?.tier).replace('Financial basics', 'Dễ'),
-      },
-      {
-        title: 'Ngân sách là gì?',
-        summary: 'Học cách lập ngân sách 50/30/20 để kiểm soát chi tiêu và đạt mục tiêu tài chính.',
-        minutes: 6,
-        level: 'Dễ',
-      },
-      {
-        title: 'Thu nhập - Chi tiêu - Tiết kiệm: Cân bằng ra sao?',
-        summary: 'Tìm hiểu nguyên tắc cân bằng tài chính cá nhân để sống thoải mái và tiến bộ mỗi ngày.',
-        minutes: 7,
-        level: 'Trung bình',
-      },
-    ],
     trackRows: [
       { id: 'path-current', title: data?.path_label || 'Financial Foundations', subtitle: 'Nền tảng tài chính', progress: completion, status: 'Đang học' },
       { id: 'risk-market', title: 'Risk & Market Basics', subtitle: 'Rủi ro & thị trường cơ bản', progress: Math.max(8, Math.round(completion * 0.65)), status: 'Chưa bắt đầu' },
       { id: 'goal-plan', title: 'Goal Planning', subtitle: 'Lập kế hoạch mục tiêu', progress: Math.max(0, completion - 12), status: 'Chưa bắt đầu' },
       { id: 'investing', title: 'Investing Basics', subtitle: 'Đầu tư cơ bản', progress: Math.max(0, completion - 24), status: 'Chưa bắt đầu' },
     ],
-    topics: ['Saving', 'Budgeting', 'Debt', 'Emergency Fund', 'Risk', 'News', 'BCTC Basics', 'Portfolio Basics'],
     learnToday: [
       { title: contextCards[0]?.recommended_lesson_title || 'Risk-on / Risk-off là gì?', summary: contextCards[0]?.reason || 'Hiểu cách thị trường dịch chuyển giữa các chế độ rủi ro.', meta: '5 phút • Dễ', ctaType: 'insights' },
       { title: 'Tỷ giá ảnh hưởng thế nào?', summary: contextCards[1]?.reason || 'Tìm hiểu tác động của tỷ giá đến doanh nghiệp và danh mục đầu tư.', meta: '6 phút • Dễ', ctaType: 'guided_investing' },
@@ -1908,9 +1982,10 @@ function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audio
       return { day, minutes, height: Math.min(100, Math.round((minutes / 45) * 100)) }
     }),
     achievements: [
-      { title: 'Consistent Learner', subtitle: `${Math.max(3, Math.round(completion / 2))} ngày liên tiếp`, tone: 'is-teal' },
-      { title: 'Quick Starter', subtitle: `Hoàn thành ${Math.max(1, data?.completed_lessons || 0)} bài học`, tone: 'is-green' },
-      { title: 'Curious Mind', subtitle: `${Math.max(3, LEARN_QUICK_PROMPTS.length)} câu hỏi cho Tutor`, tone: 'is-amber' },
+      ['First Step', `Hoàn thành ${completedCount} bài học`, completedCount > 0 ? 'Earned' : 'In progress', 'is-green'],
+      ['Quiz Practice', metricRows.find((item) => item.metric_id === 'quiz_attempts')?.value || '0 attempts', 'SQLite', 'is-teal'],
+      ['Study Time', metricRows.find((item) => item.metric_id === 'study_minutes')?.value || '0m', 'Runtime', 'is-amber'],
+      ['Current Path', data?.path_label || 'Learning path', `${completion}%`, 'is-purple'],
     ],
     mediaCounts: {
       videos: videoAssets.length,
@@ -1923,4 +1998,26 @@ function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audio
       practical: resourceBundle.practical.length,
     },
   }
+}
+
+function topicIcon(tier, index = 0, size = 22) {
+  if (tier === 'financial_basics') return <PiggyBankIcon size={size} />
+  if (tier === 'basic_investing_literacy') return <LineChartIcon size={size} />
+  if (tier === 'product_tool_literacy') return <CalculatorIcon size={size} />
+  return [<BookIcon size={size} />, <GlobeIcon size={size} />, <ShieldIcon size={size} />][index % 3]
+}
+
+function shortBadge(title) {
+  const words = String(title || 'Lesson').split(/\s+/).filter(Boolean)
+  return words.slice(0, 2).join('\n').toUpperCase()
+}
+
+function nextSevenStudyDays() {
+  const formatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric' })
+  const today = new Date()
+  return Array.from({ length: 7 }, (_, index) => {
+    const next = new Date(today)
+    next.setDate(today.getDate() + index)
+    return formatter.format(next)
+  })
 }

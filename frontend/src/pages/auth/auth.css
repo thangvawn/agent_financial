@@ -130,13 +130,39 @@
 }
 
 .auth-hero-brand i {
+  position: relative;
   display: block;
   width: 1.6rem;
   height: 1.6rem;
-  border-radius: 0.4rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 0.48rem;
   background:
-    linear-gradient(135deg, transparent 42%, #15a79d 42%, #15a79d 58%, transparent 58%),
-    linear-gradient(45deg, transparent 42%, #15a79d 42%, #15a79d 58%, transparent 58%);
+    radial-gradient(circle at 72% 22%, rgba(255, 214, 102, 0.96) 0 0.18rem, transparent 0.2rem),
+    linear-gradient(145deg, #0b2325 0%, #0d9488 58%, #14b8a6 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 10px 24px rgba(13, 148, 136, 0.28);
+}
+
+.auth-hero-brand i::before {
+  content: "";
+  position: absolute;
+  inset: 0.35rem;
+  background: #ffffff;
+  clip-path: polygon(50% 0%, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0% 50%, 39% 38%);
+}
+
+.auth-hero-brand i::after {
+  content: "";
+  position: absolute;
+  right: 0.31rem;
+  bottom: 0.33rem;
+  width: 0.42rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  transform: rotate(-38deg);
 }
 
 .auth-hero-brand strong {

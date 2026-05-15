@@ -74,7 +74,7 @@
 
 .learn-os-topbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 420px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.62fr);
   gap: 18px;
   align-items: center;
   min-width: 0;
@@ -137,6 +137,60 @@
   background: #ffffff !important;
   color: var(--learn-ink) !important;
   box-shadow: 0 8px 24px rgba(31, 27, 80, 0.04) !important;
+}
+
+.learn-os-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid var(--learn-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 10px 28px rgba(31, 27, 80, 0.05);
+}
+
+.learn-os-view-tabs button {
+  display: grid;
+  gap: 3px;
+  width: auto !important;
+  min-height: 46px !important;
+  padding: 8px 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--learn-muted) !important;
+  text-align: left;
+  box-shadow: none !important;
+}
+
+.learn-os-view-tabs button strong {
+  color: inherit;
+  font-size: 0.88rem;
+  line-height: 1.1;
+}
+
+.learn-os-view-tabs button span {
+  color: inherit;
+  font-size: 0.7rem;
+  line-height: 1.1;
+}
+
+.learn-os-view-tabs button.is-active {
+  border-color: rgba(91, 75, 255, 0.22) !important;
+  background: var(--learn-teal-soft) !important;
+  color: var(--learn-teal-dark) !important;
+}
+
+.learn-os-page--lesson :is(.learn-os-topic-carousel, .learn-os-progress-panel, .learn-os-continue, .learn-os-main-row, .learn-os-dashboard-grid, .learn-os-community, .learn-os-card--media),
+.learn-os-page--path :is(.learn-os-layout, .learn-os-dashboard-grid--bottom, .learn-os-dashboard-grid--footer, .learn-os-community, .learn-os-card--media),
+.learn-os-page--library :is(.learn-os-topic-carousel, .learn-os-progress-panel, .learn-os-continue, .learn-os-main-row, .learn-os-dashboard-grid, .learn-os-community, .learn-os-layout) {
+  display: none !important;
+}
+
+.learn-os-page--path :is(.learn-os-goal-card, .learn-os-activity-card, .learn-os-line-chart) {
+  display: none !important;
 }
 
 .learn-os-section-title {
@@ -1836,7 +1890,8 @@
 
   .learn-os-topic-strip,
   .learn-os-course-strip,
-  .learn-os-progress-card__body {
+  .learn-os-progress-card__body,
+  .learn-os-view-tabs {
     grid-template-columns: 1fr;
   }
 

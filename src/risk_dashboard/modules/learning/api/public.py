@@ -105,12 +105,13 @@ def list_learning_assets(kind: Literal["videos", "books", "audios"] = Query(defa
     for directory in source_dirs:
         if not directory.exists():
             continue
-        for path in sorted(directory.glob("*"), key=lambda item: item.name.lower()):
+        for path in sorted(directory.rglob("*"), key=lambda item: str(item.relative_to(directory)).lower()):
             if not path.is_file() or path.name.startswith("."):
                 continue
             if path.suffix.lower() not in extensions:
                 continue
-            asset_id = _slugify(f"{path.parent.name}-{path.stem}")
+            relative_path = path.relative_to(settings.learning_assets_dir)
+            asset_id = _slugify(str(relative_path.with_suffix("")))
             mime_type, _ = mimetypes.guess_type(path.name)
             cover_url = _find_cover_url(image_dir=image_dir, stem=path.stem)
             items.append(
@@ -119,7 +120,7 @@ def list_learning_assets(kind: Literal["videos", "books", "audios"] = Query(defa
                     kind=kind,
                     file_name=path.name,
                     title=_title_from_stem(path.stem),
-                    url=f"/learning-assets/{quote(path.parent.name)}/{quote(path.name)}",
+                    url=f"/learning-assets/{_quote_path(relative_path)}",
                     mime_type=mime_type,
                     size_bytes=path.stat().st_size,
                     cover_url=cover_url,
@@ -131,7 +132,8 @@ def list_learning_assets(kind: Literal["videos", "books", "audios"] = Query(defa
 @router.get("/home", response_model=LearningHomeResponse, tags=["Learning"])
 def get_learning_home(session_id: str = Query(..., min_length=8)) -> LearningHomeResponse:
     try:
-        service = GetLearningHome(reader=_repo())
+        repo = _repo()
+        service = GetLearningHome(reader=repo, catalog=_catalog(), progress=repo)
         return service.execute(user_id=session_id)
     except ValueError as exc:
         # Graceful bootstrap for local/public sessions that skipped onboarding seeding.
@@ -143,7 +145,8 @@ def get_learning_home(session_id: str = Query(..., min_length=8)) -> LearningHom
                 persona_segment="starter",
                 primary_route="learn",
             )
-            return GetLearningHome(reader=_repo()).execute(user_id=session_id)
+            repo = _repo()
+            return GetLearningHome(reader=repo, catalog=_catalog(), progress=repo).execute(user_id=session_id)
         except Exception as seed_exc:  # pragma: no cover - defensive fallback
             raise HTTPException(status_code=404, detail=str(seed_exc)) from seed_exc
 
@@ -247,6 +250,10 @@ def _title_from_stem(stem: str) -> str:
 def _slugify(text: str) -> str:
     normalized = "".join(char.lower() if char.isalnum() else "-" for char in text)
     return "-".join(part for part in normalized.split("-") if part)
+
+
+def _quote_path(path: Path) -> str:
+    return "/".join(quote(part) for part in path.parts)
 
 
 def _find_cover_url(*, image_dir: Path, stem: str) -> str | None:

@@ -4,18 +4,18 @@ import { trackAnalyticsEvent } from '../analytics/trackEvent'
 
 const FLOW = [
   {
-    id: 'learning',
-    label: 'Learn',
-    short: 'Short lessons',
-    group: 'education',
-    action: 'openLearning',
-  },
-  {
     id: 'global_terminal',
     label: 'Global Terminal',
     short: 'Cross-asset market desk',
     group: 'analysis',
     action: 'openGlobalTerminal',
+  },
+  {
+    id: 'learning',
+    label: 'Learn',
+    short: 'Short lessons',
+    group: 'education',
+    action: 'openLearning',
   },
   {
     id: 'guided_investing',
@@ -41,7 +41,7 @@ const FLOW = [
   },
 ]
 
-export default function ConnectedWorkspaceNav({ currentView, sessionId, actions }) {
+export default function ConnectedWorkspaceNav({ currentView, sessionId, actions, showTabs = true }) {
   const [isScrolled, setIsScrolled] = useState(() => getScrollY() > 18)
   const [isHidden, setIsHidden] = useState(false)
   const lastScrollYRef = useRef(getScrollY())
@@ -103,14 +103,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions 
         <strong>Northstar Finance</strong>
       </div>
       <div className="connected-nav__tabs">
-        <button
-          type="button"
-          className={`connected-nav__tab ${currentView === 'home' ? 'connected-nav__tab--active' : ''}`}
-          onClick={() => actions?.openHome?.()}
-        >
-          Home
-        </button>
-        {FLOW.map((item) => (
+        {showTabs ? FLOW.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -120,25 +113,43 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions 
             {item.label}
             {item.id === 'pro_lab' ? <span className="connected-nav__pro">PRO</span> : null}
           </button>
-        ))}
+        )) : null}
       </div>
       {!sessionId ? (
-        <button
-          type="button"
-          className="connected-nav__login"
-          onClick={() => actions?.openLogin?.()}
-        >
-          Đăng nhập
-        </button>
+        <div className="connected-nav__auth-actions">
+          <button
+            type="button"
+            className="connected-nav__login connected-nav__login--ghost"
+            onClick={() => actions?.openLogin?.()}
+          >
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            className="connected-nav__login"
+            onClick={() => actions?.openRegister?.()}
+          >
+            Tạo tài khoản
+          </button>
+        </div>
       ) : (
-        <button
-          type="button"
-          className="connected-nav__avatar"
-          onClick={() => actions?.openLogin?.()}
-          aria-label="Tài khoản"
-        >
-          {getInitial(sessionId)}
-        </button>
+        <div className="connected-nav__account">
+          <button
+            type="button"
+            className="connected-nav__avatar"
+            onClick={() => actions?.openGlobalTerminal?.()}
+            aria-label="Tài khoản"
+          >
+            {getInitial(sessionId)}
+          </button>
+          <button
+            type="button"
+            className="connected-nav__logout"
+            onClick={() => actions?.openLogout?.()}
+          >
+            Đăng xuất
+          </button>
+        </div>
       )}
       </nav>
     </div>
