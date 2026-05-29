@@ -131,7 +131,9 @@ class DataHubService:
         }
 
     def get_instrument_history(self, *, symbol: str, period: str = "6mo", interval: str = "1d") -> dict[str, Any]:
-        return GlobalMarketFeedProducer(max_cache_age_seconds=900).history(symbol=symbol, period=period, interval=interval)
+        # Variable cache TTL by interval — intraday must refresh aggressively for near-realtime feel.
+        ttl = _cache_ttl_for_interval(interval)
+        return GlobalMarketFeedProducer(max_cache_age_seconds=ttl).history(symbol=symbol, period=period, interval=interval)
 
     def _build_snapshots(self) -> tuple[TopicSnapshot, ...]:
         now = utc_now_iso()
@@ -222,3 +224,22 @@ def _freshness_label(snapshots) -> str:
     if "stale" in values:
         return "Một số topic đã cũ."
     return "Các topic chính đang sẵn sàng."
+
+
+# Cache TTL by chart interval — intraday gets aggressive refresh, daily+ caches longer
+_INTERVAL_TTL_SECONDS: dict[str, int] = {
+    "1m": 30,
+    "5m": 60,
+    "15m": 180,
+    "30m": 300,
+    "1h": 600,
+    "4h": 900,
+    "1d": 3600,
+    "1wk": 6 * 3600,
+    "1mo": 12 * 3600,
+    "1y": 24 * 3600,
+}
+
+
+def _cache_ttl_for_interval(interval: str) -> int:
+    return _INTERVAL_TTL_SECONDS.get(interval, 900)

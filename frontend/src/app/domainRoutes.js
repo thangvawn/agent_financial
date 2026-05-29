@@ -7,8 +7,6 @@ export const DOMAIN_ROUTES = {
   '/learning': 'learning',
   '/financial-statement-simulator': 'financial_statement_simulator',
   '/assignments': 'guided_investing',
-  '/financial-health': 'financial_health',
-  '/goals': 'goals',
   '/global-terminal': 'global_terminal',
   '/markets': 'global_terminal',
   '/simulation-lab': 'global_terminal',

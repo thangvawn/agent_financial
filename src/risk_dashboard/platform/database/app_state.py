@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 import os
+from contextlib import contextmanager
 from datetime import datetime, timezone, tzinfo
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from typing import Iterator
 from zoneinfo import ZoneInfo
 
 from risk_dashboard.app.config.settings import get_settings
@@ -108,6 +110,126 @@ CREATE TABLE IF NOT EXISTS learning_cms_documents (
   published_at TEXT,
   PRIMARY KEY (doc_type, doc_id)
 );
+
+CREATE TABLE IF NOT EXISTS learning_topics (
+  topic_id TEXT PRIMARY KEY,
+  label_vi TEXT NOT NULL,
+  label_en TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 100
+);
+
+CREATE TABLE IF NOT EXISTS learning_courses (
+  course_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  external_id TEXT,
+  title TEXT NOT NULL,
+  provider TEXT,
+  instructor TEXT,
+  description TEXT,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT,
+  language TEXT NOT NULL DEFAULT 'en',
+  level TEXT,
+  duration_minutes INTEGER,
+  topics_json TEXT NOT NULL DEFAULT '[]',
+  tier TEXT,
+  published_at TEXT,
+  fetched_at TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_courses_source_ext ON learning_courses(source, external_id);
+CREATE INDEX IF NOT EXISTS idx_learning_courses_tier ON learning_courses(tier);
+CREATE INDEX IF NOT EXISTS idx_learning_courses_lang ON learning_courses(language);
+
+CREATE TABLE IF NOT EXISTS learning_videos (
+  video_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  channel TEXT,
+  channel_id TEXT,
+  description TEXT,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT,
+  language TEXT NOT NULL DEFAULT 'en',
+  duration_seconds INTEGER,
+  view_count INTEGER,
+  topics_json TEXT NOT NULL DEFAULT '[]',
+  tier TEXT,
+  published_at TEXT,
+  fetched_at TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_videos_source_ext ON learning_videos(source, external_id);
+CREATE INDEX IF NOT EXISTS idx_learning_videos_tier ON learning_videos(tier);
+CREATE INDEX IF NOT EXISTS idx_learning_videos_lang ON learning_videos(language);
+
+CREATE TABLE IF NOT EXISTS learning_books (
+  book_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  external_id TEXT,
+  title TEXT NOT NULL,
+  author TEXT,
+  description TEXT,
+  url TEXT NOT NULL,
+  download_url TEXT,
+  cover_url TEXT,
+  language TEXT NOT NULL DEFAULT 'en',
+  publication_year INTEGER,
+  topics_json TEXT NOT NULL DEFAULT '[]',
+  tier TEXT,
+  fetched_at TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_books_source_ext ON learning_books(source, external_id);
+CREATE INDEX IF NOT EXISTS idx_learning_books_tier ON learning_books(tier);
+CREATE INDEX IF NOT EXISTS idx_learning_books_lang ON learning_books(language);
+
+CREATE TABLE IF NOT EXISTS learning_papers (
+  paper_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  authors_json TEXT NOT NULL DEFAULT '[]',
+  abstract TEXT,
+  url TEXT NOT NULL,
+  pdf_url TEXT,
+  category TEXT,
+  language TEXT NOT NULL DEFAULT 'en',
+  topics_json TEXT NOT NULL DEFAULT '[]',
+  tier TEXT,
+  published_at TEXT,
+  fetched_at TEXT NOT NULL,
+  citation_count INTEGER,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_papers_source_ext ON learning_papers(source, external_id);
+CREATE INDEX IF NOT EXISTS idx_learning_papers_tier ON learning_papers(tier);
+CREATE INDEX IF NOT EXISTS idx_learning_papers_published ON learning_papers(published_at DESC);
+
+CREATE TABLE IF NOT EXISTS learning_resource_topics (
+  resource_kind TEXT NOT NULL,
+  resource_id TEXT NOT NULL,
+  topic_id TEXT NOT NULL,
+  PRIMARY KEY (resource_kind, resource_id, topic_id)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_resource_topics_topic ON learning_resource_topics(topic_id);
+
+CREATE TABLE IF NOT EXISTS learning_crawl_runs (
+  run_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  rows_inserted INTEGER NOT NULL DEFAULT 0,
+  rows_updated INTEGER NOT NULL DEFAULT 0,
+  rows_skipped INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_learning_crawl_runs_started ON learning_crawl_runs(started_at DESC);
 
 CREATE TABLE IF NOT EXISTS news_articles (
   article_id TEXT PRIMARY KEY,
@@ -485,6 +607,29 @@ CREATE TABLE IF NOT EXISTS access_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_access_tokens_actor_id ON access_tokens(actor_id);
 
+CREATE TABLE IF NOT EXISTS accounts (
+  account_id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
+
+CREATE TABLE IF NOT EXISTS account_sessions (
+  session_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_sessions_account_id ON account_sessions(account_id);
+
 CREATE TABLE IF NOT EXISTS ai_conversation_sessions (
   conversation_id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -831,7 +976,7 @@ def _normalize_news_articles_timestamps(conn: sqlite3.Connection) -> None:
     )
 
 
-def open_app_state_db(db_path: str | Path | None = None) -> sqlite3.Connection:
+def _connect_app_state_db(db_path: str | Path | None = None) -> sqlite3.Connection:
     path = Path(db_path or os.getenv("RISK_DASHBOARD_APP_STATE_DB") or get_settings().app_state_db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), check_same_thread=False)
@@ -840,6 +985,25 @@ def open_app_state_db(db_path: str | Path | None = None) -> sqlite3.Connection:
     _ensure_schema_compatibility(conn)
     conn.commit()
     return conn
+
+
+@contextmanager
+def open_app_state_db(db_path: str | Path | None = None) -> Iterator[sqlite3.Connection]:
+    """Open an app-state sqlite connection that commits on success and always closes.
+
+    sqlite3.Connection.__exit__ only commits/rolls back — it does NOT close, so callers
+    using `with sqlite3.connect(...) as conn` leak the file descriptor. This wrapper
+    fixes that by adding an explicit close() in a finally block.
+    """
+    conn = _connect_app_state_db(db_path)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _ensure_schema_compatibility(conn: sqlite3.Connection) -> None:

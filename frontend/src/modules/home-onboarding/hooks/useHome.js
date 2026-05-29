@@ -1,41 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { fetchPersonalizedHome } from '../services/homeOnboardingApi'
 
+export function homeQueryKey(sessionId) {
+  return ['home', sessionId]
+}
+
 export function useHome(sessionId, refreshKey = 0) {
-  const [data, setData] = useState(null)
-  const [isLoading, setIsLoading] = useState(Boolean(sessionId))
-  const [error, setError] = useState('')
+  const query = useQuery({
+    queryKey: [...homeQueryKey(sessionId), refreshKey],
+    queryFn: () => fetchPersonalizedHome(sessionId),
+    enabled: Boolean(sessionId),
+  })
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function run() {
-      if (!sessionId) {
-        setData(null)
-        setError('')
-        setIsLoading(false)
-        return
-      }
-      setIsLoading(true)
-      setError('')
-      try {
-        const payload = await fetchPersonalizedHome(sessionId)
-        if (!cancelled) setData(payload)
-      } catch (err) {
-        if (!cancelled) {
-          setData(null)
-          setError(err.message)
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-
-    run()
-    return () => {
-      cancelled = true
-    }
-  }, [refreshKey, sessionId])
-
-  return { data, isLoading, error }
+  return {
+    data: query.data ?? null,
+    isLoading: query.isPending && query.fetchStatus !== 'idle',
+    error: query.error ? query.error.message : '',
+    refetch: query.refetch,
+  }
 }

@@ -1,3 +1,5 @@
+const cache = new Map()
+
 async function expectJson(response) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
@@ -7,9 +9,16 @@ async function expectJson(response) {
   return payload
 }
 
+async function fetchWithCache(key, url, refresh = false) {
+  if (!refresh && cache.has(key)) return cache.get(key)
+  const response = await fetch(url)
+  const payload = await expectJson(response)
+  cache.set(key, payload)
+  return payload
+}
+
 export async function fetchFinancialStatus() {
-  const response = await fetch('/financials/status')
-  return expectJson(response)
+  return fetchWithCache('status', '/financials/status')
 }
 
 export async function fetchFinancialAnalysis(ticker, { refresh = false } = {}) {
@@ -17,8 +26,7 @@ export async function fetchFinancialAnalysis(ticker, { refresh = false } = {}) {
   const params = new URLSearchParams()
   if (refresh) params.set('refresh', '1')
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/analysis${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`analysis_${symbol}`, `/financials/${encodeURIComponent(symbol)}/analysis${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchFinancialSections(ticker, { refresh = false } = {}) {
@@ -26,8 +34,7 @@ export async function fetchFinancialSections(ticker, { refresh = false } = {}) {
   const params = new URLSearchParams()
   if (refresh) params.set('refresh', '1')
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/sections${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`sections_${symbol}`, `/financials/${encodeURIComponent(symbol)}/sections${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchFinancialSection(ticker, section, { refresh = false } = {}) {
@@ -36,8 +43,7 @@ export async function fetchFinancialSection(ticker, section, { refresh = false }
   const params = new URLSearchParams()
   if (refresh) params.set('refresh', '1')
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/sections/${encodeURIComponent(normalizedSection)}${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`section_${symbol}_${normalizedSection}`, `/financials/${encodeURIComponent(symbol)}/sections/${encodeURIComponent(normalizedSection)}${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchFinancialQualityCharts(ticker, { refresh = false } = {}) {
@@ -45,8 +51,7 @@ export async function fetchFinancialQualityCharts(ticker, { refresh = false } = 
   const params = new URLSearchParams()
   if (refresh) params.set('refresh', '1')
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/quality-charts${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`quality_${symbol}`, `/financials/${encodeURIComponent(symbol)}/quality-charts${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchBalanceSheetStrength(ticker, { period = '', refresh = false } = {}) {
@@ -55,8 +60,7 @@ export async function fetchBalanceSheetStrength(ticker, { period = '', refresh =
   if (period) params.set('period', period)
   if (refresh) params.set('refresh', '1')
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/balance-sheet-strength${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`balance_${symbol}_${period}`, `/financials/${encodeURIComponent(symbol)}/balance-sheet-strength${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchFinancialPeers(ticker, peers = '') {
@@ -64,6 +68,5 @@ export async function fetchFinancialPeers(ticker, peers = '') {
   const params = new URLSearchParams()
   if ((peers || '').trim()) params.set('peers', peers)
   const query = params.toString()
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/peers${query ? `?${query}` : ''}`)
-  return expectJson(response)
+  return fetchWithCache(`peers_${symbol}_${peers}`, `/financials/${encodeURIComponent(symbol)}/peers${query ? `?${query}` : ''}`)
 }

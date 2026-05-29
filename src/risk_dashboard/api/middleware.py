@@ -14,12 +14,18 @@ from risk_dashboard.platform.security.access_control import get_token_scopes, sc
 logger = logging.getLogger(__name__)
 
 PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
+PUBLIC_PATH_PREFIXES = ("/api/v1/public/auth/",)
 
 
 def _pro_lab_local_test_open() -> bool:
     explicit = os.getenv("PRO_LAB_LOCAL_TEST_OPEN", "").strip().lower()
-    mode = os.getenv("MODE", "").strip().lower()
-    return explicit in {"1", "true", "yes", "on"} or mode in {"development", "dev", "local", "test"}
+    if explicit in {"1", "true", "yes", "on"}:
+        logger.warning(
+            "PRO_LAB_LOCAL_TEST_OPEN is enabled — /api/v1/pro/pro-lab/* is unauthenticated. "
+            "Never set this in production."
+        )
+        return True
+    return False
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
@@ -32,13 +38,12 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
-
-        path = request.url.path
-        # Trạng thái lab (không lộ khóa) — cho phép gọi không cần API key.
-        if request.method == "GET" and path == "/admin/trading-lab/status":
+        if any(request.url.path.startswith(prefix) for prefix in PUBLIC_PATH_PREFIXES):
             return await call_next(request)
 
-        # Cho phép Trading Lab chỉ với khóa admin (tránh phải nhúng API_SECRET_KEY vào frontend).
+        path = request.url.path
+
+        # Trading Lab status & các route khác: yêu cầu token admin hoặc admin lab key.
         if path.startswith("/admin/trading-lab"):
             access_token = get_token_scopes(request.headers.get("X-Access-Token", "").strip())
             if access_token and scope_allows(access_token.scopes, "admin:pro_lab:manage"):

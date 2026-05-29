@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +14,7 @@ _PANEL: pd.DataFrame | None = None
 _PANEL_SOURCE: str | None = None
 _PANEL_LOAD_ERROR: str | None = None
 _PANEL_LOAD_HINT: str | None = None
+_PANEL_LOCK = threading.RLock()
 
 
 @dataclass
@@ -25,36 +27,43 @@ class PanelUnavailableError(RuntimeError):
 
 def _set_panel_load_diagnostics(error: str | None, hint: str | None = None) -> None:
     global _PANEL_LOAD_ERROR, _PANEL_LOAD_HINT
-    _PANEL_LOAD_ERROR = error
-    _PANEL_LOAD_HINT = hint
+    with _PANEL_LOCK:
+        _PANEL_LOAD_ERROR = error
+        _PANEL_LOAD_HINT = hint
 
 
 def _panel_not_loaded_detail() -> dict[str, str]:
-    return {
-        "message": "Panel not loaded",
-        "error": _PANEL_LOAD_ERROR or "Backend chưa nạp được training panel.",
-        "hint": _PANEL_LOAD_HINT or "Tạo lại panel parquet trong `data/cache` rồi restart backend.",
-    }
+    with _PANEL_LOCK:
+        return {
+            "message": "Panel not loaded",
+            "error": _PANEL_LOAD_ERROR or "Backend chưa nạp được training panel.",
+            "hint": _PANEL_LOAD_HINT or "Tạo lại panel parquet trong `data/cache` rồi restart backend.",
+        }
 
 
 def get_panel() -> pd.DataFrame:
-    if _PANEL is None:
-        raise PanelUnavailableError(_panel_not_loaded_detail())
-    return _PANEL
+    """Return a defensive copy of the loaded panel. Callers may freely mutate the result."""
+    with _PANEL_LOCK:
+        if _PANEL is None:
+            raise PanelUnavailableError(_panel_not_loaded_detail())
+        return _PANEL.copy()
 
 
 def set_panel_for_testing(df: pd.DataFrame) -> None:
     global _PANEL, _PANEL_SOURCE
-    _PANEL = df.copy()
-    _PANEL_SOURCE = "testing"
+    with _PANEL_LOCK:
+        _PANEL = df.copy()
+        _PANEL_SOURCE = "testing"
     _set_panel_load_diagnostics(None, None)
 
 
 def set_panel_from_frame(df: pd.DataFrame, *, source: str) -> None:
     global _PANEL, _PANEL_SOURCE
-    _PANEL = df.copy()
-    _PANEL["date"] = pd.to_datetime(_PANEL["date"])
-    _PANEL_SOURCE = source
+    staged = df.copy()
+    staged["date"] = pd.to_datetime(staged["date"])
+    with _PANEL_LOCK:
+        _PANEL = staged
+        _PANEL_SOURCE = source
     _set_panel_load_diagnostics(None, None)
 
 
@@ -128,33 +137,36 @@ def autoload_default_panel() -> bool:
 
 
 def panel_status() -> dict[str, object]:
-    if _PANEL is None or _PANEL.empty:
-        return {
-            "loaded": False,
-            "rows": 0,
-            "start_date": None,
-            "end_date": None,
-            "source": None,
-            "error": _PANEL_LOAD_ERROR,
-            "hint": _PANEL_LOAD_HINT,
-        }
-    panel = _PANEL.copy()
+    with _PANEL_LOCK:
+        if _PANEL is None or _PANEL.empty:
+            return {
+                "loaded": False,
+                "rows": 0,
+                "start_date": None,
+                "end_date": None,
+                "source": None,
+                "error": _PANEL_LOAD_ERROR,
+                "hint": _PANEL_LOAD_HINT,
+            }
+        panel = _PANEL.copy()
+        source = _PANEL_SOURCE
     panel["date"] = pd.to_datetime(panel["date"])
     return {
         "loaded": True,
         "rows": int(len(panel)),
         "start_date": panel["date"].min().date().isoformat(),
         "end_date": panel["date"].max().date().isoformat(),
-        "source": _PANEL_SOURCE,
+        "source": source,
         "error": None,
         "hint": None,
     }
 
 
 def panel_date_range() -> tuple[str | None, str | None]:
-    if _PANEL is None or _PANEL.empty:
-        return None, None
-    panel = _PANEL.copy()
+    with _PANEL_LOCK:
+        if _PANEL is None or _PANEL.empty:
+            return None, None
+        panel = _PANEL.copy()
     panel["date"] = pd.to_datetime(panel["date"])
     return panel["date"].min().date().isoformat(), panel["date"].max().date().isoformat()
 

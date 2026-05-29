@@ -5,6 +5,7 @@ from risk_dashboard.modules.analytics_monitoring.module import module as analyti
 from risk_dashboard.modules.agent_orchestration.module import module as agent_orchestration_module
 from risk_dashboard.modules.ai_assistant.module import module as ai_assistant_module
 from risk_dashboard.modules.admin_cms.module import module as admin_cms_module
+from risk_dashboard.modules.auth.module import module as auth_module
 from risk_dashboard.modules.community.module import module as community_module
 from risk_dashboard.modules.data_hub.module import module as data_hub_module
 from risk_dashboard.modules.financial_health.module import module as financial_health_module
@@ -30,6 +31,7 @@ def get_registered_modules() -> tuple[ModuleDefinition, ...]:
         quant_risk_module,
         agent_orchestration_module,
         ai_assistant_module,
+        auth_module,
         analytics_monitoring_module,
         trust_safety_module,
         admin_cms_module,

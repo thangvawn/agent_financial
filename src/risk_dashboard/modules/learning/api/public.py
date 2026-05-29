@@ -135,20 +135,23 @@ def get_learning_home(session_id: str = Query(..., min_length=8)) -> LearningHom
         repo = _repo()
         service = GetLearningHome(reader=repo, catalog=_catalog(), progress=repo)
         return service.execute(user_id=session_id)
+    except KeyError as exc:
+        # Saved home state references a deleted path/lesson — fall through to reseed.
+        pass
     except ValueError as exc:
         # Graceful bootstrap for local/public sessions that skipped onboarding seeding.
         if str(exc) != "Learning home state not found.":
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        try:
-            SeedLearningHome(writer=_repo(), catalog=_catalog()).execute(
-                user_id=session_id,
-                persona_segment="starter",
-                primary_route="learn",
-            )
-            repo = _repo()
-            return GetLearningHome(reader=repo, catalog=_catalog(), progress=repo).execute(user_id=session_id)
-        except Exception as seed_exc:  # pragma: no cover - defensive fallback
-            raise HTTPException(status_code=404, detail=str(seed_exc)) from seed_exc
+    try:
+        SeedLearningHome(writer=_repo(), catalog=_catalog()).execute(
+            user_id=session_id,
+            persona_segment="starter",
+            primary_route="learn",
+        )
+        repo = _repo()
+        return GetLearningHome(reader=repo, catalog=_catalog(), progress=repo).execute(user_id=session_id)
+    except Exception as seed_exc:  # pragma: no cover - defensive fallback
+        raise HTTPException(status_code=404, detail=str(seed_exc)) from seed_exc
 
 
 @router.get("/lessons/{lesson_id}", response_model=LearningLessonResponse, tags=["Learning"])
@@ -237,7 +240,110 @@ def learning_coach(req: LearningCoachRequest) -> LearningCoachResponse:
 
 @router.get("/context", response_model=LearningContextResponse, tags=["Learning"])
 def learning_context(trigger: str = Query(..., min_length=3, max_length=100)) -> LearningContextResponse:
-    return GetContextRecommendation(catalog=_catalog()).execute(trigger=trigger)
+    try:
+        return GetContextRecommendation(catalog=_catalog()).execute(trigger=trigger)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Context lesson not found.") from exc
+
+
+CatalogKind = Literal["video", "book", "paper", "course"]
+
+
+@router.get("/catalog", tags=["Learning"])
+def learning_catalog(
+    kind: CatalogKind = Query(default="video"),
+    topic: str | None = Query(default=None, max_length=64),
+    tier: str | None = Query(default=None, max_length=48),
+    language: str | None = Query(default=None, max_length=8),
+    limit: int = Query(default=60, ge=1, le=200),
+) -> dict:
+    """Return curated resources from `learning_{videos|books|papers|courses}`.
+
+    Catalog tables are populated by `risk-learning-crawl`; if they're empty
+    (e.g. before first crawl) the response is `{"kind": kind, "items": []}`.
+    """
+    from risk_dashboard.modules.learning.crawlers.common import open_catalog_db  # type: ignore[import-not-found]
+
+    table = {
+        "video": "learning_videos",
+        "book": "learning_books",
+        "paper": "learning_papers",
+        "course": "learning_courses",
+    }[kind]
+
+    where: list[str] = ["is_active = 1"]
+    params: list[object] = []
+    if topic:
+        where.append(f"EXISTS (SELECT 1 FROM learning_resource_topics rt "
+                     f"WHERE rt.resource_kind = ? AND rt.resource_id = {table}.{kind}_id "
+                     f"AND rt.topic_id = ?)")
+        params.extend([kind, topic])
+    if tier:
+        where.append("tier = ?")
+        params.append(tier)
+    if language:
+        where.append("language = ?")
+        params.append(language)
+
+    sort = "published_at" if kind == "paper" else "fetched_at"
+    query = (
+        f"SELECT * FROM {table} WHERE {' AND '.join(where)} "
+        f"ORDER BY {sort} DESC NULLS LAST LIMIT ?"
+    )
+    params.append(limit)
+
+    import sqlite3 as _sqlite3
+    try:
+        conn = open_catalog_db()
+    except _sqlite3.DatabaseError:
+        return {"kind": kind, "items": [], "count": 0, "warning": "catalog_db_unavailable"}
+    try:
+        rows = [dict(row) for row in conn.execute(query, params).fetchall()]
+    except _sqlite3.DatabaseError:
+        rows = []
+    finally:
+        conn.close()
+
+    import json as _json
+    for row in rows:
+        if isinstance(row.get("topics_json"), str):
+            try:
+                row["topics"] = _json.loads(row.pop("topics_json"))
+            except _json.JSONDecodeError:
+                row["topics"] = []
+        if "authors_json" in row and isinstance(row["authors_json"], str):
+            try:
+                row["authors"] = _json.loads(row.pop("authors_json"))
+            except _json.JSONDecodeError:
+                row["authors"] = []
+    return {"kind": kind, "items": rows, "count": len(rows)}
+
+
+@router.get("/catalog/topics", tags=["Learning"])
+def learning_catalog_topics() -> dict:
+    """List topic taxonomy + counts per topic."""
+    from risk_dashboard.modules.learning.crawlers.common import open_catalog_db  # type: ignore[import-not-found]
+
+    import sqlite3 as _sqlite3
+    try:
+        conn = open_catalog_db()
+    except _sqlite3.DatabaseError:
+        return {"topics": [], "warning": "catalog_db_unavailable"}
+    try:
+        topics = [dict(r) for r in conn.execute(
+            "SELECT topic_id, label_vi, label_en, tier, description, sort_order "
+            "FROM learning_topics ORDER BY sort_order"
+        ).fetchall()]
+        counts = {row["topic_id"]: row["n"] for row in conn.execute(
+            "SELECT topic_id, COUNT(*) as n FROM learning_resource_topics GROUP BY topic_id"
+        ).fetchall()}
+    except _sqlite3.DatabaseError:
+        topics, counts = [], {}
+    finally:
+        conn.close()
+    for topic in topics:
+        topic["resource_count"] = counts.get(topic["topic_id"], 0)
+    return {"topics": topics}
 
 
 def _title_from_stem(stem: str) -> str:

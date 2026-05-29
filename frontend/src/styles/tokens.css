@@ -1,28 +1,197 @@
+/* ============================================================
+   Northstar Finance Lab — Design Tokens (fintech-minimal)
+   References: Stripe Dashboard, Linear, Robinhood, TradingView
+   ============================================================ */
+
 :root {
   color-scheme: light;
-  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+
+  /* Typography */
+  --font-sans:
+    "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SF Mono", "Menlo", "Cascadia Mono", "Consolas",
+    monospace;
+  font-family: var(--font-sans);
+  font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
-  --bg: #eef3f1;
-  --bg-deep: #d9e7e3;
-  --surface: rgba(255, 255, 252, 0.9);
-  --surface-strong: rgba(255, 255, 252, 0.98);
-  --surface-ink: #102b2d;
-  --surface-muted: #62726f;
-  --line: rgba(16, 43, 45, 0.12);
-  --line-strong: rgba(16, 43, 45, 0.22);
-  --accent: #0f766e;
-  --accent-soft: #d9eee9;
-  --accent-warm: #b86b35;
-  --accent-warm-soft: #f2dec7;
-  --danger: #a4473c;
-  --danger-soft: #f7ded8;
-  --warn: #9a6a1d;
-  --warn-soft: #f5e7cb;
-  --shadow: 0 24px 60px rgba(34, 51, 45, 0.12);
-  --shadow-soft: 0 10px 28px rgba(34, 51, 45, 0.08);
-  --radius-xl: 28px;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* Type scale (rem-based, root = 14px) */
+  --fs-xs: 0.75rem;     /* 10.5 → use 11px in UI */
+  --fs-sm: 0.857rem;    /* 12 */
+  --fs-base: 1rem;      /* 14 */
+  --fs-md: 1.071rem;    /* 15 */
+  --fs-lg: 1.143rem;    /* 16 */
+  --fs-xl: 1.286rem;    /* 18 */
+  --fs-2xl: 1.5rem;     /* 21 */
+  --fs-3xl: 1.857rem;   /* 26 */
+  --fs-4xl: 2.286rem;   /* 32 */
+  --fs-5xl: 2.857rem;   /* 40 */
+  --fs-hero: 3.428rem;  /* 48 */
+
+  /* ---- Light surface palette (default) ---- */
+  --bg: #fafafa;
+  --bg-deep: #f4f4f5;
+  --surface: #ffffff;
+  --surface-alt: #f4f4f5;
+  --surface-sunken: #e4e4e7;
+  --surface-strong: #ffffff;
+  --ink: #09090b;
+  --ink-strong: #050507;
+  --ink-muted: #52525b;
+  --ink-subtle: #a1a1aa;
+  --line: #e4e4e7;
+  --line-strong: #d4d4d8;
+  --line-subtle: #f4f4f5;
+
+  /* Backwards compat (legacy variables still referenced in page CSS) */
+  --surface-ink: var(--ink);
+  --surface-muted: var(--ink-muted);
+
+  /* Accents */
+  --accent: #2563eb;          /* blue-600 — primary action */
+  --accent-strong: #1d4ed8;   /* blue-700 — hover */
+  --accent-soft: #dbeafe;     /* blue-100 — badge bg */
+  --accent-ink: #ffffff;
+  --accent-warm: #d97706;     /* amber-600 — secondary */
+  --accent-warm-soft: #fef3c7;
+
+  /* Semantic (PnL / status) */
+  --pos: #16a34a;             /* green-600 */
+  --pos-strong: #15803d;
+  --pos-soft: #dcfce7;
+  --neg: #dc2626;             /* red-600 */
+  --neg-strong: #b91c1c;
+  --neg-soft: #fee2e2;
+  --warn: #ca8a04;            /* yellow-600 */
+  --warn-soft: #fef9c3;
+  --danger: var(--neg);
+  --danger-soft: var(--neg-soft);
+
+  /* Geometry */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  /* Spacing scale */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+  --sp-9: 96px;
+
+  /* Shadows — Linear-style layered subtle */
+  --shadow-xs: 0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-sm:
+    0 1px 3px rgba(9, 9, 11, 0.06),
+    0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-md:
+    0 4px 12px rgba(9, 9, 11, 0.06),
+    0 2px 4px rgba(9, 9, 11, 0.04);
+  --shadow-lg:
+    0 16px 40px rgba(9, 9, 11, 0.10),
+    0 4px 12px rgba(9, 9, 11, 0.06);
+  --shadow-xl:
+    0 24px 60px rgba(9, 9, 11, 0.14),
+    0 8px 20px rgba(9, 9, 11, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.18);
+
+  /* Legacy shadow tokens */
+  --shadow: var(--shadow-md);
+  --shadow-soft: var(--shadow-sm);
+
+  /* Motion */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 120ms;
+  --t-base: 180ms;
+  --t-slow: 280ms;
+}
+
+/* ============================================================
+   Dark theme (applied via data-theme="dark" on surface wrapper)
+   ============================================================ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --bg-deep: #050507;
+  --surface: #18181b;
+  --surface-alt: #27272a;
+  --surface-sunken: #3f3f46;
+  --surface-strong: #1f1f23;
+  --ink: #fafafa;
+  --ink-strong: #ffffff;
+  --ink-muted: #a1a1aa;
+  --ink-subtle: #71717a;
+  --line: #27272a;
+  --line-strong: #3f3f46;
+  --line-subtle: #18181b;
+
+  --surface-ink: var(--ink);
+  --surface-muted: var(--ink-muted);
+
+  --accent: #3b82f6;
+  --accent-strong: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.16);
+  --accent-warm: #f59e0b;
+  --accent-warm-soft: rgba(245, 158, 11, 0.16);
+
+  --pos: #22c55e;
+  --pos-strong: #4ade80;
+  --pos-soft: rgba(34, 197, 94, 0.16);
+  --neg: #ef4444;
+  --neg-strong: #f87171;
+  --neg-soft: rgba(239, 68, 68, 0.16);
+  --warn: #eab308;
+  --warn-soft: rgba(234, 179, 8, 0.16);
+  --danger: var(--neg);
+  --danger-soft: var(--neg-soft);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-sm:
+    0 1px 3px rgba(0, 0, 0, 0.32),
+    0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md:
+    0 4px 12px rgba(0, 0, 0, 0.32),
+    0 2px 4px rgba(0, 0, 0, 0.20);
+  --shadow-lg:
+    0 16px 40px rgba(0, 0, 0, 0.40),
+    0 4px 12px rgba(0, 0, 0, 0.24);
+  --shadow-xl:
+    0 24px 60px rgba(0, 0, 0, 0.50),
+    0 8px 20px rgba(0, 0, 0, 0.32);
+  --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.28);
+
+  --shadow: var(--shadow-md);
+  --shadow-soft: var(--shadow-sm);
+}
+
+/* Utility: numeric / tabular content (charts, stat values, tables) */
+.num,
+.tabular,
+.stat-value,
+table tbody td,
+table tfoot td {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+/* Utility: mono font for code/keys/data IDs */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
 }

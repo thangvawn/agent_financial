@@ -110,6 +110,10 @@ class SeedLearningHome:
 
     def execute(self, *, user_id: str, persona_segment: str, primary_route: str):
         path = self.catalog.get_path_for_persona(persona_segment=persona_segment, primary_route=primary_route)
+        if not path.lesson_ids:
+            raise ValueError(
+                f"Learning path '{path.path_id}' has no lessons; cannot seed home state."
+            )
         first_lesson = self.catalog.get_lesson(lesson_id=path.lesson_ids[0])
         state = build_initial_learning_home_state(user_id=user_id, path=path, first_lesson=first_lesson)
         return self.writer.save_home_state(state)
@@ -439,6 +443,8 @@ class UpsertLearningPathAdmin:
         description: str,
         status: str,
     ) -> LearningPathAdminResponse:
+        if not lesson_ids:
+            raise ValueError("Learning path must contain at least one lesson.")
         _validate_referenced_lessons(lesson_ids=lesson_ids, catalog=self.catalog, cms_repo=self.cms_repo)
         path = LearningPath(
             path_id=path_id,

@@ -18,6 +18,12 @@ const DEFAULT_STRATEGY = `Strategy idea:
 - Exit when price closes below 20-day moving average.
 - Risk rule: no leverage, paper mode only.`
 
+function toFiniteNumber(value, fallback) {
+  if (value === '' || value === null || value === undefined) return fallback
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
+
 const DEFAULT_FORM = {
   symbol: 'BTC',
   period: '5d',
@@ -281,10 +287,10 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
         blueprint_id: selectedBlueprintId,
         start_date: resolveStartDate(points, form.period),
         end_date: resolveEndDate(points),
-        initial_capital: Number(form.initialCapital || 100000),
+        initial_capital: toFiniteNumber(form.initialCapital, 100000) || 100000,
         timeframe: form.timeframe,
-        commission_pct: Number(form.commissionPct || 0),
-        slippage_pct: Number(form.slippagePct || 0),
+        commission_pct: toFiniteNumber(form.commissionPct, 0),
+        slippage_pct: toFiniteNumber(form.slippagePct, 0),
         strategy_text: form.strategyText,
       }, accessToken)
       setResult(adaptBackendBacktestResult(payload))

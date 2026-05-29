@@ -38,6 +38,8 @@ export default function LearningAdminPage({ onBack, onOpenContentOps }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  const selectedConfig = DOC_TYPE_CONFIG[docType]
+
   useEffect(() => {
     const savedKey = window.localStorage.getItem('learning-cms.admin_key') || ''
     if (savedKey) {
@@ -104,7 +106,6 @@ export default function LearningAdminPage({ onBack, onOpenContentOps }) {
     }
   }, [adminKey, docType, documents, form?.source, selectedConfig.idField, selectedId])
 
-  const selectedConfig = DOC_TYPE_CONFIG[docType]
   const selectedDoc = useMemo(
     () => documents.find((item) => item[selectedConfig.idField] === selectedId) || null,
     [documents, selectedConfig.idField, selectedId],

@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 import {
   LEARN_QUICK_PROMPTS,
-  askLearningTutor,
-  completeLearningLesson,
-  fetchLearningAssets,
-  fetchLearningCoach,
-  fetchLearningContext,
-  fetchLearningLesson,
-  submitLearningQuiz,
+  useAskLearningTutor,
+  useCompleteLearningLesson,
+  useLearningAssets,
+  useLearningCatalog,
   useLearningHome,
+  useLearningNextLessonBundle,
+  useSubmitLearningQuiz,
 } from '../../modules/learning'
+import FloatingAssistant from '../../shared/assistant/FloatingAssistant.jsx'
 import { PlayIcon, BookIcon, HeadphonesIcon, TargetIcon, LightbulbIcon, PiggyBankIcon, CalculatorIcon, ScaleIcon, ShieldIcon, ShieldPlusIcon, PlantIcon, FlagIcon, LineChartIcon, PieChartIcon, FileTextIcon, FlameIcon, StarIcon, CheckCircleIcon, ClockIcon, ArrowRightIcon, BarChartIcon, TrendingUpIcon, GlobeIcon, PercentIcon } from '../../shared/Icons'
 import './learning.css'
 
@@ -19,37 +20,108 @@ const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga', 'fla
 
 export default function LearningHomePage({
   sessionId,
+  initialFocusView = 'lesson',
   onBack,
   onOpenAdmin,
   onOpenGuidedInvesting,
   onOpenCommunity,
-  onOpenGoals,
-  onOpenFinancialHealth,
   onOpenInsights,
 }) {
-  const [refreshKey, setRefreshKey] = useState(0)
-  const { data, isLoading, error } = useLearningHome(sessionId, refreshKey)
-  const [lesson, setLesson] = useState(null)
-  const [lessonLoading, setLessonLoading] = useState(false)
-  const [lessonError, setLessonError] = useState('')
+  const queryClient = useQueryClient()
+  const { data, isLoading, error } = useLearningHome(sessionId)
+
+  const [activeLearnView, setActiveLearnView] = useState(initialFocusView)
+  
+  useEffect(() => {
+    setActiveLearnView(initialFocusView)
+  }, [initialFocusView])
+  const [catalogKind, setCatalogKind] = useState('video')
+  const [catalogTopic, setCatalogTopic] = useState('')
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [activeBook, setActiveBook] = useState(null)
+
   const [quizResult, setQuizResult] = useState(null)
   const [tutor, setTutor] = useState(null)
-  const [coach, setCoach] = useState(null)
-  const [contextCards, setContextCards] = useState([])
   const [question, setQuestion] = useState('Tóm tắt bài này như cho người mới bắt đầu.')
   const [answers, setAnswers] = useState({})
-  const [submittingQuiz, setSubmittingQuiz] = useState(false)
-  const [completingLesson, setCompletingLesson] = useState(false)
-  const [askingTutor, setAskingTutor] = useState(false)
+  const [tutorThread, setTutorThread] = useState([])
+  const [mutationError, setMutationError] = useState('')
 
-  const [assetRefreshKey, setAssetRefreshKey] = useState(0)
-  const [assetLoading, setAssetLoading] = useState(false)
-  const [assetError, setAssetError] = useState('')
-  const [videoAssets, setVideoAssets] = useState([])
-  const [audioAssets, setAudioAssets] = useState([])
-  const [bookAssets, setBookAssets] = useState([])
-  const [activeBook, setActiveBook] = useState(null)
-  const [activeLearnView, setActiveLearnView] = useState('lesson')
+  const {
+    lesson,
+    coach,
+    contextCards,
+    isLoading: lessonLoading,
+    lessonError: lessonFetchError,
+  } = useLearningNextLessonBundle(sessionId, data?.next_lesson_id)
+
+  const {
+    videoItems: rawVideoItems,
+    audioItems: rawAudioItems,
+    bookItems,
+    isLoading: assetLoading,
+    error: assetError,
+    audioFailed,
+  } = useLearningAssets(sessionId)
+
+  const videoAssets = useMemo(() => filterAssetsByType(rawVideoItems, 'video'), [rawVideoItems])
+  const audioAssets = useMemo(() => {
+    if (rawAudioItems) return dedupeAssetsById(filterAssetsByType(rawAudioItems, 'audio'))
+    if (audioFailed) return dedupeAssetsById(filterAssetsByType(rawVideoItems, 'audio'))
+    return []
+  }, [audioFailed, rawAudioItems, rawVideoItems])
+  const bookAssets = bookItems
+
+  const {
+    items: catalogItems,
+    topics: catalogTopics,
+    isLoading: catalogLoading,
+    error: catalogError,
+  } = useLearningCatalog({
+    enabled: activeLearnView === 'library' && Boolean(sessionId),
+    kind: catalogKind,
+    topic: catalogTopic,
+  })
+
+  const submitQuizMutation = useSubmitLearningQuiz()
+  const completeLessonMutation = useCompleteLearningLesson()
+  const askTutorMutation = useAskLearningTutor()
+  const submittingQuiz = submitQuizMutation.isPending
+  const completingLesson = completeLessonMutation.isPending
+  const askingTutor = askTutorMutation.isPending
+
+  const lessonError = lessonFetchError || mutationError
+
+  useEffect(() => {
+    if (!lesson?.lesson_id) return
+    setQuizResult(null)
+    setTutor(null)
+    setAnswers({})
+  }, [lesson?.lesson_id])
+
+  const filteredCatalogItems = useMemo(() => {
+    if (!catalogSearch.trim()) return catalogItems
+    const searchLow = catalogSearch.toLowerCase().trim()
+    return catalogItems.filter((item) => {
+      const title = (item.title || '').toLowerCase()
+      const description = (item.description || item.abstract || '').toLowerCase()
+      const author = (item.author || '').toLowerCase()
+      const provider = (item.provider || '').toLowerCase()
+      const instructor = (item.instructor || '').toLowerCase()
+      const channel = (item.channel || '').toLowerCase()
+      const authors = Array.isArray(item.authors) ? item.authors.join(' ').toLowerCase() : ''
+
+      return (
+        title.includes(searchLow) ||
+        description.includes(searchLow) ||
+        author.includes(searchLow) ||
+        authors.includes(searchLow) ||
+        provider.includes(searchLow) ||
+        instructor.includes(searchLow) ||
+        channel.includes(searchLow)
+      )
+    })
+  }, [catalogItems, catalogSearch])
 
   const resourceBundle = useMemo(
     () => buildRealResourceBundle({ lesson, videoAssets, audioAssets, bookAssets }),
@@ -60,137 +132,48 @@ export default function LearningHomePage({
     () => buildLearningDashboard({ data, lesson, contextCards, videoAssets, audioAssets, bookAssets, resourceBundle }),
     [audioAssets, bookAssets, contextCards, data, lesson, resourceBundle, videoAssets],
   )
-  useLearnDashboardMotion()
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function run() {
-      if (!data?.next_lesson_id || !sessionId) return
-      setLessonLoading(true)
-      setLessonError('')
-
-      const [lessonResult, coachResult, drawdownContext, compoundContext] = await Promise.allSettled([
-        fetchLearningLesson(sessionId, data.next_lesson_id),
-        fetchLearningCoach(sessionId, 'continue_path'),
-        fetchLearningContext('drawdown'),
-        fetchLearningContext('compound_interest'),
-      ])
-
-      if (cancelled) return
-
-      if (lessonResult.status === 'fulfilled') {
-        setLesson(lessonResult.value)
-        setQuizResult(null)
-        setTutor(null)
-        setAnswers({})
-      } else {
-        setLesson(null)
-        setLessonError(lessonResult.reason?.message || 'Không tải được bài học tiếp theo.')
-      }
-
-      setCoach(coachResult.status === 'fulfilled' ? coachResult.value : null)
-
-      const contexts = []
-      if (drawdownContext.status === 'fulfilled') contexts.push(drawdownContext.value)
-      if (compoundContext.status === 'fulfilled') contexts.push(compoundContext.value)
-      setContextCards(contexts)
-      setLessonLoading(false)
-    }
-
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [data?.next_lesson_id, refreshKey, sessionId])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadAssets() {
-      if (!sessionId) return
-      setAssetLoading(true)
-      setAssetError('')
-      const [videoResult, audioResult, bookResult] = await Promise.allSettled([
-        fetchLearningAssets('videos'),
-        fetchLearningAssets('audios'),
-        fetchLearningAssets('books'),
-      ])
-      if (cancelled) return
-
-      if (videoResult.status === 'fulfilled') {
-        setVideoAssets(filterAssetsByType(videoResult.value.items || [], 'video'))
-      } else {
-        setVideoAssets([])
-      }
-      if (audioResult.status === 'fulfilled') {
-        const audios = filterAssetsByType(audioResult.value.items || [], 'audio')
-        setAudioAssets(dedupeAssetsById(audios))
-      } else if (videoResult.status === 'fulfilled') {
-        const fallbackAudios = filterAssetsByType(videoResult.value.items || [], 'audio')
-        setAudioAssets(dedupeAssetsById(fallbackAudios))
-      } else {
-        setAudioAssets([])
-      }
-      if (bookResult.status === 'fulfilled') {
-        setBookAssets(bookResult.value.items || [])
-      } else {
-        setBookAssets([])
-      }
-
-      if (videoResult.status === 'rejected' && audioResult.status === 'rejected' && bookResult.status === 'rejected') {
-        setAssetError('Không tải được danh sách media local.')
-      }
-      setAssetLoading(false)
-    }
-
-    void loadAssets()
-    return () => {
-      cancelled = true
-    }
-  }, [assetRefreshKey, sessionId])
+  useLearnDashboardMotion(!!data && !isLoading && !error, activeLearnView)
 
   async function handleQuizSubmit() {
     if (!lesson || submittingQuiz) return
-    setSubmittingQuiz(true)
-    setLessonError('')
+    setMutationError('')
     try {
-      const payload = await submitLearningQuiz(sessionId, lesson.lesson_id, answers)
+      const payload = await submitQuizMutation.mutateAsync({
+        sessionId,
+        lessonId: lesson.lesson_id,
+        answers,
+      })
       setQuizResult(payload)
-      setRefreshKey((current) => current + 1)
     } catch (err) {
-      setLessonError(err.message)
-    } finally {
-      setSubmittingQuiz(false)
+      setMutationError(err.message)
     }
   }
 
   async function handleComplete() {
     if (!lesson || completingLesson) return
-    setCompletingLesson(true)
-    setLessonError('')
+    setMutationError('')
     try {
-      const payload = await completeLearningLesson(sessionId, lesson.lesson_id)
-      setLesson(payload)
-      setRefreshKey((current) => current + 1)
+      await completeLessonMutation.mutateAsync({
+        sessionId,
+        lessonId: lesson.lesson_id,
+      })
     } catch (err) {
-      setLessonError(err.message)
-    } finally {
-      setCompletingLesson(false)
+      setMutationError(err.message)
     }
   }
 
   async function handleTutor() {
     if (!lesson || askingTutor) return
-    setAskingTutor(true)
-    setLessonError('')
+    setMutationError('')
     try {
-      const payload = await askLearningTutor(sessionId, lesson.lesson_id, question)
+      const payload = await askTutorMutation.mutateAsync({
+        sessionId,
+        lessonId: lesson.lesson_id,
+        question,
+      })
       setTutor(payload)
     } catch (err) {
-      setLessonError(err.message)
-    } finally {
-      setAskingTutor(false)
+      setMutationError(err.message)
     }
   }
 
@@ -201,14 +184,6 @@ export default function LearningHomePage({
   function runPracticalCta(ctaType) {
     if (ctaType === 'guided_investing' && onOpenGuidedInvesting) {
       onOpenGuidedInvesting('market_context')
-      return
-    }
-    if (ctaType === 'financial_health' && onOpenFinancialHealth) {
-      onOpenFinancialHealth()
-      return
-    }
-    if (ctaType === 'goals' && onOpenGoals) {
-      onOpenGoals('')
       return
     }
     if (ctaType === 'insights' && onOpenInsights) {
@@ -249,7 +224,7 @@ export default function LearningHomePage({
         <div className="learn-os-empty">
           <h1>Chưa tải được Learn Hub.</h1>
           <p>{error}</p>
-          <button type="button" className="learn-os-btn learn-os-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+          <button type="button" className="learn-os-btn learn-os-btn--primary" onClick={() => queryClient.invalidateQueries({ queryKey: ['learning'] })}>
             Thử lại
           </button>
         </div>
@@ -288,29 +263,12 @@ export default function LearningHomePage({
           <h1>Learn Hub</h1>
           <p>{data.path_label} · {completionText} hoàn thành · dữ liệu runtime từ backend.</p>
         </div>
-        <nav className="learn-os-view-tabs" aria-label="Learn Hub views">
-          {[
-            ['lesson', 'Bài học', 'Học, quiz, hỏi Tutor'],
-            ['path', 'Lộ trình', 'Courses, topics, tiến độ'],
-            ['library', 'Thư viện', 'Media local'],
-          ].map(([id, label, hint]) => (
-            <button
-              key={id}
-              type="button"
-              className={activeLearnView === id ? 'is-active' : ''}
-              onClick={() => setActiveLearnView(id)}
-            >
-              <strong>{label}</strong>
-              <span>{hint}</span>
-            </button>
-          ))}
-        </nav>
       </header>
 
       <section className="learn-os-topic-carousel learn-reveal" aria-label="Explore topics">
         <header className="learn-os-section-title">
-          <h2>Topics từ backend</h2>
-          <button type="button" onClick={() => setRefreshKey((v) => v + 1)}>Làm mới</button>
+          <h2>Chủ đề theo lộ trình</h2>
+          <button type="button" onClick={() => queryClient.invalidateQueries({ queryKey: ['learning'] })}>Làm mới</button>
         </header>
         <div className="learn-os-topic-strip">
           {dashboard.topics.map((topic, index) => (
@@ -332,7 +290,7 @@ export default function LearningHomePage({
         <article className="learn-os-progress-card">
           <header className="learn-os-mini-head">
             <span><TrendingUpIcon size={16} /></span>
-            <strong>Your Learning Progress</strong>
+            <strong>Tiến độ học của bạn</strong>
           </header>
           <div className="learn-os-progress-card__body">
             <div className="learn-os-ring-wrap">
@@ -342,55 +300,30 @@ export default function LearningHomePage({
               </svg>
               <div>
                 <strong>{completionText}</strong>
-                <span>Overall Progress</span>
+                <span>Tổng tiến độ</span>
               </div>
             </div>
             <dl className="learn-os-progress-metrics">
               <div>
-                <dt>Courses Enrolled</dt>
+                <dt>Khoá học</dt>
                 <dd>{dashboard.stats[2].value}</dd>
               </div>
               <div>
-                <dt>Completed</dt>
+                <dt>Đã hoàn thành</dt>
                 <dd>{dashboard.stats[1].value}</dd>
               </div>
               <div>
-                <dt>Study Streak</dt>
-                <dd>{dashboard.stats[0].value}</dd>
+                <dt>Bài kế tiếp</dt>
+                <dd>{data?.next_lesson_title ? shortTitle(data.next_lesson_title, 18) : '—'}</dd>
               </div>
             </dl>
-          </div>
-        </article>
-
-        <article className="learn-os-goal-card">
-          <span>This Week's Goal</span>
-          <strong>Learn 5 lessons</strong>
-          <div className="learn-os-goal-line">
-            <i style={{ width: `${Math.min(100, Math.max(24, (data?.completion_pct || 45) + 18))}%` }} />
-          </div>
-          <small>{Math.min(5, Math.max(1, Math.round((data?.completion_pct || 45) / 18)))} / 5 lessons</small>
-          <blockquote>The beautiful thing about learning is that no one can take it away from you.</blockquote>
-        </article>
-
-        <article className="learn-os-activity-card">
-          <header className="learn-os-activity-head">
-            <strong>Your Activity</strong>
-            <span>Less <i /> <i /> <i /> More</span>
-          </header>
-          <div className="learn-os-activity-grid" aria-hidden="true">
-            {Array.from({ length: 49 }, (_, index) => (
-              <span key={index} className={`is-${(index * 7 + Math.floor(index / 5)) % 5}`} />
-            ))}
-          </div>
-          <div className="learn-os-activity-days">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
           </div>
         </article>
       </section>
 
       <section className="learn-os-continue learn-reveal">
         <header className="learn-os-section-title">
-          <h2>Courses & tracks</h2>
+          <h2>Khoá học & lộ trình</h2>
           <button type="button" onClick={() => setActiveLearnView('lesson')}>Mở bài học</button>
         </header>
         <div className="learn-os-course-strip">
@@ -414,8 +347,8 @@ export default function LearningHomePage({
       <section className="learn-os-main-row learn-reveal">
         <article className="learn-os-card learn-os-card--recommended">
           <header className="learn-os-card__head">
-            <h2>Recommended for You</h2>
-            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
+            <h2>Gợi ý cho bạn</h2>
+            <button type="button" className="learn-os-link-btn" onClick={() => queryClient.invalidateQueries({ queryKey: ['learning'] })}>Làm mới</button>
           </header>
           <div className="learn-os-recommended-list">
             {dashboard.recommended.map((item) => (
@@ -436,7 +369,7 @@ export default function LearningHomePage({
 
         <article className="learn-os-card learn-os-card--stats">
           <header className="learn-os-card__head">
-            <h2>Runtime stats</h2>
+            <h2>Số liệu runtime</h2>
             <span className="learn-os-chip-alt">SQLite</span>
           </header>
           <div className="learn-os-stat-grid">
@@ -448,27 +381,14 @@ export default function LearningHomePage({
               </div>
             ))}
           </div>
-          <div className="learn-os-line-chart" aria-hidden="true">
-            <svg viewBox="0 0 760 180" preserveAspectRatio="none">
-              <path className="learn-os-line-chart__grid" d="M0 40H760 M0 90H760 M0 140H760" />
-              <path className="learn-os-line-chart__fill" d="M0 130 C80 116 120 92 184 92 C240 92 244 122 300 114 C365 104 392 136 456 104 C532 66 552 24 620 78 C680 126 702 116 760 98 L760 180 L0 180 Z" />
-              <path className="learn-os-line-chart__line" d="M0 130 C80 116 120 92 184 92 C240 92 244 122 300 114 C365 104 392 136 456 104 C532 66 552 24 620 78 C680 126 702 116 760 98" />
-              {[0, 184, 300, 456, 560, 680, 760].map((x, index) => (
-                <circle key={x} cx={x} cy={[130, 92, 114, 104, 38, 116, 98][index]} r="5" />
-              ))}
-            </svg>
-            <div className="learn-os-chart-labels">
-              {['May 1', 'May 8', 'May 15', 'May 22', 'May 29', 'May 31'].map((label) => <span key={label}>{label}</span>)}
-            </div>
-          </div>
         </article>
       </section>
 
       <section className="learn-os-dashboard-grid learn-os-dashboard-grid--bottom learn-reveal">
         <article className="learn-os-card">
           <header className="learn-os-card__head">
-            <h2>Reading Library</h2>
-            <button type="button" className="learn-os-link-btn" onClick={() => setAssetRefreshKey((v) => v + 1)}>View all</button>
+            <h2>Thư viện sách</h2>
+            <button type="button" className="learn-os-link-btn" onClick={() => queryClient.invalidateQueries({ queryKey: ['learning', 'assets'] })}>Làm mới</button>
           </header>
           <div className="learn-os-reading-row">
             {dashboard.readingLibrary.map((item) => (
@@ -485,18 +405,19 @@ export default function LearningHomePage({
 
         <article className="learn-os-card">
           <header className="learn-os-card__head">
-            <h2>Upcoming Live Classes</h2>
-            <button type="button" className="learn-os-link-btn" onClick={handleTutor}>View all</button>
+            <h2>Bài học gần nhất trong lộ trình</h2>
+            <button type="button" className="learn-os-link-btn" onClick={() => setActiveLearnView('lesson')}>Mở bài học</button>
           </header>
           <div className="learn-os-live-list">
-            {dashboard.pathLessons.slice(0, 3).map((item, index) => (
+            {dashboard.pathLessons.slice(0, 4).map((item, index) => (
               <button key={item.lesson_id} type="button" className="learn-os-live-row" onClick={() => setQuestion(`Giải thích bài ${item.title} cho tôi.`)}>
-                <span>{item.status === 'completed' ? 'DONE' : item.is_next ? 'NEXT' : `L${index + 1}`}</span>
+                <span>{item.status === 'completed' ? 'XONG' : item.is_next ? 'TIẾP' : `L${index + 1}`}</span>
                 <strong>{item.title}<small>{contentTypeLabel(item.content_type)} · {tierLabel(item.tier)}</small></strong>
                 <em>{item.estimated_minutes}m</em>
-                <b>{item.status === 'completed' ? 'Review' : 'Study'}</b>
+                <b>{item.status === 'completed' ? 'Ôn lại' : 'Học'}</b>
               </button>
             ))}
+            {!dashboard.pathLessons.length ? <p className="learn-os-muted">Lộ trình chưa được sinh. Hoàn tất onboarding để mở bài học.</p> : null}
           </div>
         </article>
       </section>
@@ -505,10 +426,10 @@ export default function LearningHomePage({
         <article className="learn-os-card">
           <header className="learn-os-card__head">
             <div>
-              <h2>Study Plan</h2>
-              <p>May 26 - June 1, 2025</p>
+              <h2>Kế hoạch tuần này</h2>
+              <p>{dashboard.studyWeekLabel}</p>
             </div>
-            <span className="learn-os-chip-alt">Today</span>
+            <span className="learn-os-chip-alt">Hôm nay</span>
           </header>
           <div className="learn-os-study-plan">
             <div className="learn-os-calendar-strip">
@@ -516,66 +437,147 @@ export default function LearningHomePage({
                 <span key={day} className={index === 0 ? 'is-active' : ''}>{day}</span>
               ))}
             </div>
-            {dashboard.studyPlan.map((item) => (
+            {dashboard.studyPlan.length ? dashboard.studyPlan.map((item) => (
               <label key={item.lesson_id} className="learn-os-task-row">
                 <input type="checkbox" readOnly checked={item.status === 'completed'} />
                 <strong>{item.task}<small>{item.sub}</small></strong>
                 <em>{item.time}</em>
               </label>
-            ))}
+            )) : <p className="learn-os-muted">Chưa có việc trong tuần.</p>}
           </div>
         </article>
 
         <article className="learn-os-card">
           <header className="learn-os-card__head">
             <div>
-              <h2>Achievements</h2>
+              <h2>Bridge sang thực hành</h2>
+              <p>Áp dụng bài học vào các surface mô phỏng.</p>
             </div>
-            <button type="button" className="learn-os-link-btn" onClick={() => setRefreshKey((v) => v + 1)}>View all</button>
           </header>
-          <div className="learn-os-achievement-grid">
-            {dashboard.achievements.map((item, index) => {
-              const icons = [<StarIcon size={28} fill="currentColor" />, <FlameIcon size={28} fill="currentColor" />, <LightbulbIcon size={28} fill="currentColor" />, <BookIcon size={28} />]
-              return (
-                <article key={item[0]} className="learn-os-achievement">
-                  <div className={`learn-os-achievement-badge ${item[3]}`}>
-                    {icons[index]}
-                  </div>
-                  <strong>{item[0]}</strong>
-                  <span>{item[1]}</span>
-                  <em>{item[2]}</em>
-                </article>
-              )
-            })}
+          <div className="learn-os-bridge-list">
+            <button type="button" className="learn-os-bridge-row" onClick={() => onOpenGuidedInvesting?.('market_context')}>
+              <strong>Guided Investing<small>Đọc rủi ro & drawdown với BCTC</small></strong>
+              <ArrowRightIcon size={16} />
+            </button>
+            <button type="button" className="learn-os-bridge-row" onClick={() => onOpenInsights?.()}>
+              <strong>Insights<small>Xem dữ liệu thị trường để nối ngữ cảnh</small></strong>
+              <ArrowRightIcon size={16} />
+            </button>
           </div>
         </article>
       </section>
 
-      <section className="learn-os-card learn-os-community learn-reveal">
+      <article className="learn-os-card learn-os-card--catalog learn-reveal">
         <header className="learn-os-card__head">
-          <h2>Community & Support</h2>
+          <div>
+            <p className="learn-os-eyebrow">Thư viện học liệu</p>
+            <h2>Catalog từ arXiv · MIT · Yale · archive.org</h2>
+            <p>Curated bởi crawler — dữ liệu từ <code>learning_courses/videos/books/papers</code>.</p>
+          </div>
+          <div className="learn-os-inline-actions">
+            <button
+              type="button"
+              className="learn-os-btn learn-os-btn--ghost"
+              onClick={() => {
+                setCatalogTopic('')
+                setCatalogSearch('')
+              }}
+            >
+              Đặt lại bộ lọc
+            </button>
+          </div>
         </header>
-        <div className="learn-os-community-grid">
-          <article>
-            <h3>Top Discussions</h3>
-            {['How to build a strong DCF model?', 'Career advice for aspiring CFA candidates', 'Best resources for learning derivatives'].map((item) => (
-              <button key={item} type="button" onClick={() => onOpenCommunity?.('learning')}>{item}<span>24m</span></button>
+
+        <div className="learn-os-catalog-toolbar">
+          <nav className="learn-os-catalog-kinds" aria-label="Loại tài nguyên">
+            {[
+              ['video', 'Video', dashboard.mediaCounts.videos || 0],
+              ['book', 'Sách', dashboard.mediaCounts.books || 0],
+              ['paper', 'Paper', 0],
+              ['course', 'Khoá học', 0],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={catalogKind === id ? 'is-active' : ''}
+                onClick={() => setCatalogKind(id)}
+              >
+                {label}
+              </button>
             ))}
-          </article>
-          <article>
-            <h3>Ask the Mentor</h3>
-            <p>Get answers from finance professionals and educators.</p>
-            <div className="learn-os-avatar-row"><span>A</span><span>M</span><span>J</span><em>+8</em></div>
-            <button type="button" className="learn-os-btn learn-os-btn--primary" onClick={handleTutor}>Ask a Question</button>
-          </article>
-          <article>
-            <h3>Study Groups</h3>
-            {['CFA Level I Aspirants', 'Financial Modeling Enthusiasts', 'Investment Club'].map((item) => (
-              <button key={item} type="button" onClick={() => onOpenCommunity?.('learning')}>{item}<b>Join</b></button>
-            ))}
-          </article>
+          </nav>
+
+          <div className="learn-os-catalog-filter-bar">
+            {catalogTopics.length ? (
+              <div className="learn-os-filter-select-wrapper">
+                <select
+                  className="learn-os-catalog-select"
+                  value={catalogTopic}
+                  onChange={(e) => setCatalogTopic(e.target.value)}
+                  aria-label="Chọn chủ đề"
+                >
+                  <option value="">Tất cả chủ đề</option>
+                  {catalogTopics.map((topic) => (
+                    <option key={topic.topic_id} value={topic.topic_id}>
+                      {topic.label_vi} ({topic.resource_count || 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <div className="learn-os-catalog-search-wrapper">
+              <span className="learn-os-catalog-search-icon">🔍</span>
+              <input
+                type="text"
+                className="learn-os-catalog-search-input"
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                placeholder={`Tìm kiếm ${
+                  catalogKind === 'video'
+                    ? 'video'
+                    : catalogKind === 'book'
+                    ? 'sách'
+                    : catalogKind === 'paper'
+                    ? 'tài liệu'
+                    : 'khoá học'
+                }...`}
+              />
+              {catalogSearch && (
+                <button
+                  type="button"
+                  className="learn-os-catalog-search-clear"
+                  onClick={() => setCatalogSearch('')}
+                  title="Xóa tìm kiếm"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </section>
+
+        {catalogLoading ? <p className="learn-os-muted">Đang tải catalog…</p> : null}
+        {catalogError ? <p className="learn-os-error">{catalogError}</p> : null}
+
+        {!catalogLoading && !catalogError && !catalogItems.length ? (
+          <div className="learn-os-catalog-empty">
+            <p>Catalog chưa có dữ liệu. Chạy <code>risk-learning-crawl</code> để fill.</p>
+          </div>
+        ) : null}
+
+        {!catalogLoading && !catalogError && catalogItems.length > 0 && !filteredCatalogItems.length ? (
+          <div className="learn-os-catalog-empty">
+            <p>Không tìm thấy tài liệu nào khớp với từ khóa hoặc chủ đề đã chọn.</p>
+          </div>
+        ) : null}
+
+        <div className="learn-os-catalog-list">
+          {filteredCatalogItems.map((item) => (
+            <CatalogCard key={item[`${catalogKind}_id`]} kind={catalogKind} item={item} />
+          ))}
+        </div>
+      </article>
 
       <article className="learn-os-card learn-os-card--media learn-reveal">
         <header className="learn-os-card__head">
@@ -589,7 +591,7 @@ export default function LearningHomePage({
             </p>
           </div>
           <div className="learn-os-inline-actions">
-            <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => setAssetRefreshKey((v) => v + 1)}>
+            <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => queryClient.invalidateQueries({ queryKey: ['learning', 'assets'] })}>
               Refresh media
             </button>
           </div>
@@ -899,6 +901,75 @@ export default function LearningHomePage({
         </div>
       </section>
 
+      <section className="learn-os-tutor-full learn-reveal" aria-label="Hỏi Tutor">
+        <header className="learn-os-card__head">
+          <div>
+            <p className="learn-os-eyebrow">Tutor AI</p>
+            <h2>Hỏi gì về tài chính cũng được</h2>
+            <p>Tutor sẽ trả lời dựa trên bài học hiện tại + lộ trình cá nhân.</p>
+          </div>
+        </header>
+
+        <div className="learn-os-tutor-thread">
+          {tutorThread.length === 0 ? (
+            <p className="learn-os-muted">Chưa có câu hỏi. Gõ bên dưới để bắt đầu.</p>
+          ) : tutorThread.map((entry, index) => (
+            <article key={index} className={`learn-os-tutor-entry is-${entry.role}`}>
+              <strong>{entry.role === 'user' ? 'Bạn' : 'Tutor'}</strong>
+              <p>{entry.text}</p>
+              {entry.check ? <small>Câu hỏi kiểm tra: {entry.check}</small> : null}
+            </article>
+          ))}
+        </div>
+
+        <div className="learn-os-prompt-list">
+          {LEARN_QUICK_PROMPTS.map((prompt) => (
+            <button key={prompt} type="button" className="learn-os-option" onClick={() => applyPrompt(prompt)}>
+              {prompt}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          rows={3}
+          placeholder="Đặt câu hỏi cho Tutor…"
+        />
+        <div className="learn-os-inline-actions">
+          <button
+            type="button"
+            className="learn-os-btn learn-os-btn--primary"
+            onClick={async () => {
+              if (!question.trim() || !lesson) return
+              const userText = question.trim()
+              setTutorThread((current) => [...current, { role: 'user', text: userText }])
+              setQuestion('')
+              try {
+                const payload = await askTutorMutation.mutateAsync({
+                  sessionId,
+                  lessonId: lesson.lesson_id,
+                  question: userText,
+                })
+                setTutorThread((current) => [...current, {
+                  role: 'tutor',
+                  text: `${payload.summary}\n\n${payload.explanation}`,
+                  check: payload.check_question,
+                }])
+              } catch (err) {
+                setTutorThread((current) => [...current, { role: 'tutor', text: `Lỗi: ${err.message}` }])
+              }
+            }}
+            disabled={askingTutor || !lesson}
+          >
+            {askingTutor ? 'Tutor đang trả lời…' : 'Gửi câu hỏi'}
+          </button>
+          <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => setTutorThread([])}>
+            Xoá hội thoại
+          </button>
+        </div>
+      </section>
+
       <footer className="learn-os-footer-note learn-reveal">
         <p>
           Learn Hub ưu tiên giáo dục và quản trị rủi ro. Nội dung không phải khuyến nghị mua/bán cá nhân hóa.
@@ -909,47 +980,27 @@ export default function LearningHomePage({
               Mở Content Ops
             </button>
           ) : null}
-          {onOpenGoals ? (
-            <button type="button" className="learn-os-btn learn-os-btn--ghost" onClick={() => onOpenGoals('')}>
-              Mở Goals
-            </button>
-          ) : null}
         </div>
       </footer>
+
+      <FloatingAssistant sessionId={sessionId} surface="learning" surfaceLabel="Learn Hub" />
     </section>
   )
 }
 
-function useLearnDashboardMotion() {
+function useLearnDashboardMotion(isReady, activeView) {
+  // Disabled motion observer to prevent white screen issues.
+  // The CSS default opacity is 1, so without adding 'is-motion-ready', 
+  // the content will just appear normally without the scroll reveal animation.
   useEffect(() => {
+    // If the class was left over from a previous render, clean it up
     const root = document.querySelector('.learn-os-page')
-    if (!root) return undefined
-
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const items = Array.from(root.querySelectorAll('.learn-reveal'))
-    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
-      items.forEach((item) => item.classList.add('is-visible'))
-      return undefined
-    }
-
-    root.classList.add('is-motion-ready')
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return
-          entry.target.classList.add('is-visible')
-          observer.unobserve(entry.target)
-        })
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
-    )
-
-    items.forEach((item) => observer.observe(item))
-    return () => {
-      observer.disconnect()
+    if (root) {
       root.classList.remove('is-motion-ready')
+      const items = Array.from(root.querySelectorAll('.learn-reveal'))
+      items.forEach((item) => item.classList.add('is-visible'))
     }
-  }, [])
+  }, [isReady, activeView])
 }
 
 function BookReaderWorkspace({ book, sessionId, onClose, asPage = false }) {
@@ -1789,6 +1840,84 @@ function contentTypeLabel(contentType) {
   return 'Guided lesson'
 }
 
+function kindLabel(kind) {
+  if (kind === 'video') return 'Video'
+  if (kind === 'book') return 'Sách'
+  if (kind === 'paper') return 'Paper'
+  if (kind === 'course') return 'Khoá học'
+  return kind
+}
+
+function CatalogCard({ kind, item }) {
+  const title = item.title || 'Untitled'
+  const meta = []
+  if (kind === 'video') {
+    if (item.channel) meta.push(item.channel)
+    if (item.duration_seconds) meta.push(`${Math.round(item.duration_seconds / 60)} phút`)
+  } else if (kind === 'book') {
+    if (item.author) meta.push(item.author)
+    if (item.publication_year) meta.push(String(item.publication_year))
+  } else if (kind === 'paper') {
+    const authors = Array.isArray(item.authors) ? item.authors : []
+    if (authors.length) meta.push(authors.slice(0, 2).join(', ') + (authors.length > 2 ? '…' : ''))
+    if (item.category) meta.push(item.category)
+  } else if (kind === 'course') {
+    if (item.provider) meta.push(item.provider)
+    if (item.instructor) meta.push(item.instructor)
+  }
+  meta.push((item.language || 'en').toUpperCase())
+
+  const description = item.description || item.abstract || ''
+  const thumbnail = item.thumbnail_url || item.cover_url || null
+  const downloadUrl = item.pdf_url || item.download_url || ''
+
+  const renderIcon = () => {
+    if (kind === 'video') return <PlayIcon size={28} />
+    if (kind === 'book') return <BookIcon size={28} />
+    if (kind === 'paper') return <FileTextIcon size={28} />
+    if (kind === 'course') return <TargetIcon size={28} />
+    return <span>{kind.toUpperCase()}</span>
+  }
+
+  return (
+    <article className={`learn-os-catalog-card is-${kind}`}>
+      <div className="learn-os-catalog-card__thumb">
+        {thumbnail ? (
+          <img src={thumbnail} alt="" loading="lazy" />
+        ) : (
+          <div className="learn-os-catalog-card__icon-fallback">
+            {renderIcon()}
+          </div>
+        )}
+      </div>
+      <div className="learn-os-catalog-card__body">
+        <div className="learn-os-catalog-card__title-row">
+          <strong>{title}</strong>
+        </div>
+        <div className="learn-os-catalog-card__meta-row">
+          <span className={`learn-os-kind-badge tag-${kind}`}>{kindLabel(kind)}</span>
+          <small className="learn-os-catalog-card__meta">{meta.join(' · ')}</small>
+        </div>
+        {description ? (
+          <p className="learn-os-catalog-card__desc">
+            {description.slice(0, 240)}{description.length > 240 ? '…' : ''}
+          </p>
+        ) : null}
+      </div>
+      <div className="learn-os-catalog-card__actions">
+        <a className="learn-os-btn learn-os-btn--primary learn-os-catalog-btn" href={item.url} target="_blank" rel="noreferrer">
+          Mở tài liệu
+        </a>
+        {downloadUrl ? (
+          <a className="learn-os-btn learn-os-btn--ghost learn-os-catalog-btn" href={downloadUrl} target="_blank" rel="noreferrer">
+            Tải PDF
+          </a>
+        ) : null}
+      </div>
+    </article>
+  )
+}
+
 function StatusCard({ label, value, subtext }) {
   return (
     <article className="learn-os-status-card">
@@ -1867,7 +1996,7 @@ function normalizeSearchText(value) {
 function buildPracticalActions(lesson) {
   if (!lesson) return []
   if (lesson.content_type === 'practical_tool_lesson' && lesson.lesson_id?.includes('goal')) {
-    return [{ id: 'goals', title: 'Áp dụng bài học bằng cách cập nhật mục tiêu thật.', ctaLabel: 'Mở Goals', ctaType: 'goals' }]
+    return [{ id: 'guided', title: 'Áp dụng bài học bằng cách đọc rủi ro trong BCTC.', ctaLabel: 'Mở Guided Investing', ctaType: 'guided_investing' }]
   }
   if (lesson.tier === 'product_tool_literacy') {
     return [{ id: 'insights', title: 'Xem dữ liệu trong app để nối bài học với bối cảnh thật.', ctaLabel: 'Mở Insights', ctaType: 'insights' }]
@@ -1875,7 +2004,7 @@ function buildPracticalActions(lesson) {
   if (lesson.tier === 'basic_investing_literacy') {
     return [{ id: 'guided', title: 'Đọc rủi ro và drawdown bằng Guided Investing.', ctaLabel: 'Mở Guided Investing', ctaType: 'guided_investing' }]
   }
-  return [{ id: 'health', title: 'Dùng Financial Health để kiểm tra baseline cá nhân.', ctaLabel: 'Mở Financial Health', ctaType: 'financial_health' }]
+  return [{ id: 'guided', title: 'Dùng Guided Investing để nối bài học với dữ liệu doanh nghiệp.', ctaLabel: 'Mở Guided Investing', ctaType: 'guided_investing' }]
 }
 
 function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audioAssets, bookAssets, resourceBundle }) {
@@ -1953,11 +2082,12 @@ function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audio
     readingLibrary,
     pathLessons,
     studyDays: nextSevenStudyDays(),
+    studyWeekLabel: buildStudyWeekLabel(),
     studyPlan,
     pathSteps: [
       { id: 'foundations', title: 'Foundations', subtitle: 'Nền tảng tài chính', state: 'is-active' },
       { id: 'risk', title: 'Risk', subtitle: 'Quản trị rủi ro', state: completion >= 25 ? 'is-active' : 'is-idle' },
-      { id: 'goals', title: 'Goals', subtitle: 'Lập kế hoạch', state: completion >= 50 ? 'is-active' : 'is-idle' },
+      { id: 'analysis', title: 'Analysis', subtitle: 'Ứng dụng dữ liệu', state: completion >= 50 ? 'is-active' : 'is-idle' },
       { id: 'investing', title: 'Investing', subtitle: 'Đầu tư cơ bản', state: completion >= 75 ? 'is-active' : 'is-idle' },
     ],
     stats: [
@@ -1969,13 +2099,13 @@ function buildLearningDashboard({ data, lesson, contextCards, videoAssets, audio
     trackRows: [
       { id: 'path-current', title: data?.path_label || 'Financial Foundations', subtitle: 'Nền tảng tài chính', progress: completion, status: 'Đang học' },
       { id: 'risk-market', title: 'Risk & Market Basics', subtitle: 'Rủi ro & thị trường cơ bản', progress: Math.max(8, Math.round(completion * 0.65)), status: 'Chưa bắt đầu' },
-      { id: 'goal-plan', title: 'Goal Planning', subtitle: 'Lập kế hoạch mục tiêu', progress: Math.max(0, completion - 12), status: 'Chưa bắt đầu' },
+      { id: 'analysis-plan', title: 'Analysis Planning', subtitle: 'Lập kế hoạch đọc dữ liệu', progress: Math.max(0, completion - 12), status: 'Chưa bắt đầu' },
       { id: 'investing', title: 'Investing Basics', subtitle: 'Đầu tư cơ bản', progress: Math.max(0, completion - 24), status: 'Chưa bắt đầu' },
     ],
     learnToday: [
       { title: contextCards[0]?.recommended_lesson_title || 'Risk-on / Risk-off là gì?', summary: contextCards[0]?.reason || 'Hiểu cách thị trường dịch chuyển giữa các chế độ rủi ro.', meta: '5 phút • Dễ', ctaType: 'insights' },
       { title: 'Tỷ giá ảnh hưởng thế nào?', summary: contextCards[1]?.reason || 'Tìm hiểu tác động của tỷ giá đến doanh nghiệp và danh mục đầu tư.', meta: '6 phút • Dễ', ctaType: 'guided_investing' },
-      { title: 'Lãi suất tác động ra sao?', summary: 'Hiểu cơ chế lãi suất và ảnh hưởng đến thị trường tài chính.', meta: '6 phút • Trung bình', ctaType: 'financial_health' },
+      { title: 'Lãi suất tác động ra sao?', summary: 'Hiểu cơ chế lãi suất và ảnh hưởng đến thị trường tài chính.', meta: '6 phút • Trung bình', ctaType: 'insights' },
     ],
     weeklyProgress: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day, index) => {
       const minutes = 18 + ((completion + index * 8) % 25)
@@ -2013,11 +2143,19 @@ function shortBadge(title) {
 }
 
 function nextSevenStudyDays() {
-  const formatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric' })
+  const formatter = new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric' })
   const today = new Date()
   return Array.from({ length: 7 }, (_, index) => {
     const next = new Date(today)
     next.setDate(today.getDate() + index)
     return formatter.format(next)
   })
+}
+
+function buildStudyWeekLabel() {
+  const today = new Date()
+  const end = new Date(today)
+  end.setDate(today.getDate() + 6)
+  const fmt = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' })
+  return `${fmt.format(today)} – ${fmt.format(end)}, ${today.getFullYear()}`
 }

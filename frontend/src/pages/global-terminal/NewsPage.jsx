@@ -86,6 +86,19 @@ const HEADER_BADGES = [
 const FEED_LIST_INITIAL = 12
 const FEED_LIST_STEP = 12
 
+/** Briefly highlight the pulse panel — used by hero "Market Pulse" / "Xem chi tiết pulse"
+ *  buttons so the action feels visible on desktop where the panel is always on screen. */
+function flashPulsePanel() {
+  if (typeof document === 'undefined') return
+  const el = document.getElementById('news-desk-pulse-panel')
+  if (!el) return
+  el.classList.remove('is-flash')
+  // Force reflow so re-adding the class restarts the animation
+  void el.offsetWidth
+  el.classList.add('is-flash')
+  window.setTimeout(() => el.classList.remove('is-flash'), 1400)
+}
+
 // ── Main Component ─────────────────────────────────────────────────────
 
 export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
@@ -95,11 +108,12 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   const [error, setError] = useState('')
 
   // Filter state
+  const [marketLens, setMarketLens] = useState('vietnam') // 'vietnam' | 'global' | 'cross_impact'
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
-  const [preset, setPreset] = useState('balanced')
-  const [region, setRegion] = useState('')
-  const [sourceGroup, setSourceGroup] = useState('')
+  const [preset, setPreset] = useState('vietnam')
+  const [region, setRegion] = useState('VN')
+  const [sourceGroup, setSourceGroup] = useState('vn_markets')
   const [timeRangeHours, setTimeRangeHours] = useState(168)
   const [sentiment, setSentiment] = useState('')
   const [impactLevel, setImpactLevel] = useState('')
@@ -123,6 +137,48 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
 
   // Mobile tab state
   const [mobileTab, setMobileTab] = useState('feed')
+
+  // Handle lens change
+  function handleLensChange(lens) {
+    setMarketLens(lens)
+    if (lens === 'vietnam') {
+      setPreset('vietnam')
+      setRegion('VN')
+      setSourceGroup('vn_markets')
+      setCategory('all')
+    } else if (lens === 'global') {
+      setPreset('global_macro')
+      setRegion('global')
+      setSourceGroup('global_macro')
+      setCategory('all')
+    } else if (lens === 'cross_impact') {
+      setPreset('balanced')
+      setRegion('')
+      setSourceGroup('')
+      setCategory('all')
+    }
+  }
+
+  /** Only update mobileTab when the mobile-tabs UI is actually visible (≤1180px). Avoids
+   *  desktop clicks (Today brief, Market Pulse hero, etc.) leaving stale state that hides
+   *  panels if the user later resizes to mobile. */
+  const setMobileTabIfMobile = useCallback((tab) => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1180px)').matches) {
+      setMobileTab(tab)
+    }
+  }, [])
+
+  /** Reset to 'feed' when leaving the mobile breakpoint, so the next time the user
+   *  resizes back down they see the canonical Feed pane. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mq = window.matchMedia('(max-width: 1180px)')
+    function onChange(e) {
+      if (!e.matches) setMobileTab('feed')
+    }
+    mq.addEventListener?.('change', onChange)
+    return () => mq.removeEventListener?.('change', onChange)
+  }, [])
 
   /** Finnhub macro desk (calendar + quotes); server caches to protect rate limits. */
   const [macroDesk, setMacroDesk] = useState(null)
@@ -490,182 +546,30 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
     <>
       <section className="news-desk">
         <div className="news-sparkle-home">
-          <div className="news-sparkle-hero">
-            <div className="news-sparkle-hero-bg" aria-hidden />
-            <div className="news-sparkle-hero-inner">
-              <div className="news-sparkle-hero-copy">
-                <p className="news-sparkle-kicker">News Intelligence</p>
-                <div className="news-sparkle-shield">
-                  <span className="news-sparkle-shield-ic" aria-hidden>🛡</span>
-                  <span>Đọc tin tức như bối cảnh, không phải khuyến nghị mua/bán.</span>
-                </div>
-                <h1 className="news-sparkle-title">News Intelligence</h1>
-                <p className="news-sparkle-status">
-                  <span className={`news-sparkle-dot is-${freshness === 'fresh' ? 'fresh' : 'stale'}`} aria-hidden />
-                  {freshness} · {successfulSourceCount}/{sourceCount} nguồn đang kết nối
-                </p>
-                <p className="news-sparkle-desc">
-                  Theo dõi sự kiện, nguồn tin và tác động thị trường — có lớp giải thích AI, luôn phân biệt bối cảnh với tín hiệu giao dịch.
-                </p>
-                <div className="news-sparkle-badges">
-                  {HEADER_BADGES.map((b) => (
-                    <span key={b.label} className={`news-sparkle-badge ${b.variant === 'caution' ? 'is-caution' : ''}`}>{b.label}</span>
-                  ))}
-                </div>
-                <nav className="news-sparkle-actions" aria-label="Thao tác nhanh">
-                  <button type="button" className="news-sparkle-btn news-sparkle-btn--dark" onClick={() => setChatOpen(true)}>
-                    <span aria-hidden>✦</span> Ask Analyst
+          <div className="news-sparkle-compact-header">
+            <div className="news-sparkle-compact-title">
+              <span className="news-sparkle-shield-ic" aria-hidden>🛡</span>
+              <h1>News Intelligence</h1>
+              <div className="news-sparkle-dash news-sparkle-dash--compact">
+                {/* Today Brief Ticker */}
+                {topBrief ? (
+                  <button type="button" className="news-sparkle-compact-ticker" onClick={() => { setActiveArticleId(topBrief.article_id); setMobileTabIfMobile('detail') }}>
+                    <span className="ticker-badge">Top story</span>
+                    <strong className="ticker-headline">{topBrief.headline}</strong>
+                    <span className="ticker-source">{topBrief.source} · {topBrief.time || formatNewsDate(topBrief.published_at)}</span>
                   </button>
-                  <button type="button" className="news-sparkle-btn news-sparkle-btn--light" onClick={handleRefresh}>
-                    ↻ Refresh feeds
-                  </button>
-                  <button
-                    type="button"
-                    className="news-sparkle-btn news-sparkle-btn--outline"
-                    onClick={() => {
-                      setMobileTab('pulse')
-                      window.requestAnimationFrame(() => {
-                        document.getElementById('news-desk-pulse-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-                      })
-                    }}>
-                    📊 Market Pulse
-                  </button>
-                  {onOpenGlobalTerminal ? (
-                    <button type="button" className="news-sparkle-btn news-sparkle-btn--outline" onClick={onOpenGlobalTerminal}>Terminal</button>
-                  ) : null}
-                  <button type="button" className="news-sparkle-btn news-sparkle-btn--outline" onClick={onBack}>Home</button>
-                </nav>
-              </div>
-
-              <div className="news-sparkle-dash">
-                <div className="news-sparkle-dash-grid">
-                  <article className="news-sparkle-card news-sparkle-card--brief">
-                    <header className="news-sparkle-card-head">
-                      <span className="news-sparkle-card-kicker">Today brief</span>
-                      <span className="news-sparkle-pill">Top story</span>
-                    </header>
-                    {topBrief ? (
-                      <button type="button" className="news-sparkle-brief-hit" onClick={() => { setActiveArticleId(topBrief.article_id); setMobileTab('detail') }}>
-                        <span className="news-sparkle-brief-meta">{topBrief.source} · {topBrief.time || formatNewsDate(topBrief.published_at)}</span>
-                        <strong className="news-sparkle-brief-title">{topBrief.headline}</strong>
-                        <p className="news-sparkle-brief-why">{topBrief.why_it_matters}</p>
-                        <span className="news-sparkle-brief-cta">Đọc tóm tắt &amp; AI →</span>
-                      </button>
-                    ) : (
-                      <p className="news-sparkle-muted">Chưa có brief — đổi filter hoặc refresh.</p>
-                    )}
-                  </article>
-
-                  <article className="news-sparkle-card news-sparkle-card--pulse">
-                    <header className="news-sparkle-card-head">
-                      <span className="news-sparkle-card-kicker">Market pulse</span>
-                      <span className="news-sparkle-live">Live</span>
-                    </header>
-                    <ul className="news-sparkle-pulse-rows">
-                      <li><span>Tổng tin</span><b>{pulse.article_count ?? articles.length}</b></li>
-                      <li><span>High impact</span><b className="is-up">{pulse.high_impact_count ?? 0}</b></li>
-                      <li><span>Critical</span><b>{pulse.critical_count ?? 0}</b></li>
-                      <li><span>Negative</span><b className="is-down">{pulse.negative_count ?? 0}</b></li>
-                    </ul>
-                    <p className="news-sparkle-card-foot">Theo cửa sổ filter hiện tại · <button type="button" className="news-sparkle-linkbtn" onClick={() => { setMobileTab('pulse'); document.getElementById('news-desk-pulse-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }}>Xem chi tiết pulse</button></p>
-                  </article>
-
-                  <article className="news-sparkle-card news-sparkle-card--impact">
-                    <header className="news-sparkle-card-head">
-                      <span className="news-sparkle-card-kicker">Top impact areas</span>
-                      <span className="news-sparkle-pill is-warn">Theo category</span>
-                    </header>
-                    {topImpactCats.length ? (
-                      <ul className="news-sparkle-impact-list">
-                        {topImpactCats.map((c) => (
-                          <li key={c.label}>
-                            <span className="news-sparkle-impact-label">{c.label}</span>
-                            <span className="news-sparkle-impact-bar" aria-hidden>
-                              <i style={{ width: `${(Number(c.count) / maxImpactCount) * 100}%` }} />
-                            </span>
-                            <b>{c.count}</b>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="news-sparkle-muted">Chưa đủ dữ liệu phân loại.</p>
-                    )}
-                  </article>
-
-                  <article className="news-sparkle-card news-sparkle-card--sent">
-                    <header className="news-sparkle-card-head">
-                      <span className="news-sparkle-card-kicker">Sentiment mix</span>
-                    </header>
-                    <div className="news-sparkle-sent-wrap">
-                      <div
-                        className="news-sparkle-donut"
-                        style={{
-                          background: `conic-gradient(#34d399 0% ${pulseSentiment.posPct}%, #fbbf24 ${pulseSentiment.posPct}% ${pulseSentiment.posPct + pulseSentiment.neuPct}%, #fb7185 ${pulseSentiment.posPct + pulseSentiment.neuPct}% 100%)`,
-                        }}
-                        role="img"
-                        aria-label={`Sentiment positive ${pulseSentiment.posPct} percent, neutral ${pulseSentiment.neuPct}, negative ${pulseSentiment.negPct}`}
-                      />
-                      <ul className="news-sparkle-sent-legend">
-                        <li><i className="dot pos" /> Positive <b>{pulseSentiment.posPct}%</b></li>
-                        <li><i className="dot neu" /> Neutral <b>{pulseSentiment.neuPct}%</b></li>
-                        <li><i className="dot neg" /> Negative <b>{pulseSentiment.negPct}%</b></li>
-                      </ul>
-                    </div>
-                    <p className="news-sparkle-card-foot">Dựa trên {successfulSourceCount}/{sourceCount} nguồn trong batch</p>
-                  </article>
-                </div>
-
-                {macroDesk?.enabled && previewEconEvents.length ? (
-                  <div className="news-sparkle-cal-strip">
-                    <div className="news-sparkle-cal-strip-head">
-                      <span>Lịch sắp tới</span>
-                      <button
-                        type="button"
-                        className="news-sparkle-linkbtn"
-                        onClick={openEconomicCalendarIframe}>
-                        Bảng đầy đủ ↓
-                      </button>
-                    </div>
-                    <ul className="news-sparkle-cal-list">
-                      {previewEconEvents.map((ev, i) => {
-                        const tc = formatFinnhubEconTimeCell(ev)
-                        return (
-                          <li key={`p-${i}-${ev.country}-${String(ev.event).slice(0, 24)}`}>
-                            <span className="news-sparkle-cal-time">{tc.main}{tc.utcLabel ? ` ${tc.utcLabel}` : ''}</span>
-                            <span className="news-sparkle-cal-cc">{finnhubCell(ev.country)}</span>
-                            <span className="news-sparkle-cal-ev">{String(ev.event).slice(0, 72)}{String(ev.event).length > 72 ? '…' : ''}</span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
                 ) : null}
-
-                <div className="news-sparkle-latest">
-                  <span className="news-sparkle-latest-ic" aria-hidden>🔔</span>
-                  <div>
-                    <p className="news-sparkle-latest-k">Latest update</p>
-                    {articles[0] ? (
-                      <p className="news-sparkle-latest-t">
-                        <strong>{articles[0].source}</strong> · {formatNewsDate(articles[0].published_at)} — {articles[0].headline}
-                      </p>
-                    ) : (
-                      <p className="news-sparkle-muted">Chưa có tin trong cửa sổ.</p>
-                    )}
-                  </div>
-                  {articles[0] ? (
-                    <button type="button" className="news-sparkle-btn news-sparkle-btn--mini" onClick={() => { setActiveArticleId(articles[0].article_id); setMobileTab('detail') }}>Xem chi tiết</button>
-                  ) : null}
-                </div>
               </div>
             </div>
-            <button
-              type="button"
-              className="news-sparkle-scrollhint"
-              onClick={() => document.getElementById('news-desk-main')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-              <span>Khám phá feed &amp; bộ lọc</span>
-              <span className="news-sparkle-scrollhint-chev" aria-hidden>⌄</span>
-            </button>
+            
+            <nav className="news-sparkle-actions" aria-label="Thao tác nhanh">
+              <button type="button" className="news-sparkle-btn news-sparkle-btn--dark" onClick={() => setChatOpen(true)}>
+                <span aria-hidden>✦</span> Ask Analyst
+              </button>
+              <button type="button" className="news-sparkle-btn news-sparkle-btn--light" onClick={handleRefresh}>
+                ↻ Refresh feeds
+              </button>
+            </nav>
           </div>
         </div>
 
@@ -673,6 +577,30 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
 
         {/* ── Control Bar ───────────────────────────────────────────── */}
         <section className="news-desk__control-bar" aria-label="News filters">
+          <div className="news-desk__market-lens" aria-label="Market Lens">
+            <button
+              type="button"
+              className={marketLens === 'vietnam' ? 'is-active' : ''}
+              onClick={() => handleLensChange('vietnam')}
+            >
+              🇻🇳 Thị trường Việt Nam
+            </button>
+            <button
+              type="button"
+              className={marketLens === 'global' ? 'is-active' : ''}
+              onClick={() => handleLensChange('global')}
+            >
+              🌎 Vĩ mô Toàn cầu
+            </button>
+            <button
+              type="button"
+              className={marketLens === 'cross_impact' ? 'is-active is-impact' : ''}
+              onClick={() => handleLensChange('cross_impact')}
+            >
+              🔗 Tác động chéo (Cross-Impact)
+            </button>
+          </div>
+
           <div className="news-desk__control-tier1">
             <div className="news-desk__search">
               <label>
@@ -681,64 +609,11 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   placeholder="Tìm Fed, BTC, oil, earnings..." />
               </label>
             </div>
-            <div className="news-desk__preset-row" aria-label="Presets">
-              {PRESETS.map((p) => (
-                <button key={p.id} type="button" className={preset === p.id ? 'is-active' : ''}
-                  onClick={() => { setPreset(p.id); setRegion(''); setSourceGroup('') }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="news-desk__control-tier2">
-            <div className="news-desk__filter-grid">
-              <label>
-                <span>Region</span>
-                <select value={region} onChange={(e) => { setRegion(e.target.value); setPreset('balanced') }}>
-                  {REGIONS.map((r) => <option key={r.value || 'all'} value={r.value}>{r.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Source mix</span>
-                <select value={sourceGroup} onChange={(e) => { setSourceGroup(e.target.value); setPreset('balanced') }}>
-                  {SOURCE_GROUPS.map((s) => <option key={s.value || 'all'} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Window</span>
-                <select value={timeRangeHours} onChange={(e) => setTimeRangeHours(Number(e.target.value))}>
-                  {TIME_RANGES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Sentiment</span>
-                <select value={sentiment} onChange={(e) => setSentiment(e.target.value)}>
-                  {SENTIMENTS.map((s) => <option key={s.value || 'all'} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Impact</span>
-                <select value={impactLevel} onChange={(e) => setImpactLevel(e.target.value)}>
-                  {IMPACT_LEVELS.map((i) => <option key={i.value || 'all'} value={i.value}>{i.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Importance</span>
-                <select value={importance} onChange={(e) => setImportance(e.target.value)}>
-                  {IMPORTANCE_LABELS.map((i) => <option key={i.value || 'all'} value={i.value}>{i.label}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="news-desk__filter-actions">
-              <button type="button" className="news-desk__button news-desk__button--ghost" onClick={handleResetFilters}>Reset</button>
-            </div>
-          </div>
-          <div className="news-desk__category-row" aria-label="Categories">
-            {CATEGORIES.map((c) => (
-              <button key={c} type="button" className={category === c ? 'is-active' : ''} onClick={() => setCategory(c)}>
-                {c === 'all' ? 'All' : c.replace('_', ' ')}
-              </button>
-            ))}
+            {marketLens === 'cross_impact' && (
+              <div className="news-desk__preset-hint" aria-label="Cross Impact Hint">
+                💡 <em>Chế độ AI Insight:</em> Hãy thử chọn 1 tin Quốc tế và hỏi "Tin này ảnh hưởng gì đến chứng khoán Việt Nam?"
+              </div>
+            )}
           </div>
         </section>
 
@@ -756,7 +631,7 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   item={item}
                   isActive={item.article_id === activeArticleId}
                   isSaved={savedIds.has(item.article_id)}
-                  onSelect={() => { setActiveArticleId(item.article_id); setMobileTab('detail') }}
+                  onSelect={() => { setActiveArticleId(item.article_id); setMobileTabIfMobile('detail') }}
                   onSave={() => handleSave(item.article_id)}
                   onAskAi={() => { setChatOpen(true); setChatPrompt(`Giải thích tin này: ${item.headline}`) }}
                 />
@@ -801,7 +676,7 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   <button key={a.article_id} type="button"
                     className={a.article_id === activeArticle?.article_id ? 'news-desk__feed-item is-active' : 'news-desk__feed-item'}
                     aria-label={`Xem chi tiết: ${a.headline}`}
-                    onClick={() => { setActiveArticleId(a.article_id); setMobileTab('detail') }}>
+                    onClick={() => { setActiveArticleId(a.article_id); setMobileTabIfMobile('detail') }}>
                     <div className="news-desk__feed-item-top">
                       <time>{formatNewsDate(a.published_at)}</time>
                       <ImportanceBadge label={a.importance_label} score={a.importance_score} />
@@ -841,19 +716,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           <article className={`news-desk__story ${mobileTab !== 'detail' ? 'is-mobile-hidden' : ''}`}>
             {activeArticle ? (
               <>
-                {/* A. Badges */}
-                <div className="news-desk__badges">
-                  <span>{detail?.badges?.source_flag || activeArticle.source_flag}</span>
-                  <span>Tier {detail?.badges?.source_tier || activeArticle.source_tier}</span>
-                  <ImportanceBadge label={detail?.badges?.importance || activeArticle.importance_label}
-                    score={activeArticle.importance_score} />
-                  <span>{detail?.badges?.impact_level || activeArticle.impact} impact</span>
-                  <span>{detail?.badges?.freshness || freshness}</span>
-                  {(detail?.badges?.threat_level || activeArticle.threat_level) !== 'normal' ? (
-                    <span className="is-warn">{detail?.badges?.threat_level || activeArticle.threat_level}</span>
-                  ) : null}
-                  {detail?.badges?.confidence ? <span>{detail.badges.confidence} confidence</span> : null}
-                </div>
 
                 {/* Headline — scan anchor */}
                 <h2>{activeArticle.headline}</h2>
@@ -884,11 +746,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   </button>
                 </div>
 
-                {/* Why this matters — context before taxonomy */}
-                <section className="news-desk__explain">
-                  <h3>Why this matters</h3>
-                  <p>{detail?.why_this_matters || 'Tin được phân loại theo source tier, sentiment, impact và risk keywords. Đây là lớp đọc bối cảnh, không phải tín hiệu mua bán.'}</p>
-                </section>
 
                 {/* E. Affected Markets */}
                 {(detail?.affected_markets || activeArticle.affected_markets)?.length ? (
@@ -902,29 +759,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   </section>
                 ) : null}
 
-                {/* F. What to Monitor */}
-                {(detail?.what_to_monitor || activeArticle.what_to_monitor)?.length ? (
-                  <section className="news-desk__section-block">
-                    <h3>What to monitor next</h3>
-                    <div className="news-desk__tag-list">
-                      {(detail?.what_to_monitor || activeArticle.what_to_monitor).map((m) => (
-                        <span key={m} className="news-desk__tag is-monitor">{m}</span>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                {/* G. Learn Links */}
-                {(detail?.learn_links || activeArticle.learn_links)?.length ? (
-                  <section className="news-desk__section-block">
-                    <h3>Learn this concept</h3>
-                    <div className="news-desk__learn-list">
-                      {(detail?.learn_links || activeArticle.learn_links).map((link) => (
-                        <span key={link.id} className="news-desk__learn-chip">{link.label}</span>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
 
                 {/* H. Related Articles */}
                 {detail?.related_articles?.length ? (
@@ -942,35 +776,6 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
                   </section>
                 ) : null}
 
-                {/* Metadata: trust signals, not primary reading — collapsed by default */}
-                <details className="news-desk__meta-details">
-                  <summary className="news-desk__meta-details-summary">Chi tiết nguồn &amp; phân loại</summary>
-                  <dl className="news-desk__info-grid news-desk__info-grid--compact">
-                    <InfoRow
-                      label="Source"
-                      value={`${detail?.info_grid?.source || activeArticle.source} · ${detail?.info_grid?.source_tier || `Tier ${activeArticle.source_tier}`}`}
-                    />
-                    <InfoRow label="Published" value={formatNewsDate(detail?.info_grid?.published_at || activeArticle.published_at)} />
-                    <InfoRow label="Category" value={detail?.info_grid?.category || activeArticle.category} />
-                    <InfoRow label="Region" value={detail?.info_grid?.region || activeArticle.region} />
-                    <InfoRow label="Source mix" value={detail?.info_grid?.source_mix || activeArticle.source_group || 'global'} />
-                    <InfoRow label="Tickers" value={(detail?.info_grid?.tickers || activeArticle.tickers)?.length ? (detail?.info_grid?.tickers || activeArticle.tickers).join(', ') : '—'} />
-                    {detail?.info_grid?.related_entities?.length ? (
-                      <InfoRow label="Entities" value={detail.info_grid.related_entities.map((e) => e.name).join(', ')} />
-                    ) : null}
-                  </dl>
-                </details>
-
-                {/* Ask AI CTA */}
-                <button type="button" className="news-desk__button news-desk__button--primary news-desk__ask-ai-cta"
-                  onClick={() => { setChatOpen(true); setChatPrompt(`Phân tích tin này: ${activeArticle.headline}`) }}>
-                  Ask AI about this article
-                </button>
-
-                {/* Data quality */}
-                {detail?.data_quality?.freshness === 'stale' ? (
-                  <p className="news-desk__state news-desk__state--warning">Dữ liệu có thể không còn mới nhất. Nguồn đang bị trễ.</p>
-                ) : null}
               </>
             ) : (
               <div className="news-desk__empty-detail">
@@ -981,107 +786,7 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
             {detailLoading ? <div className="news-desk__detail-loading">Loading detail...</div> : null}
           </article>
 
-          {/* Market Pulse Panel */}
-          <aside id="news-desk-pulse-panel" className={`news-desk__pulse ${mobileTab !== 'pulse' ? 'is-mobile-hidden' : ''}`}>
-            <div className="news-desk__panel-head">
-              <div>
-                <p>Market pulse</p>
-                <h2>Overview</h2>
-              </div>
-            </div>
-            <div className="news-desk__metric-grid">
-              <Metric label="Articles" value={pulse.article_count || 0} />
-              <Metric label="High impact" value={pulse.high_impact_count || 0} />
-              <Metric label="Critical" value={pulse.critical_count || 0} />
-              <Metric label="Negative" value={pulse.negative_count || 0} />
-              <Metric label="Positive" value={pulse.positive_count || 0} />
-            </div>
-
-            {/* Source Health */}
-            {pulse.source_health ? (
-              <>
-                <h3>Source health</h3>
-                <div className="news-desk__source-health">
-                  <span className={`news-desk__health-dot is-${pulse.source_health.status}`} />
-                  <span>{pulse.source_health.active}/{pulse.source_health.total} active · {pulse.source_health.status}</span>
-                </div>
-              </>
-            ) : null}
-
-            {/* Freshness */}
-            <h3>Freshness</h3>
-            <div className="news-desk__rank-list">
-              <p><span>Status</span><b className={`is-freshness-${pulse.freshness_status || freshness}`}>{pulse.freshness_status || freshness}</b></p>
-            </div>
-
-            {/* Top Drivers */}
-            {pulse.top_drivers?.length ? (
-              <>
-                <h3>Top drivers</h3>
-                <div className="news-desk__rank-list">
-                  {pulse.top_drivers.map((d) => <p key={d.label}><span>{d.label}</span><b>{d.count}</b></p>)}
-                </div>
-              </>
-            ) : null}
-
-            {/* Top Affected Markets */}
-            {pulse.top_affected_markets?.length ? (
-              <>
-                <h3>Top affected markets</h3>
-                <div className="news-desk__rank-list">
-                  {pulse.top_affected_markets.map((m) => <p key={m.label}><span>{m.label}</span><b>{m.count}</b></p>)}
-                </div>
-              </>
-            ) : null}
-
-            <h3>Top regions</h3>
-            <div className="news-desk__rank-list">
-              {(pulse.top_regions || []).map((r) => <p key={r.label}><span>{r.label}</span><b>{r.count}</b></p>)}
-            </div>
-
-            <h3>Top categories</h3>
-            <div className="news-desk__rank-list">
-              {(pulse.top_categories || []).map((c) => <p key={c.label}><span>{c.label}</span><b>{c.count}</b></p>)}
-            </div>
-
-            {/* Clusters */}
-            {pulse.cluster_summary?.length ? (
-              <>
-                <h3>Clusters</h3>
-                <div className="news-desk__cluster-list">
-                  {pulse.cluster_summary.map((cl) => (
-                    <div key={cl.cluster_id} className="news-desk__cluster-card">
-                      <strong>{cl.topic}</strong>
-                      <span>
-                        <b>{cl.article_count} articles</b>
-                        <em className={`is-${cl.sentiment}`}>{cl.sentiment}</em>
-                        <ImportanceBadge label={cl.importance} />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : clusters.length ? (
-              <>
-                <h3>Clusters</h3>
-                <div className="news-desk__rank-list">
-                  {clusters.slice(0, 5).map((cl) => (
-                    <p key={cl.cluster_id}><span>{cl.similarity_topic}</span><b>{cl.article_count}</b></p>
-                  ))}
-                </div>
-              </>
-            ) : null}
-
-            {/* Risk Labels */}
-            {pulse.risk_labels?.length ? (
-              <>
-                <h3>Risk signals</h3>
-                <div className="news-desk__tag-list">
-                  {pulse.risk_labels.map((r) => <span key={r} className="news-desk__tag is-risk">{r}</span>)}
-                </div>
-              </>
-            ) : null}
-          </aside>
+          {/* Market Pulse panel removed as per user request */}
         </div>
 
         {/* Safety disclaimer */}

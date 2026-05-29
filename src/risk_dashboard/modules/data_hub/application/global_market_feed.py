@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -21,9 +22,14 @@ class FeedInstrument:
     yahoo_symbol: str
     group: str
     focus: str
+    data_source: str = "yahoo"  # "yahoo" or "vnstock"
+    vn_symbol: str = ""  # only used when data_source == "vnstock"
 
 
 GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
+    FeedInstrument("VNINDEX", "VN-Index", "", "indices", "Vietnam broad market", data_source="vnstock", vn_symbol="VNINDEX"),
+    FeedInstrument("VN30", "VN30", "", "indices", "Vietnam large-cap", data_source="vnstock", vn_symbol="VN30"),
+    FeedInstrument("HNXINDEX", "HNX-Index", "", "indices", "Vietnam HNX board", data_source="vnstock", vn_symbol="HNXIndex"),
     FeedInstrument("SPX", "S&P 500", "^GSPC", "indices", "US large-cap breadth"),
     FeedInstrument("NDX", "Nasdaq 100", "^NDX", "indices", "US growth / tech beta"),
     FeedInstrument("RUT", "Russell 2000", "^RUT", "indices", "US small-cap risk appetite"),
@@ -88,7 +94,10 @@ class GlobalMarketFeedProducer:
 
         cached = self._load_history_cache(instrument.symbol, period, interval)
         if not self._is_cache_fresh(cached):
-            live = self._fetch_yahoo_history(instrument=instrument, period=period, interval=interval)
+            if instrument.data_source == "vnstock":
+                live = self._fetch_vnstock_history(instrument=instrument, period=period, interval=interval)
+            else:
+                live = self._fetch_yahoo_history(instrument=instrument, period=period, interval=interval)
             if live["points"]:
                 self._write_history_cache(instrument.symbol, period, interval, live)
                 cached = live
@@ -103,17 +112,18 @@ class GlobalMarketFeedProducer:
             "period": period,
             "interval": interval,
             "points": points,
-            "source": "yahoo_finance",
+            "source": instrument.data_source if instrument.data_source != "yahoo" else "yahoo_finance",
             "as_of": cached.get("as_of") if isinstance(cached, dict) else _utc_now_iso(),
             "freshness": "fresh" if self._is_cache_fresh(cached) else "stale" if points else "degraded",
             "stale_reason": None if self._is_cache_fresh(cached) else "history_live_feed_unavailable_using_cache" if points else "history_live_feed_unavailable_no_cache",
         }
 
     def _fetch_yahoo_snapshot(self) -> dict[str, Any]:
+        yahoo_instruments = [i for i in GLOBAL_MARKET_INSTRUMENTS if i.data_source == "yahoo"]
         try:
             import yfinance as yf
 
-            tickers = [instrument.yahoo_symbol for instrument in GLOBAL_MARKET_INSTRUMENTS]
+            tickers = [instrument.yahoo_symbol for instrument in yahoo_instruments]
             frame = yf.download(
                 tickers=tickers,
                 period="5d",
@@ -123,11 +133,11 @@ class GlobalMarketFeedProducer:
                 threads=True,
             )
         except Exception:
-            return {"as_of": _utc_now_iso(), "source": "yahoo_finance", "items": []}
+            frame = pd.DataFrame()
 
         items: list[dict[str, Any]] = []
-        for instrument in GLOBAL_MARKET_INSTRUMENTS:
-            closes = _extract_close_series(frame, instrument.yahoo_symbol)
+        for instrument in yahoo_instruments:
+            closes = _extract_close_series(frame, instrument.yahoo_symbol) if not frame.empty else pd.Series(dtype=float)
             if closes.empty:
                 continue
             previous = closes.iloc[-2] if len(closes) >= 2 else closes.iloc[-1]
@@ -150,7 +160,40 @@ class GlobalMarketFeedProducer:
                     "updated_at": _series_updated_at(closes),
                 }
             )
-        return {"as_of": _utc_now_iso(), "source": "yahoo_finance", "items": items}
+        items.extend(self._fetch_vnstock_snapshot_items())
+        return {"as_of": _utc_now_iso(), "source": "mixed", "items": items}
+
+    def _fetch_vnstock_snapshot_items(self) -> list[dict[str, Any]]:
+        vn_instruments = [i for i in GLOBAL_MARKET_INSTRUMENTS if i.data_source == "vnstock"]
+        if not vn_instruments:
+            return []
+        items: list[dict[str, Any]] = []
+        for instrument in vn_instruments:
+            frame = _fetch_vnstock_dataframe(instrument.vn_symbol or instrument.symbol, days=5, interval="1D")
+            if frame is None or frame.empty or "close" not in frame.columns:
+                continue
+            closes = pd.to_numeric(frame["close"], errors="coerce").dropna()
+            if closes.empty:
+                continue
+            previous = float(closes.iloc[-2]) if len(closes) >= 2 else float(closes.iloc[-1])
+            current = float(closes.iloc[-1])
+            change = current - previous
+            change_pct = (change / previous) * 100 if previous else 0.0
+            items.append(
+                {
+                    "symbol": instrument.symbol,
+                    "name": instrument.name,
+                    "yahoo_symbol": instrument.vn_symbol,
+                    "group": instrument.group,
+                    "price": round(current, 6),
+                    "change": round(change, 6),
+                    "change_pct": round(change_pct, 3),
+                    "focus": instrument.focus,
+                    "source": "vnstock",
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+        return items
 
     def _fetch_yahoo_history(self, *, instrument: FeedInstrument, period: str, interval: str) -> dict[str, Any]:
         safe_period = _normalize_history_period(period, interval)
@@ -194,6 +237,44 @@ class GlobalMarketFeedProducer:
                 }
             )
         return {"as_of": _utc_now_iso(), "source": "yahoo_finance", "points": points}
+
+    def _fetch_vnstock_history(self, *, instrument: FeedInstrument, period: str, interval: str) -> dict[str, Any]:
+        days = _period_to_days(period)
+        vn_interval = _vnstock_interval(interval)
+        vn_symbol = instrument.vn_symbol or instrument.symbol
+        frame = _fetch_vnstock_dataframe(vn_symbol, days=days, interval=vn_interval)
+        if frame is None or frame.empty:
+            return {"as_of": _utc_now_iso(), "source": "vnstock", "points": []}
+
+        # vnstock returns VN equity prices in thousands of VND (e.g. 75.1 = 75,100 VND).
+        # Multiply to raw VND so chart axes / OHLC strip stay aligned with snapshot.
+        # Indices (VNINDEX/VN30/HNXINDEX) are quoted in index points — don't scale.
+        scale = 1000.0 if _is_vn_stock_equity(instrument) else 1.0
+
+        points: list[dict[str, Any]] = []
+        previous: float | None = None
+        date_col = "time" if "time" in frame.columns else frame.columns[0]
+        limit = _history_point_limit(interval)
+        for _, row in frame.tail(limit).iterrows():
+            close_val = row.get("close")
+            if close_val is None or (isinstance(close_val, float) and pd.isna(close_val)):
+                continue
+            price = float(close_val) * scale
+            change_pct = ((price - previous) / previous) * 100 if previous else 0.0
+            previous = price
+            points.append(
+                {
+                    "date": _timestamp_iso(row.get(date_col)),
+                    "price": round(price, 6),
+                    "open": round(float(row.get("open", close_val) or close_val) * scale, 6),
+                    "high": round(float(row.get("high", close_val) or close_val) * scale, 6),
+                    "low": round(float(row.get("low", close_val) or close_val) * scale, 6),
+                    "close": round(price, 6),
+                    "volume": round(float(row.get("volume", 0.0) or 0.0), 4),
+                    "change_pct": round(change_pct, 4),
+                }
+            )
+        return {"as_of": _utc_now_iso(), "source": "vnstock", "points": points}
 
     def _load_cache(self) -> dict[str, Any]:
         path = self.cache_dir / "global_market_snapshot.json"
@@ -304,6 +385,146 @@ def _normalize_history_period(period: str, interval: str) -> str:
     return safe_period
 
 
+_PERIOD_TO_DAYS = {
+    "1d": 5,      # account for weekends so we always land on at least 1 trading day
+    "5d": 10,
+    "1mo": 35,
+    "3mo": 100,
+    "6mo": 200,
+    "1y": 380,
+    "2y": 760,
+    "5y": 1900,
+    "10y": 3800,
+    "max": 9000,  # vnstock historical depth ~ 2000-01-01
+}
+
+
+def _period_to_days(period: str) -> int:
+    return _PERIOD_TO_DAYS.get(period, 200)
+
+
+_VNSTOCK_INTERVAL_MAP = {
+    "1m": "1m",
+    "5m": "5m",
+    "15m": "15m",
+    "30m": "30m",
+    "1h": "1H",
+    "4h": "1H",   # vnstock has no native 4h for indices — caller may resample
+    "1d": "1D",
+    "1wk": "1W",
+    "1mo": "1M",
+    "1y": "1M",   # vnstock has no yearly bucket — fall back to monthly
+}
+
+
+def _vnstock_interval(interval: str) -> str:
+    return _VNSTOCK_INTERVAL_MAP.get(interval, "1D")
+
+
+def _fetch_vnstock_dataframe(symbol: str, *, days: int, interval: str) -> pd.DataFrame | None:
+    """Fetch VN OHLCV from vnstock.
+
+    VN equities are only served by the VCI source in vnstock 4.x.
+    The MSN/KBS providers are international and have no VN coverage,
+    so we don't waste retry budget on them. The internal vnstock retry
+    decorator handles transient transport failures on VCI.
+
+    Wrapped in a rate-limiter (15 req/min, well under vnstock guest 20/min)
+    and a SystemExit shield so vnstock's "Process terminated" on rate-limit
+    does not crash the uvicorn worker.
+    """
+    from datetime import date, timedelta
+
+    end = date.today()
+    start = end - timedelta(days=max(days, 5))
+    start_s = start.isoformat()
+    end_s = end.isoformat()
+
+    _VNSTOCK_RATE_LIMITER.acquire()
+    try:
+        with _vnstock_safe():
+            try:
+                from vnstock import Quote  # type: ignore
+
+                q = Quote(symbol=symbol, source="VCI")
+                frame = q.history(start=start_s, end=end_s, interval=interval)
+                if isinstance(frame, pd.DataFrame) and not frame.empty:
+                    return frame
+            except Exception:
+                pass
+
+            try:
+                from vnstock import Vnstock  # type: ignore
+
+                stock = Vnstock().stock(symbol=symbol, source="VCI")
+                frame = stock.quote.history(start=start_s, end=end_s, interval=interval)
+                if isinstance(frame, pd.DataFrame) and not frame.empty:
+                    return frame
+            except Exception:
+                pass
+    except _VnstockRateExceeded:
+        return None
+
+    return None
+
+
+class _VnstockRateExceeded(RuntimeError):
+    """Raised when vnstock library tries to terminate the process on rate limit."""
+
+
+@contextlib.contextmanager
+def _vnstock_safe():
+    """Intercept vnstock's sys.exit()/os._exit() rate-limit kill so we degrade gracefully."""
+    import os as _os
+    import sys as _sys
+
+    original_sys_exit = _sys.exit
+    original_os_exit = _os._exit
+
+    def _trap(code=0):
+        raise _VnstockRateExceeded(f"vnstock attempted to terminate process (code={code})")
+
+    _sys.exit = _trap
+    _os._exit = _trap
+    try:
+        yield
+    finally:
+        _sys.exit = original_sys_exit
+        _os._exit = original_os_exit
+
+
+class _RateLimiter:
+    """Sliding-window rate limiter. Blocks until under max_requests in window_seconds."""
+
+    def __init__(self, max_requests: int, window_seconds: int) -> None:
+        import threading as _t
+
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._lock = _t.Lock()
+        self._timestamps: list[float] = []
+
+    def acquire(self) -> None:
+        import time as _time
+
+        while True:
+            with self._lock:
+                now = _time.time()
+                # Drop timestamps outside the window
+                cutoff = now - self.window
+                while self._timestamps and self._timestamps[0] < cutoff:
+                    self._timestamps.pop(0)
+                if len(self._timestamps) < self.max_requests:
+                    self._timestamps.append(now)
+                    return
+                wait_for = max(0.0, (self._timestamps[0] + self.window) - now)
+            _time.sleep(min(wait_for + 0.05, 2.0))
+
+
+# Global rate limiter — vnstock guest tier allows 20 req/min, we cap at 15/min for safety.
+_VNSTOCK_RATE_LIMITER = _RateLimiter(max_requests=15, window_seconds=60)
+
+
 def _download_interval_for_history(interval: str) -> str:
     normalized = interval if interval in _SUPPORTED_HISTORY_INTERVALS else "1d"
     if normalized in {"1h", "4h"}:
@@ -338,7 +559,7 @@ def _history_point_limit(interval: str) -> int:
         return 600
     if interval in {"1wk", "1mo", "1y"}:
         return 520
-    return 260
+    return 800
 
 
 def _series_updated_at(series: pd.Series) -> str:
@@ -355,7 +576,50 @@ def _series_updated_at(series: pd.Series) -> str:
 
 def find_instrument(symbol: str) -> FeedInstrument | None:
     normalized = symbol.strip().upper()
-    return next((instrument for instrument in GLOBAL_MARKET_INSTRUMENTS if instrument.symbol == normalized or instrument.yahoo_symbol.upper() == normalized), None)
+    hit = next(
+        (instrument for instrument in GLOBAL_MARKET_INSTRUMENTS
+         if instrument.symbol == normalized or instrument.yahoo_symbol.upper() == normalized),
+        None,
+    )
+    if hit is not None:
+        return hit
+    # Fall through: arbitrary VN ticker (3-5 letters) routed to vnstock.
+    if _looks_like_vn_ticker(normalized):
+        return FeedInstrument(
+            symbol=normalized,
+            name=normalized,
+            yahoo_symbol="",
+            group="vn_stocks",
+            focus="Vietnam equity",
+            data_source="vnstock",
+            vn_symbol=normalized,
+        )
+    return None
+
+
+def _looks_like_vn_ticker(symbol: str) -> bool:
+    if not symbol:
+        return False
+    if not (3 <= len(symbol) <= 5):
+        return False
+    return symbol.isalpha()
+
+
+_VN_INDICES = frozenset({"VNINDEX", "VN30", "HNXINDEX", "HNXINDEX30", "UPCOMINDEX"})
+
+
+def _is_vn_stock_equity(instrument: FeedInstrument) -> bool:
+    """True only for individual VN listings (need ×1000 to raw VND scaling).
+
+    VN indices stay in their natural index-point unit (VN-Index ~1877).
+    Synthetic fallthrough instruments use group=vn_stocks → stock.
+    """
+    if instrument.data_source != "vnstock":
+        return False
+    sym = (instrument.symbol or "").upper()
+    if sym in _VN_INDICES:
+        return False
+    return True
 
 
 def _timestamp_iso(value) -> str:

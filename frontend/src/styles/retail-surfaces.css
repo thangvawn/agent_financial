@@ -1,6 +1,10 @@
-.app-shell--financial-health .surface-panel > section,
+/* ============================================================
+   Retail surfaces — small overrides for light-mode surfaces
+   Pages bring their own canvas; here we just neutralize old
+   container styling that the new shell no longer enforces.
+   ============================================================ */
+
 .app-shell--learning .surface-panel > section,
-.app-shell--goals .surface-panel > section,
 .app-shell--insights .surface-panel > section,
 .app-shell--community .surface-panel > section {
   display: grid;
@@ -9,18 +13,14 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  /* Nền do từng page định nghĩa (.fh-page, .insights-v2, …); không dùng transparent để tránh lộ app-shell #020302 trong gap */
+  background: transparent;
   box-shadow: none;
 }
 
-.app-shell--financial-health .surface-panel > section > h1,
 .app-shell--learning .surface-panel > section > h1,
-.app-shell--goals .surface-panel > section > h1,
 .app-shell--insights .surface-panel > section > h1,
 .app-shell--community .surface-panel > section > h1,
-.app-shell--financial-health .surface-panel > section > p,
 .app-shell--learning .surface-panel > section > p,
-.app-shell--goals .surface-panel > section > p,
 .app-shell--insights .surface-panel > section > p,
 .app-shell--community .surface-panel > section > p {
   max-width: none;
@@ -39,10 +39,10 @@
 .app-shell--learning .surface-panel > section.learn-os-page--reader > div {
   display: block;
   gap: 0;
-  padding: 0.5rem;
+  padding: 8px;
   border: 0;
   border-radius: 0;
-  background: #030b0d;
+  background: var(--bg);
   box-shadow: none;
 }
 
@@ -53,11 +53,149 @@
 .app-shell--learning .surface-panel > section.learn-os-page--reader button {
   width: auto;
   min-height: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   box-shadow: none;
 }
 
 .app-shell--learning .surface-panel > section.learn-os-page--reader :is(input, textarea) {
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   box-shadow: none;
 }
+
+/* ============================================================
+   TIER 2 SWEEP — normalize page palettes to fintech-minimal tokens
+   bctc / insights / news / community
+   These overrides apply at low specificity so per-page rules can
+   still override individual exceptions.
+   ============================================================ */
+
+/* Generic page surfaces */
+.app-shell--guided-investing,
+.app-shell--insights,
+.app-shell--news,
+.app-shell--community {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.app-shell--guided-investing .connected-nav,
+.app-shell--insights .connected-nav,
+.app-shell--news .connected-nav,
+.app-shell--community .connected-nav {
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: none;
+}
+
+.app-shell--guided-investing .connected-nav__brand strong,
+.app-shell--insights .connected-nav__brand strong,
+.app-shell--news .connected-nav__brand strong,
+.app-shell--community .connected-nav__brand strong { color: var(--ink); }
+
+.app-shell--guided-investing .connected-nav__tab,
+.app-shell--insights .connected-nav__tab,
+.app-shell--news .connected-nav__tab,
+.app-shell--community .connected-nav__tab { color: var(--ink-muted); background: transparent; }
+
+.app-shell--guided-investing .connected-nav__tab--active,
+.app-shell--insights .connected-nav__tab--active,
+.app-shell--news .connected-nav__tab--active,
+.app-shell--community .connected-nav__tab--active { color: var(--ink); background: transparent; }
+
+.app-shell--guided-investing .connected-nav__tab--active::after,
+.app-shell--insights .connected-nav__tab--active::after,
+.app-shell--news .connected-nav__tab--active::after,
+.app-shell--community .connected-nav__tab--active::after { background: var(--ink); }
+
+/* Card-like blocks across these surfaces — use [class*=] to grab common prefixes */
+.app-shell--guided-investing [class*="-card"]:not([class*="--"]),
+.app-shell--guided-investing [class*="-panel"]:not([class*="--"]),
+.app-shell--guided-investing [class*="-block"]:not([class*="--"]),
+.app-shell--insights [class*="-card"]:not([class*="--"]),
+.app-shell--insights [class*="-panel"]:not([class*="--"]),
+.app-shell--news [class*="-card"]:not([class*="--"]),
+.app-shell--news [class*="-panel"]:not([class*="--"]),
+.app-shell--community [class*="-card"]:not([class*="--"]),
+.app-shell--community [class*="-panel"]:not([class*="--"]) {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+/* Headings */
+.app-shell--guided-investing :is(h1, h2, h3, h4),
+.app-shell--insights :is(h1, h2, h3, h4),
+.app-shell--news :is(h1, h2, h3, h4),
+.app-shell--community :is(h1, h2, h3, h4) {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Body text */
+.app-shell--guided-investing p,
+.app-shell--insights p,
+.app-shell--news p,
+.app-shell--community p { color: var(--ink-muted); }
+
+/* Numeric values get tabular nums + mono */
+.app-shell--guided-investing [class*="-value"],
+.app-shell--guided-investing [class*="-amount"],
+.app-shell--guided-investing [class*="-num"],
+.app-shell--insights [class*="-value"],
+.app-shell--insights [class*="-amount"],
+.app-shell--insights [class*="-num"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Pos/neg directional content */
+.app-shell--guided-investing .bctc-pos,
+.app-shell--guided-investing [class*="--positive"],
+.app-shell--guided-investing [class*="-good"],
+.app-shell--insights [class*="--positive"],
+.app-shell--insights [class*="-up"] { color: var(--pos); }
+
+.app-shell--guided-investing .bctc-neg,
+.app-shell--guided-investing [class*="--negative"],
+.app-shell--guided-investing [class*="-bad"],
+.app-shell--insights [class*="--negative"],
+.app-shell--insights [class*="-down"] { color: var(--neg); }
+
+.app-shell--guided-investing [class*="--caution"],
+.app-shell--guided-investing [class*="-warn"],
+.app-shell--insights [class*="--warn"] { color: var(--warn); }
+
+/* Buttons (community has explicit prefix; others fall through) */
+.community-btn,
+.community-btn--outline {
+  height: 32px !important;
+  min-height: 0 !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--radius-sm) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+
+.community-btn:hover { background: var(--surface-alt) !important; border-color: var(--ink-subtle) !important; }
+
+.community-btn--primary {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-ink) !important;
+}
+
+.community-btn--primary:hover {
+  background: var(--accent-strong) !important;
+  border-color: var(--accent-strong) !important;
+  color: var(--accent-ink) !important;
+}
+
+.community-btn--sm { height: 28px !important; padding: 0 10px !important; font-size: 12px !important; }

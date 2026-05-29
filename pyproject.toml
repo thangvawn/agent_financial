@@ -27,6 +27,9 @@ dependencies = [
   "langchain-openai>=0.3",
   "langgraph>=0.6",
   "python-dotenv>=1.0",
+  "google-auth>=2.28",
+  "yfinance>=0.2.40",
+  "vnstock>=4.0.2",
 ]
 
 [project.scripts]
@@ -40,6 +43,7 @@ risk-model-report = "risk_dashboard.cli.model_report:main"
 risk-train-model = "risk_dashboard.cli.train_job:main"
 risk-fetch-financials = "risk_dashboard.cli.fetch_financials:main"
 risk-fetch-gdrive-folder = "risk_dashboard.data.google_drive:main"
+risk-learning-crawl = "risk_dashboard.cli.learning_crawl:main"
 
 [project.optional-dependencies]
 dev = [

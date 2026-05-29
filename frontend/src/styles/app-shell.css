@@ -1,53 +1,72 @@
+/* ============================================================
+   App shell — fintech-minimal
+   Frame / masthead / surface transitions / connected workspace nav
+   ============================================================ */
+
 .app-shell {
   position: relative;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
   overflow-x: hidden;
   overflow-y: visible;
-  --connected-nav-safe-area: 5.1rem;
+  --connected-nav-safe-area: 4rem;
+  --frame-max: 1240px;
+  --frame-pad: clamp(16px, 2vw, 24px);
 }
 
+/* Ambient orbs — only rendered on dark theme surfaces, very subtle */
 .app-shell__ambient {
   position: fixed;
   inset: auto;
-  width: 32rem;
+  width: 36rem;
   aspect-ratio: 1;
-  border-radius: 999px;
-  filter: blur(30px);
-  opacity: 0.45;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0;
   pointer-events: none;
+  z-index: 0;
+  transition: opacity var(--t-slow) var(--ease);
+}
+
+[data-theme="dark"] .app-shell__ambient,
+.app-shell[data-theme="dark"] .app-shell__ambient {
+  opacity: 0.45;
 }
 
 .app-shell__ambient--one {
-  top: -12rem;
+  top: -14rem;
   right: -10rem;
-  background: rgba(15, 118, 110, 0.18);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18), transparent 65%);
 }
 
 .app-shell__ambient--two {
   bottom: -14rem;
-  left: -12rem;
-  background: rgba(18, 56, 60, 0.14);
+  left: -10rem;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.16), transparent 65%);
 }
 
 .app-shell__frame {
   position: relative;
-  width: min(1180px, calc(100vw - 2rem));
+  z-index: 1;
+  width: 100%;
+  max-width: var(--frame-max);
   margin: 0 auto;
-  padding: 5.7rem 0 3rem;
+  padding: 0 var(--frame-pad);
 }
 
+/* Masthead — minimal Stripe-style topbar (rarely shown; hidden on surface skins) */
 .app-shell__masthead {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.15rem;
-  margin-bottom: 1.2rem;
-  border: 1px solid rgba(23, 54, 47, 0.12);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: rgba(255, 250, 242, 0.64);
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-soft);
+  gap: 16px;
+  padding: 14px 16px;
+  margin: 12px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .app-shell__brand,
@@ -56,84 +75,100 @@
 }
 
 .app-shell__brand {
-  font-size: 0.76rem;
-  letter-spacing: 0.18em;
+  font-size: 11px;
+  align-self: center;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--surface-muted);
+  color: var(--ink-subtle);
+  font-weight: 600;
 }
 
 .app-shell__surface {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--surface-ink);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
 }
 
 .app-shell__masthead-actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.8rem;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
 }
 
+/* Badge — single neutral style, optional tonal variants */
 .app-shell__badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.5rem 0.8rem;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--surface-ink);
-  background: rgba(23, 54, 47, 0.08);
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--line);
 }
 
 .app-shell__badge--pro {
-  background: rgba(201, 119, 63, 0.16);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
 }
 
 .app-shell__badge--operator {
-  background: rgba(119, 84, 196, 0.12);
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: transparent;
 }
 
 .app-shell__content {
   position: relative;
+  z-index: 1;
 }
 
+/* Surface panel with page transitions */
 .surface-panel {
   display: grid;
-  gap: 1.1rem;
+  gap: 16px;
   opacity: 1;
   transform: translateY(0) scale(1);
   transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    filter 180ms ease;
+    opacity var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease);
   will-change: opacity, transform;
 }
 
 .surface-panel[data-transition-phase="exiting"] {
   opacity: 0;
-  transform: translateY(8px) scale(0.992);
-  filter: blur(2px);
+  transform: translateY(4px);
 }
 
 .surface-panel[data-transition-phase="entering"] {
   opacity: 0;
-  transform: translateY(12px) scale(0.992);
-  filter: blur(2px);
+  transform: translateY(8px);
 }
 
 .surface-panel[data-transition-phase="entered"] {
   opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
+  transform: translateY(0);
 }
 
+/* ============================================================
+   Connected Workspace Nav — top sticky bar
+   ============================================================ */
 .connected-nav-shell {
   position: sticky;
   top: 0;
   left: 0;
   z-index: 1000;
   width: 100%;
-  transition: transform 0.24s ease;
+  transition: transform var(--t-base) var(--ease);
+  background: transparent;
 }
 
 .connected-nav-shell--hidden {
@@ -149,213 +184,272 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 1.2rem;
+  gap: 24px;
   align-items: center;
   width: 100%;
+  height: 56px;
   margin: 0;
-  padding: 0.82rem clamp(1rem, 2.4vw, 2.2rem);
-  border: 1px solid rgba(16, 43, 45, 0.08);
-  border-width: 0 0 1px;
+  padding: 0 clamp(16px, 2.4vw, 32px);
+  border: 0;
+  border-bottom: 1px solid transparent;
   border-radius: 0;
-  background: rgba(255, 255, 253, 0.42);
+  background: transparent;
   box-shadow: none;
-  backdrop-filter: blur(26px) saturate(1.25);
+  backdrop-filter: none;
   transition:
-    padding 0.24s ease,
-    box-shadow 0.3s ease,
-    background 0.3s ease,
-    border-color 0.3s ease;
+    background var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease);
 }
 
-.connected-nav--scrolled,
-.connected-nav:hover {
-  padding-top: 0.56rem;
-  padding-bottom: 0.56rem;
-  background: rgba(255, 255, 253, 0.9);
-  border-color: rgba(16, 43, 45, 0.12);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.05),
-    0 12px 34px rgba(28, 50, 47, 0.1);
+.connected-nav--scrolled {
+  background: color-mix(in srgb, var(--bg) 75%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: var(--line) !important;
+  box-shadow: var(--shadow-xs);
 }
 
-.connected-nav--top {
-  border-color: rgba(16, 43, 45, 0.04);
-}
-
-.connected-nav-shell + .surface-panel {
+.connected-nav-shell+.surface-panel {
   margin-top: 0;
 }
 
+/* Brand */
 .connected-nav__brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0 0.35rem;
+  gap: 10px;
+  padding: 0;
   white-space: nowrap;
 }
 
 .connected-nav__mark {
   position: relative;
   display: block;
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
+  box-shadow: var(--shadow-xs);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  border-radius: 0.48rem;
-  background:
-    radial-gradient(circle at 72% 22%, rgba(255, 214, 102, 0.96) 0 0.18rem, transparent 0.2rem),
-    linear-gradient(145deg, #0b2325 0%, #0d9488 58%, #14b8a6 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    0 10px 22px rgba(13, 148, 136, 0.18);
 }
 
 .connected-nav__mark::before {
   content: "";
   position: absolute;
-  inset: 0.36rem;
+  inset: 5px;
   background: #ffffff;
   clip-path: polygon(50% 0%, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0% 50%, 39% 38%);
+  opacity: 0.96;
 }
 
 .connected-nav__mark::after {
-  content: "";
-  position: absolute;
-  right: 0.32rem;
-  bottom: 0.34rem;
-  width: 0.44rem;
-  height: 0.18rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
-  transform: rotate(-38deg);
-}
-
-.connected-nav--scrolled .connected-nav__mark {
-  width: 1.45rem;
-  height: 1.45rem;
+  display: none;
 }
 
 .connected-nav__brand strong {
-  color: #0f2b2d;
-  font-size: 1.12rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
-.connected-nav--scrolled .connected-nav__brand strong {
-  font-size: 1.02rem;
-}
-
+/* Tabs — Stripe-style underline, no pill */
 .connected-nav__tabs {
-  display: flex;
-  gap: 0.25rem;
+  display: inline-flex;
+  gap: 2px;
   align-items: center;
-  overflow-x: auto;
-  padding-left: 0.3rem;
-  scrollbar-width: none;
-}
-
-.connected-nav__tabs::-webkit-scrollbar {
-  display: none;
+  justify-content: center;
+  padding: 0;
+  height: 100%;
+  width: 100%;
 }
 
 .connected-nav__tab {
   width: auto;
   position: relative;
-  min-height: 2.48rem;
-  padding: 0.5rem 0.94rem;
+  height: 32px;
+  min-height: 0;
+  padding: 0 16px;
   border: 0;
   background: transparent;
-  color: #4b6367;
+  color: var(--ink-muted);
   box-shadow: none;
-  font-size: 0.94rem;
-  font-weight: 600;
-  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color var(--t-base) var(--ease), background var(--t-base) var(--ease);
   white-space: nowrap;
-}
-
-.connected-nav--scrolled .connected-nav__tab {
-  min-height: 2.24rem;
-  padding: 0.42rem 0.84rem;
+  letter-spacing: -0.005em;
 }
 
 .connected-nav__tab:hover {
-  color: #0f3d3a;
-  background: rgba(20, 184, 166, 0.06);
+  color: var(--ink);
+  background: transparent;
 }
 
 .connected-nav__tab--active {
-  color: #0d6d62;
-  background: rgba(20, 184, 166, 0.1);
-  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 600;
 }
 
 .connected-nav__tab--active::after {
   content: "";
   position: absolute;
-  left: 25%;
-  right: 25%;
+  left: 12px;
+  right: 12px;
   bottom: 0;
-  height: 2.5px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #14b8a6, #0d9488);
+  height: 2px;
+  border-radius: 1px 1px 0 0;
+  background: var(--ink);
   opacity: 1;
-  transition: opacity 0.2s ease;
 }
 
 .connected-nav__pro {
   display: inline-flex;
-  margin-left: 0.3rem;
-  padding: 0.12rem 0.4rem;
-  border-radius: 100px;
-  background: linear-gradient(135deg, #14b8a6, #0d9488);
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Dropdown wrapper */
+.connected-nav__tab-wrapper {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+}
+
+.connected-nav__dropdown-icon {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.6;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.connected-nav__tab-wrapper:hover .connected-nav__dropdown-icon {
+  transform: rotate(180deg);
+}
+
+/* Dropdown menu */
+.connected-nav__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition:
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    visibility var(--t-fast) var(--ease);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connected-nav__tab-wrapper:hover .connected-nav__dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.connected-nav__dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.connected-nav__dropdown-item:hover {
+  background: var(--surface-alt);
+  color: var(--accent);
+}
+
+.connected-nav__dropdown-item-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.connected-nav__dropdown-item:hover .connected-nav__dropdown-item-icon {
+  opacity: 1;
+}
+
+/* Auth side */
+.connected-nav__auth-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .connected-nav__login {
   flex-shrink: 0;
   width: auto;
-  min-height: 2.4rem;
-  padding: 0.5rem 1.2rem;
-  border: 0;
-  border-radius: 100px;
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
-  color: #ffffff;
-  font-size: 0.88rem;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.22);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  height: 32px;
+  min-height: 0;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease);
   white-space: nowrap;
 }
 
-.connected-nav__auth-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-shrink: 0;
+.connected-nav__login:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  transform: none;
+  box-shadow: var(--shadow-xs);
 }
 
 .connected-nav__login--ghost {
-  border: 1px solid rgba(15, 43, 45, 0.12);
-  background: rgba(255, 255, 255, 0.72);
-  color: #315155;
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
   box-shadow: none;
 }
 
-.connected-nav__login:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(20, 184, 166, 0.3);
-}
-
 .connected-nav__login--ghost:hover {
-  border-color: rgba(13, 148, 136, 0.34);
-  background: rgba(240, 253, 250, 0.92);
-  color: #0f766e;
+  border-color: var(--ink-subtle);
+  background: var(--surface-alt);
+  color: var(--ink);
   box-shadow: none;
 }
 
@@ -363,52 +457,57 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
   color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 800;
-  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.2);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease);
 }
 
 .connected-nav__avatar:hover {
-  transform: translateY(-1px) scale(1.06);
-  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.3);
+  transform: scale(1.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .connected-nav__account {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .connected-nav__logout {
   width: auto;
-  min-height: 2.25rem;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(15, 43, 45, 0.12);
-  border-radius: 100px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #315155;
-  font-size: 0.82rem;
-  font-weight: 800;
+  height: 30px;
+  min-height: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
-  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+  box-shadow: none;
+  transition:
+    background var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
 }
 
 .connected-nav__logout:hover {
-  transform: translateY(-1px);
-  border-color: rgba(13, 148, 136, 0.34);
-  background: rgba(240, 253, 250, 0.92);
-  color: #0f766e;
+  border-color: var(--ink-subtle);
+  background: var(--surface-alt);
+  color: var(--ink);
 }
 
+/* Learning reader full-bleed override (keep existing behaviour) */
 .app-shell--learning:has(.learn-os-page--reader) {
   --reader-nav-height: 0rem;
 }
@@ -417,52 +516,38 @@
   display: none;
 }
 
+/* ============================================================
+   Surface skins — unify: every named surface becomes full-bleed
+   with bg from tokens (light or dark per data-theme).
+   ============================================================ */
 .app-shell--home,
 .app-shell--onboarding,
 .app-shell--global-terminal,
 .app-shell--news,
+.app-shell--news-economic-calendar,
 .app-shell--pro-lab,
 .app-shell--backtest-studio,
-.app-shell--financial-health,
 .app-shell--learning,
 .app-shell--financial-statement-simulator,
 .app-shell--assignments,
-.app-shell--goals,
 .app-shell--guided-investing,
 .app-shell--insights,
 .app-shell--community,
 .app-shell--auth-login,
 .app-shell--auth-register {
-  background: #020302;
+  background: var(--bg);
 }
 
-.app-shell--home .app-shell__ambient,
-.app-shell--onboarding .app-shell__ambient,
-.app-shell--global-terminal .app-shell__ambient,
-.app-shell--news .app-shell__ambient,
-.app-shell--pro-lab .app-shell__ambient,
-.app-shell--backtest-studio .app-shell__ambient,
-.app-shell--financial-health .app-shell__ambient,
-.app-shell--learning .app-shell__ambient,
-.app-shell--financial-statement-simulator .app-shell__ambient,
-.app-shell--assignments .app-shell__ambient,
-.app-shell--goals .app-shell__ambient,
-.app-shell--guided-investing .app-shell__ambient,
-.app-shell--insights .app-shell__ambient,
-.app-shell--community .app-shell__ambient,
-.app-shell--auth-login .app-shell__ambient,
-.app-shell--auth-register .app-shell__ambient,
 .app-shell--home .app-shell__masthead,
 .app-shell--onboarding .app-shell__masthead,
 .app-shell--global-terminal .app-shell__masthead,
 .app-shell--news .app-shell__masthead,
+.app-shell--news-economic-calendar .app-shell__masthead,
 .app-shell--pro-lab .app-shell__masthead,
 .app-shell--backtest-studio .app-shell__masthead,
-.app-shell--financial-health .app-shell__masthead,
 .app-shell--learning .app-shell__masthead,
 .app-shell--financial-statement-simulator .app-shell__masthead,
 .app-shell--assignments .app-shell__masthead,
-.app-shell--goals .app-shell__masthead,
 .app-shell--guided-investing .app-shell__masthead,
 .app-shell--insights .app-shell__masthead,
 .app-shell--community .app-shell__masthead,
@@ -475,19 +560,19 @@
 .app-shell--onboarding .app-shell__frame,
 .app-shell--global-terminal .app-shell__frame,
 .app-shell--news .app-shell__frame,
+.app-shell--news-economic-calendar .app-shell__frame,
 .app-shell--pro-lab .app-shell__frame,
 .app-shell--backtest-studio .app-shell__frame,
-.app-shell--financial-health .app-shell__frame,
 .app-shell--learning .app-shell__frame,
 .app-shell--financial-statement-simulator .app-shell__frame,
 .app-shell--assignments .app-shell__frame,
-.app-shell--goals .app-shell__frame,
 .app-shell--guided-investing .app-shell__frame,
 .app-shell--insights .app-shell__frame,
 .app-shell--community .app-shell__frame,
 .app-shell--auth-login .app-shell__frame,
 .app-shell--auth-register .app-shell__frame {
   width: 100vw;
+  max-width: 100vw;
   min-height: 100vh;
   padding: 0;
 }
@@ -496,117 +581,263 @@
 .app-shell--onboarding .surface-panel,
 .app-shell--global-terminal .surface-panel,
 .app-shell--news .surface-panel,
+.app-shell--news-economic-calendar .surface-panel,
 .app-shell--pro-lab .surface-panel,
 .app-shell--backtest-studio .surface-panel,
-.app-shell--financial-health .surface-panel,
 .app-shell--learning .surface-panel,
 .app-shell--financial-statement-simulator .surface-panel,
 .app-shell--assignments .surface-panel,
-.app-shell--goals .surface-panel,
-.app-shell--guided-investing .surface-panel,
-.app-shell--insights .surface-panel,
-.app-shell--community .surface-panel,
-.app-shell--auth-login .surface-panel,
-.app-shell--auth-register .surface-panel {
-  min-height: 100vh;
-}
-
-.app-shell--home .surface-panel,
-.app-shell--onboarding .surface-panel,
-.app-shell--news .surface-panel,
-.app-shell--pro-lab .surface-panel,
-.app-shell--financial-health .surface-panel,
-.app-shell--learning .surface-panel,
-.app-shell--financial-statement-simulator .surface-panel,
-.app-shell--assignments .surface-panel,
-.app-shell--goals .surface-panel,
-.app-shell--guided-investing .surface-panel,
-.app-shell--insights .surface-panel,
-.app-shell--community .surface-panel {
-  min-height: calc(100vh - 5.2rem);
-}
-
-.app-shell--home .surface-panel,
-.app-shell--onboarding .surface-panel,
-.app-shell--global-terminal .surface-panel,
-.app-shell--news .surface-panel,
-.app-shell--pro-lab .surface-panel,
-.app-shell--backtest-studio .surface-panel,
-.app-shell--financial-health .surface-panel,
-.app-shell--learning .surface-panel,
-.app-shell--financial-statement-simulator .surface-panel,
-.app-shell--assignments .surface-panel,
-.app-shell--goals .surface-panel,
 .app-shell--guided-investing .surface-panel,
 .app-shell--insights .surface-panel,
 .app-shell--community .surface-panel,
 .app-shell--auth-login .surface-panel,
 .app-shell--auth-register .surface-panel {
   gap: 0;
-  background: transparent !important;
+  min-height: calc(100vh - var(--connected-nav-safe-area));
+  padding-top: 0;
+  background: transparent;
 }
 
-.app-shell--home .surface-panel > section:not(.page),
-.app-shell--home .surface-panel > article,
-.app-shell--onboarding .surface-panel > section:not(.page),
-.app-shell--onboarding .surface-panel > article,
-.app-shell--global-terminal .surface-panel > section:not(.page),
-.app-shell--global-terminal .surface-panel > article,
-.app-shell--news .surface-panel > section:not(.page),
-.app-shell--news .surface-panel > article,
-.app-shell--pro-lab .surface-panel > section:not(.page),
-.app-shell--pro-lab .surface-panel > article,
-.app-shell--backtest-studio .surface-panel > section:not(.page),
-.app-shell--backtest-studio .surface-panel > article,
-.app-shell--financial-health .surface-panel > section:not(.page),
-.app-shell--financial-health .surface-panel > article,
-.app-shell--learning .surface-panel > section:not(.page),
-.app-shell--learning .surface-panel > article,
-.app-shell--financial-statement-simulator .surface-panel > section:not(.page),
-.app-shell--financial-statement-simulator .surface-panel > article,
-.app-shell--assignments .surface-panel > section:not(.page),
-.app-shell--assignments .surface-panel > article,
-.app-shell--goals .surface-panel > section:not(.page),
-.app-shell--goals .surface-panel > article,
-.app-shell--guided-investing .surface-panel > section:not(.page),
-.app-shell--guided-investing .surface-panel > article,
-.app-shell--insights .surface-panel > section:not(.page),
-.app-shell--insights .surface-panel > article,
-.app-shell--community .surface-panel > section:not(.page),
-.app-shell--community .surface-panel > article,
-.app-shell--auth-login .surface-panel > section:not(.page),
-.app-shell--auth-login .surface-panel > article,
-.app-shell--auth-register .surface-panel > section:not(.page),
-.app-shell--auth-register .surface-panel > article {
-  border: 0 !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  /* Không ép nền trong suốt: retail pages (.fh-page, goals, …) cần canvas sáng; transparent + gap = “vạch đen” trên #020302 */
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+.app-shell--home .surface-panel>section:not(.page),
+.app-shell--home .surface-panel>article,
+.app-shell--onboarding .surface-panel>section:not(.page),
+.app-shell--onboarding .surface-panel>article,
+.app-shell--global-terminal .surface-panel>section:not(.page),
+.app-shell--global-terminal .surface-panel>article,
+.app-shell--news .surface-panel>section:not(.page),
+.app-shell--news .surface-panel>article,
+.app-shell--news-economic-calendar .surface-panel>section:not(.page),
+.app-shell--news-economic-calendar .surface-panel>article,
+.app-shell--pro-lab .surface-panel>section:not(.page),
+.app-shell--pro-lab .surface-panel>article,
+.app-shell--backtest-studio .surface-panel>section:not(.page),
+.app-shell--backtest-studio .surface-panel>article,
+.app-shell--learning .surface-panel>section:not(.page),
+.app-shell--learning .surface-panel>article,
+.app-shell--financial-statement-simulator .surface-panel>section:not(.page),
+.app-shell--financial-statement-simulator .surface-panel>article,
+.app-shell--assignments .surface-panel>section:not(.page),
+.app-shell--assignments .surface-panel>article,
+.app-shell--guided-investing .surface-panel>section:not(.page),
+.app-shell--guided-investing .surface-panel>article,
+.app-shell--insights .surface-panel>section:not(.page),
+.app-shell--insights .surface-panel>article,
+.app-shell--community .surface-panel>section:not(.page),
+.app-shell--community .surface-panel>article,
+.app-shell--auth-login .surface-panel>section:not(.page),
+.app-shell--auth-login .surface-panel>article,
+.app-shell--auth-register .surface-panel>section:not(.page),
+.app-shell--auth-register .surface-panel>article {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
-.app-shell--home .surface-panel,
-.app-shell--onboarding .surface-panel,
-.app-shell--global-terminal .surface-panel,
-.app-shell--news .surface-panel,
-.app-shell--pro-lab .surface-panel,
-.app-shell--financial-health .surface-panel,
-.app-shell--learning .surface-panel,
-.app-shell--goals .surface-panel,
-.app-shell--guided-investing .surface-panel,
-.app-shell--insights .surface-panel,
-.app-shell--community .surface-panel,
-.app-shell--financial-statement-simulator .surface-panel,
-.app-shell--assignments .surface-panel {
-  padding-top: 0 !important;
-  min-height: calc(100vh - var(--connected-nav-safe-area)) !important;
+/* Surfaces forced to dark theme — nav adapts */
+.app-shell[data-theme="dark"] .connected-nav,
+.app-shell[data-theme="dark"] .connected-nav-shell {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+.app-shell[data-theme="dark"] .connected-nav--scrolled {
+  background: color-mix(in srgb, var(--bg) 75%, transparent) !important;
+  border-bottom-color: var(--line) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .surface-panel {
     transition: none;
     transform: none;
-    filter: none;
   }
+}
+
+/* ============================================================
+   Brand button styles & Centering for router components
+   ============================================================ */
+button.app-shell__brand {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+
+button.app-shell__brand:hover {
+  color: var(--accent) !important;
+  opacity: 0.9;
+}
+
+.connected-nav__brand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.connected-nav__brand-btn:hover {
+  transform: translateY(-0.5px);
+}
+
+.connected-nav__brand-btn strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.connected-nav__brand-btn:hover strong {
+  color: var(--accent) !important;
+}
+
+/* Custom explicit theme adjustments for NavBar text/button colors */
+.app-shell[data-theme="dark"] .connected-nav__brand-btn strong {
+  color: #fafafa !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__tab {
+  color: #a1a1aa !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__tab:hover,
+.app-shell[data-theme="dark"] .connected-nav__tab--active {
+  color: #ffffff !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__logout {
+  color: #a1a1aa !important;
+  border-color: #3f3f46 !important;
+  background: #18181b !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__logout:hover {
+  color: #ffffff !important;
+  border-color: #52525b !important;
+  background: #27272a !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__login--ghost {
+  color: #fafafa !important;
+  border-color: #3f3f46 !important;
+  background: #18181b !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__login--ghost:hover {
+  color: #ffffff !important;
+  border-color: #52525b !important;
+  background: #27272a !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__dropdown {
+  background: #18181b !important;
+  border-color: #3f3f46 !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__dropdown-item {
+  color: #a1a1aa !important;
+}
+
+.app-shell[data-theme="dark"] .connected-nav__dropdown-item:hover {
+  background: #27272a !important;
+  color: #ffffff !important;
+}
+
+.app-shell[data-theme="dark"] .app-shell__masthead {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.app-shell[data-theme="dark"] .app-shell__brand {
+  color: #a1a1aa !important;
+}
+
+.app-shell[data-theme="dark"] .app-shell__brand:hover {
+  color: var(--accent) !important;
+}
+
+.app-shell[data-theme="dark"] .app-shell__surface {
+  color: #fafafa !important;
+}
+
+/* Light theme explicit overrides */
+.app-shell[data-theme="light"] .connected-nav__brand-btn strong {
+  color: #09090b !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__tab {
+  color: #52525b !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__tab:hover,
+.app-shell[data-theme="light"] .connected-nav__tab--active {
+  color: #09090b !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__logout {
+  color: #52525b !important;
+  border-color: #d4d4d8 !important;
+  background: #ffffff !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__logout:hover {
+  color: #09090b !important;
+  border-color: #a1a1aa !important;
+  background: #f4f4f5 !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__login--ghost {
+  color: #09090b !important;
+  border-color: #d4d4d8 !important;
+  background: #ffffff !important;
+}
+
+.app-shell[data-theme="light"] .connected-nav__login--ghost:hover {
+  color: #09090b !important;
+  border-color: #a1a1aa !important;
+  background: #f4f4f5 !important;
+}
+
+.app-shell[data-theme="light"] .app-shell__masthead {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.app-shell[data-theme="light"] .app-shell__brand {
+  color: #a1a1aa !important;
+}
+
+.app-shell[data-theme="light"] .app-shell__brand:hover {
+  color: var(--accent) !important;
+}
+
+.app-shell[data-theme="light"] .app-shell__surface {
+  color: #09090b !important;
+}
+
+.surface-panel>* {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 1240px;
+  box-sizing: border-box;
+}
+
+/* Full-width workspaces override centering limit to fit the screen */
+.app-shell--global-terminal .surface-panel>*,
+.app-shell--pro-lab .surface-panel>*,
+.app-shell--backtest-studio .surface-panel>*,
+.app-shell--news .surface-panel>*,
+.app-shell--news-economic-calendar .surface-panel>* {
+  max-width: 100%;
 }

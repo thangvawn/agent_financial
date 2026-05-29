@@ -30,7 +30,7 @@ const TOPIC_ICONS = [
   { key: 'market-discussion', label: 'Market Discussion', sub: 'Thảo luận xu hướng, tin tức thị trường', posts: '12.6K bài viết', Icon: BarChartIcon },
   { key: 'bctc-analysis', label: 'BCTC Analysis', sub: 'Phân tích BCTC, đánh giá doanh nghiệp', posts: '8.9K bài viết', Icon: FileTextIcon },
   { key: 'portfolio-basics', label: 'Portfolio Basics', sub: 'Xây dựng danh mục, phân bổ tài sản', posts: '6.2K bài viết', Icon: PieChartIcon },
-  { key: 'goals-personal-finance', label: 'Goals & Personal Finance', sub: 'Quỹ tài chính cá nhân, mục tiêu', posts: '4.7K bài viết', Icon: TargetIcon },
+  { key: 'planning-personal-finance', label: 'Personal Finance Planning', sub: 'Quỹ tài chính cá nhân, kế hoạch', posts: '4.7K bài viết', Icon: TargetIcon },
   { key: 'pro-lab-research', label: 'Pro Lab Research', sub: 'Nghiên cứu chuyên sâu & phân tích', posts: '3.3K bài viết', Icon: ScaleIcon },
 ]
 
@@ -80,7 +80,6 @@ export default function CommunityPage({
   initialSpaceId = '',
   onBack,
   onOpenLearning,
-  onOpenGoals,
   onOpenModeration,
 }) {
   const [home, setHome] = useState(null)

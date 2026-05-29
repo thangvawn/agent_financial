@@ -5,6 +5,15 @@ import { respondWithAssistant, synthesizeAssistantVoice } from './assistantApi'
 import { trackAnalyticsEvent } from '../analytics/trackEvent'
 import './floating-assistant.css'
 
+function isSafeActionPath(path) {
+  if (typeof path !== 'string' || !path) return false
+  const trimmed = path.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith('/') || trimmed.startsWith('#')) return true
+  if (/^https?:\/\//i.test(trimmed)) return true
+  return false
+}
+
 export default function FloatingAssistant({ sessionId, surface, surfaceLabel }) {
   const [isOpen, setIsOpen] = useState(false)
   const [prompt, setPrompt] = useState(defaultPromptForSurface(surface))
@@ -339,11 +348,20 @@ export default function FloatingAssistant({ sessionId, surface, surfaceLabel }) 
                       ) : null}
                       {message.nextActions?.length && message.sender === 'assistant' ? (
                         <div className="floating-assistant__actions" aria-label="Hành động gợi ý">
-                          {message.nextActions.slice(0, 2).map((action) => (
-                            <a key={`${action.path}-${action.label}`} href={action.path} className="floating-assistant__action">
-                              {action.label}
-                            </a>
-                          ))}
+                          {message.nextActions
+                            .filter((action) => isSafeActionPath(action?.path))
+                            .slice(0, 2)
+                            .map((action) => (
+                              <a
+                                key={`${action.path}-${action.label}`}
+                                href={action.path}
+                                rel={/^https?:\/\//i.test(action.path) ? 'noopener noreferrer' : undefined}
+                                target={/^https?:\/\//i.test(action.path) ? '_blank' : undefined}
+                                className="floating-assistant__action"
+                              >
+                                {action.label}
+                              </a>
+                            ))}
                         </div>
                       ) : null}
                       {message.learningSuggestions?.length && message.sender === 'assistant' ? (

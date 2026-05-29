@@ -2009,3 +2009,302 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   FINTECH-MINIMAL OVERRIDES — Pro Lab (dark, QuantConnect/Linear)
+   ============================================================ */
+
+.app-shell--pro-lab,
+.app-shell--backtest-studio {
+  background: var(--bg) !important;
+  color: var(--ink);
+}
+
+.app-shell--pro-lab .connected-nav,
+.app-shell--backtest-studio .connected-nav,
+.app-shell--pro-lab .connected-nav-shell,
+.app-shell--backtest-studio .connected-nav-shell {
+  background: var(--bg) !important;
+  border-bottom: 1px solid var(--line) !important;
+  backdrop-filter: none !important;
+}
+
+.app-shell--pro-lab .connected-nav__brand strong,
+.app-shell--backtest-studio .connected-nav__brand strong { color: var(--ink) !important; }
+
+.app-shell--pro-lab .connected-nav__tab,
+.app-shell--backtest-studio .connected-nav__tab { color: var(--ink-muted) !important; background: transparent !important; }
+.app-shell--pro-lab .connected-nav__tab--active,
+.app-shell--backtest-studio .connected-nav__tab--active { color: var(--ink) !important; }
+.app-shell--pro-lab .connected-nav__tab--active::after,
+.app-shell--backtest-studio .connected-nav__tab--active::after { background: var(--ink) !important; }
+
+/* Page root */
+.pl-page,
+.pl-shell,
+.pl-cockpit,
+.pl-workspace,
+.pro-lab,
+.app-shell--pro-lab .surface-panel > section,
+.app-shell--backtest-studio .surface-panel > section {
+  background: var(--bg) !important;
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Cards / panels */
+.pl-card,
+.pl-panel,
+.pl-section,
+.pl-workflow-card,
+.pl-hero,
+.pl-stat-block,
+.pl-metric-block,
+.pl-blueprint-form,
+.pl-experiment-table,
+.pl-sidebar,
+.pl-aside,
+.pl-module-card,
+.pl-result-dock,
+.bs-card,
+.bs-panel,
+.bs-section,
+.bs-hero,
+.bs-metric-block,
+.bs-chart-pane {
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: var(--ink);
+}
+
+/* Headings */
+.pl-page h1,
+.pl-section h2,
+.pl-card h3,
+.pl-hero h1,
+.bs-page h1,
+.bs-section h2,
+.bs-hero h1 {
+  color: var(--ink) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.pl-page h1, .bs-page h1, .pl-hero h1, .bs-hero h1 { font-size: 28px !important; letter-spacing: -0.025em !important; }
+.pl-section h2, .bs-section h2 { font-size: 18px !important; }
+.pl-card h3, .bs-card h3 { font-size: 14px !important; }
+
+.pl-card-subtitle,
+.pl-section-meta,
+.bs-card-subtitle,
+.bs-section-meta {
+  color: var(--ink-subtle) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+.pl-page p,
+.bs-page p,
+.pl-card p,
+.bs-card p {
+  color: var(--ink-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+/* Workflow pipeline — flat step indicators */
+.pl-workflow,
+.pl-pipeline {
+  display: flex;
+  gap: 8px;
+  border: 1px solid var(--line) !important;
+  background: var(--surface) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 12px !important;
+}
+
+.pl-workflow-step,
+.pl-pipeline-step {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  position: relative;
+}
+
+.pl-workflow-step--active,
+.pl-pipeline-step--active {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+
+.pl-workflow-step-label {
+  font-size: 10px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-subtle) !important;
+}
+
+.pl-workflow-step--active .pl-workflow-step-label { color: var(--accent) !important; }
+
+/* Metric blocks — mono numbers */
+.pl-metric-value,
+.pl-stat-value,
+.bs-metric-value,
+.bs-stat-value {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.02em !important;
+}
+
+.pl-metric-label,
+.bs-metric-label {
+  color: var(--ink-subtle) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  font-weight: 500 !important;
+}
+
+.pl-metric--positive .pl-metric-value,
+.bs-metric--positive .bs-metric-value { color: var(--pos) !important; }
+.pl-metric--negative .pl-metric-value,
+.bs-metric--negative .bs-metric-value { color: var(--neg) !important; }
+
+/* Tables */
+.pl-table,
+.bs-table,
+table.pl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pl-table th, .bs-table th {
+  background: var(--surface-alt) !important;
+  color: var(--ink-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 1px solid var(--line) !important;
+  padding: 8px 10px !important;
+  text-align: left;
+}
+
+.pl-table td, .bs-table td {
+  font-size: 13px !important;
+  color: var(--ink) !important;
+  padding: 8px 10px !important;
+  border-bottom: 1px solid var(--line) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
+.pl-table tbody tr:hover, .bs-table tbody tr:hover { background: var(--surface-alt) !important; }
+
+/* Status badges in tables */
+.pl-status,
+.bs-status,
+.pl-badge {
+  display: inline-flex !important;
+  padding: 2px 8px !important;
+  border-radius: var(--radius-xs) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  border: 1px solid var(--line) !important;
+  background: var(--surface-alt) !important;
+  color: var(--ink-muted) !important;
+}
+
+.pl-status--success, .pl-badge--success { background: var(--pos-soft) !important; color: var(--pos) !important; border-color: transparent !important; }
+.pl-status--error, .pl-badge--error { background: var(--neg-soft) !important; color: var(--neg) !important; border-color: transparent !important; }
+.pl-status--warn, .pl-badge--warn { background: var(--warn-soft) !important; color: var(--warn) !important; border-color: transparent !important; }
+.pl-status--info, .pl-badge--info { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: transparent !important; }
+
+/* Buttons */
+.pl-page button,
+.bs-page button {
+  background: var(--surface) !important;
+  border: 1px solid var(--line-strong) !important;
+  color: var(--ink) !important;
+  border-radius: var(--radius-sm) !important;
+  height: 32px !important;
+  min-height: 0 !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: var(--shadow-xs) !important;
+  transform: none !important;
+}
+
+.pl-page button:hover,
+.bs-page button:hover {
+  background: var(--surface-alt) !important;
+  border-color: var(--ink-subtle) !important;
+  transform: none !important;
+}
+
+.pl-button--primary,
+.bs-button--primary,
+.pl-cta,
+.bs-cta {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-ink) !important;
+}
+
+.pl-button--primary:hover,
+.bs-button--primary:hover,
+.pl-cta:hover,
+.bs-cta:hover {
+  background: var(--accent-strong) !important;
+  border-color: var(--accent-strong) !important;
+}
+
+/* Code / formula / strategy textarea */
+.pl-strategy textarea,
+.bs-strategy textarea,
+.pl-code,
+.bs-code,
+.pl-page textarea,
+.bs-page textarea {
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  background: var(--surface-alt) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--ink) !important;
+}
+
+/* Chart pane / sparkline area */
+.bs-chart-pane,
+.pl-chart-pane {
+  background: var(--surface) !important;
+  border: 1px solid var(--line) !important;
+}
+
+/* Monthly returns heatmap cell */
+.bs-heatmap-cell,
+.pl-heatmap-cell {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  border-radius: var(--radius-xs) !important;
+}
+

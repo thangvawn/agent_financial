@@ -1,11 +1,35 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 import { useAuth } from '../../modules/auth'
 import './auth.css'
 
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '483150503670-u3qsr7j1a9plbrk4lhv43uoage7h79l6.apps.googleusercontent.com'
+
+let googleIdentityScriptPromise = null
+
+function loadGoogleIdentityScript() {
+  if (typeof window === 'undefined') return Promise.reject(new Error('Browser unavailable'))
+  if (window.google?.accounts?.id) return Promise.resolve()
+  if (!googleIdentityScriptPromise) {
+    googleIdentityScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      script.onload = resolve
+      script.onerror = () => reject(new Error('Không tải được Google Identity Services.'))
+      document.head.appendChild(script)
+    })
+  }
+  return googleIdentityScriptPromise
+}
+
 export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome, onSwitchMode }) {
   const isRegister = mode === 'register'
-  const { login, register, isLoading, error, setError } = useAuth()
+  const { login, loginWithGoogle, register, isLoading, error, setError } = useAuth()
+  const googleButtonRef = useRef(null)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -14,6 +38,40 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   const [showPassword, setShowPassword] = useState(false)
   const [agreedTerms, setAgreedTerms] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return undefined
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return
+        googleButtonRef.current.innerHTML = ''
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            const result = await loginWithGoogle(response?.credential || '')
+            if (result) onAuthSuccess?.(result)
+          },
+        })
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          shape: 'rectangular',
+          text: isRegister ? 'signup_with' : 'signin_with',
+          logo_alignment: 'left',
+          width: googleButtonRef.current.getBoundingClientRect().width || 348,
+        })
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || 'Không tải được đăng nhập Google.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isRegister, loginWithGoogle, onAuthSuccess, setError])
 
   const handleSubmit = useCallback(
     async (event) => {
@@ -109,6 +167,10 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
             </p>
           </div>
 
+          <div className="auth-social-row auth-social-row--single">
+            <div className="auth-google-button-slot" ref={googleButtonRef} aria-label="Đăng nhập bằng Google" />
+          </div>
+
           <div className="auth-divider">
             <span>Northstar Finance Account</span>
           </div>
@@ -154,7 +216,7 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -179,7 +241,7 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     autoComplete="new-password"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>

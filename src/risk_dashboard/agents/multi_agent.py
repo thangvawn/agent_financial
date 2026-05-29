@@ -115,6 +115,25 @@ def supervisor_agent(state: AgentState) -> AgentState:
 # ── 3. TOOL-CALLING ENGINE (ReAct Loop) ──────────────────
 MAX_TOOL_ROUNDS = 2  # Cho phép agent gọi tools tối đa 2 lần liên tiếp
 
+def _coerce_text(content) -> str:
+    """LangChain AIMessage.content có thể là str, list[dict] (multimodal), hoặc None."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text") or block.get("content") or ""
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+    return str(content)
+
+
 def _run_agent(system_prompt: str, tools: list, state: AgentState) -> str:
     """Vòng lặp ReAct cho mọi Agent — tự chọn tool, đọc kết quả, lý luận."""
     agent_llm = llm.bind_tools(tools) if tools else llm
@@ -125,7 +144,7 @@ def _run_agent(system_prompt: str, tools: list, state: AgentState) -> str:
 
         # Nếu không gọi tool → đây là câu trả lời cuối cùng
         if not (hasattr(response, "tool_calls") and response.tool_calls):
-            return response.content
+            return _coerce_text(response.content)
 
         # Có tool calls → thực thi và nối kết quả
         msgs.append(response)
@@ -141,7 +160,7 @@ def _run_agent(system_prompt: str, tools: list, state: AgentState) -> str:
 
     # Fallback: lần cuối sau khi đã gọi tools
     response = agent_llm.invoke(msgs)
-    return response.content
+    return _coerce_text(response.content)
 
 
 # ── 4. SPECIALIZED AGENTS ────────────────────────────────
@@ -281,8 +300,8 @@ def strategist_agent(state: AgentState) -> AgentState:
 
 def reviewer_agent(state: AgentState) -> AgentState:
     """Kiểm toán viên — chặn hallucination và nội dung vi phạm."""
-    response = state.get("final_response", "")
-    
+    response = _coerce_text(state.get("final_response", ""))
+
     # Quick check: chặn các từ khóa mua/bán
     forbidden = ["nên mua", "nên bán", "hãy mua", "hãy bán", "khuyến nghị mua", "khuyến nghị bán"]
     for word in forbidden:

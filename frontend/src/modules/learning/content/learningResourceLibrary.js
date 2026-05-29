@@ -29,9 +29,9 @@ const TIER_PRESETS = {
     practical: [
       {
         id: 'p-fin-1',
-        title: 'Mở Financial Health và kiểm tra cash-flow baseline',
-        ctaLabel: 'Mở Financial Health',
-        ctaType: 'financial_health',
+        title: 'Mở Guided Investing và nối bài học với dữ liệu doanh nghiệp',
+        ctaLabel: 'Mở Guided Investing',
+        ctaType: 'guided_investing',
       },
     ],
   },
@@ -110,13 +110,13 @@ const LESSON_OVERRIDES = {
       },
     ],
   },
-  'tool-goals-101': {
+  'tool-planning-101': {
     practical: [
       {
         id: 'p-goal-1',
-        title: 'Tạo mục tiêu đầu tiên và chọn pace tháng',
-        ctaLabel: 'Mở Goals',
-        ctaType: 'goals',
+        title: 'Chuyển bài học thành checklist đọc dữ liệu',
+        ctaLabel: 'Mở Guided Investing',
+        ctaType: 'guided_investing',
       },
     ],
   },

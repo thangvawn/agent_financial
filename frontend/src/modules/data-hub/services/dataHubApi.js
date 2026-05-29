@@ -19,6 +19,19 @@ export async function fetchInstrumentHistory(symbol, { period = '6mo', interval 
   return expectJson(response)
 }
 
+export async function fetchVnUniverse() {
+  const response = await fetch('/api/v1/public/data-hub/vn-market/universe')
+  return expectJson(response)
+}
+
+export async function fetchVnSnapshot({ sort = 'change_desc', exchange = '', search = '', limit = 50 } = {}) {
+  const params = new URLSearchParams({ sort, limit: String(limit) })
+  if (exchange) params.set('exchange', exchange)
+  if (search) params.set('search', search)
+  const response = await fetch(`/api/v1/public/data-hub/vn-market/snapshot?${params}`)
+  return expectJson(response)
+}
+
 export async function fetchDataHubTopics() {
   const response = await fetch('/api/v1/public/data-hub/topics')
   return expectJson(response)

@@ -38,7 +38,7 @@ const BCTC_TABS = [
   { key: 'report', label: 'Báo cáo' },
 ]
 
-export default function GuidedInvestingPage({ sessionId }) {
+export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'overview' }) {
   const [ticker, setTicker] = useState(DEFAULT_TICKER)
   const [peersText, setPeersText] = useState('')
   const [mode, setMode] = useState('quarter')
@@ -51,7 +51,12 @@ export default function GuidedInvestingPage({ sessionId }) {
   const [peerLoading, setPeerLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
-  const [activeSection, setActiveSection] = useState('overview')
+  const [activeSection, setActiveSection] = useState(initialFocusCard)
+  const [comparisonMode, setComparisonMode] = useState('same-period')
+
+  useEffect(() => {
+    setActiveSection(initialFocusCard || 'overview')
+  }, [initialFocusCard])
 
   useEffect(() => {
     void bootstrap()
@@ -179,15 +184,7 @@ export default function GuidedInvestingPage({ sessionId }) {
           <div className="bctc-title-icon" aria-hidden="true">▥</div>
           <div>
             <h1>{isOverview ? 'Phân tích BCTC' : activeTab.label}</h1>
-            <p>
-              {activeSection === 'income'
-                ? 'Phân tích hiệu quả hoạt động kinh doanh qua doanh thu, cơ cấu chi phí, biên lợi nhuận và chất lượng lợi nhuận.'
-                : activeSection === 'balance'
-                  ? 'Phân tích cơ cấu tài sản, nguồn vốn, thanh khoản và mức độ an toàn tài chính.'
-                  : activeSection === 'cash-flow'
-                    ? 'Phân tích chất lượng dòng tiền, khả năng tạo tiền từ hoạt động kinh doanh và nhu cầu tài trợ vốn.'
-                    : 'Phân tích báo cáo tài chính để hiểu sức khỏe tài chính và hiệu quả hoạt động doanh nghiệp.'}
-            </p>
+            <p>{describeSection(activeSection)}</p>
           </div>
         </div>
         <div className="bctc-topbar__actions">
@@ -202,8 +199,6 @@ export default function GuidedInvestingPage({ sessionId }) {
           </button>
         </div>
       </header>
-
-      {isOverview ? <BctcTabs activeSection={activeSection} onSelect={setActiveSection} /> : null}
 
       {isOverview ? <section className="bctc-command-grid">
         <article className="bctc-company-card">
@@ -498,12 +493,14 @@ export default function GuidedInvestingPage({ sessionId }) {
         ) : (
           <BctcSectionPanel
             section={activeSection}
-            onSelectSection={setActiveSection}
             analysis={analysis}
             dashboard={dashboard}
             trendRows={trendRows}
             healthRows={healthRows}
             mode={mode}
+            onChangeMode={setMode}
+            comparisonMode={comparisonMode}
+            onChangeComparisonMode={setComparisonMode}
             peerLoading={peerLoading}
           />
         )
@@ -512,40 +509,22 @@ export default function GuidedInvestingPage({ sessionId }) {
   )
 }
 
-function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trendRows, healthRows, mode, peerLoading }) {
+function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows, mode, onChangeMode, comparisonMode, onChangeComparisonMode, peerLoading }) {
   const tab = BCTC_TABS.find((item) => item.key === section) || BCTC_TABS[0]
   const latest = latestPeriod(analysis) || {}
-  const sectionTabs = <BctcTabs activeSection={section} onSelect={onSelectSection} />
 
   if (section === 'income') {
     const incomeCards = buildIncomeKpiCards(dashboard, latest, analysis?.summary)
     return (
       <section className="bctc-section-panel bctc-income-view" aria-label={tab.label}>
-        <section className="bctc-income-control-band">
-          <div className="bctc-income-company">
-            <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
-            <div>
-              <h2>{dashboard.companyName}</h2>
-              <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
-            </div>
-          </div>
-          <label>
-            <span>Kỳ báo cáo</span>
-            <select defaultValue={mode === 'quarter' ? 'quarter' : 'year'}>
-              <option value="quarter">Quý</option>
-              <option value="year">Năm</option>
-            </select>
-          </label>
-          <label>
-            <span>So sánh với</span>
-            <select defaultValue="same-period">
-              <option value="same-period">Cùng kỳ năm trước</option>
-              <option value="previous-period">Kỳ liền trước</option>
-            </select>
-          </label>
-          <AnalysisStepper />
-        </section>
-        {sectionTabs}
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
 
         <section className="bctc-income-kpis">
           {incomeCards.map((item) => (
@@ -611,30 +590,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
     const balanceRows = buildBalancePeriodRows(analysis)
     return (
       <section className="bctc-section-panel bctc-balance-view" aria-label={tab.label}>
-        <section className="bctc-income-control-band bctc-balance-control-band">
-          <div className="bctc-income-company">
-            <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
-            <div>
-              <h2>{dashboard.companyName}</h2>
-              <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
-            </div>
-          </div>
-          <label>
-            <span>Kỳ báo cáo</span>
-            <select defaultValue={mode === 'quarter' ? 'quarter' : 'year'}>
-              <option value="quarter">Quý</option>
-              <option value="year">Năm</option>
-            </select>
-          </label>
-          <label>
-            <span>So sánh với</span>
-            <select defaultValue="same-period">
-              <option value="same-period">Cùng kỳ năm trước</option>
-              <option value="previous-period">Kỳ liền trước</option>
-            </select>
-          </label>
-        </section>
-        {sectionTabs}
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
 
         <section className="bctc-balance-kpis">
           {balanceCards.map((item) => (
@@ -715,30 +678,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
     const cashCards = buildCashFlowKpiCards(dashboard, cashRows)
     return (
       <section className="bctc-section-panel bctc-cash-view" aria-label={tab.label}>
-        <section className="bctc-income-control-band bctc-cash-control-band">
-          <div className="bctc-income-company">
-            <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
-            <div>
-              <h2>{dashboard.companyName}</h2>
-              <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
-            </div>
-          </div>
-          <label>
-            <span>Kỳ báo cáo</span>
-            <select defaultValue={mode === 'quarter' ? 'quarter' : 'year'}>
-              <option value="quarter">Quý</option>
-              <option value="year">Năm</option>
-            </select>
-          </label>
-          <label>
-            <span>So sánh với</span>
-            <select defaultValue="same-period">
-              <option value="same-period">Cùng kỳ năm trước</option>
-              <option value="previous-period">Kỳ liền trước</option>
-            </select>
-          </label>
-        </section>
-        {sectionTabs}
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
 
         <section className="bctc-cash-kpis">
           {cashCards.map((item) => (
@@ -820,31 +767,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
     const ratioGroups = buildRatioGroups(ratioRows, dashboard)
     return (
       <section className="bctc-section-panel bctc-ratio-view" aria-label={tab.label}>
-        <section className="bctc-income-control-band bctc-ratio-control-band">
-          <div className="bctc-income-company">
-            <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
-            <div>
-              <h2>{dashboard.companyName}</h2>
-              <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
-            </div>
-          </div>
-          <label>
-            <span>Kỳ báo cáo</span>
-            <select defaultValue={mode === 'quarter' ? 'quarter' : 'year'}>
-              <option value="quarter">Quý</option>
-              <option value="year">Năm</option>
-            </select>
-          </label>
-          <label>
-            <span>So sánh với</span>
-            <select defaultValue="same-period">
-              <option value="same-period">Cùng kỳ năm trước</option>
-              <option value="previous-period">Kỳ liền trước</option>
-            </select>
-          </label>
-          <AnalysisStepper />
-        </section>
-        {sectionTabs}
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
 
         <section className="bctc-ratio-kpis">
           {ratioCards.map((item) => (
@@ -920,8 +850,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
   if (section === 'horizontal') {
     return (
       <section className="bctc-section-panel" aria-label={tab.label}>
-        {sectionTabs}
-        <SectionHeader title="Phân tích ngang" note="So sánh biến động từng chỉ tiêu giữa các kỳ gần nhất." />
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
         <AnalysisTable rows={buildHorizontalRows(analysis)} columns={['Chỉ tiêu', 'Kỳ trước', 'Kỳ hiện tại', 'Thay đổi', '% thay đổi']} />
       </section>
     )
@@ -930,8 +866,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
   if (section === 'vertical') {
     return (
       <section className="bctc-section-panel" aria-label={tab.label}>
-        {sectionTabs}
-        <SectionHeader title="Phân tích dọc" note="Đọc common-size: từng chỉ tiêu chiếm bao nhiêu trong doanh thu hoặc tổng tài sản." />
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
         <div className="bctc-section-grid">
           <AnalysisTable title="Kết quả kinh doanh / Doanh thu" rows={buildVerticalIncomeRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} />
           <AnalysisTable title="Bảng cân đối / Tổng tài sản" rows={buildVerticalBalanceRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} />
@@ -943,8 +885,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
   if (section === 'risk') {
     return (
       <section className="bctc-section-panel" aria-label={tab.label}>
-        {sectionTabs}
-        <SectionHeader title="Cảnh báo rủi ro" note="Các điểm cần kiểm tra lại trước khi đưa ra nhận định cuối." />
+        <BctcSectionControlBand
+          analysis={analysis}
+          dashboard={dashboard}
+          mode={mode}
+          onChangeMode={onChangeMode}
+          comparisonMode={comparisonMode}
+          onChangeComparisonMode={onChangeComparisonMode}
+        />
         <div className="bctc-section-grid">
           <article className="bctc-panel">
             <header>
@@ -978,8 +926,14 @@ function BctcSectionPanel({ section, onSelectSection, analysis, dashboard, trend
 
   return (
     <section className="bctc-section-panel" aria-label={tab.label}>
-      {sectionTabs}
-      <SectionHeader title="Báo cáo" note="Tóm tắt thành báo cáo học tập, không phải khuyến nghị mua bán." />
+      <BctcSectionControlBand
+        analysis={analysis}
+        dashboard={dashboard}
+        mode={mode}
+        onChangeMode={onChangeMode}
+        comparisonMode={comparisonMode}
+        onChangeComparisonMode={onChangeComparisonMode}
+      />
       <div className="bctc-section-grid">
         <article className="bctc-panel">
           <header>
@@ -1021,21 +975,50 @@ function SectionHeader({ title, note }) {
   )
 }
 
-function BctcTabs({ activeSection, onSelect }) {
+const SECTION_DESCRIPTIONS = {
+  overview: 'Phân tích báo cáo tài chính để hiểu sức khỏe tài chính và hiệu quả hoạt động doanh nghiệp.',
+  income: 'Phân tích hiệu quả hoạt động kinh doanh qua doanh thu, cơ cấu chi phí, biên lợi nhuận và chất lượng lợi nhuận.',
+  balance: 'Phân tích cơ cấu tài sản, nguồn vốn, thanh khoản và mức độ an toàn tài chính.',
+  'cash-flow': 'Phân tích chất lượng dòng tiền, khả năng tạo tiền từ hoạt động kinh doanh và nhu cầu tài trợ vốn.',
+  ratios: 'Đọc các nhóm chỉ số tài chính trọng yếu — thanh khoản, đòn bẩy, hiệu quả và sinh lời.',
+  horizontal: 'So sánh biến động từng chỉ tiêu giữa các kỳ gần nhất để thấy xu hướng tăng/giảm.',
+  vertical: 'Đọc common-size: từng chỉ tiêu chiếm bao nhiêu trong doanh thu hoặc tổng tài sản.',
+  risk: 'Các điểm cần kiểm tra lại trước khi đưa ra nhận định cuối — red flags & checklist.',
+  report: 'Tóm tắt thành báo cáo học tập, không phải khuyến nghị mua bán.',
+}
+
+function describeSection(section) {
+  return SECTION_DESCRIPTIONS[section] || SECTION_DESCRIPTIONS.overview
+}
+
+
+
+function BctcSectionControlBand({ analysis, dashboard, mode, onChangeMode, comparisonMode, onChangeComparisonMode }) {
   return (
-    <nav className="bctc-tabs" aria-label="BCTC sections">
-      {BCTC_TABS.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          className={activeSection === tab.key ? 'is-active' : ''}
-          aria-pressed={activeSection === tab.key}
-          onClick={() => onSelect(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </nav>
+    <section className="bctc-income-control-band">
+      <div className="bctc-income-company">
+        <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
+        <div>
+          <h2>{dashboard.companyName}</h2>
+          <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
+        </div>
+      </div>
+      <label>
+        <span>Kỳ báo cáo</span>
+        <select value={mode === 'quarter' ? 'quarter' : 'year'} onChange={(event) => onChangeMode(event.target.value)}>
+          <option value="quarter">Quý</option>
+          <option value="year">Năm</option>
+        </select>
+      </label>
+      <label>
+        <span>So sánh với</span>
+        <select value={comparisonMode} onChange={(event) => onChangeComparisonMode(event.target.value)}>
+          <option value="same-period">Cùng kỳ năm trước</option>
+          <option value="previous-period">Kỳ liền trước</option>
+        </select>
+      </label>
+      <AnalysisStepper />
+    </section>
   )
 }
 
@@ -1081,13 +1064,30 @@ function AnalysisTable({ title, rows, columns }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.join('-')}>
-              {row.map((cell, index) => <td key={`${cell}-${index}`}>{cell}</td>)}
+              {row.map((cell, index) => {
+                const tone = index === 0 ? null : detectNumberTone(cell)
+                const className = [
+                  index === 0 ? 'bctc-cell-label' : 'bctc-cell-num',
+                  tone ? `bctc-cell-${tone}` : '',
+                ].filter(Boolean).join(' ') || undefined
+                return <td key={`${cell}-${index}`} className={className}>{cell}</td>
+              })}
             </tr>
           ))}
         </tbody>
       </table>
     </article>
   )
+}
+
+/** Lightweight sign detection on formatted strings ("-12,5%" → 'neg', "+3,1%" → 'pos'). Returns null for plain values. */
+function detectNumberTone(cell) {
+  if (cell == null) return null
+  const s = String(cell).trim()
+  if (!s || s === '—' || s === '-' || s === 'n/a') return null
+  if (s.startsWith('-') || s.startsWith('−')) return 'neg'
+  if (s.startsWith('+')) return 'pos'
+  return null
 }
 
 function PeerTable({ rows }) {
@@ -2659,7 +2659,23 @@ function horizontalRow(label, previous, current) {
   const cur = Number(current)
   const change = Number.isFinite(cur) && Number.isFinite(prev) ? cur - prev : null
   const pct = Number.isFinite(change) && prev !== 0 ? (change / Math.abs(prev)) * 100 : null
-  return [label, formatCompactNumber(prev), formatCompactNumber(cur), formatCompactNumber(change), formatPercent(pct)]
+  return [label, formatCompactNumber(prev), formatCompactNumber(cur), formatSignedCompact(change), formatSignedPercentPlain(pct)]
+}
+
+function formatSignedCompact(value) {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  const formatted = formatCompactNumber(Math.abs(value))
+  if (value > 0) return `+${formatted}`
+  if (value < 0) return `-${formatted}`
+  return formatted
+}
+
+function formatSignedPercentPlain(value) {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  const formatted = `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(Math.abs(value))}%`
+  if (value > 0) return `+${formatted}`
+  if (value < 0) return `-${formatted}`
+  return formatted
 }
 
 function buildVerticalIncomeRows(latest, summary = {}) {
