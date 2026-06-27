@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import {
+  analyzeFinancialStatementUpload,
+  extractFinancialStatementUpload,
   fetchBalanceSheetStrength,
   fetchFinancialAnalysis,
+  fetchFinancialCockpit,
   fetchFinancialPeers,
   fetchFinancialQualityCharts,
   fetchFinancialStatus,
+  fetchFinancialUploadTypes,
+  uploadFinancialStatement,
+  submitStudentNote,
+  fetchLineItemExplanation,
 } from '../../modules/financials'
 import { trackAnalyticsEvent } from '../../shared/analytics/trackEvent'
 import './guided-investing.css'
@@ -40,19 +47,27 @@ const BCTC_TABS = [
 
 export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'overview' }) {
   const [ticker, setTicker] = useState(DEFAULT_TICKER)
-  const [peersText, setPeersText] = useState('')
+  const [peersText] = useState('')
   const [mode, setMode] = useState('quarter')
+  const [explainerKey, setExplainerKey] = useState(null)
   const [analysis, setAnalysis] = useState(null)
+  const [cockpit, setCockpit] = useState(null)
   const [qualityCharts, setQualityCharts] = useState(null)
   const [balanceSheetStrength, setBalanceSheetStrength] = useState(null)
   const [peerResult, setPeerResult] = useState(null)
   const [providerStatus, setProviderStatus] = useState(null)
+  const [uploadTypes, setUploadTypes] = useState(null)
+  const [uploadResult, setUploadResult] = useState(null)
+  const [extractionResult, setExtractionResult] = useState(null)
+  const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [peerLoading, setPeerLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [activeSection, setActiveSection] = useState(initialFocusCard)
   const [comparisonMode, setComparisonMode] = useState('same-period')
+
+  useBctcStoryMotion(Boolean(analysis), activeSection)
 
   useEffect(() => {
     setActiveSection(initialFocusCard || 'overview')
@@ -66,10 +81,12 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
     setLoading(true)
     setError('')
     try {
-      const [statusPayload] = await Promise.all([
+      const [statusPayload, uploadTypesPayload] = await Promise.all([
         fetchFinancialStatus().catch(() => null),
+        fetchFinancialUploadTypes().catch(() => null),
       ])
       setProviderStatus(statusPayload)
+      setUploadTypes(uploadTypesPayload)
       await runAnalysis({ refresh: false, tickerValue: ticker, silent: true })
     } catch (err) {
       setError(err.message || 'Không tải được dữ liệu BCTC.')
@@ -79,6 +96,10 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
   }
 
   async function runAnalysis({ refresh = false, tickerValue = ticker, silent = false } = {}) {
+    if (!refresh && uploadResult?.upload_id && uploadResult?.status !== 'analyzed') {
+      await runUploadedStatementPipeline({ silent })
+      return
+    }
     const normalizedTicker = (tickerValue || '').toUpperCase().trim()
     if (!normalizedTicker) {
       setError('Vui lòng nhập ticker trước khi phân tích.')
@@ -90,12 +111,14 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
       setLoading(true)
     }
     try {
-      const [payload, chartPayload, balancePayload] = await Promise.all([
+      const [payload, cockpitPayload, chartPayload, balancePayload] = await Promise.all([
         fetchFinancialAnalysis(normalizedTicker, { refresh }),
+        fetchFinancialCockpit(normalizedTicker, { refresh }).catch(() => null),
         fetchFinancialQualityCharts(normalizedTicker, { refresh }).catch(() => null),
         fetchBalanceSheetStrength(normalizedTicker, { refresh }).catch(() => null),
       ])
       setAnalysis(payload)
+      setCockpit(cockpitPayload)
       setQualityCharts(chartPayload)
       setBalanceSheetStrength(balancePayload)
       const nextMode = inferDefaultMode(payload)
@@ -116,6 +139,83 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
       })
     } catch (err) {
       setError(err.message || 'Không lấy được phân tích BCTC.')
+      setStatus('')
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
+
+  async function runUploadedStatementPipeline({ silent = false } = {}) {
+    if (!uploadResult?.upload_id) return
+    if (!silent) {
+      setStatus(`Đang xử lý file BCTC ${uploadResult.filename}...`)
+      setError('')
+      setLoading(true)
+    }
+    try {
+      let nextUpload = uploadResult
+      if (!canAnalyzeUploadedStatement(nextUpload)) {
+        const extraction = await extractFinancialStatementUpload(nextUpload.upload_id)
+        setExtractionResult(extraction)
+        nextUpload = {
+          ...nextUpload,
+          extraction_status: extraction.status,
+          analysis_ready: extraction.analysis_ready,
+          next_step: extraction.next_step,
+          markdown_url: extraction.markdown?.url,
+        }
+        setUploadResult(nextUpload)
+      }
+      if (!canAnalyzeUploadedStatement(nextUpload)) {
+        setStatus('')
+        setError(nextUpload.next_step || 'File upload chưa đủ dữ liệu có cấu trúc để phân tích.')
+        return
+      }
+      await analyzeUploadedStatement({ silent: true, uploadOverride: nextUpload })
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
+
+  async function analyzeUploadedStatement({ silent = false, uploadOverride = null } = {}) {
+    const targetUpload = uploadOverride || uploadResult
+    if (!targetUpload?.upload_id) return
+    if (!silent) {
+      setStatus(`Đang phân tích file BCTC ${targetUpload.filename}...`)
+      setError('')
+      setLoading(true)
+    }
+    try {
+      const payload = await analyzeFinancialStatementUpload(targetUpload.upload_id)
+      const nextTicker = payload.ticker || targetUpload.ticker || ticker
+      setAnalysis(payload.analysis)
+      setTicker(nextTicker)
+      setUploadResult(payload.upload)
+      const [cockpitPayload, chartPayload, balancePayload] = await Promise.all([
+        fetchFinancialCockpit(nextTicker, { refresh: false }).catch(() => null),
+        fetchFinancialQualityCharts(nextTicker, { refresh: false }).catch(() => null),
+        fetchBalanceSheetStrength(nextTicker, { refresh: false }).catch(() => null),
+      ])
+      setCockpit(cockpitPayload)
+      setQualityCharts(chartPayload)
+      setBalanceSheetStrength(balancePayload)
+      const nextMode = inferDefaultMode(payload.analysis)
+      if (nextMode) setMode(nextMode)
+      await runPeerCompare({ tickerValue: nextTicker, silent: true })
+      setStatus(`Đã phân tích file upload và dựng chart cho ${nextTicker}.`)
+      trackAnalyticsEvent({
+        event_name: 'financial_uploaded_statement_analyzed',
+        module: 'guided_investing',
+        surface: 'guided_investing',
+        session_id: sessionId || undefined,
+        properties: {
+          ticker: nextTicker,
+          upload_id: targetUpload.upload_id,
+          period_count: payload.periods,
+        },
+      })
+    } catch (err) {
+      setError(err.message || 'Không phân tích được file BCTC đã upload.')
       setStatus('')
     } finally {
       if (!silent) setLoading(false)
@@ -154,6 +254,44 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
     }
   }
 
+  async function handleFinancialUpload(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setUploadResult(null)
+    setExtractionResult(null)
+    setError('')
+    setStatus(`Đang upload BCTC: ${file.name}...`)
+    try {
+      const payload = await uploadFinancialStatement({
+        file,
+        ticker,
+        reportType: 'auto',
+        period: analysis?.latest_period || '',
+      })
+      setUploadResult(payload)
+      setStatus(`Đã nhận file ${payload.filename}. Bước tiếp theo: ${payload.next_step}`)
+      trackAnalyticsEvent({
+        event_name: 'financial_statement_uploaded',
+        module: 'guided_investing',
+        surface: 'guided_investing',
+        session_id: sessionId || undefined,
+        properties: {
+          ticker: payload.ticker || ticker,
+          file_type: payload.file_type?.extension,
+          pipeline: payload.file_type?.pipeline,
+          size_bytes: payload.size_bytes,
+        },
+      })
+    } catch (err) {
+      setError(err.message || 'Không upload được file BCTC.')
+      setStatus('')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const trendViews = useMemo(() => buildTrendViews(analysis), [analysis])
   const trendRows = trendViews[mode] || []
   const modeOptions = useMemo(
@@ -162,8 +300,8 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
   )
   const healthRows = useMemo(() => buildHealthRows(analysis), [analysis])
   const dashboard = useMemo(
-    () => buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength),
-    [analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength],
+    () => buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength, cockpit),
+    [analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength, cockpit],
   )
   const activeTab = BCTC_TABS.find((item) => item.key === activeSection) || BCTC_TABS[0]
   const isOverview = activeSection === 'overview'
@@ -195,297 +333,256 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
             Xuất báo cáo
           </button>
           <button type="button" className="bctc-btn" onClick={() => void runAnalysis({ refresh: false })}>
-            Phân tích BCTC
+            {uploadResult?.status && uploadResult.status !== 'analyzed' ? 'Phân tích file upload' : 'Phân tích BCTC'}
           </button>
         </div>
       </header>
 
-      {isOverview ? <section className="bctc-command-grid">
-        <article className="bctc-company-card">
-          <div className="bctc-company-card__identity">
-            <div className="bctc-logo" aria-hidden="true">
-              {(analysis?.ticker || ticker || 'NS').slice(0, 3)}
-            </div>
-            <div>
-              <p className="bctc-eyebrow">Northstar Finance</p>
-              <h2>{dashboard.companyName}</h2>
-              <span>{analysis?.ticker || ticker} · {analysis?.industry || 'Ngành chưa xác định'}</span>
-            </div>
-          </div>
-          <div className="bctc-controls">
-            <label>
-              Ticker
-              <input
-                value={ticker}
-                onChange={(event) => setTicker(event.target.value.toUpperCase())}
-                placeholder="Ví dụ: FPT"
-              />
-            </label>
-            <label>
-              Peer tickers
-              <input
-                value={peersText}
-                onChange={(event) => setPeersText(event.target.value.toUpperCase())}
-                placeholder="Ví dụ: CMG,DGW,MWG"
-              />
-            </label>
-            <label>
-              Kỳ hiển thị
-              <select value={mode} onChange={(event) => setMode(event.target.value)}>
-                {modeOptions.map((item) => (
-                  <option key={item} value={item}>{modeLabel(item)}</option>
-                ))}
-              </select>
-            </label>
-            <button type="button" className="bctc-btn bctc-btn--secondary" onClick={() => void runPeerCompare()}>
-              {peerLoading ? 'Đang so sánh...' : 'So sánh peers'}
-            </button>
-          </div>
-          <div className="bctc-company-meta">
-            <MetricBox label="Sàn" value={dashboard.exchange} />
-            <MetricBox label="Kỳ báo cáo" value={analysis?.latest_period || 'n/a'} />
-            <MetricBox label="Nguồn" value={analysis?.source || providerStatus?.provider || 'n/a'} />
-            <MetricBox label="Đơn vị" value={dashboard.unit} />
-          </div>
-        </article>
-
-        <article className="bctc-ai-summary">
-          <div>
-            <p className="bctc-eyebrow">AI Financial Summary</p>
+      {isOverview ? (
+        <section className="bctc-overview-hero bctc-showcase-hero">
+          <div className="bctc-showcase-copy">
+            <p className="bctc-showcase-kicker">BCTC Overview</p>
             <h2>{dashboard.aiTitle}</h2>
+            <p>Một màn tổng quan bắt đầu từ bảng BCTC đã đọc, rồi đối chiếu các dòng số liệu sang chart và insight trước khi đi vào tab phân tích sâu.</p>
+            <div className="bctc-showcase-controls">
+              <label>
+                <span>Ticker</span>
+                <input
+                  value={ticker}
+                  onChange={(event) => setTicker(event.target.value.toUpperCase())}
+                  placeholder="Ví dụ: FPT"
+                />
+              </label>
+              <label>
+                <span>Kỳ</span>
+                <select value={mode} onChange={(event) => setMode(event.target.value)}>
+                  {modeOptions.map((item) => (
+                    <option key={item} value={item}>{modeLabel(item)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="bctc-showcase-metrics">
+              {dashboard.kpis.slice(0, 4).map((item) => (
+                <div key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <em>{item.note}</em>
+                </div>
+              ))}
+            </div>
+            <BctcUploadPanel
+              uploadTypes={uploadTypes}
+              uploadResult={uploadResult}
+              extractionResult={extractionResult}
+              uploading={uploading}
+              onUpload={handleFinancialUpload}
+              onAnalyze={() => void runUploadedStatementPipeline({ silent: false })}
+            />
           </div>
-          <ul>
-            {dashboard.summaryBullets.map((item) => (
-              <li key={item.text} className={`bctc-ai-summary__item bctc-ai-summary__item--${item.tone}`}>
-                <span>{item.tone === 'warn' ? '!' : '↑'}</span>
-                <p>{item.text}</p>
-              </li>
-            ))}
-          </ul>
-        </article>
 
-        <article className="bctc-learning-card">
-          <h2>Mục tiêu học tập</h2>
-          <p>Trang Tổng quan giúp bạn nhanh chóng nắm bức tranh toàn cảnh về doanh nghiệp.</p>
-          <ul>
-            <li>Hiểu xu hướng doanh thu & lợi nhuận</li>
-            <li>Đánh giá hiệu quả & chất lượng lợi nhuận</li>
-            <li>Kiểm tra sức khỏe tài chính & rủi ro</li>
-            <li>Đưa ra nhận định bước đầu</li>
-          </ul>
-          <div>
-            <strong>Mẹo học tập:</strong> Hãy bắt đầu bằng AI Summary, sau đó khám phá các biểu đồ và chỉ số bên dưới.
+          <div className="bctc-showcase-stage" aria-label="BCTC source table and overview dashboard preview">
+            <div className="bctc-showcase-window">
+              <header className="bctc-showcase-window__bar">
+                <div className="bctc-showcase-brand">
+                  <div className="bctc-logo" aria-hidden="true">
+                    {(analysis?.ticker || ticker || 'NS').slice(0, 3)}
+                  </div>
+                  <div>
+                    <strong>{dashboard.companyName}</strong>
+                <span>{dashboard.exchange} · {analysis?.latest_period || 'n/a'} · {analysis?.source || providerStatus?.provider || 'n/a'}</span>
+                  </div>
+                </div>
+                <span>{dashboard.dataQualityLabel}</span>
+              </header>
+
+              <BctcSourceStatementPreview analysis={analysis} cockpit={cockpit} extractionResult={extractionResult} />
+
+              <div className="bctc-showcase-grid">
+                <article className="bctc-showcase-card bctc-showcase-card--main">
+                  <header>
+                    <div>
+                      <p>Revenue quality</p>
+                      <h3>Doanh thu & LNST</h3>
+                    </div>
+                    <span>{modeLabel(mode)}</span>
+                  </header>
+                  <MetricTrendChart
+                    rows={trendRows}
+                    metrics={REVENUE_INCOME_METRICS}
+                    formatValue={formatCompactNumber}
+                    height={205}
+                    showEndpointLabels
+                  />
+                </article>
+
+                <article className="bctc-showcase-card bctc-showcase-card--health">
+                  <header>
+                    <div>
+                      <p>Financial health</p>
+                      <h3>{dashboard.healthScore}/100</h3>
+                    </div>
+                  </header>
+                  <div className="bctc-showcase-health">
+                    <HealthScoreGauge score={dashboard.healthScore} tone={dashboard.healthTone} />
+                    <div className="bctc-health-bars">
+                      {healthRows.slice(0, 4).map((row) => (
+                        <div key={row.label} className="bctc-health-row">
+                          <div>
+                            <strong>{row.label}</strong>
+                            <small>{row.value}/100</small>
+                          </div>
+                          <div className="bctc-health-track">
+                            <i style={{ width: `${row.value}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+
+                <article className="bctc-showcase-card bctc-showcase-card--mini">
+                  <header>
+                    <div>
+                      <p>Margin</p>
+                      <h3>Biên lợi nhuận</h3>
+                    </div>
+                  </header>
+                  <MetricTrendChart
+                    rows={dashboard.marginRows}
+                    metrics={MARGIN_METRICS}
+                    formatValue={formatPercent}
+                    height={130}
+                    showEndpointLabels={false}
+                  />
+                </article>
+
+                <article className="bctc-showcase-card bctc-showcase-card--mini">
+                  <header>
+                    <div>
+                      <p>Cash conversion</p>
+                      <h3>Dòng tiền</h3>
+                    </div>
+                  </header>
+                  <CashFlowQuality data={dashboard.cashFlow} />
+                </article>
+              </div>
+            </div>
+
+            {dashboard.summaryBullets[0] ? (
+              <aside className="bctc-floating-insight bctc-floating-insight--left">
+                <span>Insight</span>
+                <strong>{dashboard.summaryBullets[0].text}</strong>
+              </aside>
+            ) : null}
+            {dashboard.summaryBullets[2] ? (
+              <aside className="bctc-floating-insight bctc-floating-insight--right">
+                <span>Cần kiểm tra</span>
+                <strong>{dashboard.summaryBullets[2].text}</strong>
+              </aside>
+            ) : null}
           </div>
-        </article>
-      </section> : null}
+        </section>
+      ) : null}
 
-      {status && isOverview ? <p className="bctc-state">{status}</p> : null}
+      {status && isOverview ? <p className="bctc-state bctc-state--compact">{status}</p> : null}
       {error ? <p className="bctc-state bctc-state--error">{error}</p> : null}
 
       {analysis ? (
         isOverview ? (
         <>
-          <section className="bctc-kpi-strip">
-            {dashboard.kpis.map((item) => (
-              <article key={item.label} className={`bctc-kpi ${item.tone ? `bctc-kpi--${item.tone}` : ''}`}>
-                <div className="bctc-kpi__icon">{item.icon}</div>
-                <div>
-                  <p>{item.label}</p>
-                  <h3>{item.value}</h3>
-                  <span>{item.note}</span>
-                </div>
-                <Sparkline tone={item.tone} values={item.sparkValues} />
-              </article>
-            ))}
-          </section>
-
-          <section className="bctc-dashboard-grid">
-            <article className="bctc-panel bctc-panel--health">
-              <header>
-                <h2>Financial Health Score</h2>
-                <p>Score tổng hợp từ tăng trưởng, sinh lời, thanh khoản, đòn bẩy và dòng tiền.</p>
-              </header>
-              <div className="bctc-health-layout">
-                <HealthScoreGauge score={dashboard.healthScore} tone={dashboard.healthTone} />
-                <HealthRadar rows={healthRows} />
-                <div className="bctc-health-bars">
-                  {healthRows.map((row) => (
-                    <div key={row.label} className="bctc-health-row">
-                      <div>
-                        <strong>{row.label}</strong>
-                        <small>{row.value}/100</small>
-                      </div>
-                      <div className="bctc-health-track">
-                        <i style={{ width: `${row.value}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <section className="bctc-story-flow">
+            <article className="bctc-story-panel bctc-story-panel--growth">
+              <div className="bctc-story-copy">
+                <span>01 / Tăng trưởng</span>
+                <h2>Doanh thu tăng có đi cùng lợi nhuận?</h2>
+                <p>Chart này là bằng chứng chính cho câu hỏi đầu tiên: tăng trưởng có thật sự chuyển hóa thành lợi nhuận hay chỉ phình quy mô.</p>
+                <a href="#income">Xem phân tích KQKD</a>
               </div>
-              <div className="bctc-tag-row">
-                {dashboard.strengthTags.map((item) => <span key={item}>{item}</span>)}
-              </div>
-            </article>
-
-            <article className="bctc-chart-card bctc-panel--revenue">
-              <header className="bctc-panel-head">
-                <div>
-                  <h2>Xu hướng Doanh thu & LNST</h2>
-                  <p>Đọc tăng trưởng và độ ổn định lợi nhuận qua các kỳ gần nhất.</p>
-                </div>
-                <span>{modeLabel(mode)}</span>
-              </header>
-              <MetricTrendChart
-                rows={trendRows}
-                metrics={REVENUE_INCOME_METRICS}
-                formatValue={formatCompactNumber}
-                height={218}
-                showEndpointLabels
-              />
-            </article>
-
-            <article className="bctc-chart-card bctc-panel--margin">
-              <header className="bctc-panel-head">
-                <div>
-                  <h2>Phân tích biên lợi nhuận</h2>
-                  <p>Biên ròng, biên hoạt động và biên gộp nếu dữ liệu có sẵn.</p>
-                </div>
-                <span>{analysis?.latest_period || 'Latest'}</span>
-              </header>
-              <MetricTrendChart
-                rows={dashboard.marginRows}
-                metrics={MARGIN_METRICS}
-                formatValue={formatPercent}
-                height={218}
-                showEndpointLabels
-              />
-              <MarginAnalysisDetails data={dashboard.marginAnalysis} />
-            </article>
-
-            <article className="bctc-panel bctc-panel--balance">
-              <header>
-                <h2>Sức mạnh Bảng cân đối kế toán</h2>
-                <p>Tài sản, nguồn vốn và chất lượng cấu trúc vốn theo dữ liệu thật.</p>
-              </header>
-              <BalanceSheetStrengthCard data={dashboard.balanceSheetStrength} fallbackItems={dashboard.balanceItems} fallbackTotal={dashboard.balanceTotal} />
-            </article>
-
-            <article className="bctc-panel bctc-panel--cashflow">
-              <header>
-                <h2>Chất lượng dòng tiền</h2>
-                <p>So sánh CFO, CFI, CFF và FCF để đánh giá chất lượng lợi nhuận.</p>
-              </header>
-              <CashFlowQuality data={dashboard.cashFlow} />
-            </article>
-
-            <article className="bctc-panel bctc-panel--liquidity">
-              <header>
-                <h2>Đòn bẩy & Thanh khoản</h2>
-                <p>Khả năng chịu đựng nợ và áp lực vốn lưu động.</p>
-              </header>
-              <div className="bctc-mini-metric-grid">
-                {dashboard.leverageMetrics.map((item) => (
-                  <div key={item.label} className={`bctc-mini-metric bctc-mini-metric--${item.tone}`}>
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                    <em>{item.note}</em>
+              <div className="bctc-story-visual bctc-evidence-card bctc-evidence-card--growth">
+                <header className="bctc-panel-head">
+                  <div>
+                    <h3>Doanh thu & LNST</h3>
+                    <p>{modeLabel(mode)} · {analysis?.latest_period || 'Latest'}</p>
                   </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="bctc-panel bctc-panel--dupont">
-              <header>
-                <h2>DuPont Analysis</h2>
-                <p>Tách ROE thành biên lợi nhuận, vòng quay tài sản và hệ số đòn bẩy.</p>
-              </header>
-              <DupontCard dupont={dashboard.dupont} />
-            </article>
-
-            <article className="bctc-panel bctc-panel--flags">
-              <header>
-                <h2>Red Flags & Điểm cần lưu ý</h2>
-                <p>Các câu hỏi này giúp kiểm tra lại thesis trước khi kết luận.</p>
-              </header>
-              {analysis.flags?.length ? (
-                <ul className="bctc-flag-list">
-                  {analysis.flags.slice(0, 5).map((flag) => (
-                    <li key={`${flag.level}-${flag.title}`} className={`bctc-flag bctc-flag--${(flag.level || '').toLowerCase()}`}>
-                      <strong>{flag.title}</strong>
-                      <p>{flag.detail}</p>
-                    </li>
+                </header>
+                <MetricTrendChart
+                  rows={trendRows}
+                  metrics={REVENUE_INCOME_METRICS}
+                  formatValue={formatCompactNumber}
+                  height={280}
+                  showEndpointLabels
+                />
+                <div className="bctc-evidence-metrics">
+                  {dashboard.kpis.slice(0, 3).map((item) => (
+                    <p key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                      <em>{item.note}</em>
+                    </p>
                   ))}
-                </ul>
-              ) : (
-                <p className="bctc-muted">Chưa có flag nổi bật ở lần chạy hiện tại.</p>
-              )}
-              <div className="bctc-check-questions">
-                <h3>Câu hỏi cần kiểm tra</h3>
-                {dashboard.checkQuestions.map((item) => <p key={item}>{item}</p>)}
+                </div>
               </div>
             </article>
 
-            <article className="bctc-panel bctc-panel--peer">
-              <header className="bctc-panel-head">
-                <div>
-                  <h2>So sánh với doanh nghiệp cùng ngành</h2>
-                  <p>Đặt chỉ số của {analysis.ticker} cạnh trung bình peer để tránh nhìn một mã cô lập.</p>
+            <article className="bctc-story-panel bctc-story-panel--two">
+              <div className="bctc-story-copy">
+                <span>02 / Chất lượng</span>
+                <h2>Lợi nhuận có bền và có tiền thật không?</h2>
+                <p>Hai visual đủ để đọc chất lượng: biên lợi nhuận cho thấy sức giữ lãi, dòng tiền cho thấy lợi nhuận có được xác nhận bằng tiền.</p>
+                <a href="#cashflow">Xem phân tích dòng tiền</a>
+              </div>
+              <div className="bctc-story-visual-grid">
+                <div className="bctc-story-visual bctc-evidence-card bctc-evidence-card--margin">
+                  <header className="bctc-panel-head">
+                    <div>
+                      <h3>Biên lợi nhuận</h3>
+                      <p>Gộp · HĐKD · ròng</p>
+                    </div>
+                  </header>
+                  <MetricTrendChart
+                    rows={dashboard.marginRows}
+                    metrics={MARGIN_METRICS}
+                    formatValue={formatPercent}
+                    height={220}
+                    showEndpointLabels
+                  />
                 </div>
-                <span>{peerLoading ? 'Syncing' : 'Ready'}</span>
-              </header>
-              {dashboard.peerRows.length ? (
-                <div className="bctc-peer-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Doanh nghiệp</th>
-                        <th>Doanh thu</th>
-                        <th>Biên ròng</th>
-                        <th>ROE</th>
-                        <th>Debt / Equity</th>
-                        <th>CFO Margin</th>
-                        <th>Đánh giá so với ngành</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.peerRows.map((metric) => {
-                        const tone = metric.tone
-                        return (
-                          <tr key={metric.company} className={`${metric.selected ? 'is-selected' : ''} ${tone ? `bctc-peer-row--${tone}` : ''}`}>
-                            <td>{metric.company}</td>
-                            <td>{metric.revenueGrowth}</td>
-                            <td>{metric.netMargin}</td>
-                            <td>{metric.roe}</td>
-                            <td>{metric.debtToEquity}</td>
-                            <td>{metric.cfoMargin}</td>
-                            <td>{metric.assessment}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                <div className="bctc-story-visual bctc-evidence-card bctc-evidence-card--cash">
+                  <header className="bctc-panel-head">
+                    <div>
+                      <h3>Dòng tiền</h3>
+                      <p>CFO, CFI, CFF và FCF</p>
+                    </div>
+                  </header>
+                  <CashFlowQuality data={dashboard.cashFlow} />
                 </div>
-              ) : (
-                <p className="bctc-muted">Chưa có peer compare. Bấm “So sánh peers” để tải.</p>
-              )}
+              </div>
             </article>
 
-            <article className="bctc-panel bctc-panel--ask">
-              <header className="bctc-panel-head">
-                <div>
-                  <h2>Ask AI about this company</h2>
-                  <p>Gợi ý câu hỏi dựa trên dữ liệu BCTC hiện có.</p>
+            <article className="bctc-story-panel bctc-story-panel--risk">
+              <div className="bctc-story-copy">
+                <span>03 / Rủi ro</span>
+                <h2>Còn điểm nào phải kiểm tra trước khi tin?</h2>
+                <p>Overview chỉ nêu các câu hỏi quan trọng nhất. Nếu cần truy vết từng khoản mục, chuyển sang tab Bảng cân đối, Chỉ số hoặc Dòng tiền.</p>
+                <div className="bctc-story-points">
+                  {dashboard.checkQuestions.slice(0, 3).map((item) => (
+                    <p key={item} className="bctc-story-point bctc-story-point--warn">{item}</p>
+                  ))}
                 </div>
-                <span>Beta</span>
-              </header>
-              <div className="bctc-ask-grid">
-                {dashboard.aiQuestions.map((item) => (
-                  <button key={item} type="button">{item}</button>
-                ))}
               </div>
-              <div className="bctc-ask-actions">
-                <button type="button" className="bctc-btn">Mở Analyst</button>
-                <button type="button" className="bctc-btn bctc-btn--secondary">Giải thích đơn giản</button>
+              <div className="bctc-story-visual bctc-evidence-card bctc-risk-board">
+                <BalanceSheetSummaryCard data={dashboard.balanceSheetStrength} fallbackItems={dashboard.balanceItems} fallbackTotal={dashboard.balanceTotal} />
+                {analysis.flags?.length ? (
+                  <ul className="bctc-story-flag-list">
+                    {analysis.flags.slice(0, 3).map((flag) => (
+                      <li key={`${flag.level}-${flag.title}`}>
+                        <strong>{flag.title}</strong>
+                        <span>{flag.detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             </article>
           </section>
@@ -505,8 +602,179 @@ export default function GuidedInvestingPage({ sessionId, initialFocusCard = 'ove
           />
         )
       ) : null}
+      
+      {explainerKey && (
+        <LineItemExplainerModal 
+          itemKey={explainerKey} 
+          ticker={ticker}
+          period={analysis?.latest_period || 'T12/2024'}
+          onClose={() => setExplainerKey(null)} 
+        />
+      )}
     </section>
   )
+}
+
+function useBctcStoryMotion(enabled, activeSection) {
+  useEffect(() => {
+    if (!enabled || activeSection !== 'overview') return undefined
+    const root = document.querySelector('.bctc-page')
+    const flow = document.querySelector('.bctc-story-flow')
+    const hero = document.querySelector('.bctc-showcase-hero')
+    if (!root || !flow) return undefined
+
+    const panels = [...flow.querySelectorAll('.bctc-story-panel')]
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      panels.forEach((item) => item.classList.add('is-visible'))
+      return undefined
+    }
+
+    flow.classList.add('is-motion-ready')
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.18, rootMargin: '0px 0px -10% 0px' },
+    )
+
+    panels.forEach((item) => observer.observe(item))
+
+    function handlePointerMove(event) {
+      const target = hero?.contains(event.target) ? hero : flow
+      const rect = target.getBoundingClientRect()
+      const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+      const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+      flow.style.setProperty('--story-x', x.toFixed(3))
+      flow.style.setProperty('--story-y', y.toFixed(3))
+      hero?.style.setProperty('--story-x', x.toFixed(3))
+      hero?.style.setProperty('--story-y', y.toFixed(3))
+    }
+
+    flow.addEventListener('pointermove', handlePointerMove)
+    hero?.addEventListener('pointermove', handlePointerMove)
+
+    return () => {
+      observer.disconnect()
+      flow.removeEventListener('pointermove', handlePointerMove)
+      hero?.removeEventListener('pointermove', handlePointerMove)
+      flow.classList.remove('is-motion-ready')
+    }
+  }, [enabled, activeSection])
+}
+
+function SimplizeDataViewToggle({ viewMode, onChange }) {
+  return (
+    <div className="bctc-view-toggle">
+      <button className={viewMode === 'absolute' ? 'is-active' : ''} onClick={() => onChange('absolute')}>Giá trị tuyệt đối</button>
+      <button className={viewMode === 'growth' ? 'is-active' : ''} onClick={() => onChange('growth')}>% Tăng trưởng</button>
+      <button className={viewMode === 'ratio' ? 'is-active' : ''} onClick={() => onChange('ratio')}>% Tỷ trọng</button>
+    </div>
+  )
+}
+
+function SimplizeDataTable({ title, data, lines, viewMode, onRowClick }) {
+  const periods = data.map(d => d.period);
+  return (
+    <article className="bctc-panel bctc-data-table bctc-simplize-table">
+      <header className="bctc-panel-head" style={{ borderBottom: '1px solid rgba(37, 43, 59, 0.08)', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ padding: 0, margin: 0 }}>{title}</h2>
+        {viewMode && <span style={{ fontSize: '0.78rem', color: '#607975', fontWeight: 600 }}>Chế độ: {viewMode === 'absolute' ? 'Giá trị' : viewMode === 'growth' ? 'Tăng trưởng' : 'Tỷ trọng'}</span>}
+      </header>
+      <div style={{ overflowX: 'auto', width: '100%' }}>
+        <table style={{ minWidth: '800px' }}>
+          <thead>
+            <tr>
+              <th className="bctc-sticky-col">Chỉ tiêu</th>
+              {periods.map((period, i) => <th key={`${period}-${i}`}>{period}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map(line => {
+              const key = line.key;
+              const label = line.label;
+              const isEmphasis = line.isEmphasis;
+              return (
+                <tr key={key} className={isEmphasis ? 'is-emphasis' : ''} onClick={() => onRowClick && onRowClick(label)} style={onRowClick ? {cursor: 'pointer'} : {}}>
+                  <td className="bctc-sticky-col bctc-cell-label">{label}</td>
+                  {data.map((row, index) => {
+                    let cellValue = row[key];
+                    let displayValue = '-';
+                    let tone = null;
+                    
+                    if (viewMode === 'growth') {
+                      if (index > 0) {
+                        const prevValue = data[index - 1][key];
+                        if (prevValue && cellValue) {
+                          const growth = growthPercent(cellValue, prevValue);
+                          displayValue = formatSignedPercent(growth);
+                          tone = growth > 0 ? 'pos' : (growth < 0 ? 'neg' : null);
+                        }
+                      }
+                    } else if (viewMode === 'ratio') {
+                      const total = row[line.ratioBaseKey];
+                      if (total && cellValue != null) {
+                        displayValue = formatPercent(cellValue / total * 100);
+                      }
+                    } else {
+                      displayValue = line.format ? line.format(cellValue) : formatCompactNumber(cellValue);
+                    }
+                    
+                    const className = [
+                      'bctc-cell-num',
+                      tone ? `bctc-cell-${tone}` : ''
+                    ].filter(Boolean).join(' ');
+                    
+                    return <td key={`${key}-${index}`} className={className}>{displayValue}</td>;
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  )
+}
+
+function buildIncomePeriodRows(analysis) {
+  return [...(analysis?.periods || [])]
+    .slice()
+    .sort((a, b) => {
+      const ay = Number(a.year || 0)
+      const by = Number(b.year || 0)
+      if (ay !== by) return ay - by
+      return Number(a.quarter || 0) - Number(b.quarter || 0)
+    })
+    .map((item) => {
+      const revenue = firstNumber(item.revenue)
+      const netIncome = firstNumber(item.net_income)
+      const grossMarginPct = firstNumber(item.gross_margin_pct)
+      const grossProfit = Number.isFinite(revenue) && Number.isFinite(grossMarginPct) ? revenue * grossMarginPct / 100 : null
+      const cogs = Number.isFinite(revenue) && Number.isFinite(grossProfit) ? revenue - grossProfit : null
+      const ebit = firstNumber(item.ebit, item.operating_income)
+      const netMarginPct = firstNumber(item.net_margin_pct, revenue ? (netIncome / revenue) * 100 : null)
+      return {
+        period: normalizePeriodLabel(item),
+        rawPeriod: item.period,
+        year: item.year,
+        quarter: item.quarter,
+        revenue,
+        cogs,
+        grossProfit,
+        ebit,
+        netIncome,
+        grossMarginPct,
+        netMarginPct,
+      }
+    })
+    .filter((item) => Number.isFinite(item.revenue) || Number.isFinite(item.netIncome))
 }
 
 function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows, mode, onChangeMode, comparisonMode, onChangeComparisonMode, peerLoading }) {
@@ -564,7 +832,24 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
           <aside className="bctc-income-assistant">
             <IncomeAssistantCard dashboard={dashboard} />
           </aside>
-          <StatementTable title="Báo cáo kết quả kinh doanh" rows={buildIncomeStatementTableRows(analysis, dashboard)} />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <SimplizeDataViewToggle viewMode={dataViewMode} onChange={setDataViewMode} />
+            <SimplizeDataTable
+              title="Báo cáo kết quả kinh doanh"
+              data={buildIncomePeriodRows(analysis).slice(-5)}
+              lines={[
+                { key: 'revenue', label: 'Doanh thu thuần', isEmphasis: true, ratioBaseKey: 'revenue' },
+                { key: 'cogs', label: 'Giá vốn hàng bán', ratioBaseKey: 'revenue' },
+                { key: 'grossProfit', label: 'Lợi nhuận gộp', isEmphasis: true, ratioBaseKey: 'revenue' },
+                { key: 'grossMarginPct', label: 'Biên gộp (%)', format: (val) => formatPercent(val) },
+                { key: 'ebit', label: 'EBIT', ratioBaseKey: 'revenue' },
+                { key: 'netIncome', label: 'LNST', isEmphasis: true, ratioBaseKey: 'revenue' },
+                { key: 'netMarginPct', label: 'Biên ròng (%)', format: (val) => formatPercent(val) },
+              ]}
+              viewMode={dataViewMode}
+              onRowClick={setExplainerKey}
+            />
+          </div>
           <article className="bctc-panel bctc-income-highlights">
             <header>
               <h2>Điểm nhấn</h2>
@@ -578,6 +863,10 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
                 </li>
               ))}
             </ul>
+          </article>
+          <WhatIfSimulator analysis={analysis} />
+          <StudentNotePanel companyId={ticker} period={analysis?.latest_period} sectionName="Kết quả kinh doanh" />
+          <article className="bctc-panel">
             <a href="#bctc-income-detail">Xem chi tiết phân tích →</a>
           </article>
         </section>
@@ -651,7 +940,29 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
             <BalanceAssistantCard dashboard={dashboard} />
           </aside>
 
-          <BalanceStatementTable rows={balanceRows} />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <SimplizeDataViewToggle viewMode={dataViewMode} onChange={setDataViewMode} />
+            <SimplizeDataTable
+              title="Bảng cân đối kế toán"
+              data={balanceRows.slice(-5)}
+              lines={[
+                { key: 'cash', label: 'Tiền & tương đương tiền', ratioBaseKey: 'totalAssets' },
+                { key: 'receivables', label: 'Phải thu khách hàng', ratioBaseKey: 'totalAssets' },
+                { key: 'inventory', label: 'Hàng tồn kho', ratioBaseKey: 'totalAssets' },
+                { key: 'currentAssets', label: 'Tài sản ngắn hạn', isEmphasis: true, ratioBaseKey: 'totalAssets' },
+                { key: 'fixedAssets', label: 'Tài sản cố định', ratioBaseKey: 'totalAssets' },
+                { key: 'otherAssets', label: 'Tài sản khác dài hạn', ratioBaseKey: 'totalAssets' },
+                { key: 'totalAssets', label: 'Tổng tài sản', isEmphasis: true, ratioBaseKey: 'totalAssets' },
+                { key: 'shortTermDebt', label: 'Nợ ngắn hạn', ratioBaseKey: 'totalLiabilities' },
+                { key: 'longTermDebt', label: 'Nợ dài hạn', ratioBaseKey: 'totalLiabilities' },
+                { key: 'totalLiabilities', label: 'Tổng nợ phải trả', isEmphasis: true, ratioBaseKey: 'totalLiabilities' },
+                { key: 'equity', label: 'Vốn chủ sở hữu', isEmphasis: true, ratioBaseKey: 'totalAssets' },
+              ]}
+              viewMode={dataViewMode}
+              onRowClick={setExplainerKey}
+            />
+          </div>
+          <StudentNotePanel companyId={ticker} period={analysis?.latest_period} sectionName="Bảng cân đối kế toán" />
 
           <article className="bctc-panel bctc-balance-highlights">
             <header>
@@ -713,16 +1024,32 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
             <CashWaterfallChart rows={cashRows} />
           </article>
 
-          <article className="bctc-chart-card bctc-cash-trend-card">
+          <article className="bctc-chart-card bctc-cash-chart">
             <header className="bctc-panel-head">
               <div>
-                <h2>Xu hướng dòng tiền qua các kỳ</h2>
-                <p>CFO, CFI, CFF và Free Cash Flow.</p>
+                <h2>Lưu chuyển tiền tệ</h2>
+                <p>HĐKD, HĐĐT và HĐTC.</p>
               </div>
-              <span>Cash flow</span>
+              <span>Cash Flow</span>
             </header>
-            <CashFlowTrendChart rows={cashRows} />
+            <CashFlowStackChart rows={cashRows} />
           </article>
+          
+          <div style={{ gridColumn: '1 / -1' }}>
+            <SimplizeDataViewToggle viewMode={dataViewMode} onChange={setDataViewMode} />
+            <SimplizeDataTable
+              title="Lưu chuyển tiền tệ"
+              data={cashRows.slice(-5)}
+              lines={[
+                { key: 'operatingCash', label: 'Lưu chuyển tiền từ HĐKD', isEmphasis: true },
+                { key: 'investingCash', label: 'Lưu chuyển tiền từ HĐĐT' },
+                { key: 'financingCash', label: 'Lưu chuyển tiền từ HĐTC' },
+                { key: 'netCashFlow', label: 'Lưu chuyển tiền thuần', isEmphasis: true },
+              ]}
+              viewMode={dataViewMode}
+              onRowClick={setExplainerKey}
+            />
+          </div>
 
           <article className="bctc-chart-card bctc-cash-quality-card">
             <header className="bctc-panel-head">
@@ -736,10 +1063,10 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
           </article>
 
           <aside className="bctc-cash-assistant">
-            <CashFlowAssistantCard dashboard={dashboard} />
+            <CashFlowAssistantCard />
           </aside>
 
-          <CashFlowStatementTable rows={cashRows} />
+          <StudentNotePanel companyId={ticker} period={analysis?.latest_period} sectionName="Lưu chuyển tiền tệ" />
 
           <article className="bctc-panel bctc-cash-highlights">
             <header>
@@ -762,7 +1089,7 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
   }
 
   if (section === 'ratios') {
-    const ratioRows = buildRatioPeriodRows(analysis, dashboard)
+    const ratioRows = buildRatioPeriodRows(analysis)
     const ratioCards = buildRatioKpiCards(ratioRows, dashboard)
     const ratioGroups = buildRatioGroups(ratioRows, dashboard)
     return (
@@ -837,7 +1164,7 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
             <a href="#bctc-ratio-detail">Xem chi tiết phân tích →</a>
           </article>
 
-          <RatioStatementTable rows={ratioRows} />
+          <RatioStatementTable rows={ratioRows} onRowClick={setExplainerKey} />
 
           <aside className="bctc-ratio-assistant">
             <RatioAssistantCard />
@@ -858,7 +1185,7 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
           comparisonMode={comparisonMode}
           onChangeComparisonMode={onChangeComparisonMode}
         />
-        <AnalysisTable rows={buildHorizontalRows(analysis)} columns={['Chỉ tiêu', 'Kỳ trước', 'Kỳ hiện tại', 'Thay đổi', '% thay đổi']} />
+        <AnalysisTable rows={buildHorizontalRows(analysis)} columns={['Chỉ tiêu', 'Kỳ trước', 'Kỳ hiện tại', 'Thay đổi', '% thay đổi']} onRowClick={setExplainerKey} />
       </section>
     )
   }
@@ -875,8 +1202,8 @@ function BctcSectionPanel({ section, analysis, dashboard, trendRows, healthRows,
           onChangeComparisonMode={onChangeComparisonMode}
         />
         <div className="bctc-section-grid">
-          <AnalysisTable title="Kết quả kinh doanh / Doanh thu" rows={buildVerticalIncomeRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} />
-          <AnalysisTable title="Bảng cân đối / Tổng tài sản" rows={buildVerticalBalanceRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} />
+          <AnalysisTable title="Kết quả kinh doanh / Doanh thu" rows={buildVerticalIncomeRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} onRowClick={setExplainerKey} />
+          <AnalysisTable title="Bảng cân đối / Tổng tài sản" rows={buildVerticalBalanceRows(latest, analysis?.summary)} columns={['Chỉ tiêu', 'Giá trị', 'Tỷ trọng']} onRowClick={setExplainerKey} />
         </div>
       </section>
     )
@@ -999,8 +1326,15 @@ function BctcSectionControlBand({ analysis, dashboard, mode, onChangeMode, compa
       <div className="bctc-income-company">
         <div className="bctc-logo" aria-hidden="true">{(analysis?.ticker || 'FPT').slice(0, 3)}</div>
         <div>
-          <h2>{dashboard.companyName}</h2>
-          <p>Ngành: {analysis?.industry || 'Công nghệ thông tin'} · {dashboard.exchange}: {analysis?.ticker || DEFAULT_TICKER}</p>
+          <h2>
+            {dashboard.companyName}
+            {analysis?.source?.startsWith('upload') && (
+              <span style={{ fontSize: '0.75rem', marginLeft: '8px', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle', fontWeight: 'bold' }}>
+                Mô phỏng BCTC
+              </span>
+            )}
+          </h2>
+          <p>{analysis?.source?.startsWith('upload') ? 'Dữ liệu học tập/thực hành' : `Ngành: ${analysis?.industry || 'Công nghệ thông tin'} · ${dashboard.exchange}`}: {analysis?.ticker || DEFAULT_TICKER}</p>
         </div>
       </div>
       <label>
@@ -1049,11 +1383,157 @@ function MiniMetricGrid({ items }) {
   )
 }
 
-function StatementTable({ title, rows }) {
-  return <AnalysisTable title={title} rows={rows} columns={['Chỉ tiêu', 'Giá trị', 'Ghi chú']} />
+function BctcUploadPanel({ uploadTypes, uploadResult, extractionResult, uploading, onUpload, onAnalyze }) {
+  const accept = uploadTypes?.accept || '.pdf,.xlsx,.xls,.csv,.docx,.doc,.png,.jpg,.jpeg,.tif,.tiff,.webp,.html,.htm,.xml,.zip'
+  const typeSummary = summarizeUploadTypes(uploadTypes)
+  const canAnalyze = canAnalyzeUploadedStatement(uploadResult)
+  const needsMarkdown = uploadResult && !canAnalyze && uploadResult.status !== 'analyzed'
+  return (
+    <div className="bctc-upload-panel">
+      <div>
+        <span>Upload BCTC</span>
+        <strong>{uploading ? 'Đang nhận file...' : 'File BCTC -> Markdown -> chart'}</strong>
+        <small>{typeSummary}</small>
+      </div>
+      <label className="bctc-upload-panel__button">
+        <input type="file" accept={accept} onChange={onUpload} disabled={uploading} />
+        {uploading ? 'Đang upload' : 'Chọn file BCTC'}
+      </label>
+      {uploadResult && uploadResult.status !== 'analyzed' ? (
+        <button
+          type="button"
+          className="bctc-upload-panel__analyze"
+          onClick={onAnalyze}
+          disabled={uploading}
+          title="Tạo Markdown context, map bảng BCTC rồi dựng chart từ các dòng số liệu đã trích xuất."
+        >
+          Phân tích file
+        </button>
+      ) : null}
+      {uploadResult ? (
+        <p>
+          <b>{uploadResult.file_type?.label || 'File'}</b>
+          <span>{uploadStatusText(uploadResult)} · {formatBytes(uploadResult.size_bytes)} · {uploadResult.file_type?.pipeline}</span>
+          {needsMarkdown ? <i>Hệ thống sẽ tạo Markdown context và bảng dòng BCTC trước khi vẽ chart.</i> : null}
+        </p>
+      ) : null}
+      {extractionResult ? <BctcExtractionSummary result={extractionResult} /> : null}
+    </div>
+  )
 }
 
-function AnalysisTable({ title, rows, columns }) {
+function BctcExtractionSummary({ result }) {
+  const pages = result?.pages || []
+  const warnings = result?.warnings || []
+  const rowCount = result?.markdown_row_count || result?.quality?.ocr_statement_row_count || result?.raw_tables?.[0]?.rows?.length || 0
+  return (
+    <div className={`bctc-extraction-summary bctc-extraction-summary--${result.status || 'unknown'}`}>
+      <div>
+        <span>{extractionStatusLabel(result.status)}</span>
+        <strong>{result.source_kind || 'unknown source'}</strong>
+        <small>
+          {pages.length ? `${pages.length} trang preview` : 'Chưa có preview'} · {rowCount} dòng Markdown · text layer {result.quality?.text_layer_chars ?? 0} ký tự · OCR fallback {result.quality?.ocr_engine_available ? result.quality?.ocr_engine : 'chưa sẵn sàng'}
+        </small>
+      </div>
+      {pages.length || result.markdown?.url ? (
+        <div className="bctc-extraction-pages">
+          {result.markdown?.url ? (
+            <a href={result.markdown.url} target="_blank" rel="noreferrer">
+              Markdown
+            </a>
+          ) : null}
+          {pages.slice(0, 4).map((page) => (
+            <a key={page.page} href={page.preview_url} target="_blank" rel="noreferrer">
+              Trang {page.page}
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {warnings.length ? (
+        <ul>
+          {warnings.slice(0, 3).map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+function StatementTable({ title, rows, onRowClick }) {
+  return <AnalysisTable title={title} rows={rows} columns={['Chỉ tiêu', 'Giá trị', 'Ghi chú']} onRowClick={onRowClick} />
+}
+
+function BctcSourceStatementPreview({ analysis, cockpit, extractionResult }) {
+  const report = buildSourceStatementReport(analysis, cockpit, extractionResult)
+  return (
+    <article className={`bctc-source-preview ${report.hasData ? '' : 'bctc-source-preview--empty'}`}>
+      <header>
+        <div>
+          <p>{report.hasData ? 'BCTC đã đọc' : 'Chưa có bảng nguồn'}</p>
+          <h3>{report.title}</h3>
+          <small>{report.subtitle}</small>
+        </div>
+        <span>{report.unit}</span>
+      </header>
+      {report.hasData ? (
+        <div className="bctc-source-preview__table" aria-label="BCTC source report table">
+          <table>
+            <thead>
+              <tr>
+                {report.columns.map((column) => (
+                  <th key={column.key}>{column.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {report.rows.map((row) => (
+                row.type === 'section' ? (
+                  <tr key={row.key} className="bctc-source-preview__section">
+                    <th colSpan={report.columns.length}>{row.label}</th>
+                  </tr>
+                ) : (
+                  <tr key={row.key} className={`bctc-source-preview__line bctc-source-preview__line--${row.tone || 'default'} ${row.isTotal ? 'is-total' : ''}`}>
+                    <th scope="row">
+                      <span>{row.label}</span>
+                      {row.note ? <small>{row.note}</small> : null}
+                    </th>
+                    <td className={statementCellClass(row.current)}>{formatStatementCell(row.current, row.valueType)}</td>
+                    <td className={statementCellClass(row.compare)}>{formatStatementCell(row.compare, row.valueType)}</td>
+                    <td className={changeCellClass(row.changePct)}>{formatPercent(row.changePct)}</td>
+                    <td className={statementCellClass(row.ytdCurrent)}>{formatStatementCell(row.ytdCurrent, row.valueType)}</td>
+                    <td className={statementCellClass(row.ytdCompare)}>{formatStatementCell(row.ytdCompare, row.valueType)}</td>
+                    <td className={changeCellClass(row.ytdChangePct)}>{formatPercent(row.ytdChangePct)}</td>
+                    <td><EvidenceBadge evidence={row.evidence} derived={row.derived} /></td>
+                    <td><em>{row.chart}</em></td>
+                  </tr>
+                )
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="bctc-source-preview__empty" role="status">
+          <strong>Chưa đọc được các dòng BCTC nguồn.</strong>
+          <span>Hãy bấm “Phân tích BCTC” hoặc kiểm tra pipeline dữ liệu; chart sẽ chỉ có ý nghĩa khi các dòng doanh thu, LNST, CFO và bảng cân đối được nạp vào đây.</span>
+        </div>
+      )}
+    </article>
+  )
+}
+
+function EvidenceBadge({ evidence, derived }) {
+  if (evidence?.page) {
+    return (
+      <span className="bctc-source-preview__evidence">
+        P{evidence.page}
+        {Number.isFinite(Number(evidence.confidence)) ? <small>{Math.round(Number(evidence.confidence))}%</small> : null}
+      </span>
+    )
+  }
+  if (derived) return <span className="bctc-source-preview__evidence is-derived">Tính toán</span>
+  return <span className="bctc-source-preview__evidence is-missing">Chưa đọc</span>
+}
+
+function AnalysisTable({ title, rows, columns, onRowClick }) {
   return (
     <article className="bctc-panel bctc-data-table">
       {title ? <h2>{title}</h2> : null}
@@ -1062,8 +1542,10 @@ function AnalysisTable({ title, rows, columns }) {
           <tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.join('-')}>
+          {rows.map((row) => {
+            const labelCell = row[0]
+            return (
+            <tr key={row.join('-')} onClick={() => onRowClick && onRowClick(labelCell)} className={onRowClick ? 'bctc-row-clickable' : ''} style={onRowClick ? {cursor: 'pointer'} : {}}>
               {row.map((cell, index) => {
                 const tone = index === 0 ? null : detectNumberTone(cell)
                 const className = [
@@ -1073,7 +1555,7 @@ function AnalysisTable({ title, rows, columns }) {
                 return <td key={`${cell}-${index}`} className={className}>{cell}</td>
               })}
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </article>
@@ -1286,7 +1768,7 @@ function BalanceAssistantCard({ dashboard }) {
   )
 }
 
-function BalanceStatementTable({ rows }) {
+function BalanceStatementTable({ rows, onRowClick }) {
   const visibleRows = rows.slice(-5)
   const lines = [
     ['cash', 'Tiền & tương đương tiền'],
@@ -1319,7 +1801,7 @@ function BalanceStatementTable({ rows }) {
             const previous = visibleRows.at(-2)?.[key]
             const first = visibleRows[0]?.[key]
             return (
-              <tr key={key} className={['currentAssets', 'totalAssets', 'totalLiabilities'].includes(key) ? 'is-emphasis' : ''}>
+              <tr key={key} className={['currentAssets', 'totalAssets', 'totalLiabilities'].includes(key) ? 'is-emphasis' : ''} onClick={() => onRowClick && onRowClick(label)} style={onRowClick ? {cursor: 'pointer'} : {}}>
                 <td>{label}</td>
                 {visibleRows.map((row) => <td key={`${key}-${row.period}`}>{formatCompactNumber(row[key])}</td>)}
                 <td>{formatSignedPercent(growthPercent(current, first))}</td>
@@ -1424,7 +1906,7 @@ function CashQualityLineChart({ rows }) {
   )
 }
 
-function CashFlowAssistantCard({ dashboard }) {
+function CashFlowAssistantCard() {
   return (
     <div className="bctc-income-assistant__stack">
       <article className="bctc-income-assistant-card bctc-cash-assistant-card">
@@ -1698,8 +2180,8 @@ function buildTrendViews(analysis) {
     const key = String(point.year)
     const existing = byYearMap.get(key) || {
       label: key,
-      revenue: 0,
-      net_income: 0,
+      revenue: null,
+      net_income: null,
       debt: null,
       equity: null,
       year: point.year,
@@ -1771,9 +2253,13 @@ function sanitizeScore(value) {
   return Math.max(0, Math.min(100, Math.round(numeric)))
 }
 
-function buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength) {
+function buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, balanceSheetStrength, cockpit = null) {
   const summary = analysis?.summary || {}
   const latest = latestPeriod(analysis)
+  const cockpitCompany = cockpit?.company || {}
+  const cockpitQuality = cockpit?.data_quality || null
+  const cockpitNarrative = cockpit?.narrative || null
+  const cockpitKpis = buildCockpitKpis(cockpit)
   const healthRows = buildHealthRows(analysis)
   const healthScore = Math.round(healthRows.reduce((total, row) => total + row.value, 0) / Math.max(1, healthRows.length))
   const cfo = firstNumber(summary.cfo, summary.operating_cash_flow, latest?.cfo, latest?.operating_cash_flow, latest?.cash_flow_from_operations)
@@ -1792,15 +2278,18 @@ function buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, bal
   const kpiSparks = buildKpiSparkSeries(analysis, trendRows, qualityCharts)
 
   return {
-    companyName: analysis?.company_name || `CTCP ${analysis?.ticker || 'FPT'}`,
-    exchange: analysis?.exchange || analysis?.market || 'HOSE',
+    companyName: cockpitCompany.name || analysis?.company_name || `CTCP ${analysis?.ticker || 'FPT'}`,
+    exchange: cockpitCompany.exchange || analysis?.exchange || analysis?.market || 'HOSE',
     unit: analysis?.unit || 'tỷ VND',
-    aiTitle: `${analysis?.ticker || 'Doanh nghiệp'} quality read`,
+    aiTitle: `Đọc nhanh BCTC ${analysis?.ticker || cockpitCompany.ticker || 'doanh nghiệp'}`,
     healthScore,
     healthTone: healthScore >= 75 ? 'good' : healthScore >= 55 ? 'caution' : 'warn',
     strengthTags: buildStrengthTags(summary, healthScore),
-    summaryBullets: buildSummaryBullets(summary, { cfo, netIncome, fcf, debt }),
-    kpis: [
+    summaryBullets: buildCockpitSummaryBullets(cockpitNarrative) || buildSummaryBullets(summary, { cfo, netIncome, fcf, debt }),
+    dataQualityLabel: cockpitQuality ? dataQualityLabel(cockpitQuality) : 'Nguồn dữ liệu hiện có',
+    dataQualityNote: cockpitQuality ? dataQualityNote(cockpitQuality) : 'Đang dùng kết quả phân tích đã chuẩn hóa.',
+    dataQualityItems: buildDataQualityItems(cockpitQuality, analysis),
+    kpis: cockpitKpis || [
       {
         icon: '$',
         label: 'Doanh thu thuần',
@@ -1889,6 +2378,86 @@ function buildDashboardModel(analysis, trendRows, peerResult, qualityCharts, bal
       'So với ngành, công ty mạnh ở đâu?',
     ],
   }
+}
+
+function buildCockpitKpis(cockpit) {
+  const items = cockpit?.headline_kpis || []
+  if (!items.length) return null
+  const iconMap = {
+    revenue_ttm: 'R',
+    net_income_ttm: 'N',
+    roe: 'E',
+    net_margin: 'M',
+    cfo_to_net_income: 'C',
+    debt_to_equity: 'D',
+  }
+  return items.map((item) => ({
+    icon: iconMap[item.key] || '·',
+    label: item.label,
+    value: formatCockpitValue(item.value, item.value_type),
+    note: item.delta_pct == null ? valueTypeLabel(item.value_type) : `${formatSignedPercent(item.delta_pct)} YoY`,
+    tone: cockpitTone(item),
+    sparkValues: [],
+  }))
+}
+
+function buildCockpitSummaryBullets(narrative) {
+  if (!narrative) return null
+  const strengths = (narrative.strengths || []).map((text) => ({ tone: 'good', text }))
+  const cautions = (narrative.cautions || []).map((text) => ({ tone: 'warn', text }))
+  const bullets = [...strengths, ...cautions].filter((item) => item.text)
+  return bullets.length ? bullets.slice(0, 4) : null
+}
+
+function buildDataQualityItems(quality, analysis) {
+  if (!quality) {
+    return [
+      { label: 'Nguồn', value: analysis?.source || 'n/a' },
+      { label: 'Kỳ mới nhất', value: analysis?.latest_period || 'n/a' },
+      { label: 'Ghi chú', value: `${analysis?.provider_notes?.length || 0}` },
+    ]
+  }
+  return [
+    { label: 'Nguồn', value: quality.source || 'n/a' },
+    { label: 'Số kỳ', value: String(quality.period_count || 0) },
+    { label: 'Thiếu field', value: String(quality.missing_fields?.length || 0) },
+    { label: 'Coverage', value: `${quality.period_coverage?.from || '-'} → ${quality.period_coverage?.to || '-'}` },
+  ]
+}
+
+function dataQualityLabel(quality) {
+  const missingCount = quality?.missing_fields?.length || 0
+  if (missingCount === 0) return 'Đủ dữ liệu lõi'
+  if (missingCount <= 4) return 'Thiếu nhẹ'
+  return 'Cần kiểm tra dữ liệu'
+}
+
+function dataQualityNote(quality) {
+  const missing = quality?.missing_fields || []
+  if (!missing.length) return 'Các nhóm KQKD, CĐKT và dòng tiền có đủ trường chính.'
+  return `Thiếu: ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '...' : ''}`
+}
+
+function formatCockpitValue(value, valueType) {
+  if (valueType === 'money') return formatCompactNumber(value)
+  if (valueType === 'percent') return formatPercent(value)
+  if (valueType === 'ratio') return `${formatMaybeNumber(value)}x`
+  return formatMaybeNumber(value)
+}
+
+function valueTypeLabel(valueType) {
+  if (valueType === 'money') return 'TTM / latest'
+  if (valueType === 'percent') return 'Latest'
+  if (valueType === 'ratio') return 'Ratio'
+  return 'Latest'
+}
+
+function cockpitTone(item) {
+  if (item.key === 'debt_to_equity') return reverseScoreTone(item.value, 1.2, 0.7)
+  if (item.key === 'cfo_to_net_income') return scoreTone(item.value, 0.8, 1)
+  if (item.tone === 'warning') return 'warn'
+  if (item.tone === 'positive') return 'good'
+  return item.tone || 'neutral'
 }
 
 function buildPeerRows(analysis, summary, peerResult, context) {
@@ -2068,14 +2637,16 @@ function buildMarginRows(analysis, trendRows, marginAnalysis) {
   const byPeriod = [...(analysis?.periods || [])].map((item, index) => {
     const revenue = firstNumber(item.revenue)
     const netIncome = firstNumber(item.net_income)
+    const grossProfit = firstNumber(item.gross_profit)
+    const operatingProfit = firstNumber(item.operating_profit, item.ebit)
     return {
       label: normalizePeriodLabel(item),
       period: item.period,
       year: item.year,
       quarter: item.quarter,
-      gross_margin: firstNumber(item.gross_margin_pct, item.gross_margin),
-      operating_margin: firstNumber(item.operating_margin_pct, item.ebit_margin_pct),
-      ebit_margin: firstNumber(item.ebit_margin_pct, item.ebit_margin),
+      gross_margin: firstNumber(item.gross_margin_pct, Number.isFinite(revenue) && Number.isFinite(grossProfit) ? (grossProfit / revenue) * 100 : null),
+      operating_margin: firstNumber(item.operating_margin_pct, item.ebit_margin_pct, Number.isFinite(revenue) && Number.isFinite(operatingProfit) ? (operatingProfit / revenue) * 100 : null),
+      ebit_margin: firstNumber(item.ebit_margin_pct, Number.isFinite(revenue) && Number.isFinite(operatingProfit) ? (operatingProfit / revenue) * 100 : null),
       net_margin: firstNumber(item.net_margin_pct, revenue && netIncome ? (netIncome / revenue) * 100 : null),
       _index: index,
     }
@@ -2095,15 +2666,6 @@ function buildCheckQuestions(summary, peerResult) {
     Number(summary.ocf_to_net_income) < 1 ? 'Lợi nhuận có chuyển hóa thành dòng tiền thật không?' : 'Dòng tiền vận hành có bền trong các quý tới không?',
     Number(summary.debt_to_equity) > 1 ? 'Đòn bẩy có làm doanh nghiệp nhạy với lãi suất không?' : 'Công ty có đang dùng vốn quá thận trọng so với cơ hội tăng trưởng không?',
     peerResult?.metrics?.length ? 'Chỉ số nào đang yếu hơn peer và nguyên nhân là gì?' : 'Cần chọn nhóm peer nào để so sánh công bằng hơn?',
-  ]
-}
-
-function buildIncomeRows(latest, summary = {}) {
-  return [
-    ['Doanh thu thuần', formatCompactNumber(firstNumber(latest.revenue, summary.revenue)), `${formatPercent(summary.revenue_growth_yoy_pct)} YoY`],
-    ['Lợi nhuận sau thuế', formatCompactNumber(firstNumber(latest.net_income, summary.net_income)), `${formatPercent(summary.net_income_growth_yoy_pct)} YoY`],
-    ['Biên lợi nhuận ròng', formatPercent(firstNumber(latest.net_margin_pct, summary.net_margin_pct)), 'LNST / Doanh thu'],
-    ['ROE', formatPercent(firstNumber(summary.roe_pct)), 'LNST / Vốn chủ'],
   ]
 }
 
@@ -2189,14 +2751,241 @@ function buildIncomeStatementTableRows(analysis, dashboard) {
   ]
 }
 
-function buildBalanceRows(latest, summary = {}) {
-  return [
-    ['Tổng tài sản', formatCompactNumber(firstNumber(latest.total_assets, latest.assets, summary.total_assets)), 'Quy mô bảng cân đối'],
-    ['Nợ phải trả', formatCompactNumber(firstNumber(latest.total_liabilities, latest.liabilities, summary.total_liabilities)), 'Nguồn vốn vay/nợ'],
-    ['Vốn chủ sở hữu', formatCompactNumber(firstNumber(latest.equity, summary.equity)), 'Vốn thuộc cổ đông'],
-    ['Debt / Equity', formatMaybeNumber(summary.debt_to_equity), 'Đòn bẩy tài chính'],
-    ['Current Ratio', formatMaybeNumber(summary.current_ratio), 'Thanh khoản ngắn hạn'],
+function buildSourceStatementReport(analysis, cockpit, extractionResult) {
+  const periods = [...(analysis?.periods || [])]
+    .slice()
+    .sort((a, b) => {
+      const ay = Number(a.year || 0)
+      const by = Number(b.year || 0)
+      if (ay !== by) return ay - by
+      return Number(a.quarter || 0) - Number(b.quarter || 0)
+    })
+  const latest = periods.at(-1) || null
+  const compare = latest ? sameQuarterPreviousYear(periods, latest) || periods.at(-2) || null : null
+  const latestLabel = normalizePeriodLabel(latest || {})
+  const compareLabel = normalizePeriodLabel(compare || {})
+  const ytdLabels = buildYtdLabels(latest, compare)
+  const columns = [
+    { key: 'line_item', label: 'Khoản mục BCTC' },
+    { key: 'current', label: latestLabel || 'Kỳ hiện tại' },
+    { key: 'compare', label: compareLabel || 'Kỳ so sánh' },
+    { key: 'change', label: 'Thay đổi' },
+    { key: 'ytd_current', label: ytdLabels.current },
+    { key: 'ytd_compare', label: ytdLabels.compare },
+    { key: 'ytd_change', label: 'Thay đổi' },
+    { key: 'source', label: 'Nguồn' },
+    { key: 'chart', label: 'Chart dùng' },
   ]
+  const evidenceByMetric = buildExtractionEvidenceMap(extractionResult)
+  const rowGroups = [
+    {
+      key: 'income',
+      label: 'Kết quả kinh doanh',
+      rows: [
+        { key: 'revenue', label: 'Doanh thu thuần', chart: 'Tăng trưởng', tone: 'income', total: true },
+        { key: 'cogs', label: 'Giá vốn hàng bán', note: 'Ước tính = Doanh thu - Lợi nhuận gộp nếu BCTC thiếu dòng gốc', chart: 'Biên gộp', tone: 'income', derived: true },
+        { key: 'gross_profit', label: 'Lợi nhuận gộp', chart: 'Biên gộp', tone: 'income' },
+        { key: 'operating_profit', fallback: 'ebit', label: 'Lợi nhuận HĐKD / EBIT', chart: 'Biên HĐKD', tone: 'income' },
+        { key: 'net_income', label: 'LNST', chart: 'Lợi nhuận', tone: 'income', total: true },
+      ],
+    },
+    {
+      key: 'balance',
+      label: 'Bảng cân đối kế toán',
+      rows: [
+        { key: 'cash', label: 'Tiền & tương đương tiền', chart: 'Thanh khoản', tone: 'balance' },
+        { key: 'receivables', label: 'Phải thu khách hàng', chart: 'Chất lượng tài sản', tone: 'balance' },
+        { key: 'inventory', label: 'Hàng tồn kho', chart: 'Hiệu quả vốn lưu động', tone: 'balance' },
+        { key: 'current_assets', label: 'Tài sản ngắn hạn', chart: 'Thanh khoản', tone: 'balance' },
+        { key: 'fixed_assets', label: 'Tài sản cố định', chart: 'Cấu trúc tài sản', tone: 'balance' },
+        { key: 'total_assets', fallback: 'assets', label: 'Tổng tài sản', chart: 'Bảng cân đối', tone: 'balance', total: true },
+        { key: 'current_liabilities', label: 'Nợ ngắn hạn', chart: 'Rủi ro thanh khoản', tone: 'balance' },
+        { key: 'non_current_liabilities', label: 'Nợ dài hạn', chart: 'Cấu trúc vốn', tone: 'balance' },
+        { key: 'total_liabilities', fallback: 'liabilities', label: 'Nợ phải trả', chart: 'Rủi ro', tone: 'balance', total: true },
+        { key: 'equity', label: 'Vốn chủ sở hữu', chart: 'Đòn bẩy', tone: 'balance', total: true },
+      ],
+    },
+    {
+      key: 'cashflow',
+      label: 'Lưu chuyển tiền tệ',
+      rows: [
+        { key: 'operating_cash_flow', label: 'CFO - Dòng tiền HĐKD', chart: 'Dòng tiền', tone: 'cashflow', total: true },
+        { key: 'investing_cash_flow', label: 'CFI - Dòng tiền đầu tư', chart: 'Dòng tiền', tone: 'cashflow' },
+        { key: 'financing_cash_flow', label: 'CFF - Dòng tiền tài chính', chart: 'Dòng tiền', tone: 'cashflow' },
+        { key: 'capex', label: 'CAPEX', chart: 'FCF', tone: 'cashflow' },
+        { key: 'free_cash_flow', label: 'FCF', note: 'Ước tính = CFO - |CAPEX| nếu provider chưa có sẵn', chart: 'Chất lượng lợi nhuận', tone: 'cashflow', total: true },
+      ],
+    },
+  ]
+  const reportRows = rowGroups.flatMap((group) => [
+    { type: 'section', key: `section-${group.key}`, label: group.label },
+    ...group.rows.map((line) => buildStatementReportRow(line, periods, latest, compare, evidenceByMetric)),
+  ])
+  const cockpitRows = Object.values(cockpit?.statement_tables || {}).flatMap((table) => table?.rows || [])
+  const hasData = reportRows.some((row) => row.type !== 'section' && [
+    row.current,
+    row.compare,
+    row.ytdCurrent,
+    row.ytdCompare,
+  ].some((value) => Number.isFinite(value))) || cockpitRows.some((row) => Number.isFinite(firstNumber(...(row.values || []))))
+  return {
+    title: `Bảng BCTC nguồn ${analysis?.ticker || cockpit?.ticker || ''}`.trim(),
+    subtitle: 'Parse từ Word/PDF/scan/provider về dạng bảng có cấu trúc, để chart lấy đúng dòng số liệu thay vì tự “đoán”.',
+    unit: normalizeUnitLabel(analysis?.unit || cockpit?.unit),
+    columns,
+    rows: reportRows,
+    hasData,
+  }
+}
+
+function buildStatementReportRow(line, periods, latest, compare, evidenceByMetric = new Map()) {
+  const current = statementValue(latest, line)
+  const compareValue = statementValue(compare, line)
+  const ytdCurrent = ytdStatementValue(periods, latest, line)
+  const ytdCompare = ytdStatementValue(periods, compare, line)
+  return {
+    type: 'line',
+    key: line.key,
+    label: line.label,
+    note: line.note,
+    chart: line.chart,
+    tone: line.tone,
+    isTotal: line.total,
+    current,
+    compare: compareValue,
+    changePct: growthPct(current, compareValue),
+    ytdCurrent,
+    ytdCompare,
+    ytdChangePct: growthPct(ytdCurrent, ytdCompare),
+    evidence: evidenceByMetric.get(line.key) || (line.fallback ? evidenceByMetric.get(line.fallback) : null),
+    derived: line.derived,
+  }
+}
+
+function buildExtractionEvidenceMap(extractionResult) {
+  const rows = (extractionResult?.raw_tables || []).flatMap((table) => table?.rows || [])
+  const evidence = new Map()
+  rows.forEach((row) => {
+    const metric = row?.metric
+    if (!metric || evidence.has(metric)) return
+    evidence.set(metric, {
+      page: row.page,
+      confidence: row.confidence,
+      label: row.label,
+      code: row.code,
+    })
+  })
+  return evidence
+}
+
+function statementValue(period, line) {
+  if (!period) return null
+  if (line.key === 'cogs') {
+    const revenue = firstNumber(period.revenue)
+    const grossProfit = firstNumber(period.gross_profit)
+    return Number.isFinite(revenue) && Number.isFinite(grossProfit) ? revenue - grossProfit : null
+  }
+  if (line.key === 'free_cash_flow') {
+    const cfo = firstNumber(period.operating_cash_flow, period.cfo)
+    const capex = firstNumber(period.capex)
+    return Number.isFinite(cfo) && Number.isFinite(capex) ? cfo - Math.abs(capex) : null
+  }
+  return firstNumber(period[line.key], line.fallback ? period[line.fallback] : null)
+}
+
+function ytdStatementValue(periods, anchor, line) {
+  if (!anchor?.year) return null
+  const quarter = Number(anchor.quarter)
+  const yearlyRows = periods.filter((item) => Number(item.year) === Number(anchor.year))
+  const rows = Number.isFinite(quarter) && quarter > 0
+    ? yearlyRows.filter((item) => Number(item.quarter || 0) > 0 && Number(item.quarter) <= quarter)
+    : yearlyRows
+  if (!rows.length) return null
+  const flowKeys = new Set(['revenue', 'cogs', 'gross_profit', 'operating_profit', 'ebit', 'net_income', 'operating_cash_flow', 'investing_cash_flow', 'financing_cash_flow', 'capex', 'free_cash_flow'])
+  if (!flowKeys.has(line.key)) return statementValue(anchor, line)
+  const values = rows.map((item) => statementValue(item, line)).filter((value) => Number.isFinite(value))
+  if (!values.length) return null
+  return values.reduce((total, value) => total + value, 0)
+}
+
+function sameQuarterPreviousYear(periods, anchor) {
+  if (!anchor?.year) return null
+  const targetYear = Number(anchor.year) - 1
+  const targetQuarter = Number(anchor.quarter || 0)
+  return periods.find((item) => Number(item.year) === targetYear && Number(item.quarter || 0) === targetQuarter) || null
+}
+
+function buildYtdLabels(latest, compare) {
+  const latestQuarter = Number(latest?.quarter || 0)
+  const compareQuarter = Number(compare?.quarter || latestQuarter || 0)
+  if (latest?.year && latestQuarter > 0) {
+    return {
+      current: `${latestQuarter * 3}T${latest.year}`,
+      compare: compare?.year ? `${(compareQuarter || latestQuarter) * 3}T${compare.year}` : 'Lũy kế so sánh',
+    }
+  }
+  return { current: 'Lũy kế hiện tại', compare: 'Lũy kế so sánh' }
+}
+
+function growthPct(current, base) {
+  const currentNumber = Number(current)
+  const baseNumber = Number(base)
+  if (!Number.isFinite(currentNumber) || !Number.isFinite(baseNumber) || baseNumber === 0) return null
+  return ((currentNumber - baseNumber) / Math.abs(baseNumber)) * 100
+}
+
+function formatStatementCell(value, valueType) {
+  if (value === null || value === undefined || value === '') return 'Chưa đọc'
+  if (valueType === 'percent') return formatPercent(value)
+  return formatCompactNumber(value)
+}
+
+function statementCellClass(value) {
+  return value === null || value === undefined || value === '' ? 'is-missing' : ''
+}
+
+function changeCellClass(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return ''
+  if (numeric > 0) return 'is-positive'
+  if (numeric < 0) return 'is-negative'
+  return 'is-flat'
+}
+
+function summarizeUploadTypes(uploadTypes) {
+  const types = uploadTypes?.types || {}
+  const count = Object.values(types).reduce((total, items) => total + (items?.length || 0), 0)
+  const maxSize = uploadTypes?.max_file_size_mb
+  if (!count) return 'Hỗ trợ PDF, XLSX, CSV, DOCX, ảnh scan và XML/XBRL.'
+  return `${count} định dạng · tối đa ${maxSize || 25}MB/file · ưu tiên PDF gốc hoặc Excel.`
+}
+
+function uploadStatusText(uploadResult) {
+  if (uploadResult?.status === 'analyzed') return `đã phân tích ${uploadResult.period_count || 0} kỳ`
+  if (uploadResult?.extraction_status === 'markdown_ready') return 'đã có Markdown bảng BCTC, sẵn sàng dựng chart'
+  if (uploadResult?.extraction_status === 'needs_ocr') return 'đã có Markdown thô nhưng chưa đủ bảng số liệu'
+  if (uploadResult?.extraction_status) return `đã trích xuất: ${uploadResult.extraction_status}`
+  if (uploadResult?.status === 'uploaded') return 'đã upload, bấm Phân tích file upload'
+  return uploadResult?.status || 'ready'
+}
+
+function canAnalyzeUploadedStatement(uploadResult) {
+  return uploadResult?.file_type?.pipeline === 'structured_table' || uploadResult?.extraction_status === 'markdown_ready'
+}
+
+function extractionStatusLabel(status) {
+  if (status === 'markdown_ready') return 'Markdown ready'
+  if (status === 'needs_ocr') return 'Markdown thô'
+  if (status === 'text_detected') return 'Có text layer'
+  if (status === 'extracted') return 'Đã trích xuất'
+  if (status === 'unsupported') return 'Chưa hỗ trợ'
+  return 'Extraction'
+}
+
+function normalizeUnitLabel(unit) {
+  const normalized = String(unit || '').trim().toLowerCase()
+  if (!normalized || normalized === 'ty_vnd' || normalized === 'billion_vnd') return 'tỷ VND'
+  return unit
 }
 
 function buildBalancePeriodRows(analysis) {
@@ -2458,7 +3247,7 @@ function buildCashFlowHighlights(rows, dashboard) {
   ]
 }
 
-function buildRatioPeriodRows(analysis, dashboard) {
+function buildRatioPeriodRows(analysis) {
   const summary = analysis?.summary || {}
   const sorted = [...(analysis?.periods || [])].sort((a, b) => String(a.period || '').localeCompare(String(b.period || '')))
   return sorted
@@ -2630,16 +3419,6 @@ function ratioTone(key, value) {
   return ''
 }
 
-function buildCashFlowRows(latest, summary = {}, cashFlow = {}) {
-  return [
-    ['CFO', formatCompactNumber(firstNumber(cashFlow.cfo, latest.operating_cash_flow, summary.ocf_ttm)), 'Dòng tiền từ hoạt động kinh doanh'],
-    ['CFI', formatCompactNumber(firstNumber(cashFlow.cfi, latest.cash_flow_from_investing)), 'Dòng tiền đầu tư'],
-    ['CFF', formatCompactNumber(firstNumber(cashFlow.cff, latest.cash_flow_from_financing)), 'Dòng tiền tài chính'],
-    ['FCF', formatCompactNumber(firstNumber(cashFlow.fcf, summary.free_cash_flow)), 'CFO - Capex'],
-    ['CFO / LNST', `${formatMaybeNumber(firstNumber(cashFlow.cfoToNetIncome, summary.ocf_to_net_income))}x`, 'Chất lượng lợi nhuận'],
-  ]
-}
-
 function buildHorizontalRows(analysis) {
   const periods = [...(analysis?.periods || [])].slice(-2)
   const previous = periods[0] || {}
@@ -2711,6 +3490,7 @@ function latestPeriod(analysis) {
 
 function firstNumber(...values) {
   for (const value of values) {
+    if (value === null || value === undefined || value === '') continue
     const numeric = Number(value)
     if (Number.isFinite(numeric)) return numeric
   }
@@ -2810,148 +3590,47 @@ function HealthRadar({ rows }) {
   )
 }
 
-function BalanceSheetCard({ items, total }) {
-  const assets = items.filter((item) => !['debt', 'equity'].includes(item.tone))
-  const funding = items.filter((item) => ['debt', 'equity'].includes(item.tone))
-  const liabilities = funding.find((item) => item.tone === 'debt')?.value
-  const liabilityRatio = ratioPercent(liabilities, total)
-
-  return (
-    <div className="bctc-balance">
-      {items.length ? (
-        <>
-          <div className="bctc-balance__columns">
-            <BalanceStack title="Tài sản" items={assets} total={total} />
-            <BalanceStack title="Nguồn vốn" items={funding} total={total} />
-          </div>
-          <div className="bctc-balance__total">
-            <span>Nợ phải trả / Tổng nguồn vốn</span>
-            <strong>{formatPercent(liabilityRatio)}</strong>
-          </div>
-        </>
-      ) : <p className="bctc-muted">Chưa đủ dữ liệu bảng cân đối để tách chi tiết.</p>}
-    </div>
+function BalanceSheetSummaryCard({ data, fallbackItems, fallbackTotal }) {
+  const fundingItems = data?.funding_items || fallbackItems?.filter((item) => ['debt', 'equity'].includes(item.tone)) || []
+  const assetItems = data?.asset_items || fallbackItems?.filter((item) => !['debt', 'equity'].includes(item.tone)) || []
+  const totalAssets = firstNumber(data?.total_assets, fallbackTotal)
+  const totalFunding = firstNumber(data?.total_funding, fallbackTotal, totalAssets)
+  const liabilities = firstNumber(
+    data?.funding_items?.find((item) => item.key?.includes('liabilit') || item.label?.toLowerCase().includes('nợ'))?.value,
+    fundingItems.find((item) => item.tone === 'debt')?.value,
   )
-}
+  const equity = firstNumber(
+    data?.funding_items?.find((item) => item.key?.includes('equity') || item.label?.toLowerCase().includes('vốn'))?.value,
+    fundingItems.find((item) => item.tone === 'equity')?.value,
+  )
+  const cash = firstNumber(
+    data?.asset_items?.find((item) => item.key?.includes('cash') || item.label?.toLowerCase().includes('tiền'))?.value,
+    assetItems.find((item) => item.label?.toLowerCase().includes('tiền'))?.value,
+  )
+  const liabilityRatio = firstNumber(data?.ratios?.liabilities_to_assets, ratioPercent(liabilities, totalFunding) / 100)
+  const estimatedCount = data?.data_quality?.estimated_fields?.length || 0
 
-function BalanceSheetStrengthCard({ data, fallbackItems, fallbackTotal }) {
-  if (!data) {
-    return <BalanceSheetCard items={fallbackItems || []} total={fallbackTotal} />
-  }
-
-  const liabilityRatio = data.ratios?.liabilities_to_assets
   return (
-    <div className="bctc-bs-card">
-      <div className="bctc-bs-period">{formatPeriodBadge(data.period)}</div>
-      <div className="bctc-bs-grid">
-        <CompositionColumn title={`Tài sản (${unitLabel(data.unit)})`} total={data.total_assets} items={data.asset_items} />
-        <StackedCompositionBar items={data.funding_items} total={data.total_funding} />
-        <CompositionColumn title={`Nguồn vốn (${unitLabel(data.unit)})`} total={data.total_funding} items={data.funding_items} />
+    <div className="bctc-balance-summary">
+      <div className="bctc-balance-summary__score">
+        <span>Nợ / nguồn vốn</span>
+        <strong>{formatRatioPercent(liabilityRatio)}</strong>
       </div>
-      <RatioFooter value={liabilityRatio} />
-      <DataQualityWarning dataQuality={data.data_quality} redFlags={data.red_flags} />
-    </div>
-  )
-}
-
-function CompositionColumn({ title, total, items }) {
-  return (
-    <div className="bctc-bs-column">
-      <div className="bctc-bs-column__head">
-        <span>{title}</span>
-        <strong>{formatCompactNumber(total)}</strong>
+      <div className="bctc-balance-summary__grid">
+        <p>
+          <span>Tổng tài sản</span>
+          <strong>{formatCompactNumber(totalAssets)}</strong>
+        </p>
+        <p>
+          <span>Vốn chủ</span>
+          <strong>{formatCompactNumber(equity)}</strong>
+        </p>
+        <p>
+          <span>Tiền mặt</span>
+          <strong>{formatCompactNumber(cash)}</strong>
+        </p>
       </div>
-      <div className="bctc-bs-list">
-        {[...(items || [])].sort((a, b) => a.display_order - b.display_order).map((item) => (
-          <CompositionItem key={item.key} item={item} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function CompositionItem({ item }) {
-  return (
-    <div
-      className="bctc-bs-item"
-      title={`${item.label}: ${formatCompactNumber(item.value)} (${formatRatioPercent(item.percentage)})`}
-    >
-      <i className={`bctc-bs-dot bctc-bs-dot--${item.color_token}`} />
-      <span>{item.label}</span>
-      <strong>{formatCompactNumber(item.value)}</strong>
-      <em>{formatRatioPercent(item.percentage)}</em>
-    </div>
-  )
-}
-
-function StackedCompositionBar({ items, total }) {
-  const safeTotal = Math.max(Number(total) || 0, 1)
-  return (
-    <div className="bctc-bs-stack" aria-label="Funding composition">
-      {[...(items || [])].sort((a, b) => a.display_order - b.display_order).map((item) => (
-        <div
-          key={item.key}
-          className={`bctc-bs-stack__seg bctc-bs-stack__seg--${item.color_token}`}
-          style={{ height: `${Math.max(5, (Number(item.value) / safeTotal) * 100)}%` }}
-          title={`${item.label}: ${formatCompactNumber(item.value)} (${formatRatioPercent(item.percentage)})`}
-        />
-      ))}
-    </div>
-  )
-}
-
-function RatioFooter({ value }) {
-  const tone = value == null ? 'neutral' : value < 0.4 ? 'good' : value <= 0.6 ? 'watch' : 'warn'
-  return (
-    <div className={`bctc-bs-footer bctc-bs-footer--${tone}`}>
-      <span>Nợ phải trả / Tổng nguồn vốn</span>
-      <strong>{formatRatioPercent(value)}</strong>
-    </div>
-  )
-}
-
-function DataQualityWarning({ dataQuality, redFlags }) {
-  const warnings = [
-    ...(dataQuality?.consistency_warnings || []),
-    ...(redFlags || []).filter((flag) => flag.severity !== 'low').map((flag) => flag.message),
-  ].slice(0, 3)
-  if (!warnings.length && !(dataQuality?.estimated_fields || []).length) return null
-  return (
-    <div className="bctc-bs-quality">
-      {warnings.map((item) => <span key={item}>{item}</span>)}
-      {(dataQuality?.estimated_fields || []).length ? <span>Ước tính: {dataQuality.estimated_fields.join(', ')}</span> : null}
-    </div>
-  )
-}
-
-function BalanceStack({ title, items, total }) {
-  const stackItems = items.filter((item) => Number.isFinite(Number(item.value)))
-  const stackTotal = stackItems.reduce((sum, item) => sum + Math.abs(Number(item.value) || 0), 0) || Math.abs(Number(total)) || 1
-
-  return (
-    <div className="bctc-balance-stack">
-      <div className="bctc-balance-stack__head">
-        <span>{title}</span>
-        <strong>{formatCompactNumber(stackItems.reduce((sum, item) => sum + Number(item.value || 0), 0))}</strong>
-      </div>
-      <div className="bctc-balance-stack__bar">
-        {stackItems.map((item) => (
-          <i
-            key={item.label}
-            className={`bctc-balance-stack__seg bctc-balance-stack__seg--${item.tone}`}
-            style={{ width: `${Math.max(7, (Math.abs(Number(item.value) || 0) / stackTotal) * 100)}%` }}
-          />
-        ))}
-      </div>
-      <div className="bctc-balance-stack__list">
-        {stackItems.map((item) => (
-          <div key={item.label} className={`bctc-balance__row bctc-balance__row--${item.tone}`}>
-            <span>{item.label}</span>
-            <strong>{formatCompactNumber(item.value)}</strong>
-            <em>{formatPercent(ratioPercent(item.value, total))}</em>
-          </div>
-        ))}
-      </div>
+      {estimatedCount ? <em>{estimatedCount} trường dữ liệu đang được ước tính.</em> : null}
     </div>
   )
 }
@@ -3068,13 +3747,17 @@ function ratioPercent(value, total) {
 }
 
 function MetricTrendChart({ rows, metrics, formatValue, height = 288, showEndpointLabels = false }) {
-  const [activeIndex, setActiveIndex] = useState(Math.max(0, rows.length - 1))
-  const chart = useMemo(() => buildSvgChartModel(rows, metrics, height), [rows, metrics, height])
-  const fallbackIndex = Math.max(0, rows.length - 1)
+  const drawableRows = useMemo(
+    () => rows.filter((row) => metrics.some((metric) => chartNumber(row[metric.key]) !== null)),
+    [rows, metrics],
+  )
+  const [activeIndex, setActiveIndex] = useState(Math.max(0, drawableRows.length - 1))
+  const chart = useMemo(() => buildSvgChartModel(drawableRows, metrics, height), [drawableRows, metrics, height])
+  const fallbackIndex = Math.max(0, drawableRows.length - 1)
   const visibleIndex = Math.min(activeIndex, fallbackIndex)
-  const activePoint = rows[visibleIndex] || rows.at(-1)
+  const activePoint = drawableRows[visibleIndex] || drawableRows.at(-1)
 
-  if (!rows.length) {
+  if (!drawableRows.length) {
     return <p className="bctc-muted">Chưa đủ dữ liệu để vẽ chart cho chế độ này.</p>
   }
 
@@ -3097,7 +3780,7 @@ function MetricTrendChart({ rows, metrics, formatValue, height = 288, showEndpoi
           const rect = event.currentTarget.getBoundingClientRect()
           const ratio = (event.clientX - rect.left) / Math.max(1, rect.width)
           const nextIndex = Math.round((ratio * chart.width - chart.left) / Math.max(1, chart.step))
-          setActiveIndex(Math.max(0, Math.min(rows.length - 1, nextIndex)))
+          setActiveIndex(Math.max(0, Math.min(drawableRows.length - 1, nextIndex)))
         }}
       >
         <defs>
@@ -3190,8 +3873,8 @@ function buildSvgChartModel(rows, metrics, height) {
   const step = rows.length > 1 ? (right - left) / (rows.length - 1) : right - left
   const barMetrics = metrics.filter((metric) => metric.type === 'bar')
   const lineMetrics = metrics.filter((metric) => metric.type !== 'bar')
-  const leftValues = rows.flatMap((row) => barMetrics.map((metric) => Number(row[metric.key])).filter(Number.isFinite))
-  const rightValues = rows.flatMap((row) => lineMetrics.map((metric) => Number(row[metric.key])).filter(Number.isFinite))
+  const leftValues = rows.flatMap((row) => barMetrics.map((metric) => chartNumber(row[metric.key])).filter((value) => value !== null))
+  const rightValues = rows.flatMap((row) => lineMetrics.map((metric) => chartNumber(row[metric.key])).filter((value) => value !== null))
   const leftDomain = niceDomain(leftValues, true)
   const rightDomain = niceDomain(rightValues, false)
   const yLeft = (value) => bottom - ((Number(value) - leftDomain.min) / Math.max(1, leftDomain.max - leftDomain.min)) * plotHeight
@@ -3202,8 +3885,8 @@ function buildSvgChartModel(rows, metrics, height) {
   const zeroY = yLeft(0)
 
   const barShapes = rows.flatMap((row, index) => barMetrics.map((metric, metricIndex) => {
-    const value = Number(row[metric.key])
-    if (!Number.isFinite(value)) return null
+    const value = chartNumber(row[metric.key])
+    if (value === null) return null
     const y = yLeft(value)
     const x = xByIndex[index] - ((barWidth + 4) * barMetrics.length) / 2 + metricIndex * (barWidth + 4)
     return {
@@ -3218,8 +3901,8 @@ function buildSvgChartModel(rows, metrics, height) {
 
   const lines = lineMetrics.map((metric) => {
     const nodes = rows.map((row, index) => {
-      const value = Number(row[metric.key])
-      if (!Number.isFinite(value)) return null
+      const value = chartNumber(row[metric.key])
+      if (value === null) return null
       return { index, x: xByIndex[index], y: yRight(value), value }
     }).filter(Boolean)
     return {
@@ -3263,6 +3946,12 @@ function buildSvgChartModel(rows, metrics, height) {
   }
 }
 
+function chartNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
 function niceDomain(values, includeZero) {
   const finite = values.filter((value) => Number.isFinite(Number(value))).map(Number)
   if (!finite.length) return { min: includeZero ? 0 : 0, max: includeZero ? 1 : 100 }
@@ -3287,16 +3976,8 @@ function shortPeriodLabel(label) {
     .replace(/^20(\d{2})$/, "'$1")
 }
 
-function MetricBox({ label, value }) {
-  return (
-    <div className="bctc-box">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
 function formatCompactNumber(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 'n/a'
   return new Intl.NumberFormat('vi-VN', {
@@ -3305,19 +3986,31 @@ function formatCompactNumber(value) {
   }).format(numeric)
 }
 
+function formatBytes(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 'n/a'
+  if (numeric < 1024) return `${numeric} B`
+  if (numeric < 1024 * 1024) return `${(numeric / 1024).toFixed(1)} KB`
+  return `${(numeric / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function formatMaybeNumber(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 'n/a'
   return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(numeric)
 }
 
 function formatPercent(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 'n/a'
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(numeric)}%`
 }
 
 function formatSignedPercent(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 'n/a'
   const sign = numeric > 0 ? '▲ ' : numeric < 0 ? '▼ ' : ''
@@ -3325,30 +4018,22 @@ function formatSignedPercent(value) {
 }
 
 function formatRatioPercent(value) {
+  if (value === null || value === undefined || value === '') return 'n/a'
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 'n/a'
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(numeric * 100)}%`
 }
 
-function unitLabel(unit) {
-  if (unit === 'ty_vnd') return 'tỷ VND'
-  if (unit === 'trieu_vnd') return 'triệu VND'
-  if (unit === 'nghin_vnd') return 'nghìn VND'
-  return 'VND'
-}
-
-function formatPeriodBadge(period) {
-  const match = String(period || '').match(/(20\d{2})-Q([1-4])/)
-  if (match) return `Q${match[2]}/${match[1]}`
-  return period || 'Latest'
-}
-
 function toNumber(value) {
+  if (value === null || value === undefined || value === '') return null
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : null
 }
 
 function safeAdd(a, b) {
+  const hasA = a !== null && a !== undefined && a !== ''
+  const hasB = b !== null && b !== undefined && b !== ''
+  if (!hasA && !hasB) return null
   const x = Number(a)
   const y = Number(b)
   if (!Number.isFinite(x) && !Number.isFinite(y)) return null
@@ -3419,4 +4104,164 @@ function metricAttentionTone(metric) {
   if (ratio >= 0.75) return 'warn'
   if (ratio >= 0.55) return 'caution'
   return ''
+}
+
+function StudentNotePanel({ companyId, period, sectionName }) {
+  const [note, setNote] = useState('')
+  const [status, setStatus] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!note.trim()) return
+    setStatus('Đang nộp...')
+    try {
+      await submitStudentNote({
+        student_id: 'student-123',
+        company_id: companyId,
+        period: period || 'current',
+        note_content: note,
+        related_metrics: [sectionName]
+      })
+      setStatus('Nộp thành công!')
+      setNote('')
+      setTimeout(() => setStatus(''), 3000)
+    } catch (err) {
+      setStatus(`Lỗi: ${err.message}`)
+    }
+  }
+
+  return (
+    <article className="bctc-panel bctc-student-note" style={{marginTop: '2rem'}}>
+      <header className="bctc-panel-header">
+        <h2>Nhật ký phân tích (Student Notes)</h2>
+        <p>Ghi lại nhận định của bạn về {sectionName} để gửi cho Giảng viên.</p>
+      </header>
+      <form onSubmit={handleSubmit} className="bctc-note-form" style={{display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem'}}>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={`Nhập nhận định của bạn về ${sectionName}...`}
+          rows={4}
+          style={{width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#333', fontSize: '0.9rem'}}
+        />
+        <div className="bctc-note-footer" style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+          <button type="submit" className="bctc-btn" disabled={!note.trim() || status === 'Đang nộp...'}>Nộp nhận định</button>
+          {status && <span className="bctc-note-status" style={{fontSize: '0.9rem', color: status.includes('Lỗi') ? '#dc2626' : '#16a34a'}}>{status}</span>}
+        </div>
+      </form>
+    </article>
+  )
+}
+
+function WhatIfSimulator({ analysis }) {
+  const [revenueChange, setRevenueChange] = useState(0)
+  const [marginChange, setMarginChange] = useState(0)
+
+  const latest = analysis?.periods?.[0] || {}
+  const currentRev = Number(latest.revenue) || 0
+  const currentGrossMargin = Number(latest.gross_margin_pct) || 0
+  const currentNetMargin = Number(latest.net_margin_pct) || 0
+  const currentNetIncome = Number(latest.net_income) || 0
+
+  const simRev = currentRev * (1 + revenueChange / 100)
+  const simNetMargin = currentNetMargin + marginChange
+  const simNetIncome = simRev * (simNetMargin / 100)
+  const diff = simNetIncome - currentNetIncome
+
+  return (
+    <article className="bctc-panel bctc-what-if" style={{marginTop: '1.5rem', padding: '1rem', border: '1px dashed #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc'}}>
+      <header className="bctc-panel-header" style={{marginBottom: '1rem'}}>
+        <h2 style={{fontSize: '1rem', fontWeight: 600, color: '#0f172a'}}>Mô phỏng tác động (What-If)</h2>
+      </header>
+      <div className="bctc-what-if-controls" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+        <label style={{display: 'flex', flexDirection: 'column', fontSize: '0.85rem'}}>
+          <span>Tăng/giảm Doanh thu: <strong style={{color: '#2f74d0'}}>{revenueChange > 0 ? '+' : ''}{revenueChange}%</strong></span>
+          <input type="range" min="-50" max="50" step="5" value={revenueChange} onChange={(e) => setRevenueChange(Number(e.target.value))} />
+        </label>
+        <label style={{display: 'flex', flexDirection: 'column', fontSize: '0.85rem'}}>
+          <span>Tăng/giảm Biên gộp: <strong style={{color: '#2f74d0'}}>{marginChange > 0 ? '+' : ''}{marginChange}%</strong></span>
+          <input type="range" min="-20" max="20" step="1" value={marginChange} onChange={(e) => setMarginChange(Number(e.target.value))} />
+        </label>
+        <div style={{marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0'}}>
+          <p style={{fontSize: '0.85rem', color: '#64748b'}}>LNST Dự phóng:</p>
+          <h3 style={{fontSize: '1.25rem', color: '#0f172a', margin: '0.25rem 0'}}>{formatCompactNumber(simNetIncome)}</h3>
+          <p style={{fontSize: '0.8rem', color: diff >= 0 ? '#16a34a' : '#dc2626'}}>
+             {diff >= 0 ? '▲' : '▼'} {formatCompactNumber(Math.abs(diff))} so với hiện tại
+          </p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function LineItemExplainerModal({ itemKey, ticker, period, onClose }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const result = await fetchLineItemExplanation(ticker, period, itemKey)
+        setData(result)
+      } catch (err) {
+        console.error('Failed to fetch explanation:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
+  }, [ticker, period, itemKey])
+
+  return (
+    <div className="bctc-modal-overlay" onClick={onClose} style={{
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}>
+      <div className="bctc-modal-content bctc-panel" onClick={e => e.stopPropagation()} style={{
+        maxWidth: 600, width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '1.5rem',
+        backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ margin: 0, color: 'var(--bctc-text-primary)' }}>Tra cứu thuật ngữ: {itemKey}</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#666' }}>&times;</button>
+        </div>
+        
+        {loading ? (
+          <p>Đang tải giải thích...</p>
+        ) : data ? (
+          <div>
+            <p style={{ fontWeight: 500, fontSize: '1.1rem', marginBottom: '0.5rem' }}>{data.definition}</p>
+            {data.formula && (
+              <div style={{ background: '#f5f5f5', padding: '0.5rem 1rem', borderRadius: 4, fontFamily: 'monospace', marginBottom: '1rem' }}>
+                <strong>Công thức:</strong> {data.formula}
+              </div>
+            )}
+            <p style={{ marginBottom: '1rem' }}><strong>Ý nghĩa:</strong> {data.significance}</p>
+            {data.red_flags && data.red_flags.length > 0 && (
+              <div>
+                <strong style={{ color: 'var(--bctc-red)' }}>Dấu hiệu bất thường cần lưu ý:</strong>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', color: 'var(--bctc-text-secondary)' }}>
+                  {data.red_flags.map((flag, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.25rem' }}>{flag}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {data.examples && data.examples.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <strong>Ví dụ phân tích:</strong>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', color: 'var(--bctc-text-secondary)' }}>
+                  {data.examples.map((ex, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.25rem' }}>{ex}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p>Không tìm thấy dữ liệu giải thích cho chỉ tiêu này.</p>
+        )}
+      </div>
+    </div>
+  )
 }

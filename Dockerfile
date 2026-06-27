@@ -14,7 +14,11 @@ FROM python:3.12-slim AS deps
 ENV PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-vie && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy only what setuptools needs to resolve dependencies.

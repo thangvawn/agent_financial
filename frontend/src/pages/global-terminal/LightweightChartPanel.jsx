@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { createChart, AreaSeries, CandlestickSeries, LineStyle, CrosshairMode } from 'lightweight-charts'
 
 /**
@@ -8,23 +8,29 @@ import { createChart, AreaSeries, CandlestickSeries, LineStyle, CrosshairMode } 
  *
  * Data shape: points = [{date: ISO string, open?, high?, low?, close?, price?, volume?}, ...]
  */
-export default function LightweightChartPanel({ points, mode = 'area', height = 320 }) {
+export default function LightweightChartPanel({ points, mode = 'area', height = 320, ariaLabel = 'Biểu đồ giá theo thời gian' }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const seriesRef = useRef(null)
   const modeRef = useRef(mode)
+  const pointsRef = useRef(points)
 
-  const isDark = useMemo(() => {
+  const isDark = (() => {
     if (typeof document === 'undefined') return true
     return document.documentElement.dataset.theme === 'dark'
       || document.documentElement.closest('[data-theme="dark"]') != null
       || document.querySelector('[data-theme="dark"]') != null
-  }, [points, mode])
+  })()
+  const initialOptionsRef = useRef({ isDark, height })
+
+  useEffect(() => {
+    pointsRef.current = points
+  }, [points])
 
   // Build chart on mount; tear down on unmount.
   useEffect(() => {
     if (!containerRef.current) return
-    const chart = createChart(containerRef.current, buildChartOptions({ isDark, height }))
+    const chart = createChart(containerRef.current, buildChartOptions(initialOptionsRef.current))
     chartRef.current = chart
 
     const ro = new ResizeObserver((entries) => {
@@ -56,17 +62,17 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
     const chart = chartRef.current
     // Remove existing series if any
     if (seriesRef.current) {
-      try { chart.removeSeries(seriesRef.current) } catch (_) { /* ignore */ }
+      try { chart.removeSeries(seriesRef.current) } catch { /* ignore */ }
       seriesRef.current = null
     }
     if (mode === 'candle') {
-      seriesRef.current = chart.addSeries(CandlestickSeries, candleSeriesOptions(isDark))
+      seriesRef.current = chart.addSeries(CandlestickSeries, candleSeriesOptions())
     } else {
       seriesRef.current = chart.addSeries(AreaSeries, areaSeriesOptions(isDark))
     }
     modeRef.current = mode
     // Push current data right away
-    pushData(seriesRef.current, points, mode)
+    pushData(seriesRef.current, pointsRef.current, mode)
     chart.timeScale().fitContent()
   }, [mode, isDark])
 
@@ -82,6 +88,8 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
       ref={containerRef}
       className="gt-lwchart"
       style={{ width: '100%', height: `${height}px` }}
+      role="img"
+      aria-label={ariaLabel}
     />
   )
 }
@@ -210,7 +218,7 @@ function areaSeriesOptions(isDark) {
   }
 }
 
-function candleSeriesOptions(_isDark) {
+function candleSeriesOptions() {
   return {
     upColor: '#16a34a',
     downColor: '#dc2626',

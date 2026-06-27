@@ -52,29 +52,51 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
   const [historyError, setHistoryError] = useState('')
   const [historyLoading, setHistoryLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [historyRefreshTick, setHistoryRefreshTick] = useState(0)
   const [vnSnapshot, setVnSnapshot] = useState(null)
   const [vnLoading, setVnLoading] = useState(false)
   const [vnError, setVnError] = useState('')
   const [vnSort, setVnSort] = useState('change_desc')
   const [vnExchange, setVnExchange] = useState('')
   const [vnSearch, setVnSearch] = useState('')
+  const [debouncedVnSearch, setDebouncedVnSearch] = useState('')
   const terminalRequestSeqRef = useRef(0)
   const historyRequestSeqRef = useRef(0)
   const vnRequestSeqRef = useRef(0)
+  const historyCacheRef = useRef(new Map())
+  const commandInputRef = useRef(null)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedVnSearch(vnSearch.trim()), 320)
+    return () => window.clearTimeout(timer)
+  }, [vnSearch])
+
+  useEffect(() => {
+    function handleShortcut(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        commandInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function run() {
       const requestId = ++terminalRequestSeqRef.current
       setLoading(true)
       setError('')
       try {
-        const data = await fetchGlobalTerminal({ view: activeView })
+        const data = await fetchGlobalTerminal({ view: activeView, signal: controller.signal })
         if (cancelled || requestId !== terminalRequestSeqRef.current) return
         setPayload(data)
         setSelectedSymbol((current) => current || data?.terminal?.default_symbol || 'XAU')
       } catch (err) {
+        if (err.name === 'AbortError') return
         if (cancelled || requestId !== terminalRequestSeqRef.current) return
         setError(err.message)
       } finally {
@@ -86,6 +108,7 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
     const timer = window.setInterval(run, 60000)
     return () => {
       cancelled = true
+      controller.abort()
       window.clearInterval(timer)
     }
   }, [activeView, refreshTick])
@@ -93,15 +116,23 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
   useEffect(() => {
     if (activeView !== 'vn_stocks') return undefined
     let cancelled = false
+    const controller = new AbortController()
     async function run() {
       const requestId = ++vnRequestSeqRef.current
       setVnLoading(true)
       setVnError('')
       try {
-        const data = await fetchVnSnapshot({ sort: vnSort, exchange: vnExchange, search: vnSearch, limit: 300 })
+        const data = await fetchVnSnapshot({
+          sort: vnSort,
+          exchange: vnExchange,
+          search: debouncedVnSearch,
+          limit: 300,
+          signal: controller.signal,
+        })
         if (cancelled || requestId !== vnRequestSeqRef.current) return
         setVnSnapshot(data)
       } catch (err) {
+        if (err.name === 'AbortError') return
         if (cancelled || requestId !== vnRequestSeqRef.current) return
         setVnError(err.message)
       } finally {
@@ -112,23 +143,41 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
     const timer = window.setInterval(run, 60000)
     return () => {
       cancelled = true
+      controller.abort()
       window.clearInterval(timer)
     }
-  }, [activeView, vnSort, vnExchange, vnSearch, refreshTick])
+  }, [activeView, vnSort, vnExchange, debouncedVnSearch, refreshTick])
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function run() {
       const requestId = ++historyRequestSeqRef.current
+      const preset = CHART_PRESETS.find((item) => item.id === presetId) || CHART_PRESETS[4]
+      const cacheKey = `${selectedSymbol}:${preset.id}`
+      const cached = historyCacheRef.current.get(cacheKey)
+      if (cached?.refreshVersion === historyRefreshTick) {
+        setHistory(cached.data)
+        setHistoryError('')
+        setHistoryLoading(false)
+        return
+      }
       setHistoryLoading(true)
       setHistoryError('')
+      setHistory(null)
       try {
-        const preset = CHART_PRESETS.find((item) => item.id === presetId) || CHART_PRESETS[4]
-        const data = await fetchInstrumentHistory(selectedSymbol, { period: preset.period, interval: preset.interval })
+        const data = await fetchInstrumentHistory(selectedSymbol, {
+          period: preset.period,
+          interval: preset.interval,
+          signal: controller.signal,
+        })
         if (cancelled || requestId !== historyRequestSeqRef.current) return
-        setHistory({ ...data, presetId: preset.id, ytd: Boolean(preset.ytd) })
+        const normalized = { ...data, presetId: preset.id, ytd: Boolean(preset.ytd) }
+        historyCacheRef.current.set(cacheKey, { data: normalized, refreshVersion: historyRefreshTick })
+        setHistory(normalized)
       } catch (err) {
+        if (err.name === 'AbortError') return
         if (cancelled || requestId !== historyRequestSeqRef.current) return
         setHistoryError(err.message)
       } finally {
@@ -139,13 +188,20 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
     run()
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [selectedSymbol, presetId])
+  }, [selectedSymbol, presetId, historyRefreshTick])
 
   function handleTab(nextView) {
     setActiveView(nextView)
     const tabDefault = payload?.navigation?.tabs?.find((tab) => tab.id === nextView)?.default_symbol
+      || DEFAULT_TABS.find((tab) => tab.id === nextView)?.default_symbol
     if (tabDefault) setSelectedSymbol(tabDefault)
+  }
+
+  function handleRefreshAll() {
+    setRefreshTick((current) => current + 1)
+    setHistoryRefreshTick((current) => current + 1)
   }
 
   function handleCommandSubmit(event) {
@@ -165,11 +221,7 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
   }
 
   if (loading && !payload) {
-    return (
-      <section className="global-terminal global-terminal--loading">
-        <p>Loading global terminal…</p>
-      </section>
-    )
+    return <TerminalLoadingState />
   }
 
   if (error && !payload) {
@@ -210,10 +262,13 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
   return (
     <section className="global-terminal">
       <TerminalHeader
+        inputRef={commandInputRef}
         command={command}
         onCommandChange={setCommand}
         onCommandSubmit={handleCommandSubmit}
         timestamp={payload?.terminal?.as_of}
+        syncing={loading || vnLoading || historyLoading}
+        onRefresh={handleRefreshAll}
       />
 
       <TerminalTabs
@@ -226,6 +281,14 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
       />
 
       <TickerTape items={tickerItems} selectedSymbol={selectedSymbol} onSelect={setSelectedSymbol} />
+
+      <TerminalContextBar
+        activeView={activeView}
+        selectedSymbol={selectedSymbol}
+        coverage={isVnTab ? `${vnSnapshot?.items?.length || 0}/${vnSnapshot?.total || 0} mã` : `${watchlist.length} tài sản`}
+        pointCount={history?.points?.length || 0}
+        freshness={isVnTab ? vnSnapshot?.freshness : history?.freshness}
+      />
 
       {isVnTab ? (
         <div className="gt-vn-workspace">
@@ -253,7 +316,7 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
               error={historyError}
               presetId={presetId}
               onPresetChange={setPresetId}
-              onRetry={() => setRefreshTick((n) => n + 1)}
+              onRetry={() => setHistoryRefreshTick((n) => n + 1)}
             />
           </div>
         </div>
@@ -277,7 +340,7 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
               error={historyError}
               presetId={presetId}
               onPresetChange={setPresetId}
-              onRetry={() => setRefreshTick((n) => n + 1)}
+              onRetry={() => setHistoryRefreshTick((n) => n + 1)}
             />
             <InstrumentNews items={widgets.market_news || []} onOpenNews={onOpenNews} />
           </main>
@@ -299,7 +362,7 @@ export default function GlobalTerminalPage({ onOpenInsights, onOpenProLab, onOpe
 }
 
 /* ====================== Header ====================== */
-function TerminalHeader({ command, onCommandChange, onCommandSubmit, timestamp }) {
+function TerminalHeader({ inputRef, command, onCommandChange, onCommandSubmit, timestamp, syncing, onRefresh }) {
   return (
     <header className="gt-header">
       <div className="gt-header__brand">
@@ -310,6 +373,7 @@ function TerminalHeader({ command, onCommandChange, onCommandSubmit, timestamp }
       <form className="gt-header__search" onSubmit={onCommandSubmit}>
         <span className="gt-header__search-icon" aria-hidden="true">⌕</span>
         <input
+          ref={inputRef}
           aria-label="Search symbol or command"
           value={command}
           onChange={(event) => onCommandChange(event.target.value)}
@@ -318,9 +382,18 @@ function TerminalHeader({ command, onCommandChange, onCommandSubmit, timestamp }
         <kbd className="gt-header__search-kbd">⌘K</kbd>
       </form>
       <div className="gt-header__status">
-        <span className="gt-header__dot" aria-hidden="true" />
-        <span className="gt-header__status-live">LIVE</span>
+        <span className={`gt-header__dot ${syncing ? 'is-syncing' : ''}`} aria-hidden="true" />
+        <span className="gt-header__status-live">{syncing ? 'SYNC' : 'LIVE'}</span>
         <span>{formatTimestamp(timestamp)}</span>
+        <button
+          type="button"
+          className="gt-header__refresh"
+          onClick={onRefresh}
+          disabled={syncing}
+          aria-label="Làm mới dữ liệu terminal"
+        >
+          Làm mới
+        </button>
       </div>
     </header>
   )
@@ -329,11 +402,13 @@ function TerminalHeader({ command, onCommandChange, onCommandSubmit, timestamp }
 /* ====================== Tabs ====================== */
 function TerminalTabs({ tabs, active, onSelect, onOpenInsights, onOpenNews, onOpenProLab }) {
   return (
-    <div className="gt-tabs">
+    <div className="gt-tabs" role="tablist" aria-label="Nhóm thị trường">
       {tabs.map((tab) => (
         <button
           type="button"
           key={tab.id}
+          role="tab"
+          aria-selected={tab.id === active}
           className={`gt-tabs__btn ${tab.id === active ? 'is-active' : ''}`}
           onClick={() => onSelect(tab.id)}
         >
@@ -345,6 +420,50 @@ function TerminalTabs({ tabs, active, onSelect, onOpenInsights, onOpenNews, onOp
       <button type="button" className="gt-tabs__link" onClick={onOpenNews}>News Desk</button>
       <button type="button" className="gt-tabs__link" onClick={onOpenProLab}>Pro Lab</button>
     </div>
+  )
+}
+
+function TerminalContextBar({ activeView, selectedSymbol, coverage, pointCount, freshness }) {
+  const viewLabel = DEFAULT_TABS.find((tab) => tab.id === activeView)?.label || activeView
+  const freshnessLabel = freshness === 'fresh' ? 'Dữ liệu mới' : freshness === 'stale' ? 'Dùng cache' : 'Đang kiểm tra nguồn'
+  return (
+    <section className="gt-context" aria-label="Phạm vi dữ liệu đang hiển thị">
+      <div className="gt-context__primary">
+        <span className="gt-context__eyebrow">Đang xem</span>
+        <strong>{viewLabel}</strong>
+        <span className="gt-context__divider" aria-hidden="true" />
+        <b>{selectedSymbol}</b>
+      </div>
+      <div className="gt-context__meta">
+        <span><i aria-hidden="true" /> Snapshot: {coverage}</span>
+        <span><i aria-hidden="true" /> Chart theo yêu cầu: {pointCount.toLocaleString('vi-VN')} điểm</span>
+        <span className={`is-${freshness || 'degraded'}`}><i aria-hidden="true" /> {freshnessLabel}</span>
+      </div>
+    </section>
+  )
+}
+
+function TerminalLoadingState() {
+  return (
+    <section className="global-terminal global-terminal--loading" aria-busy="true" aria-label="Đang tải Global Terminal">
+      <div className="gt-loading__header">
+        <div className="gt-skel gt-skel--title" />
+        <div className="gt-skel gt-skel--search" />
+        <div className="gt-skel gt-skel--status" />
+      </div>
+      <div className="gt-loading__tabs">
+        {DEFAULT_TABS.map((tab) => <div className="gt-skel gt-skel--tab" key={tab.id} />)}
+      </div>
+      <div className="gt-loading__workspace">
+        <div className="gt-skel gt-skel--panel" />
+        <div className="gt-loading__main">
+          <div className="gt-skel gt-skel--hero" />
+          <div className="gt-skel gt-skel--chart" />
+        </div>
+        <div className="gt-skel gt-skel--panel" />
+      </div>
+      <span className="sr-only">Đang đồng bộ snapshot và dữ liệu biểu đồ.</span>
+    </section>
   )
 }
 
@@ -361,6 +480,7 @@ function TickerTape({ items, selectedSymbol, onSelect }) {
               type="button"
               key={item.symbol}
               className={`gt-ticker__item ${item.symbol === selectedSymbol ? 'is-selected' : ''}`}
+              aria-pressed={item.symbol === selectedSymbol}
               onClick={() => onSelect(item.symbol)}
             >
               <strong>{item.symbol}</strong>
@@ -396,6 +516,7 @@ function Watchlist({ title, items, selectedSymbol, onSelect, vnControls }) {
                 type="button"
                 key={item.symbol}
                 className={`gt-watchlist__row ${item.symbol === selectedSymbol ? 'is-selected' : ''}`}
+                aria-pressed={item.symbol === selectedSymbol}
                 onClick={() => onSelect(item.symbol)}
               >
                 <div className="gt-watchlist__sym">
@@ -446,6 +567,7 @@ function VnWatchlistControls({ sort, onSortChange, exchange, onExchangeChange, s
             type="button"
             key={ex || 'all'}
             className={`gt-vn-controls__chip ${exchange === ex ? 'is-active' : ''}`}
+            aria-pressed={exchange === ex}
             onClick={() => onExchangeChange(ex)}
           >
             {ex || 'Tất cả'}
@@ -491,6 +613,7 @@ function VnPriceBoard({
               type="button"
               key={ex || 'all'}
               className={`gt-vn-controls__chip ${exchange === ex ? 'is-active' : ''}`}
+              aria-pressed={exchange === ex}
               onClick={() => onExchangeChange(ex)}
             >
               {ex || 'Tất cả'}
@@ -581,6 +704,15 @@ function VnPriceBoardRow({ row, selected, onSelect }) {
     <tr
       className={`gt-priceboard__row ${selected ? 'is-selected' : ''}`}
       onClick={() => onSelect(row.symbol)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect(row.symbol)
+        }
+      }}
+      tabIndex={0}
+      aria-selected={selected}
+      aria-label={`${row.symbol} ${row.name || ''}, giá ${formatVnPrice(row.price)}, ${formatChange(row.change_pct)}`}
     >
       <td className="gt-priceboard__sym">
         <strong>{row.symbol}</strong>
@@ -731,13 +863,13 @@ function HeroSkeleton() {
 
 /* ====================== Chart ====================== */
 function InstrumentChart({ history, loading, error, presetId, onPresetChange, onRetry }) {
-  const rawPoints = history?.points || []
   const isYtd = Boolean(history?.ytd)
   const points = useMemo(() => {
+    const rawPoints = history?.points || []
     if (!isYtd) return rawPoints
     const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime()
     return rawPoints.filter((p) => new Date(p.date).getTime() >= yearStart)
-  }, [rawPoints, isYtd])
+  }, [history?.points, isYtd])
 
   const [chartMode, setChartMode] = useState('area')
   const hasOhlc = points.length > 0 && points[0]?.open != null && points[0]?.high != null
@@ -761,6 +893,7 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
               type="button"
               key={preset.id}
               className={`gt-chart__btn ${preset.id === presetId ? 'is-active' : ''}`}
+              aria-pressed={preset.id === presetId}
               onClick={() => onPresetChange(preset.id)}
               title={`${preset.period} · ${preset.interval}`}
             >
@@ -769,15 +902,25 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
           ))}
         </div>
         {loading ? (
-          <div className="gt-chart__state">Loading history…</div>
+          <div className="gt-chart__state" aria-live="polite">
+            <div className="gt-chart__loading">
+              <span className="gt-skel gt-skel--bar" />
+              <span>Đang tải history theo mã và timeframe…</span>
+            </div>
+          </div>
         ) : error ? (
-          <div className="gt-chart__state is-error">
+          <div className="gt-chart__state is-error" role="alert">
             <p>{error}</p>
             <button type="button" className="gt-error__retry" onClick={onRetry}>Thử lại</button>
           </div>
         ) : points.length ? (
           <>
-            <LightweightChartPanel points={points} mode={effectiveMode} height={340} />
+            <LightweightChartPanel
+              points={points}
+              mode={effectiveMode}
+              height={340}
+              ariaLabel={`Biểu đồ giá ${history?.symbol || ''}, ${describeInterval(presetId, history?.source)}, ${points.length} điểm dữ liệu`}
+            />
             <div className="gt-chart__hint">
               Cuộn để zoom · kéo để pan · double-click trục để reset
             </div>
@@ -801,6 +944,7 @@ function ChartModeToggle({ mode, onChange, disabled }) {
       <button
         type="button"
         className={`gt-chart__mode-btn ${mode === 'area' ? 'is-active' : ''}`}
+        aria-pressed={mode === 'area'}
         onClick={() => onChange('area')}
         title="Line/area chart"
       >
@@ -809,6 +953,7 @@ function ChartModeToggle({ mode, onChange, disabled }) {
       <button
         type="button"
         className={`gt-chart__mode-btn ${mode === 'candle' ? 'is-active' : ''}`}
+        aria-pressed={mode === 'candle'}
         onClick={() => onChange('candle')}
         disabled={disabled}
         title={disabled ? 'OHLC not available for this period' : 'Candlestick chart'}

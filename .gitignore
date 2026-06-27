@@ -72,3 +72,5 @@ frontend/.playwright-cli/
 .pycache_tmp
 .pycache_tmp/
 notebooks/.ipynb_checkpoints/
+
+.codegraph_temp/

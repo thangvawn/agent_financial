@@ -257,6 +257,28 @@ def test_financial_sections_endpoints_return_tab_payloads(tmp_path, monkeypatch)
     assert invalid.status_code == 404
 
 
+def test_financial_cockpit_returns_page_ready_payload(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
+    dataset = _load_sample_dataset()
+    client = TestClient(app)
+
+    imported = client.post("/financials/import", json={"dataset": dataset.model_dump(mode="json")})
+    assert imported.status_code == 200
+
+    response = client.get("/financials/FPT/cockpit")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["ticker"] == "FPT"
+    assert payload["company"]["latest_period"] == "2025-Q4"
+    assert len(payload["headline_kpis"]) == 6
+    assert {"data_quality", "narrative", "charts", "statement_tables", "risk_flags"} <= set(payload)
+    assert payload["charts"]["revenue_income_trend"]["points"]
+    assert payload["statement_tables"]["income"]["rows"]
+    assert "missing_by_group" in payload["data_quality"]
+    assert payload["source_evidence"] == []
+
+
 def test_bctc_income_statement_educational_apis(tmp_path, monkeypatch):
     monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
     monkeypatch.setenv("RISK_DASHBOARD_APP_STATE_DB", str(tmp_path / "app_state.db"))
@@ -336,6 +358,64 @@ def test_financial_status_endpoint():
     assert response.status_code == 200
     payload = response.json()
     assert payload["provider"] == "vnstock-live"
+
+
+def test_financial_upload_accepts_supported_bctc_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", str(tmp_path / "uploads"))
+    client = TestClient(app)
+
+    supported = client.get("/financials/upload/supported-types")
+    assert supported.status_code == 200
+    assert ".pdf" in supported.json()["accept"]
+    assert ".xlsx" in supported.json()["accept"]
+
+    response = client.post(
+        "/financials/upload",
+        data={"ticker": "FPT", "report_type": "auto", "period": "2025-Q4"},
+        files={"file": ("fpt-q4.pdf", b"%PDF-1.4\nsample bctc", "application/pdf")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "uploaded"
+    assert payload["ticker"] == "FPT"
+    assert payload["file_type"]["extension"] == ".pdf"
+    assert payload["file_type"]["pipeline"] == "pdf_text_or_ocr"
+    assert payload["upload_id"].startswith("bctc-")
+
+    rejected = client.post(
+        "/financials/upload",
+        files={"file": ("readme.exe", b"nope", "application/octet-stream")},
+    )
+    assert rejected.status_code == 415
+
+
+def test_financial_upload_csv_can_be_analyzed_into_dataset(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
+    monkeypatch.setenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", str(tmp_path / "uploads"))
+    client = TestClient(app)
+    csv_payload = (
+        "CP,Năm,Kỳ,Doanh thu thuần,Lợi nhuận sau thuế,TỔNG CỘNG TÀI SẢN,"
+        "NỢ PHẢI TRẢ,VỐN CHỦ SỞ HỮU,Lưu chuyển tiền tệ ròng từ các hoạt động SXKD\n"
+        "FPT,2025,4,1000,150,2000,800,1200,210\n"
+        "FPT,2024,4,900,120,1800,760,1040,180\n"
+    )
+
+    upload = client.post(
+        "/financials/upload",
+        data={"ticker": "FPT"},
+        files={"file": ("fpt-bctc.csv", csv_payload.encode("utf-8"), "text/csv")},
+    )
+    assert upload.status_code == 200
+
+    analyzed = client.post(f"/financials/uploads/{upload.json()['upload_id']}/analyze")
+    assert analyzed.status_code == 200
+    payload = analyzed.json()
+    assert payload["ok"] is True
+    assert payload["ticker"] == "FPT"
+    assert payload["periods"] == 2
+    assert payload["analysis"]["summary"]["revenue"] == 1000
+    assert payload["upload"]["status"] == "analyzed"
     assert "notes" in payload
 
 
