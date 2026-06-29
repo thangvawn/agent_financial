@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 
 DEFAULT_GOOGLE_OAUTH_CLIENT_ID = (
-    "483150503670-u3qsr7j1a9plbrk4lhv43uoage7h79l6.apps.googleusercontent.com"
+    "483150503670-hd2qvbcvaq0qqre21qn94mgq21o9559k.apps.googleusercontent.com"
 )
 
 

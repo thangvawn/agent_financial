@@ -5,6 +5,7 @@
 *-client-*.json
 gen-lang-client-*.json
 *service-account*.json
+client_secret_*.json
 
 # ── Python ───────────────────────────
 .venv/
@@ -36,6 +37,7 @@ data/learning_assets/**
 !data/learning_assets/audios/.gitkeep
 !data/learning_assets/books/.gitkeep
 !data/learning_assets/images/.gitkeep
+data/Video/
 
 data_outputs/
 output/
@@ -74,3 +76,5 @@ frontend/.playwright-cli/
 notebooks/.ipynb_checkpoints/
 
 .codegraph_temp/
+.coverage
+**/.coverage
