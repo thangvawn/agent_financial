@@ -410,7 +410,7 @@
 
 /* Final Insights-specific reset: retail-surfaces adds generic cards/buttons that
    make this dashboard look like nested white trays. Keep this page self-owned. */
-.app-shell--insights .surface-panel > section.insights-modern {
+.app-shell--insights .surface-panel>section.insights-modern {
   width: 100%;
   max-width: none;
   margin: 0;
@@ -421,7 +421,7 @@
   box-shadow: none;
 }
 
-.app-shell--insights .surface-panel > section.insights-modern > :is(section, article, div, header, footer) {
+.app-shell--insights .surface-panel>section.insights-modern> :is(section, article, div, header, footer) {
   padding: 0;
   border: 0;
   border-left: 0;
@@ -579,7 +579,7 @@
   box-shadow: none;
 }
 
-.app-shell--insights .insights-ai > button,
+.app-shell--insights .insights-ai>button,
 .app-shell--insights .insights-ai div button,
 .app-shell--insights .insights-cross header button,
 .app-shell--insights .insights-scenarios h2 button,
@@ -590,7 +590,7 @@
   transform: none;
 }
 
-.app-shell--insights .insights-ai > button {
+.app-shell--insights .insights-ai>button {
   width: 100%;
   min-height: 32px;
   padding: 0.34rem 0.7rem;
@@ -650,13 +650,13 @@
 }
 
 @media (min-width: 1600px) {
-  .app-shell--insights .surface-panel > section.insights-modern {
+  .app-shell--insights .surface-panel>section.insights-modern {
     padding-left: 42px;
     padding-right: 42px;
   }
 }
 
-.app-shell--insights .surface-panel > section.insights-v2 {
+.app-shell--insights .surface-panel>section.insights-v2 {
   --v2-bg: #f7faf9;
   --v2-card: #ffffff;
   --v2-ink: #172331;
@@ -669,9 +669,9 @@
   --v2-red: #d84444;
   --v2-shadow: 0 10px 24px rgba(18, 38, 50, 0.06);
   width: 100%;
-  max-width: none;
+  max-width: 1720px;
   min-height: calc(100vh - 60px);
-  margin: 0;
+  margin: 0 auto;
   padding: 70px 42px 28px;
   border: 0;
   border-radius: 0;
@@ -681,7 +681,7 @@
   font-family: Inter, "Avenir Next", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-.app-shell--insights .surface-panel > section.insights-v2 > :is(section, article, div, header, footer) {
+.app-shell--insights .surface-panel>section.insights-v2> :is(section, article, div, header, footer) {
   padding: 0;
   border: 0;
   border-left: 0;
@@ -749,7 +749,7 @@
   pointer-events: none;
 }
 
-.insights-v2-hero > * {
+.insights-v2-hero>* {
   position: relative;
   z-index: 1;
 }
@@ -1020,7 +1020,7 @@
   font-weight: 850;
 }
 
-.snapshot-card div > span {
+.snapshot-card div>span {
   margin-top: 0.08rem;
   color: #708086;
   font-size: 0.75rem;
@@ -1032,11 +1032,19 @@
   border-radius: 999px;
 }
 
-.status-dot--amber { background: var(--v2-amber); }
-.status-dot--green { background: var(--v2-green); }
-.status-dot--red { background: var(--v2-red); }
+.status-dot--amber {
+  background: var(--v2-amber);
+}
 
-.snapshot-card > svg:last-child {
+.status-dot--green {
+  background: var(--v2-green);
+}
+
+.status-dot--red {
+  background: var(--v2-red);
+}
+
+.snapshot-card>svg:last-child {
   color: #9ba9ad;
 }
 
@@ -1072,7 +1080,7 @@
   margin-bottom: 0.9rem;
 }
 
-.section-header > div {
+.section-header>div {
   display: flex;
   gap: 0.56rem;
   align-items: flex-start;
@@ -1288,7 +1296,7 @@
   background: #fbfefe !important;
 }
 
-.cross-asset-values div > span {
+.cross-asset-values div>span {
   width: 9px;
   height: 9px;
   border-radius: 999px;
@@ -1305,12 +1313,17 @@
   justify-self: end;
 }
 
-.is-up { color: var(--v2-green); }
-.is-down { color: var(--v2-red); }
+.is-up {
+  color: var(--v2-green);
+}
+
+.is-down {
+  color: var(--v2-red);
+}
 
 .scenario-table,
 .sector-list,
-.calendar-card > div {
+.calendar-card>div {
   display: grid !important;
   gap: 0.55rem;
 }
@@ -1326,7 +1339,7 @@
   background: #fbfefe !important;
 }
 
-.scenario-row > span {
+.scenario-row>span {
   display: grid;
   place-items: center;
   width: 32px;
@@ -1464,7 +1477,7 @@
   text-align: left;
 }
 
-.learn-insights-card button > span {
+.learn-insights-card button>span {
   grid-row: 1 / span 3;
   display: grid;
   place-items: center;
@@ -1498,7 +1511,7 @@
   font-weight: 820;
 }
 
-.learn-insights-card button > svg {
+.learn-insights-card button>svg {
   grid-column: 3;
   grid-row: 1 / span 3;
   color: #96a8ad;
@@ -1536,7 +1549,7 @@
 }
 
 @media (max-width: 1280px) {
-  .app-shell--insights .surface-panel > section.insights-v2 {
+  .app-shell--insights .surface-panel>section.insights-v2 {
     padding-left: 18px;
     padding-right: 18px;
   }
@@ -1562,7 +1575,7 @@
 }
 
 @media (max-width: 720px) {
-  .app-shell--insights .surface-panel > section.insights-v2 {
+  .app-shell--insights .surface-panel>section.insights-v2 {
     padding: 12px 12px 22px;
   }
 
@@ -1659,7 +1672,7 @@
   mask-image: radial-gradient(circle at 60% 45%, #000, transparent 58%);
 }
 
-.insights-hero > * {
+.insights-hero>* {
   position: relative;
   z-index: 1;
 }
@@ -1961,7 +1974,7 @@
   margin-bottom: 0.2rem;
 }
 
-.insights-ai > button {
+.insights-ai>button {
   justify-content: start;
   border-color: #d9e9e9;
   background: #eef7f6;
@@ -2353,6 +2366,7 @@
 }
 
 @media (max-width: 1300px) {
+
   .insights-hero,
   .insights-top-grid,
   .insights-mid-grid,
@@ -2375,6 +2389,7 @@
 }
 
 @media (max-width: 780px) {
+
   .insights-hero__actions,
   .insights-hero__badges,
   .insights-snapshots,
@@ -2746,7 +2761,7 @@
   align-content: start;
 }
 
-.app-shell--insights .insights-ai > button {
+.app-shell--insights .insights-ai>button {
   display: flex;
   gap: 0.52rem;
   align-items: center;
@@ -2959,7 +2974,7 @@
   margin-bottom: 0.2rem;
 }
 
-.app-shell--insights .insights-watchlist > p {
+.app-shell--insights .insights-watchlist>p {
   min-height: 82px;
   display: grid;
   place-items: center start;
@@ -3003,7 +3018,7 @@
   padding: 0.56rem 2rem 0.56rem 0.82rem;
 }
 
-.app-shell--insights .insights-learn button > svg {
+.app-shell--insights .insights-learn button>svg {
   grid-row: 1 / span 2;
   align-self: center;
   width: 30px;
@@ -3028,6 +3043,7 @@
 }
 
 @media (max-width: 1450px) {
+
   .app-shell--insights .insights-hero,
   .app-shell--insights .insights-top-grid,
   .app-shell--insights .insights-mid-grid,
@@ -3068,7 +3084,7 @@
   background: #f7fafb;
 }
 
-.app-shell--insights .surface-panel > section.insights-v2 {
+.app-shell--insights .surface-panel>section.insights-v2 {
   --v2-bg: #f7fafb;
   --v2-card: #ffffff;
   --v2-ink: #122236;
@@ -3211,17 +3227,17 @@
   overflow-wrap: normal;
 }
 
-.snapshot-card div > span {
+.snapshot-card div>span {
   margin-top: 0.18rem;
   font-size: 0.68rem;
   line-height: 1.12;
 }
 
-.snapshot-card > div {
+.snapshot-card>div {
   min-width: 0;
 }
 
-.snapshot-card > svg:last-child {
+.snapshot-card>svg:last-child {
   width: 0.78rem;
   height: 0.78rem;
 }
@@ -3286,7 +3302,7 @@
   background: transparent;
 }
 
-.trend-radar-row > p {
+.trend-radar-row>p {
   grid-column: 6;
   margin: 0;
   font-size: 0.72rem;
@@ -3386,7 +3402,7 @@
 }
 
 @media (max-width: 1180px) {
-  .app-shell--insights .surface-panel > section.insights-v2 {
+  .app-shell--insights .surface-panel>section.insights-v2 {
     width: 100vw;
     padding-left: 16px;
     padding-right: 16px;
@@ -3405,7 +3421,7 @@
 }
 
 @media (max-width: 720px) {
-  .app-shell--insights .surface-panel > section.insights-v2 {
+  .app-shell--insights .surface-panel>section.insights-v2 {
     width: 100vw;
     padding-left: 12px;
     padding-right: 12px;
@@ -3420,7 +3436,7 @@
     grid-template-columns: 1fr;
   }
 
-  .trend-radar-row > p {
+  .trend-radar-row>p {
     grid-column: auto;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import {
   archiveProLabBlueprint,
@@ -29,8 +30,6 @@ import ProLabExperimentsPage from './ProLabExperimentsPage'
 import ProLabOverviewPage from './ProLabOverviewPage'
 import ProLabSessionsPage from './ProLabSessionsPage'
 import StrategyCopilotPage from './StrategyCopilotPage'
-import './pro-lab.css'
-import './pro-lab-cockpit.css'
 
 const DEFAULT_BLUEPRINT = {
   name: 'VN Quality Rotation',
@@ -99,306 +98,201 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
         const teaserPayload = await fetchProLabTeaser(sessionId)
         if (cancelled) return
         setTeaser(teaserPayload)
-        let tokenToUse = accessToken
-        if (teaserPayload.enabled && teaserPayload.pro_eligible && !tokenToUse) {
-          const accessPayload = await issueProLabAccessToken(sessionId)
+
+        const cat = await fetchProLabCatalog(sessionId)
+        if (cancelled) return
+        setCatalog(cat)
+
+        if (accessToken) {
+          const ws = await fetchProLabWorkspace(sessionId, accessToken)
           if (cancelled) return
-          tokenToUse = accessPayload.access_token
-          setAccessToken(tokenToUse)
-        }
-        if (teaserPayload.enabled && teaserPayload.pro_eligible) {
-          const [workspacePayload, catalogPayload, statePayload] = await Promise.all([
-            fetchProLabWorkspace(sessionId, tokenToUse),
-            fetchProLabCatalog(tokenToUse),
-            fetchProLabWorkspaceState(sessionId, tokenToUse),
-          ])
+          setWorkspace(ws)
+
+          const state = await fetchProLabWorkspaceState(sessionId, accessToken)
           if (cancelled) return
-          setWorkspace(workspacePayload)
-          setCatalog(catalogPayload)
-          setWorkspaceState(statePayload)
-          if (statePayload.active_page) setSubpage(statePayload.active_page)
-          hydrateSelection(workspacePayload)
-          const sessions = await fetchProLabSessions(sessionId, accessToken)
-          if (cancelled) return
-          setSessionsPayload(sessions)
+          setWorkspaceState(state)
         }
       } catch (err) {
-        if (!cancelled) setError(err.message)
+        setError(err.message || 'Lỗi tải workspace')
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
 
     run()
+
     return () => {
       cancelled = true
     }
   }, [sessionId, accessToken])
 
-  function hydrateSelection(workspacePayload) {
-    const firstBlueprint = workspacePayload.blueprints[0]
-    setSelectedBlueprintId((current) => current || firstBlueprint?.blueprint_id || '')
-    setCompareRightId((current) => current || workspacePayload.blueprints[1]?.blueprint_id || '')
-    if (firstBlueprint) {
-      setForm({
-        name: firstBlueprint.name,
-        objective: firstBlueprint.objective,
-        asset_universe: firstBlueprint.asset_universe.join(','),
-        benchmark: firstBlueprint.benchmark,
-        rebalance_frequency: firstBlueprint.rebalance_frequency,
-        risk_constraints: firstBlueprint.risk_constraints,
-        assumptions_note: firstBlueprint.assumptions_note || '',
-      })
+  async function loadWorkspace() {
+    if (!accessToken) return
+    try {
+      setError('')
+      const ws = await fetchProLabWorkspace(sessionId, accessToken)
+      setWorkspace(ws)
+    } catch (err) {
+      setError(err.message || 'Lỗi tải workspace')
     }
   }
 
-  async function loadWorkspace(tokenOverride = accessToken) {
-    setError('')
-    const [payload, catalogPayload, statePayload] = await Promise.all([
-      fetchProLabWorkspace(sessionId, tokenOverride),
-      fetchProLabCatalog(tokenOverride),
-      fetchProLabWorkspaceState(sessionId, tokenOverride),
-    ])
-    setWorkspace(payload)
-    setCatalog(catalogPayload)
-    setWorkspaceState(statePayload)
-    hydrateSelection(payload)
-    const sessions = await fetchProLabSessions(sessionId, tokenOverride)
-    setSessionsPayload(sessions)
-    return payload
+  async function loadSessions() {
+    try {
+      setError('')
+      const res = await fetchProLabSessions(sessionId)
+      setSessionsPayload(res)
+    } catch (err) {
+      setError(err.message || 'Lỗi tải active sessions')
+    }
   }
 
-  async function loadSessions(tokenOverride = accessToken) {
-    setError('')
-    const payload = await fetchProLabSessions(sessionId, tokenOverride)
-    setSessionsPayload(payload)
-    return payload
-  }
+  useEffect(() => {
+    if (subpage === 'sessions') {
+      loadSessions()
+    }
+  }, [subpage])
 
   async function handleIssueAccessToken() {
     setError('')
     try {
-      const payload = await issueProLabAccessToken(sessionId)
-      setAccessToken(payload.access_token)
-      await loadWorkspace(payload.access_token)
+      const res = await issueProLabAccessToken(sessionId)
+      setAccessToken(res.access_token)
     } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleSaveBlueprint() {
-    setError('')
-    try {
-      const payload = await createProLabBlueprint(
-        {
-          user_id: sessionId,
-          name: form.name,
-          objective: form.objective,
-          asset_universe: form.asset_universe.split(',').map((item) => item.trim()).filter(Boolean),
-          benchmark: form.benchmark,
-          rebalance_frequency: form.rebalance_frequency,
-          risk_constraints: form.risk_constraints,
-          assumptions_note: form.assumptions_note,
-        },
-        accessToken,
-      )
-      setResult({ type: 'blueprint_created', payload })
-      await loadWorkspace()
-      setSelectedBlueprintId(payload.blueprint_id)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleUpdateBlueprint() {
-    if (!selectedBlueprintId) return
-    setError('')
-    try {
-      const payload = await updateProLabBlueprint(
-        selectedBlueprintId,
-        {
-          user_id: sessionId,
-          name: form.name,
-          objective: form.objective,
-          asset_universe: form.asset_universe.split(',').map((item) => item.trim()).filter(Boolean),
-          benchmark: form.benchmark,
-          rebalance_frequency: form.rebalance_frequency,
-          risk_constraints: form.risk_constraints,
-          assumptions_note: form.assumptions_note,
-        },
-        accessToken,
-      )
-      setResult({ type: 'blueprint_updated', payload })
-      await loadWorkspace()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleArchiveBlueprint() {
-    if (!selectedBlueprintId) return
-    setError('')
-    try {
-      const payload = await archiveProLabBlueprint(selectedBlueprintId, sessionId, accessToken)
-      setResult({ type: 'blueprint_archived', payload })
-      await loadWorkspace()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleCompareBlueprints() {
-    if (!selectedBlueprintId || !compareRightId) return
-    setError('')
-    try {
-      const payload = await compareProLabBlueprints(sessionId, selectedBlueprintId, compareRightId, accessToken)
-      setCompareResult(payload)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleScenarioRun() {
-    if (!selectedBlueprintId) return
-    setError('')
-    try {
-      const payload = await runProLabScenario(
-        {
-          user_id: sessionId,
-          blueprint_id: selectedBlueprintId,
-          scenario_preset: 'fx_stress',
-          usd_vnd_rate: 25850,
-          sbv_interest_rate_pct: 4.5,
-        },
-        accessToken,
-      )
-      setResult({ type: 'scenario', payload })
-      await loadWorkspace()
-      setSubpage('experiments')
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleBacktestRun() {
-    if (!selectedBlueprintId) return
-    setError('')
-    try {
-      const payload = await runProLabBacktest(
-        {
-          user_id: sessionId,
-          blueprint_id: selectedBlueprintId,
-          start_date: recentIsoDate(180),
-          end_date: recentIsoDate(0),
-          initial_capital: 100000000,
-          timeframe: '1h',
-        },
-        accessToken,
-      )
-      setResult({ type: 'backtest', payload })
-      await loadWorkspace()
-      setSubpage('experiments')
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function handleProviderCommand(providerId, commandId, inputPayload = {}) {
-    setError('')
-    try {
-      const payload = await runProLabCommand(
-        {
-          user_id: sessionId,
-          blueprint_id: selectedBlueprintId || null,
-          provider_id: providerId,
-          command_id: commandId,
-          input_payload: inputPayload,
-        },
-        accessToken,
-      )
-      setLastRun(payload)
-      setResult({ type: 'provider_run', payload })
-      await loadWorkspace()
-      setSubpage('experiments')
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  async function persistWorkspaceState(nextSubpage = subpage) {
-    if (!accessToken) return
-    try {
-      const payload = await saveProLabWorkspaceState(
-        {
-          user_id: sessionId,
-          active_page: nextSubpage,
-          open_panels: ['catalog', 'experiments'],
-          selected_blueprint_id: selectedBlueprintId || null,
-          selected_experiment_id: workspace?.experiments?.[0]?.experiment_id || null,
-          layout: { density: 'comfortable', right_panel: 'run_details' },
-          notes: workspaceState?.notes || '',
-        },
-        accessToken,
-      )
-      setWorkspaceState(payload)
-    } catch {
-      // Workspace autosave must not block research actions.
-    }
-  }
-
-  function handleSubpageChange(nextSubpage) {
-    if (nextSubpage === 'backtest-studio') {
-      onOpenBacktestStudio?.({ selectedBlueprintId, workspace, accessToken })
-      return
-    }
-    setSubpage(nextSubpage)
-    persistWorkspaceState(nextSubpage)
-  }
-
-  async function handleExportReport(experimentId) {
-    setError('')
-    try {
-      const payload = await exportProLabReport(sessionId, experimentId, accessToken)
-      setReportExport(payload)
-    } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Lỗi cấp token mới')
     }
   }
 
   async function handleRevokeSession(tokenId) {
     setError('')
     try {
-      const payload = await revokeProLabSession(sessionId, tokenId, accessToken)
-      setResult({ type: 'session_revoked', payload })
-      if (payload.token_id === accessToken) {
-        setAccessToken('')
-        setWorkspace(null)
-        setSessionsPayload(null)
-        setCompareResult(null)
-        setReportExport(null)
-        return
-      }
+      await revokeProLabSession(sessionId, tokenId)
       await loadSessions()
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Lỗi thu hồi session')
     }
   }
 
-  const blueprintCount = workspace?.blueprints?.length || 0
-  const experimentCount = workspace?.experiments?.length || 0
+  async function handleSaveBlueprint() {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await createProLabBlueprint(sessionId, accessToken, form)
+      setResult({ type: 'create_blueprint', payload })
+      await loadWorkspace()
+      setForm(DEFAULT_BLUEPRINT)
+    } catch (err) {
+      setError(err.message || 'Lỗi lưu blueprint')
+    }
+  }
+
+  async function handleUpdateBlueprint(blueprintId, patch) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await updateProLabBlueprint(sessionId, accessToken, blueprintId, patch)
+      setResult({ type: 'update_blueprint', payload })
+      await loadWorkspace()
+    } catch (err) {
+      setError(err.message || 'Lỗi cập nhật blueprint')
+    }
+  }
+
+  async function handleArchiveBlueprint(blueprintId) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await archiveProLabBlueprint(sessionId, accessToken, blueprintId)
+      setResult({ type: 'archive_blueprint', payload })
+      await loadWorkspace()
+    } catch (err) {
+      setError(err.message || 'Lỗi lưu trữ blueprint')
+    }
+  }
+
+  async function handleCompareBlueprints() {
+    if (!accessToken || !selectedBlueprintId || !compareRightId) return
+    setError('')
+    try {
+      const res = await compareProLabBlueprints(sessionId, accessToken, selectedBlueprintId, compareRightId)
+      setCompareResult(res)
+    } catch (err) {
+      setError(err.message || 'Lỗi so sánh blueprints')
+    }
+  }
+
+  async function handleScenarioRun(blueprintId, key, val) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await runProLabScenario(sessionId, accessToken, blueprintId, key, val)
+      setLastRun({ type: 'scenario', payload })
+      await loadWorkspace()
+    } catch (err) {
+      setError(err.message || 'Lỗi chạy scenario')
+    }
+  }
+
+  async function handleBacktestRun(blueprintId, start, end) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await runProLabBacktest(sessionId, accessToken, blueprintId, start, end)
+      setLastRun({ type: 'backtest', payload })
+      await loadWorkspace()
+    } catch (err) {
+      setError(err.message || 'Lỗi chạy backtest')
+    }
+  }
+
+  async function handleProviderCommand(providerId, commandId, bodyPayload) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const payload = await runProLabCommand(sessionId, accessToken, providerId, commandId, bodyPayload)
+      setResult({ type: 'run_command', payload })
+      await loadWorkspace()
+    } catch (err) {
+      setError(err.message || 'Lỗi chạy command')
+    }
+  }
+
+  async function handleExportReport(experimentId, fmt) {
+    if (!accessToken) return
+    setError('')
+    try {
+      const res = await exportProLabReport(sessionId, accessToken, experimentId, fmt)
+      setReportExport(res)
+    } catch (err) {
+      setError(err.message || 'Lỗi xuất report')
+    }
+  }
+
+  function handleSubpageChange(id) {
+    if (id === 'backtest-studio') {
+      if (onOpenBacktestStudio) {
+        onOpenBacktestStudio()
+      } else {
+        setSubpage('backtest-validation')
+      }
+    } else {
+      setSubpage(id)
+    }
+  }
+
   const isModulePage = ['strategy-copilot', 'blueprint-swarm', 'optimizer-scenario', 'backtest-validation', 'data-router-export', 'journal-report', 'auto-copy'].includes(subpage)
-  const showTopHero = !isModulePage && subpage !== 'overview'
+  const blueprintCount = workspace?.blueprints?.length
+  const experimentCount = workspace?.experiments?.length
 
   return (
-    <section className={`pl ${isModulePage ? 'pl--module-page' : ''}`}>
-      {showTopHero ? <ProLabHero onBack={onBack} /> : null}
-
+    <section className="w-full min-h-screen bg-transparent text-[#c8d6d2] font-sans px-6 md:px-10 py-6 md:py-8 flex flex-col gap-6 max-w-[1720px] mx-auto">
+      {/* Tab Navigation */}
       {!isModulePage && (
-        <nav className="pl-tabs" aria-label="Pro Lab sections">
+        <nav className="flex gap-2 border-b border-[#88aab8]/15 pb-2">
           {PAGES.map(([id, label]) => (
             <button
               key={id}
-              className={subpage === id ? 'pl-tab pl-tab--active' : 'pl-tab'}
+              className={`px-4 py-2 text-xs font-semibold hover:!text-white transition cursor-pointer border-b-2 !bg-transparent !border-t-0 !border-l-0 !border-r-0 !shadow-none !h-auto ${subpage === id ? '!text-[#4fd1b4] border-[#4fd1b4]' : '!text-[#88aab8] border-transparent'}`}
               type="button"
               onClick={() => handleSubpageChange(id)}
             >
@@ -408,32 +302,32 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
         </nav>
       )}
 
-      {loading && <p className="pl-state">Đang tải Pro Lab...</p>}
-      {error && <p className="pl-state pl-state--error">{error}</p>}
+      {loading && <p className="text-xs text-[#88aab8]">Đang tải Pro Lab...</p>}
+      {error && <p className="p-3 rounded-xl bg-rose-950/20 border border-rose-900/30 text-rose-400 text-xs font-semibold">{error}</p>}
 
       {isModulePage && (
         <>
-          <nav className="pl-module-nav">
+          <nav className="flex justify-between items-center pb-2 border-b border-[#88aab8]/15 text-xs">
             <button
               type="button"
-              className="pl-module-nav__back"
+              className="text-[#4fd1b4] hover:text-[#6ee0c8] transition font-bold cursor-pointer border-none bg-transparent !shadow-none !h-auto !p-0"
               onClick={() => setSubpage('overview')}
             >
               ← Overview
             </button>
-            <div className="pl-module-nav__breadcrumb">
-              <a onClick={() => setSubpage('overview')} role="button" tabIndex={0}>Pro Lab</a>
+            <div className="flex items-center gap-1 text-[#5e7a72]">
+              <a onClick={() => setSubpage('overview')} role="button" tabIndex={0} className="hover:text-[#4fd1b4] cursor-pointer">Pro Lab</a>
               <span aria-hidden>/</span>
-              <span>{MODULE_LIST.find((m) => m.id === subpage)?.label || subpage}</span>
+              <span className="text-white font-semibold">{MODULE_LIST.find((m) => m.id === subpage)?.label || subpage}</span>
             </div>
           </nav>
 
-          <div className="pl-module-switcher">
+          <div className="flex flex-wrap gap-2 py-3 border-b border-[#88aab8]/10">
             {MODULE_LIST.map((mod) => (
               <button
                 key={mod.id}
                 type="button"
-                className={`pl-module-switcher__btn ${subpage === mod.id ? 'pl-module-switcher__btn--active' : ''}`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer border ${subpage === mod.id ? '!bg-[#4fd1b4]/10 !border-[#4fd1b4]/20 !text-[#4fd1b4]' : '!bg-[#0c1720]/40 !border-[#88aab8]/10 !text-[#a0b8b0] hover:!border-[#4fd1b4]/30'}`}
                 onClick={() => setSubpage(mod.id)}
               >
                 {mod.label}
@@ -443,115 +337,125 @@ export default function ProLabPage({ sessionId, onBack, onOpenAdmin, onOpenBackt
         </>
       )}
 
-      {subpage === 'strategy-copilot' && (
-        <StrategyCopilotPage onBack={() => setSubpage('overview')} />
-      )}
-      {subpage === 'blueprint-swarm' && (
-        <BlueprintSwarmPage onBack={() => setSubpage('overview')} />
-      )}
-      {subpage === 'optimizer-scenario' && (
-        <OptimizerScenarioPage onBack={() => setSubpage('overview')} />
-      )}
-      {subpage === 'backtest-validation' && (
-        <ProLabBacktestStudioPage
-          sessionId={sessionId}
-          selectedBlueprintId={selectedBlueprintId}
-          workspace={workspace}
-          accessToken={accessToken}
-          onBack={() => setSubpage('overview')}
-          onOpenBlueprints={() => setSubpage('blueprints')}
-        />
-      )}
-      {subpage === 'data-router-export' && (
-        <DataRouterExportPage onBack={() => setSubpage('overview')} />
-      )}
-      {subpage === 'journal-report' && (
-        <JournalReportPage onBack={() => setSubpage('overview')} />
-      )}
-      {subpage === 'auto-copy' && (
-        <AutoCopyPaperPage onBack={() => setSubpage('overview')} />
-      )}
+      <AnimatePresence mode="wait">
+        {subpage === 'strategy-copilot' && (
+          <StrategyCopilotPage key="strategy-copilot" onBack={() => setSubpage('overview')} />
+        )}
+        {subpage === 'blueprint-swarm' && (
+          <BlueprintSwarmPage key="blueprint-swarm" onBack={() => setSubpage('overview')} />
+        )}
+        {subpage === 'optimizer-scenario' && (
+          <OptimizerScenarioPage key="optimizer-scenario" onBack={() => setSubpage('overview')} />
+        )}
+        {subpage === 'backtest-validation' && (
+          <ProLabBacktestStudioPage
+            key="backtest-validation"
+            sessionId={sessionId}
+            selectedBlueprintId={selectedBlueprintId}
+            workspace={workspace}
+            accessToken={accessToken}
+            onBack={() => setSubpage('overview')}
+            onOpenBlueprints={() => setSubpage('blueprints')}
+          />
+        )}
+        {subpage === 'data-router-export' && (
+          <DataRouterExportPage key="data-router-export" onBack={() => setSubpage('overview')} />
+        )}
+        {subpage === 'journal-report' && (
+          <JournalReportPage key="journal-report" onBack={() => setSubpage('overview')} />
+        )}
+        {subpage === 'auto-copy' && (
+          <AutoCopyPaperPage key="auto-copy" onBack={() => setSubpage('overview')} />
+        )}
 
-      {!['strategy-copilot', 'blueprint-swarm', 'optimizer-scenario', 'backtest-validation', 'data-router-export', 'journal-report', 'auto-copy'].includes(subpage) && (
-        <div className="pl-main-layout">
-          <div className="pl-main-content">
-            {subpage === 'overview' && (
-              <>
-                <ProLabHero onBack={onBack} />
-                <ProLabOverviewPage
-                  teaser={teaser}
+        {!['strategy-copilot', 'blueprint-swarm', 'optimizer-scenario', 'backtest-validation', 'data-router-export', 'journal-report', 'auto-copy'].includes(subpage) && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.2 }}
+            className={subpage === 'overview' ? "grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6 items-start w-full" : "w-full flex flex-col gap-6"}
+          >
+            <div className={subpage === 'overview' ? "grid gap-6" : "w-full"}>
+              {subpage === 'overview' && (
+                <>
+                  <ProLabHero onBack={onBack} />
+                  <ProLabOverviewPage
+                    teaser={teaser}
+                    workspace={workspace}
+                    catalog={catalog}
+                    workspaceState={workspaceState}
+                    accessToken={accessToken}
+                    onIssueToken={handleIssueAccessToken}
+                    onLoadWorkspace={() => loadWorkspace()}
+                    onOpenAdmin={onOpenAdmin}
+                    onRunCommand={handleProviderCommand}
+                    onNavigateModule={(moduleId) => setSubpage(moduleId)}
+                    blueprintCount={blueprintCount}
+                    experimentCount={experimentCount}
+                  />
+                  {workspace ? (
+                    <RecentExperimentsTable
+                      experiments={workspace.experiments}
+                      onExportReport={handleExportReport}
+                    />
+                  ) : null}
+                </>
+              )}
+              {subpage === 'blueprints' && (
+                <ProLabBlueprintsPage
+                  form={form}
+                  setForm={setForm}
+                  selectedBlueprintId={selectedBlueprintId}
+                  setSelectedBlueprintId={setSelectedBlueprintId}
+                  compareRightId={compareRightId}
+                  setCompareRightId={setCompareRightId}
+                  compareResult={compareResult}
+                  workspace={workspace}
+                  onSaveBlueprint={handleSaveBlueprint}
+                  onUpdateBlueprint={handleUpdateBlueprint}
+                  onArchiveBlueprint={handleArchiveBlueprint}
+                  onCompareBlueprints={handleCompareBlueprints}
+                />
+              )}
+              {subpage === 'experiments' && (
+                <ProLabExperimentsPage
                   workspace={workspace}
                   catalog={catalog}
-                  workspaceState={workspaceState}
-                  accessToken={accessToken}
-                  onIssueToken={handleIssueAccessToken}
-                  onLoadWorkspace={() => loadWorkspace()}
-                  onOpenAdmin={onOpenAdmin}
+                  lastRun={lastRun}
+                  selectedBlueprintId={selectedBlueprintId}
+                  onScenarioRun={handleScenarioRun}
+                  onBacktestRun={handleBacktestRun}
                   onRunCommand={handleProviderCommand}
-                  onNavigateModule={(moduleId) => setSubpage(moduleId)}
-                  blueprintCount={blueprintCount}
-                  experimentCount={experimentCount}
+                  onExportReport={handleExportReport}
+                  reportExport={reportExport}
                 />
-                {workspace ? (
-                  <RecentExperimentsTable
-                    experiments={workspace.experiments}
-                    onExportReport={handleExportReport}
-                  />
-                ) : null}
-              </>
-            )}
-            {subpage === 'blueprints' && (
-              <ProLabBlueprintsPage
-                form={form}
-                setForm={setForm}
-                selectedBlueprintId={selectedBlueprintId}
-                setSelectedBlueprintId={setSelectedBlueprintId}
-                compareRightId={compareRightId}
-                setCompareRightId={setCompareRightId}
-                compareResult={compareResult}
-                workspace={workspace}
-                onSaveBlueprint={handleSaveBlueprint}
-                onUpdateBlueprint={handleUpdateBlueprint}
-                onArchiveBlueprint={handleArchiveBlueprint}
-                onCompareBlueprints={handleCompareBlueprints}
-              />
-            )}
-            {subpage === 'experiments' && (
-              <ProLabExperimentsPage
-                workspace={workspace}
-                catalog={catalog}
-                lastRun={lastRun}
-                selectedBlueprintId={selectedBlueprintId}
-                onScenarioRun={handleScenarioRun}
-                onBacktestRun={handleBacktestRun}
-                onRunCommand={handleProviderCommand}
-                onExportReport={handleExportReport}
-                reportExport={reportExport}
-              />
-            )}
-            {subpage === 'sessions' && (
-              <ProLabSessionsPage
-                sessionsPayload={sessionsPayload}
-                onRefresh={() => loadSessions()}
-                onRevoke={handleRevokeSession}
-              />
-            )}
-          </div>
+              )}
+              {subpage === 'sessions' && (
+                <ProLabSessionsPage
+                  sessionsPayload={sessionsPayload}
+                  onRefresh={() => loadSessions()}
+                  onRevoke={handleRevokeSession}
+                />
+              )}
+            </div>
 
-          {subpage === 'overview' && (
-            <aside className="pl-sidebar">
-              <RiskControlsPanel />
-              <QuickControlsPanel />
-            </aside>
-          )}
-        </div>
-      )}
+            {subpage === 'overview' && (
+              <aside className="grid gap-6">
+                <RiskControlsPanel />
+                <QuickControlsPanel />
+              </aside>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {result && (
-        <section className="pl-result-dock">
-          <h2>Kết quả gần nhất</h2>
-          <p>Type: {result.type}</p>
-          <p>ID: {result.payload.blueprint_id || result.payload.experiment_id || result.payload.run_id || result.payload.token_id}</p>
+        <section className="p-5 rounded-2xl bg-emerald-950/20 border border-emerald-900/30 shadow-md flex flex-col gap-3 mt-6">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wider">Kết quả gần nhất</h2>
+          <p className="text-xs text-[#88aab8]">Type: {result.type}</p>
+          <p className="text-xs text-[#88aab8]">ID: {result.payload.blueprint_id || result.payload.experiment_id || result.payload.run_id || result.payload.token_id}</p>
           <ProLabRunSummary payload={result.payload} />
         </section>
       )}
@@ -567,47 +471,60 @@ function recentIsoDate(daysAgo) {
 
 function ProLabHero({ onBack }) {
   return (
-    <header className="pl-hero">
-      <button type="button" className="pl-hero__home" onClick={onBack}>Home</button>
-      <div className="pl-hero__left">
-        <h1 className="pl-hero__title">Pro Lab</h1>
-        <p className="pl-hero__subtitle">Personal Trading Research Cockpit</p>
-        <p className="pl-hero__description">
+    <header className="p-6 rounded-2xl bg-gradient-to-r from-[#101d26]/80 to-[#0c1720]/50 border border-[#88aab8]/15 shadow-md flex flex-col md:flex-row gap-6 justify-between items-center relative w-full">
+      <div 
+        role="button" 
+        tabIndex={0} 
+        className="absolute top-4 right-4 text-xs font-semibold text-[#4fd1b4] hover:text-[#6ee0c8] hover:underline cursor-pointer transition duration-150" 
+        onClick={onBack}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onBack() }}
+      >
+        Home
+      </div>
+      <div className="flex-1 flex flex-col gap-2">
+        <h1 className="text-xl font-extrabold text-white">Pro Lab</h1>
+        <p className="text-xs font-bold text-[#4fd1b4] uppercase tracking-wider">Personal Trading Research Cockpit</p>
+        <p className="text-xs text-[#88aab8] leading-relaxed max-w-lg">
           Your private workspace to design, test, critique, and manage
           trading strategies. From hypothesis to live research with
           rigor, control risk, and build repeatable edge.
         </p>
       </div>
-      <div className="pl-hero__pipeline">
-        <div className="pl-pipeline">
+      <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
+        <div className="flex justify-between items-center text-[10px] font-bold text-[#5e7a72] px-2">
           {WORKFLOW_STEPS.map((step, index) => (
-            <div key={step.id} className="pl-pipeline__step">
-              <span className="pl-pipeline__label">{step.label}</span>
+            <div key={step.id} className="relative flex items-center">
+              <span>{step.label}</span>
               {index < WORKFLOW_STEPS.length - 1 && (
-                <span className="pl-pipeline__connector">
-                  <span className="pl-pipeline__line" />
-                  <span className="pl-pipeline__arrow-head">›</span>
+                <span className="flex items-center mx-2">
+                  <span className="w-8 h-[1px] bg-[#88aab8]/15" />
+                  <span className="text-[#88aab8]/30 ml-0.5">›</span>
                 </span>
               )}
             </div>
           ))}
         </div>
-        <div className="pl-pipeline__icons">
+        <div className="flex justify-between items-center relative px-4">
           {WORKFLOW_STEPS.map((step, index) => (
-            <div key={step.id} className="pl-pipeline__icon-group">
-              <div className={`pl-pipeline__circle pl-pipeline__circle--${step.id}`}>
+            <div key={step.id} className="flex items-center">
+              <div className={`w-[42px] h-[42px] rounded-full flex items-center justify-center border bg-[#0c1720] transition-all ${
+                step.id === 'idea' ? 'border-[#4fd1b4]/30 bg-[#4fd1b4]/5 text-[#4fd1b4]' :
+                step.id === 'build' ? 'border-[#3b82f6]/30 bg-[#3b82f6]/5 text-[#3b82f6]' :
+                step.id === 'validate' ? 'border-[#f59e0b]/30 bg-[#f59e0b]/5 text-[#f59e0b]' :
+                'border-emerald-500/30 bg-emerald-500/5 text-emerald-500'
+              }`}>
                 {step.id === 'idea' && <IdeaIcon />}
                 {step.id === 'build' && <BuildIcon />}
                 {step.id === 'validate' && <ValidateIcon />}
                 {step.id === 'operate' && <OperateIcon />}
               </div>
-              {index < WORKFLOW_STEPS.length - 1 && <span className="pl-pipeline__icon-line" />}
+              {index < WORKFLOW_STEPS.length - 1 && <span className="flex-1 h-[2px] bg-[#88aab8]/10" />}
             </div>
           ))}
         </div>
-        <div className="pl-pipeline__descs">
+        <div className="flex justify-between text-[8px] text-[#5e7a72] leading-snug text-center gap-2">
           {WORKFLOW_STEPS.map((step) => (
-            <span key={step.id} className="pl-pipeline__desc">{step.description}</span>
+            <span key={step.id} className="flex-1">{step.description}</span>
           ))}
         </div>
       </div>
@@ -630,24 +547,24 @@ function RiskControlsPanel() {
   ]
 
   return (
-    <section className="pl-risk-panel">
-      <div className="pl-risk-panel__header">
-        <div className="pl-risk-panel__title">
-          <span className="pl-risk-dot" />
+    <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+      <div className="flex justify-between items-center border-b border-[#88aab8]/10 pb-2.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <strong>Risk & Controls</strong>
         </div>
-        <span className="pl-risk-panel__scope">This Workspace</span>
+        <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">This Workspace</span>
       </div>
 
-      <div className="pl-risk-gauge">
-        <div className="pl-risk-gauge__label">Current Risk</div>
-        <div className="pl-risk-gauge__score">
-          <span className="pl-risk-gauge__value">{riskScore}</span>
-          <span className="pl-risk-gauge__max">/ 1.00</span>
+      <div className="flex flex-col items-center p-4 bg-[#0c1720]/40 rounded-xl border border-[#88aab8]/10 relative overflow-hidden gap-1">
+        <div className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Current Risk</div>
+        <div className="text-2xl font-extrabold text-white">
+          <span>{riskScore}</span>
+          <span className="text-xs text-[#5e7a72] font-semibold">/ 1.00</span>
         </div>
-        <span className="pl-risk-gauge__level pl-risk-gauge__level--moderate">Moderate</span>
-        <div className="pl-risk-sparkline">
-          <svg viewBox="0 0 200 40" className="pl-risk-sparkline__svg">
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20">Moderate</span>
+        <div className="w-full h-10 mt-2">
+          <svg viewBox="0 0 200 40" className="w-full h-full">
             <polyline
               fill="none"
               stroke="#4fd1b4"
@@ -655,22 +572,22 @@ function RiskControlsPanel() {
               points="0,30 20,28 40,32 60,25 80,20 100,22 120,18 140,15 160,12 180,14 200,10"
             />
           </svg>
-          <div className="pl-risk-sparkline__labels">
+          <div className="flex justify-between text-[8px] text-[#5e7a72] font-semibold">
             <span>May 2</span><span>May 9</span><span>May 16</span>
           </div>
         </div>
       </div>
 
-      <div className="pl-risk-metrics">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {metrics.map((m) => (
-          <div key={m.label} className="pl-risk-metric">
-            <span className="pl-risk-metric__label">{m.label}</span>
-            <span className="pl-risk-metric__value">{m.value}</span>
+          <div key={m.label} className="flex justify-between py-1.5 border-b border-[#88aab8]/10 text-xs">
+            <span className="text-[#88aab8]">{m.label}</span>
+            <span className="font-bold text-white">{m.value}</span>
           </div>
         ))}
       </div>
 
-      <button type="button" className="pl-risk-cta">View Risk Dashboard →</button>
+      <button type="button" className="text-[10px] font-bold text-[#4fd1b4] hover:text-[#6ee0c8] cursor-pointer text-center mt-2 border-none bg-transparent">View Risk Dashboard →</button>
     </section>
   )
 }
@@ -683,13 +600,13 @@ function QuickControlsPanel() {
     { icon: '🔔', label: 'Alerts' },
   ]
   return (
-    <section className="pl-quick-controls">
-      <h3>Quick Controls</h3>
-      <div className="pl-quick-controls__grid">
+    <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+      <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Quick Controls</h3>
+      <div className="grid grid-cols-2 gap-3">
         {controls.map((c) => (
-          <button key={c.label} type="button" className="pl-quick-control-btn">
-            <span className="pl-quick-control-btn__icon">{c.icon}</span>
-            <span className="pl-quick-control-btn__label">{c.label}</span>
+          <button key={c.label} type="button" className="p-3 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col items-center gap-1.5 hover:border-[#4fd1b4]/30 hover:bg-[#0c1720]/60 transition cursor-pointer active:scale-95 text-xs text-[#edf7f5]">
+            <span className="text-base">{c.icon}</span>
+            <span className="text-[10px] font-bold text-[#edf7f5]">{c.label}</span>
           </button>
         ))}
       </div>
@@ -709,53 +626,59 @@ function RecentExperimentsTable() {
   const items = demoExperiments
 
   return (
-    <section className="pl-experiments-table">
-      <div className="pl-experiments-table__header">
-        <div className="pl-experiments-table__title">
-          <span className="pl-experiments-table__icon">🔬</span>
+    <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+      <div className="flex justify-between items-center pb-2 border-b border-[#88aab8]/15">
+        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+          <span className="text-xs">🔬</span>
           <h3>Recent Experiments</h3>
         </div>
-        <button type="button" className="pl-link-btn">View All Experiments →</button>
+        <button type="button" className="text-[#4fd1b4] hover:text-[#6ee0c8] cursor-pointer hover:underline border-none bg-transparent p-0">View All Experiments →</button>
       </div>
-      <table className="pl-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Experiment</th>
-            <th>Strategy / Blueprint</th>
-            <th>Status</th>
-            <th>Last Run</th>
-            <th>Sharpe (OOS)</th>
-            <th>Return (OOS)</th>
-            <th>Max DD</th>
-            <th>Actions</th>
+      <div className="overflow-x-auto [scrollbar-width:thin]">
+        <table className="w-full text-left border-collapse text-xs min-w-[800px]">
+          <thead>
+            <tr>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15"></th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Experiment</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Strategy / Blueprint</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Status</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Last Run</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Sharpe (OOS)</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Return (OOS)</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Max DD</th>
+            <th className="pb-2 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] border-b border-[#88aab8]/15">Actions</th>
           </tr>
         </thead>
         <tbody>
           {items.map((exp) => (
             <tr key={exp.id}>
-              <td><span className="pl-table__star">☆</span></td>
-              <td className="pl-table__id">{exp.id}</td>
-              <td>{exp.strategy}</td>
-              <td>
-                <span className={`pl-status pl-status--${exp.statusColor}`}>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]"><span className="text-[#5e7a72] hover:text-amber-400 cursor-pointer">☆</span></td>
+              <td className="py-3 border-b border-[#88aab8]/10 font-bold text-white">{exp.id}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{exp.strategy}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  exp.statusColor === 'green' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30' :
+                  exp.statusColor === 'yellow' ? 'bg-amber-950/20 text-amber-400 border border-amber-900/30' :
+                  'bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5]'
+                }`}>
                   {exp.status} {exp.statusColor === 'green' ? '✓' : exp.statusColor === 'yellow' ? '⟳' : '✎'}
                 </span>
               </td>
-              <td className="pl-table__muted">{exp.lastRun}</td>
-              <td>{exp.sharpe || '—'}</td>
-              <td className="pl-table__positive">{exp.returnOOS || '—'}</td>
-              <td className="pl-table__negative">{exp.returnVal || '—'}</td>
-              <td>
-                <div className="pl-table__actions">
-                  {exp.hasPlay && <button type="button" className="pl-table__action-btn">▶</button>}
-                  <button type="button" className="pl-table__action-btn">⋯</button>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#5e7a72]">{exp.lastRun}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{exp.sharpe || '—'}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-emerald-400 font-bold">{exp.returnOOS || '—'}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-rose-400 font-bold">{exp.returnVal || '—'}</td>
+              <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">
+                <div className="flex gap-2">
+                  {exp.hasPlay && <button type="button" className="text-white bg-[#0c1720]/60 border border-[#88aab8]/10 hover:border-[#4fd1b4]/30 w-6 h-6 flex items-center justify-center p-0 rounded-lg text-xs">▶</button>}
+                  <button type="button" className="text-white bg-[#0c1720]/60 border border-[#88aab8]/10 hover:border-[#4fd1b4]/30 w-6 h-6 flex items-center justify-center p-0 rounded-lg text-xs">⋯</button>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   )
 }
@@ -822,11 +745,11 @@ function ProLabRunSummary({ payload }) {
   }
   if (!sections.length) return null
   return (
-    <div className="pl-result-summary">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
       {sections.map(([title, lines]) => (
-        <article key={title}>
-          <strong>{title}</strong>
-          {lines.slice(0, 4).map((line) => <span key={line}>{line}</span>)}
+        <article key={title} className="flex flex-col gap-1">
+          <strong className="text-xs font-bold text-[#4fd1b4] uppercase tracking-wider">{title}</strong>
+          {lines.slice(0, 4).map((line) => <span key={line} className="text-xs text-[#88aab8]">{line}</span>)}
         </article>
       ))}
     </div>

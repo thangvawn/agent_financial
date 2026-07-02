@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import './optimizer-scenario.css'
 
 const SLIDER_CONTROLS = [
   { id: 'riskBudget', label: 'Risk Budget (Annual Vol Target)', min: 5, max: 30, step: 0.5, suffix: '%' },
@@ -116,7 +115,7 @@ function DonutChart({ data, size = 180 }) {
         d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
         fill={d.color}
         opacity={0.85}
-        stroke="#091210"
+        stroke="#101d26"
         strokeWidth={2}
       />
     )
@@ -125,7 +124,7 @@ function DonutChart({ data, size = 180 }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {arcs}
-      <circle cx={cx} cy={cy} r={r * 0.52} fill="#091210" />
+      <circle cx={cx} cy={cy} r={r * 0.52} fill="#101d26" />
     </svg>
   )
 }
@@ -153,105 +152,105 @@ export default function OptimizerScenarioPage({ onBack }) {
   const totalPct = useMemo(() => ALLOCATION_CHART.reduce((s, d) => s + d.pct, 0), [])
 
   return (
-    <div className="os">
+    <div className="w-full min-h-screen bg-transparent text-[#c8d6d2] font-sans px-6 md:px-10 py-6 md:py-8 flex flex-col gap-6 max-w-[1720px] mx-auto">
       {/* Breadcrumb */}
-      <nav className="os-breadcrumb">
-        <button className="os-breadcrumb__link" onClick={onBack}>Research</button>
-        <span className="os-breadcrumb__sep">/</span>
-        <button className="os-breadcrumb__link" onClick={onBack}>Pro Lab</button>
-        <span className="os-breadcrumb__sep">/</span>
-        <span className="os-breadcrumb__current">Optimizer &amp; Scenario Lab</span>
+      <nav className="flex items-center gap-1.5 text-xs text-[#5e7a72]">
+        <button className="p-0 border-none bg-transparent text-[#4fd1b4] font-semibold cursor-pointer hover:text-[#6ee0c8] transition" onClick={onBack}>Research</button>
+        <span className="text-[#2a3f3a]">/</span>
+        <button className="p-0 border-none bg-transparent text-[#4fd1b4] font-semibold cursor-pointer hover:text-[#6ee0c8] transition" onClick={onBack}>Pro Lab</button>
+        <span className="text-[#2a3f3a]">/</span>
+        <span className="text-[#5e7a72] font-semibold">Optimizer &amp; Scenario Lab</span>
       </nav>
 
       {/* Two-column layout */}
-      <div className="os-columns">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5 items-start">
         {/* ── Left: Optimizer Lab ──────────────────────── */}
-        <div className="os-col">
-          <header className="os-section-header">
-            <div className="os-section-header__left">
-              <span className="os-section-icon os-section-icon--green">⚙️</span>
+        <div className="grid gap-4">
+          <header className="flex justify-between items-start gap-4 flex-wrap">
+            <div className="flex gap-2.5 items-start">
+              <span className="w-[38px] h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-lg flex-shrink-0 bg-[#4fd1b4]/10 border border-[#4fd1b4]/20 text-[#4fd1b4]">⚙️</span>
               <div>
-                <h2 className="os-section-title">Optimizer Lab</h2>
-                <p className="os-section-subtitle">Build risk-aware portfolios that respect your constraints.</p>
+                <h2 className="margin-0 text-lg font-extrabold text-[#ecf4f0] tracking-tight leading-tight">Optimizer Lab</h2>
+                <p className="margin-0 mt-0.5 text-xs text-[#5e7a72] leading-normal">Build risk-aware portfolios that respect your constraints.</p>
               </div>
             </div>
-            <div className="os-section-header__actions">
-              <button className="os-pill os-pill--draft">Draft</button>
-              <button className="os-pill os-pill--outline" onClick={() => setValues(DEFAULT_VALUES)}>Reset</button>
+            <div className="flex gap-2 items-center flex-shrink-0">
+              <button className="px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">Draft</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95 text-[#a0b8b0] bg-transparent border border-[#4fd1b4]/10 hover:border-[#4fd1b4]/25" onClick={() => setValues(DEFAULT_VALUES)}>Reset</button>
             </div>
           </header>
 
           {/* Optimization Controls */}
-          <div className="os-card">
-            <h3 className="os-card__title">Optimization Controls</h3>
-            <div className="os-controls">
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Optimization Controls</h3>
+            <div className="grid gap-4">
               {SLIDER_CONTROLS.map((ctrl) => (
-                <label key={ctrl.id} className="os-control-field">
-                  <div className="os-control-field__head">
-                    <label className="os-slider-group__label">{ctrl.label}</label>
+                <label key={ctrl.id} className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold text-[#88aab8]">{ctrl.label}</span>
                   </div>
-                  <div className="os-compact-input">
+                  <div className="flex items-center bg-[#0c1720]/80 border border-[#88aab8]/20 rounded-lg px-2 py-1">
                     <input
                       type="number"
-                      className="os-num-input"
+                      className="bg-transparent border-none text-[#edf7f5] text-xs font-semibold w-16 outline-none text-right"
                       value={values[ctrl.id]}
                       min={ctrl.min}
                       max={ctrl.max}
                       step={ctrl.step}
                       onChange={(e) => set(ctrl.id, parseFloat(e.target.value) || 0)}
                     />
-                    <span className="os-slider-group__suffix">{ctrl.suffix}</span>
+                    <span className="text-xs font-bold text-[#88aab8] select-none ml-1">{ctrl.suffix}</span>
                   </div>
                 </label>
               ))}
 
-              <div className="os-control-divider" />
-              <h4 className="os-control-subtitle">Exposure Constraints</h4>
+              <div className="h-[1px] bg-[#88aab8]/10 my-1" />
+              <h4 className="text-xs font-bold text-[#4fd1b4] uppercase tracking-wider">Exposure Constraints</h4>
 
               {RANGE_CONTROLS.map((ctrl) => (
-                <div key={ctrl.id} className="os-constraint-row">
-                  <span className="os-slider-group__label">{ctrl.label}</span>
-                  <div className="os-range-inputs">
-                    <label>
-                      <span>Min</span>
-                      <div className="os-compact-input os-compact-input--sm">
+                <div key={ctrl.id} className="flex flex-wrap items-center justify-between gap-2.5 py-1">
+                  <span className="text-xs font-semibold text-[#88aab8]">{ctrl.label}</span>
+                  <div className="flex items-center gap-3 text-xs">
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[#5e7a72]">Min</span>
+                      <div className="flex items-center bg-[#0c1720]/80 border border-[#88aab8]/20 rounded-lg px-2 py-1 max-w-[100px]">
                         <input
                           type="number"
-                          className="os-num-input"
+                          className="bg-transparent border-none text-[#edf7f5] text-xs font-semibold w-12 outline-none text-right"
                           value={values[ctrl.id][0]}
                           min={ctrl.min}
                           max={ctrl.max}
                           step={ctrl.step}
                           onChange={(e) => setRange(ctrl.id, 0, parseFloat(e.target.value) || 0)}
                         />
-                        <span className="os-slider-group__suffix">{ctrl.suffix}</span>
+                        <span className="text-xs font-bold text-[#88aab8] select-none ml-1">{ctrl.suffix}</span>
                       </div>
                     </label>
-                    <label>
-                      <span>Max</span>
-                      <div className="os-compact-input os-compact-input--sm">
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[#5e7a72]">Max</span>
+                      <div className="flex items-center bg-[#0c1720]/80 border border-[#88aab8]/20 rounded-lg px-2 py-1 max-w-[100px]">
                         <input
                           type="number"
-                          className="os-num-input"
+                          className="bg-transparent border-none text-[#edf7f5] text-xs font-semibold w-12 outline-none text-right"
                           value={values[ctrl.id][1]}
                           min={ctrl.min}
                           max={ctrl.max}
                           step={ctrl.step}
                           onChange={(e) => setRange(ctrl.id, 1, parseFloat(e.target.value) || 0)}
                         />
-                        <span className="os-slider-group__suffix">{ctrl.suffix}</span>
+                        <span className="text-xs font-bold text-[#88aab8] select-none ml-1">{ctrl.suffix}</span>
                       </div>
                     </label>
-                    <span className="os-checkmark">✓</span>
+                    <span className="text-emerald-500 font-bold text-xs">✓</span>
                   </div>
                 </div>
               ))}
 
               {/* Allocation Method */}
-              <div className="os-slider-group">
-                <label className="os-slider-group__label">Allocation Method</label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-[#88aab8]">Allocation Method</label>
                 <select
-                  className="os-select"
+                  className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition"
                   value={values.allocationMethod}
                   onChange={(e) => set('allocationMethod', e.target.value)}
                 >
@@ -264,26 +263,26 @@ export default function OptimizerScenarioPage({ onBack }) {
               </div>
             </div>
 
-            <div className="os-run-row">
-              <button className="os-btn os-btn--run">Run Optimization ▶</button>
-              <span className="os-run-row__ts">Last run: May 16, 2025 10:22 AM</span>
+            <div className="flex items-center justify-between gap-4 mt-2">
+              <button className="px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] !h-auto !py-2.5">Run Optimization ▶</button>
+              <span className="text-[10px] text-[#5e7a72] font-semibold">Last run: May 16, 2025 10:22 AM</span>
             </div>
           </div>
 
           {/* Portfolio Allocation (Draft) */}
-          <div className="os-card">
-            <h3 className="os-card__title">Portfolio Allocation (Draft)</h3>
-            <div className="os-alloc-layout">
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Portfolio Allocation (Draft)</h3>
+            <div className="flex flex-col sm:flex-row items-center gap-6 justify-center">
               <DonutChart data={ALLOCATION_CHART} size={190} />
-              <div className="os-alloc-legend">
+              <div className="flex-1 w-full flex flex-col gap-2">
                 {ALLOCATION_CHART.map((d) => (
-                  <div key={d.label} className="os-alloc-legend__row">
-                    <span className="os-alloc-legend__dot" style={{ background: d.color }} />
-                    <span className="os-alloc-legend__label">{d.label}</span>
-                    <span className="os-alloc-legend__pct">{d.pct}%</span>
+                  <div key={d.label} className="flex items-center gap-2 text-xs">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+                    <span className="flex-1 text-[#88aab8]">{d.label}</span>
+                    <span className="font-bold text-white">{d.pct}%</span>
                   </div>
                 ))}
-                <div className="os-alloc-legend__total">
+                <div className="flex justify-between border-t border-[#88aab8]/15 pt-2 mt-1 text-xs font-bold text-white">
                   <span>Total</span>
                   <strong>{totalPct.toFixed(1)}%</strong>
                 </div>
@@ -292,122 +291,138 @@ export default function OptimizerScenarioPage({ onBack }) {
           </div>
 
           {/* Constraint Check */}
-          <div className="os-card">
-            <h3 className="os-card__title">Constraint Check</h3>
-            <table className="os-table">
-              <thead>
-                <tr>
-                  <th>Constraint</th>
-                  <th>Status</th>
-                  <th>Utilization</th>
-                </tr>
-              </thead>
-              <tbody>
-                {CONSTRAINT_ROWS.map((row) => (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td><span className="os-badge os-badge--pass">✓ {row.status}</span></td>
-                    <td>{row.util}</td>
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Constraint Check</h3>
+            <div className="overflow-x-auto [scrollbar-width:thin]">
+              <table className="w-full text-left border-collapse text-xs min-w-[500px]">
+                <thead>
+                  <tr>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Constraint</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Status</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Utilization</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {CONSTRAINT_ROWS.map((row) => (
+                    <tr key={row.name}>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{row.name}</td>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">✓ {row.status}</span>
+                      </td>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{row.util}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Draft Weights */}
-          <div className="os-card">
-            <h3 className="os-card__title">Draft Weights</h3>
-            <table className="os-table">
-              <thead>
-                <tr>
-                  <th>Asset / ETF</th>
-                  <th>Asset Class</th>
-                  <th>Weight%</th>
-                  <th>Δ vs Current</th>
-                  <th>Marginal Risk</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DRAFT_WEIGHTS.map((row) => (
-                  <tr key={row.asset}>
-                    <td className="os-table__bold">{row.asset}</td>
-                    <td className="os-table__muted">{row.cls}</td>
-                    <td>{row.weight}%</td>
-                    <td className={row.delta.startsWith('+') ? 'os-table__up' : 'os-table__down'}>{row.delta}%</td>
-                    <td>{row.risk}</td>
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Draft Weights</h3>
+            <div className="overflow-x-auto [scrollbar-width:thin]">
+              <table className="w-full text-left border-collapse text-xs min-w-[600px]">
+                <thead>
+                  <tr>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Asset / ETF</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Asset Class</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Weight%</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Δ vs Current</th>
+                    <th className="pb-2.5 border-b border-[#88aab8]/15 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px]">Marginal Risk</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {DRAFT_WEIGHTS.map((row) => (
+                    <tr key={row.asset}>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-white font-bold">{row.asset}</td>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#5e7a72]">{row.cls}</td>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{row.weight}%</td>
+                      <td className={`py-3 border-b border-[#88aab8]/10 ${row.delta.startsWith('+') ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}`}>{row.delta}%</td>
+                      <td className="py-3 border-b border-[#88aab8]/10 text-[#edf7f5]">{row.risk}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         {/* ── Right: Scenario Lab ─────────────────────── */}
-        <div className="os-col">
-          <header className="os-section-header">
-            <div className="os-section-header__left">
-              <span className="os-section-icon os-section-icon--amber">🌐</span>
+        <div className="grid gap-4">
+          <header className="flex justify-between items-start gap-4 flex-wrap">
+            <div className="flex gap-2.5 items-start">
+              <span className="w-[38px] h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-lg flex-shrink-0 bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b]">🌐</span>
               <div>
-                <h2 className="os-section-title">Scenario Lab</h2>
-                <p className="os-section-subtitle">Model macro shocks and stress-test your portfolio.</p>
+                <h2 className="margin-0 text-lg font-extrabold text-[#ecf4f0] tracking-tight leading-tight">Scenario Lab</h2>
+                <p className="margin-0 mt-0.5 text-xs text-[#5e7a72] leading-normal">Model macro shocks and stress-test your portfolio.</p>
               </div>
             </div>
-            <div className="os-section-header__actions">
-              <button className="os-pill os-pill--outline">Manage Scenarios</button>
-              <button className="os-pill os-pill--icon">⋯</button>
+            <div className="flex gap-2 items-center flex-shrink-0">
+              <button className="px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95 text-[#a0b8b0] bg-transparent border border-[#4fd1b4]/10 hover:border-[#4fd1b4]/25">Manage Scenarios</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95 text-[#a0b8b0] bg-[#11222a]/50 border border-[#4fd1b4]/10 hover:border-[#4fd1b4]/25 w-7 h-7 flex items-center justify-center p-0">⋯</button>
             </div>
           </header>
 
           {/* Macro & Stress Scenarios */}
-          <div className="os-card">
-            <h3 className="os-card__title">Macro &amp; Stress Scenarios</h3>
-            <div className="os-scenario-cards">
-              {SCENARIOS.map((s) => (
-                <button
-                  key={s.id}
-                  className={`os-scenario-card ${activeScenario === s.id ? 'os-scenario-card--active' : ''}`}
-                  onClick={() => setActiveScenario(s.id)}
-                  style={{ '--sc-color': s.color }}
-                >
-                  <span className="os-scenario-card__name">{s.name}</span>
-                  <div className="os-scenario-card__meta">
-                    <span className="os-scenario-card__dots">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span
-                          key={i}
-                          className={`os-dot ${i < s.severity ? 'os-dot--filled' : ''}`}
-                          style={i < s.severity ? { background: s.color } : undefined}
-                        />
-                      ))}
-                    </span>
-                    <span className="os-scenario-card__horizon">{s.horizon}</span>
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Macro &amp; Stress Scenarios</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SCENARIOS.map((s) => {
+                const isActive = activeScenario === s.id
+                return (
+                  <div
+                    key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    className={`flex flex-col gap-3 p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
+                      isActive
+                        ? 'bg-[#101d26]/90 shadow-md'
+                        : 'bg-[#0c1720]/40 border-[#88aab8]/10 hover:border-[#88aab8]/25'
+                    }`}
+                    style={{ borderColor: isActive ? s.color : undefined }}
+                    onClick={() => setActiveScenario(s.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && setActiveScenario(s.id)}
+                  >
+                    <span className="text-xs font-bold text-white leading-snug">{s.name}</span>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="flex gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`w-1.5 h-1.5 rounded-full ${i < s.severity ? '' : 'bg-[#11222a]/80'}`}
+                            style={i < s.severity ? { background: s.color } : undefined}
+                          />
+                        ))}
+                      </span>
+                      <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">{s.horizon}</span>
+                    </div>
                   </div>
-                </button>
-              ))}
+                )
+              })}
             </div>
           </div>
 
           {/* Impact Heatmap */}
-          <div className="os-card">
-            <h3 className="os-card__title">Impact Heatmap</h3>
-            <div className="os-heatmap-wrap">
-              <table className="os-table os-table--heatmap">
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Impact Heatmap</h3>
+            <div className="overflow-x-auto [scrollbar-width:thin]">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr>
-                    <th>Asset / Sector</th>
-                    <th>FX Shock</th>
-                    <th>Rate Shock</th>
-                    <th>Inflation</th>
-                    <th>Growth</th>
+                    <th className="pb-2.5 border border-[#88aab8]/10 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] p-2">Asset / Sector</th>
+                    <th className="pb-2.5 border border-[#88aab8]/10 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] p-2 text-center">FX Shock</th>
+                    <th className="pb-2.5 border border-[#88aab8]/10 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] p-2 text-center">Rate Shock</th>
+                    <th className="pb-2.5 border border-[#88aab8]/10 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] p-2 text-center">Inflation</th>
+                    <th className="pb-2.5 border border-[#88aab8]/10 text-[#5e7a72] font-bold uppercase tracking-wider text-[10px] p-2 text-center">Growth</th>
                   </tr>
                 </thead>
                 <tbody>
                   {HEATMAP_ROWS.map((row) => (
                     <tr key={row.asset}>
-                      <td className="os-table__bold">{row.asset}</td>
+                      <td className="p-2 border border-[#88aab8]/10 text-white font-bold">{row.asset}</td>
                       {[row.fx, row.rate, row.inflation, row.growth].map((val, i) => (
-                        <td key={i} style={{ background: heatColor(val) }}>
-                          <span className={val >= 0 ? 'os-table__up' : 'os-table__down'}>
+                        <td key={i} className="text-center border border-[#88aab8]/10 p-2" style={{ background: heatColor(val) }}>
+                          <span className={val >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                             {val >= 0 ? '+' : ''}{val.toFixed(1)}%
                           </span>
                         </td>
@@ -420,27 +435,27 @@ export default function OptimizerScenarioPage({ onBack }) {
           </div>
 
           {/* Scenario Assumptions */}
-          <div className="os-card">
-            <h3 className="os-card__title">Scenario Assumptions</h3>
-            <div className="os-kv-grid">
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Scenario Assumptions</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SCENARIO_ASSUMPTIONS.map((a) => (
-                <div key={a.key} className="os-kv">
-                  <span className="os-kv__key">{a.key}</span>
-                  <span className="os-kv__val">{a.value}</span>
+                <div key={a.key} className="flex justify-between py-1.5 border-b border-[#88aab8]/10 text-xs">
+                  <span className="text-[#88aab8]">{a.key}</span>
+                  <span className="font-bold text-white">{a.value}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Portfolio Stress Results */}
-          <div className="os-card">
-            <h3 className="os-card__title">Portfolio Stress Results</h3>
-            <div className="os-metrics-grid">
+          <div className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Portfolio Stress Results</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {STRESS_RESULTS.map((m) => (
-                <div key={m.label} className="os-metric-card">
-                  <span className="os-metric-card__label">{m.label}</span>
+                <div key={m.label} className="p-3.5 rounded-xl bg-[#0c1720]/60 border border-[#88aab8]/10 flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">{m.label}</span>
                   <strong
-                    className={`os-metric-card__value ${m.negative ? 'os-metric-card__value--neg' : ''}`}
+                    className={`text-sm font-extrabold ${m.negative ? 'text-rose-400' : 'text-white'}`}
                   >
                     {m.value}
                   </strong>
@@ -452,10 +467,10 @@ export default function OptimizerScenarioPage({ onBack }) {
       </div>
 
       {/* Bottom action bar */}
-      <div className="os-action-bar">
-        <button className="os-btn os-btn--run">Apply Scenario ▶</button>
-        <button className="os-btn os-btn--blue">Re-optimize ▶</button>
-        <button className="os-btn os-btn--outline">Save Scenario Pack</button>
+      <div className="flex flex-wrap gap-3 pt-4 border-t border-[#88aab8]/15 mt-4">
+        <button className="px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] !h-auto !py-2.5">Apply Scenario ▶</button>
+        <button className="px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition active:scale-95 bg-[#3b82f6] hover:bg-[#60a5fa] text-white !h-auto !py-2.5">Re-optimize ▶</button>
+        <button className="px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition active:scale-95 border border-[#88aab8]/20 hover:border-[#88aab8]/45 text-[#edf7f5] !h-auto !py-2.5">Save Scenario Pack</button>
       </div>
     </div>
   )

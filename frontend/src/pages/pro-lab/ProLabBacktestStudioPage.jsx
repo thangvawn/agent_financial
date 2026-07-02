@@ -107,6 +107,9 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
   useEffect(() => {
     if (!chartContainerRef.current || chartRef.current) return undefined
 
+    const initialHeight = isExpanded ? Math.max(520, window.innerHeight - 260) : 620
+    chartContainerRef.current.style.height = `${initialHeight}px`
+
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
@@ -126,7 +129,7 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
         timeVisible: true,
       },
       width: chartContainerRef.current.clientWidth,
-      height: 620,
+      height: initialHeight,
     })
     const equitySeries = chart.addSeries(AreaSeries, {
       priceScaleId: 'left',
@@ -175,9 +178,11 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
 
     const resizeChart = () => {
       if (!chartContainerRef.current || !chartRef.current) return
+      const h = isExpanded ? Math.max(520, window.innerHeight - 260) : 620
+      chartContainerRef.current.style.height = `${h}px`
       chartRef.current.applyOptions({
         width: chartContainerRef.current.clientWidth,
-        height: isExpanded ? Math.max(520, window.innerHeight - 260) : 620,
+        height: h,
       })
     }
     window.addEventListener('resize', resizeChart)
@@ -196,9 +201,11 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
 
   useEffect(() => {
     if (!chartContainerRef.current || !chartRef.current) return
+    const h = isExpanded ? Math.max(520, window.innerHeight - 260) : 620
+    chartContainerRef.current.style.height = `${h}px`
     chartRef.current.applyOptions({
       width: chartContainerRef.current.clientWidth,
-      height: isExpanded ? Math.max(520, window.innerHeight - 260) : 620,
+      height: h,
     })
     chartRef.current.timeScale().fitContent()
   }, [isExpanded])
@@ -300,10 +307,478 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
     } finally {
       setLoading(false)
     }
-  }
+  }  const STYLES = `
+    .backtest-studio {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      color: #edf7f5;
+    }
+    
+    .backtest-studio__hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 16px 20px;
+      background: rgba(16, 29, 38, 0.6);
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 16px;
+    }
+    
+    .backtest-studio__hero h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    
+    .backtest-studio__hero p {
+      margin: 2px 0 0;
+      font-size: 0.78rem;
+      color: #88aab8;
+    }
+    
+    .backtest-studio-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    
+    .backtest-studio__full-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+    
+    .backtest-studio__chart-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px;
+      background: rgba(16, 29, 38, 0.6);
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+    }
+    
+    .backtest-studio__chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-bottom: 1px solid rgba(136, 170, 184, 0.12);
+      padding-bottom: 12px;
+    }
+    
+    .backtest-studio__chart-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    
+    .backtest-studio__toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .backtest-studio__toolbar select {
+      background: #0c1720;
+      border: 1px solid rgba(136, 170, 184, 0.2);
+      border-radius: 8px;
+      color: #edf7f5;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .backtest-studio__toolbar select:focus {
+      outline: none;
+      border-color: #4fd1b4;
+    }
+    
+    .backtest-studio__toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #88aab8;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(12, 23, 32, 0.5);
+      border: 1px solid rgba(136, 170, 184, 0.12);
+      transition: all 0.2s;
+    }
+    .backtest-studio__toolbar label:hover {
+      border-color: rgba(79, 209, 180, 0.3);
+      color: #edf7f5;
+    }
+    .backtest-studio__toolbar label input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: #4fd1b4;
+      cursor: pointer;
+      margin: 0;
+    }
+    
+    .backtest-studio__toolbar button {
+      padding: 6px 12px;
+      background: rgba(12, 23, 32, 0.6) !important;
+      border: 1px solid rgba(136, 170, 184, 0.2) !important;
+      border-radius: 8px !important;
+      color: #edf7f5 !important;
+      font-size: 0.75rem !important;
+      font-weight: 700 !important;
+      cursor: pointer;
+      box-shadow: none !important;
+      min-height: auto !important;
+      height: auto !important;
+      transition: all 0.2s;
+    }
+    .backtest-studio__toolbar button:hover:not(:disabled) {
+      background: rgba(79, 209, 180, 0.1) !important;
+      border-color: #4fd1b4 !important;
+      color: #4fd1b4 !important;
+    }
+    .backtest-studio__toolbar button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .backtest-studio__timeframes {
+      display: flex;
+      background: #0c1720;
+      border: 1px solid rgba(136, 170, 184, 0.2);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .backtest-studio__timeframes button {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 6px !important;
+      color: #88aab8 !important;
+      font-size: 0.75rem !important;
+      font-weight: 700 !important;
+      padding: 4px 10px !important;
+      cursor: pointer;
+      height: auto !important;
+      min-height: auto !important;
+      box-shadow: none !important;
+      transition: all 0.2s;
+    }
+    .backtest-studio__timeframes button:hover {
+      color: #edf7f5 !important;
+    }
+    .backtest-studio__timeframes button.is-active {
+      background: rgba(79, 209, 180, 0.15) !important;
+      color: #4fd1b4 !important;
+    }
+    
+    .backtest-studio__chart {
+      min-height: 520px;
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(136, 170, 184, 0.1);
+      background: #0a0f15;
+      position: relative;
+    }
+    
+    .backtest-studio__replay {
+      width: 100%;
+      margin: 8px 0;
+      accent-color: #4fd1b4;
+      cursor: pointer;
+    }
+    
+    .backtest-studio__foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      color: #5e7a72;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .backtest-studio__analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    @media (min-width: 640px) {
+      .backtest-studio__analysis-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (min-width: 1024px) {
+      .backtest-studio__analysis-grid {
+        grid-template-columns: repeat(8, 1fr);
+      }
+    }
+    
+    .backtest-studio__metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 10px 8px;
+      background: rgba(16, 29, 38, 0.6);
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 12px;
+    }
+    .backtest-studio__metric span {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #5e7a72;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .backtest-studio__metric strong {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #edf7f5;
+    }
+    .backtest-studio__metric.is-up strong {
+      color: #4fd1b4;
+    }
+    .backtest-studio__metric.is-down strong {
+      color: #ff6363;
+    }
+    
+    .backtest-studio__bottom-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 768px) {
+      .backtest-studio__bottom-layout {
+        grid-template-columns: 1.2fr 1fr;
+      }
+    }
+    
+    .backtest-studio__panel {
+      padding: 20px;
+      background: rgba(16, 29, 38, 0.6) !important;
+      border: 1px solid rgba(136, 170, 184, 0.15) !important;
+      border-radius: 16px !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24) !important;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .backtest-studio__panel h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    
+    .backtest-studio__form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .backtest-studio__form-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 850;
+      color: #5e7a72;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .backtest-studio__panel label input,
+    .backtest-studio__panel label select,
+    .backtest-studio__panel label textarea {
+      background: #0c1720 !important;
+      border: 1px solid rgba(136, 170, 184, 0.2) !important;
+      border-radius: 8px !important;
+      color: #edf7f5 !important;
+      padding: 8px 12px !important;
+      font-size: 0.82rem !important;
+      font-weight: 600 !important;
+      font-family: inherit;
+    }
+    .backtest-studio__panel label input:focus,
+    .backtest-studio__panel label select:focus,
+    .backtest-studio__panel label textarea:focus {
+      outline: none;
+      border-color: #4fd1b4 !important;
+      box-shadow: 0 0 0 2px rgba(79, 209, 180, 0.15);
+    }
+    .backtest-studio__panel label textarea {
+      resize: vertical;
+      font-family: monospace;
+    }
+    
+    .backtest-studio__metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    
+    .backtest-studio__trades {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 8px;
+      background: rgba(12, 23, 32, 0.4);
+      scrollbar-width: thin;
+    }
+    .backtest-studio__trades table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+    .backtest-studio__trades th {
+      position: sticky;
+      top: 0;
+      background: #0c1720;
+      padding: 6px 8px;
+      color: #5e7a72;
+      font-weight: 700;
+      text-transform: uppercase;
+      text-align: left;
+      border-bottom: 1px solid rgba(136, 170, 184, 0.15);
+    }
+    .backtest-studio__trades td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(136, 170, 184, 0.08);
+      color: #edf7f5;
+    }
+    .backtest-studio__trades tr:hover {
+      background: rgba(79, 209, 180, 0.05);
+    }
+    
+    .backtest-studio__result-chart {
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(12, 23, 32, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .backtest-studio__result-chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      color: #5e7a72;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .backtest-studio__mini-chart {
+      width: 100%;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    .backtest-studio__monthly {
+      border: 1px solid rgba(136, 170, 184, 0.15);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(12, 23, 32, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .backtest-studio__monthly-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-top: 6px;
+    }
+    @media (min-width: 480px) {
+      .backtest-studio__monthly-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+    .backtest-studio__monthly-grid div {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(136, 170, 184, 0.05);
+    }
+    .backtest-studio__monthly-grid div.is-positive {
+      background: rgba(57, 217, 138, calc(var(--intensity, 0.5) * 0.15));
+      border-color: rgba(57, 217, 138, calc(var(--intensity, 0.5) * 0.25));
+    }
+    .backtest-studio__monthly-grid div.is-negative {
+      background: rgba(255, 99, 99, calc(var(--intensity, 0.5) * 0.15));
+      border-color: rgba(255, 99, 99, calc(var(--intensity, 0.5) * 0.25));
+    }
+    .backtest-studio__monthly-grid div span {
+      font-weight: 600;
+      color: #5e7a72;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+    }
+    .backtest-studio__monthly-grid div strong {
+      font-weight: 700;
+      color: #edf7f5;
+    }
+    
+    .backtest-studio__hero button,
+    .backtest-studio__panel button {
+      padding: 8px 16px !important;
+      background: linear-gradient(135deg, #0f8f7b, #116d64) !important;
+      border: 1px solid rgba(85, 216, 189, 0.4) !important;
+      border-radius: 8px !important;
+      color: #ffffff !important;
+      font-size: 0.8rem !important;
+      font-weight: 700 !important;
+      cursor: pointer;
+      box-shadow: none !important;
+      min-height: auto !important;
+      height: auto !important;
+      transition: all 0.2s;
+    }
+    .backtest-studio__hero button:hover:not(:disabled),
+    .backtest-studio__panel button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #11a38c, #137e74) !important;
+      border-color: #4fd1b4 !important;
+    }
+    .backtest-studio__hero button:disabled,
+    .backtest-studio__panel button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .backtest-studio__hero button {
+      background: rgba(12, 23, 32, 0.6) !important;
+      border-color: rgba(136, 170, 184, 0.2) !important;
+      color: #edf7f5 !important;
+    }
+    .backtest-studio__hero button:hover {
+      background: rgba(79, 209, 180, 0.1) !important;
+      border-color: #4fd1b4 !important;
+      color: #4fd1b4 !important;
+    }
+  `;
 
   return (
     <section className={isExpanded ? 'pro-lab-section backtest-studio backtest-studio--expanded' : 'pro-lab-section backtest-studio'}>
+      <style>{STYLES}</style>
       <section className="backtest-studio__hero">
         <div>
           <p className="pro-lab-eyebrow">TradingView-style Sandbox</p>
@@ -313,12 +788,30 @@ export default function ProLabBacktestStudioPage({ sessionId, selectedBlueprintI
             Đây là paper lab để đọc xu hướng và giả thuyết kỹ thuật, không phải tín hiệu giao dịch.
           </p>
         </div>
-        <div className="pro-lab-badges">
-          {onBack ? <button type="button" onClick={onBack}>Về Pro Lab</button> : null}
-          <span className="pro-lab-badge pro-lab-badge--warn">Paper only</span>
-          <span className="pro-lab-badge">Not investment advice</span>
-          <span className="pro-lab-badge">{selectedBlueprint ? selectedBlueprint.name : 'No blueprint selected'}</span>
-          <button type="button" onClick={() => setIsExpanded((current) => !current)}>
+        <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
+          {onBack ? (
+            <button 
+              type="button" 
+              onClick={onBack}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold !bg-zinc-800/80 hover:!bg-zinc-800 !text-white !border-zinc-700 hover:!border-zinc-600 transition cursor-pointer !h-auto !min-h-0"
+            >
+              Về Pro Lab
+            </button>
+          ) : null}
+          <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 select-none uppercase tracking-wider">
+            Paper only
+          </span>
+          <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-zinc-800/60 border border-zinc-700/50 text-zinc-400 select-none uppercase tracking-wider">
+            Not investment advice
+          </span>
+          <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-[#4fd1b4]/10 border border-[#4fd1b4]/20 text-[#4fd1b4] select-none">
+            {selectedBlueprint ? selectedBlueprint.name : 'No blueprint selected'}
+          </span>
+          <button 
+            type="button" 
+            onClick={() => setIsExpanded((current) => !current)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold !bg-zinc-800/80 hover:!bg-zinc-800 !text-white !border-zinc-700 hover:!border-zinc-600 transition cursor-pointer !h-auto !min-h-0"
+          >
             {isExpanded ? 'Compact' : 'Full screen'}
           </button>
         </div>

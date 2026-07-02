@@ -166,30 +166,30 @@ export default function ProLabOverviewPage({
   }
 
   return (
-    <section className="pl-overview">
-      <div className="pl-module-grid">
+    <section className="w-full bg-transparent text-[#c8d6d2] font-sans flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {moduleCards.map((card) => {
           const isPrivate = card.providerId === 'private_auto_copy_trading'
           const isHidden = isPrivate && !privateProvider
           return (
             <article
               key={card.id}
-              className={`pl-module-card ${isHidden ? 'pl-module-card--disabled' : ''}`}
+              className={`p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col justify-between hover:border-[#4fd1b4]/30 hover:bg-[#101d26]/80 cursor-pointer transition-all duration-200 min-h-[160px] relative group ${isHidden ? 'opacity-50 pointer-events-none' : ''}`}
               onClick={() => handleCardClick(card)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => e.key === 'Enter' && handleCardClick(card)}
             >
-              <div className="pl-module-card__top">
-                <div className="pl-module-card__icon" style={{ background: `${card.color}18`, borderColor: `${card.color}30` }}>
+              <div className="flex gap-3 items-start">
+                <div className="w-[42px] h-[42px] min-w-[42px] flex items-center justify-center rounded-xl border flex-shrink-0 transition-transform duration-200 group-hover:scale-105" style={{ background: `${card.color}18`, borderColor: `${card.color}30` }}>
                   <CardIcon id={card.id} color={card.color} />
                 </div>
-                <div className="pl-module-card__text">
-                  <h3 className="pl-module-card__title">{card.title}</h3>
-                  <p className="pl-module-card__desc">{card.description}</p>
+                <div className="flex-1 flex flex-col gap-1">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">{card.title}</h3>
+                  <p className="text-xs text-[#88aab8] leading-relaxed">{card.description}</p>
                 </div>
               </div>
-              <div className="pl-module-card__footer">
+              <div className="mt-4 pt-2 border-t border-[#88aab8]/10 flex justify-end">
                 <ModuleStatus status={card.status} type={card.statusType} />
               </div>
             </article>
@@ -236,17 +236,17 @@ function CardIcon({ id, color }) {
 
 function ModuleStatus({ status, type }) {
   const classMap = {
-    active: 'pl-module-status--active',
-    ready: 'pl-module-status--ready',
-    pass: 'pl-module-status--pass',
-    good: 'pl-module-status--good',
-    info: 'pl-module-status--info',
-    link: 'pl-module-status--link',
-    new: 'pl-module-status--new',
+    active: 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30 flex items-center gap-1.5',
+    ready: 'bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20',
+    pass: 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30',
+    good: 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30',
+    info: 'bg-blue-950/20 text-blue-400 border border-blue-900/30',
+    link: 'bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20 group-hover:bg-[#4fd1b4] group-hover:text-[#071016] transition-colors',
+    new: 'bg-purple-950/20 text-purple-400 border border-purple-900/30',
   }
   return (
-    <span className={`pl-module-status ${classMap[type] || ''}`}>
-      {type === 'active' && <span className="pl-module-status__dot" />}
+    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${classMap[type] || ''}`}>
+      {type === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
       {type === 'pass' && '✓ '}
       {type === 'good' && '✓ '}
       {status}

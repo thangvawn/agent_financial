@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { animate, stagger } from 'animejs'
 
 import {
   AnalyticsAdminPage,
@@ -48,7 +49,7 @@ const SURFACE_LABELS = {
   auth_register: 'Đăng ký',
 }
 
-const PAGE_TRANSITION_MS = 180
+const PAGE_TRANSITION_MS = 200
 const AUTHENTICATED_LANDING_VIEW = 'global_terminal'
 const DEPRECATED_VIEW_ALIASES = {
   simulation_lab: 'global_terminal',
@@ -77,6 +78,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const [learningFocusView, setLearningFocusView] = useState('lesson')
   const [pendingPostAuthView, setPendingPostAuthView] = useState('')
   const previousViewRef = useRef('')
+  const surfacePanelRef = useRef(null)
 
   useEffect(() => {
     if (view === renderedView) return undefined
@@ -95,6 +97,28 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
     return () => window.clearTimeout(exitTimer)
   }, [renderedView, view])
+
+  useEffect(() => {
+    if (!surfacePanelRef.current) return
+    if (prefersReducedMotion()) return
+
+    if (transitionPhase === 'exiting') {
+      animate(surfacePanelRef.current, { opacity: 0, y: 12, duration: 0.15, ease: 'inQuad' })
+    } else if (transitionPhase === 'entering') {
+      animate(surfacePanelRef.current, { opacity: [0, 1], duration: 0.2, ease: 'outQuad' })
+      const targets = Array.from(surfacePanelRef.current.children)
+      if (targets.length) {
+        animate(targets, {
+          opacity: [0, 1],
+          y: [24, 0],
+          scale: [0.985, 1],
+          delay: stagger(0.04),
+          duration: 0.45,
+          ease: 'outExpo',
+        })
+      }
+    }
+  }, [renderedView, transitionPhase])
 
   useEffect(() => {
     const savedSessionId = readStoredSession()
@@ -455,16 +479,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   const tone = renderedView.includes('admin') ? 'operator' : (renderedView === 'pro_lab' || renderedView === 'backtest_studio') ? 'pro' : 'public'
-  const DARK_THEME_VIEWS = new Set([
-    'global_terminal',
-    'pro_lab',
-    'backtest_studio',
-    'news',
-    'news_economic_calendar',
-    'financial_statement_simulator',
-    'assignments',
-  ])
-  const themeAttr = DARK_THEME_VIEWS.has(renderedView) ? 'dark' : 'light'
+  const themeAttr = !isPublicView(renderedView) ? 'dark' : 'light'
   const isAuthView = renderedView === 'auth_login' || renderedView === 'auth_register'
   const hideAssistant = isAuthView || ['backtest_studio', 'global_terminal', 'news', 'news_economic_calendar'].includes(renderedView)
   const connectedNavActions = {
@@ -491,7 +506,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const shellSkin = renderedView === 'news_economic_calendar' ? 'news' : renderedView
 
   return (
-    <div className={`app-shell app-shell--${shellSkin.replaceAll('_', '-')} app-shell--${tone} app-shell--transition-${transitionPhase}`} data-theme={themeAttr}>
+    <div className={`app-shell app-shell--${shellSkin.replaceAll('_', '-')} app-shell--${tone} app-shell--transition-${transitionPhase} ${themeAttr}`} data-theme={themeAttr}>
       <div className="app-shell__ambient app-shell__ambient--one" />
       <div className="app-shell__ambient app-shell__ambient--two" />
       <div className="app-shell__frame">
@@ -504,7 +519,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
         />
         <main className="app-shell__content">
           <ConnectedWorkspaceNav currentView={renderedView} sessionId={sessionId} actions={connectedNavActions} showTabs={Boolean(sessionId)} />
-          <div className="surface-panel" key={renderedView} data-transition-phase={transitionPhase}>
+          <div ref={surfacePanelRef} className="surface-panel" key={renderedView} data-transition-phase={transitionPhase}>
             {content}
           </div>
         </main>

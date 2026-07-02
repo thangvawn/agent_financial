@@ -1,197 +1,348 @@
-# Spec: Dark Mode & Unified Layout (Post-Auth Pages)
+# Spec: Unified Dark Workspace Redesign
 
 ## Objective
 
-Tạo dark mode mặc định cho toàn bộ app sau khi đăng nhập, với toggle switch để user chuyển sang light mode.
-Đồng thời điều chỉnh layout (flex/grid) của các pages sau Auth để thống nhất, phù hợp với app giáo dục tài chính.
+Rebuild the authenticated workspace UI so all post-auth pages share one coherent dark-mode design system while preserving the existing feature flows, API calls, navigation behavior, and page responsibilities.
 
-Auth page (login/register) giữ nguyên light mode.
+The target experience is a professional financial research workspace: dense where data matters, calmer where learning or reading matters, and operational where admin tasks matter.
 
-## Phạm vi (Scope)
+## Confirmed Scope
 
-**Pages áp dụng dark mode + layout unification:**
-- `pages/home-onboarding/` — HomePage, OnboardingPage, MarketOverviewPage
-- `pages/learning/` — LearningHomePage, EducationPlatformPage
-- `pages/guided-investing/` — GuidedInvestingPage
-- `pages/insights/` — InsightsPage
-- `pages/community/` — CommunityPage
-- `pages/global-terminal/` — GlobalTerminalPage, NewsPage, NewsEconCalendarPage
-- `pages/pro-lab/` — ProLabPage và sub-pages
+Apply the redesign to the full post-auth workspace:
 
-**Không thay đổi:**
-- `pages/auth/` — giữ nguyên light mode
-- `pages/admin/` — admin pages giữ nguyên
-- Backend code
+- `global_terminal`, `news`, `news_economic_calendar`
+- `guided_investing`, `financial_statement_simulator`, `assignments`
+- `insights`
+- `learning`
+- `community`
+- `pro_lab`, `backtest_studio`
+- `content_ops_admin`, `community_moderation`, `pro_lab_admin`, `trust_safety_admin`, `analytics_admin`
+- `onboarding` when reached as an authenticated workspace flow
 
-## Tech Stack
+Keep public/auth flows functionally intact:
 
-- React 18 + Vite
-- CSS custom properties (tokens.css) — cơ chế dark mode đã có sẵn via `data-theme="dark"`
-- localStorage để persist user preference
-- Không thêm library mới
+- `auth_login`
+- `auth_register`
+- public `home` entry behavior
 
-## Cơ chế Dark Mode
+## Non-Goals
 
-Dark mode hoạt động qua `data-theme="dark"` attribute trên `.app-shell` div (AppShell.jsx dòng 494).
+- Do not change backend behavior.
+- Do not change authentication/session semantics.
+- Do not rewrite data-fetching flows unless a visual refactor exposes a clear bug.
+- Do not introduce Three.js/WebGL by default.
+- Do not make marketing-style landing pages inside the workspace.
+- Do not add heavy animation that competes with data reading.
 
-Hiện tại `DARK_THEME_VIEWS` trong AppShell hardcode list views có dark theme:
-```js
-const DARK_THEME_VIEWS = new Set([
-  'global_terminal', 'pro_lab', 'backtest_studio',
-  'news', 'news_economic_calendar',
-  'financial_statement_simulator', 'assignments',
-])
-```
+## Design Direction
 
-**Thay đổi:** Bỏ hardcode list → dùng user preference từ localStorage.
-Logic: `themeAttr = userPrefersDark ? 'dark' : 'light'`
-Exception: auth views luôn `light`.
+Name: **Midnight Trading Desk**
 
-## Commands
+The interface should feel like a calm financial terminal and research lab:
 
-```bash
-# Dev
-cd frontend && npm run dev
+- dark by default after authentication
+- compact but readable
+- chart/table friendly
+- precise status and market colors
+- restrained motion
+- one coherent component language across all workspace pages
 
-# Build & verify
-cd frontend && npm run build
+DFII score: **13/15**
 
-# Lint
-cd frontend && npm run lint
-```
+- Aesthetic impact: 4
+- Context fit: 5
+- Implementation feasibility: 5
+- Performance safety: 4
+- Consistency risk: controlled through shared shell/tokens/primitives
 
-## Project Structure
+## Design System Snapshot
 
-Files sẽ thay đổi:
+### Color
 
-```
-frontend/src/
-├── app/
-│   ├── AppShell.jsx            ← Thêm theme state + toggle, bỏ DARK_THEME_VIEWS hardcode
-│   └── NavBar.jsx              ← Thêm ThemeToggle button
-├── shared/
-│   ├── theme/                  ← NEW package
-│   │   ├── useTheme.js         ← Hook: get/set/persist dark|light preference
-│   │   └── ThemeToggle.jsx     ← Button toggle icon (sun/moon)
-├── styles/
-│   └── tokens.css              ← Không đổi (dark tokens đã có)
-├── pages/
-│   ├── home-onboarding/home.css      ← Đảm bảo dùng CSS vars, không hardcode màu
-│   ├── learning/learning.css         ← Như trên
-│   ├── guided-investing/guided-investing.css ← Như trên
-│   ├── insights/insights.css         ← Như trên
-│   ├── community/community.css       ← Như trên
-│   └── [các CSS còn lại]
-```
+Use the existing CSS custom property system as the foundation, but make dark mode the authenticated default.
 
-## Code Style
+Recommended palette direction:
 
-```jsx
-// useTheme.js — đơn giản, không over-engineer
-const STORAGE_KEY = 'nf.theme'
-const DEFAULT = 'dark'  // app mặc định dark sau login
+- Base: near-black/navy workspace backgrounds
+- Surface: layered dark panels with visible borders
+- Primary action/trust: blue
+- Finance/attention: amber
+- Market movement: green/red
+- Rare emphasis: violet
 
-export function useTheme() {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem(STORAGE_KEY) || DEFAULT
-  )
-  const toggle = useCallback(() => {
-    setTheme(t => {
-      const next = t === 'dark' ? 'light' : 'dark'
-      localStorage.setItem(STORAGE_KEY, next)
-      return next
-    })
-  }, [])
-  return { theme, toggle, isDark: theme === 'dark' }
-}
-```
+Avoid:
 
-```jsx
-// ThemeToggle.jsx — icon-only button, accessible
-export function ThemeToggle({ isDark, onToggle }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={isDark ? 'Chuyển sang light mode' : 'Chuyển sang dark mode'}
-      className="theme-toggle-btn"
-    >
-      {isDark ? <SunIcon /> : <MoonIcon />}
-    </button>
-  )
-}
-```
+- one-note purple dashboards
+- low-contrast gray text
+- decorative gradient blobs
+- hardcoded page-local colors that bypass tokens
 
-**Conventions:**
-- CSS vars từ `tokens.css` cho màu, không hardcode hex trong component CSS
-- Không dùng Tailwind inline classes cho màu (ảnh hưởng dark mode)
-- `data-theme` chỉ set trên `.app-shell` root — cascade xuống toàn bộ DOM
+### Typography
+
+The app currently uses `Inter` and system fallbacks. For implementation safety, keep the current font stack initially, but tune the typographic rhythm:
+
+- compact page titles
+- tabular numerals for all market/stat/table values
+- smaller section headings in dense panels
+- no hero-scale typography inside dashboards
+
+Future optional direction: evaluate `Fira Sans` / `Fira Code` for a stronger data-terminal feel.
+
+### Spacing And Geometry
+
+- Keep cards at `8px` or less unless existing components require otherwise.
+- Use stable grid dimensions for charts, tables, metric strips, toolbars, and navigation.
+- Prefer dense, organized workspace layouts over decorative card stacks.
+- Mobile tables must use horizontal scroll wrappers or card transformations.
+- Touch targets should be at least `44px`.
+
+### Motion
+
+Use motion sparingly:
+
+- page entry: short panel stagger
+- active nav indicator: quick slide
+- data refresh: subtle opacity/translate update
+- hover/focus: color, border, and shadow changes only
+
+Rules:
+
+- use transform/opacity only
+- 150-300ms for UI interactions
+- no infinite decorative motion
+- respect `prefers-reduced-motion`
+
+Anime.js can be used later for bespoke staggered page choreography, but the first implementation should remain CSS-first unless the existing stack already includes the dependency.
+
+## Architecture
+
+### Layer 1: Shell And Theme
+
+Files:
+
+- `frontend/src/app/AppShell.jsx`
+- `frontend/src/app/NavBar.jsx`
+- `frontend/src/shared/navigation/ConnectedWorkspaceNav.jsx`
+- `frontend/src/styles/tokens.css`
+- `frontend/src/styles/base-elements.css`
+- `frontend/src/styles/app-shell.css`
+
+Responsibilities:
+
+- authenticated workspace defaults to `data-theme="dark"`
+- shell gives every workspace page the same background, nav density, content width, and transition behavior
+- public/auth surfaces can stay visually separate
+- navigation remains functionally identical
+
+### Layer 2: Shared Workspace Primitives
+
+Create shared CSS primitives, preferably in a new imported stylesheet such as:
+
+- `frontend/src/styles/workspace-primitives.css`
+
+Core classes:
+
+- `workspace-page`
+- `workspace-header`
+- `workspace-kicker`
+- `workspace-title`
+- `workspace-subtitle`
+- `workspace-grid`
+- `workspace-card`
+- `workspace-panel`
+- `workspace-toolbar`
+- `workspace-table-wrap`
+- `workspace-metric-strip`
+- `workspace-metric`
+- `workspace-status-chip`
+- `workspace-chart-shell`
+- `workspace-empty-state`
+- `workspace-loading-state`
+- `workspace-error-state`
+
+The primitives should reduce duplicated page CSS while allowing page-specific workbench layouts.
+
+### Layer 3: Page Workbenches
+
+Each page group keeps its own feature flow but adopts the shared primitives.
+
+#### Global Terminal / News
+
+Dense terminal layout:
+
+- top market/action rail
+- market summary strip
+- chart-first panels
+- watchlist/news/calendar modules
+- mobile-safe data tables
+
+Visual priority: numbers, charts, and live context.
+
+#### Insights
+
+Research desk layout:
+
+- readable main research column
+- supporting evidence/sidebar
+- compact insight summaries
+- calm density, less terminal-like than charts pages
+
+Visual priority: reading, comparing, and tracing rationale.
+
+#### Guided Investing
+
+Step-based analysis workbench:
+
+- progress zones
+- checklist/cards
+- BCTC analysis modules
+- obvious next-action surfaces
+
+Visual priority: guided decision flow.
+
+#### Learning
+
+Academy cockpit:
+
+- continue-learning surface
+- paths/modules
+- lesson focus
+- practice/review actions
+- admin entry visually separated
+
+Visual priority: learner orientation and momentum.
+
+#### Pro Lab / Backtest Studio
+
+Research cockpit:
+
+- experiment/session/blueprint panels
+- metric strips
+- validation results
+- journal/report workspace
+- high-density technical controls
+
+Visual priority: experiment iteration and result confidence.
+
+#### Community
+
+Dark discussion workspace:
+
+- space selector
+- discussion cards
+- contribution CTA
+- moderation entry
+
+Visual priority: human conversation without social-feed noise.
+
+#### Admin
+
+Operational console:
+
+- dense tables
+- filters
+- action bars
+- bulk action affordances when available
+- clear warning/danger states
+
+Visual priority: scanning, triage, and repeat operations.
+
+## Accessibility And Responsiveness
+
+Requirements:
+
+- normal text contrast at least 4.5:1
+- visible focus states
+- icon-only buttons require `aria-label`
+- no horizontal viewport overflow on mobile
+- tables wrap in scroll containers or switch to cards
+- reserve layout space for async content
+- respect reduced motion
+
+Viewport checks:
+
+- 375px
+- 768px
+- 1024px
+- 1440px
+
+## Performance
+
+- Avoid adding dependencies unless the payoff is clear.
+- Keep page transitions light.
+- Do not render large invisible DOM lists.
+- Consider virtualization for long lists over 100 rows/items if performance becomes a measured problem.
+- Do not add autoplay media loops.
+
+## Implementation Plan
+
+1. Update theme behavior so all authenticated workspace views use dark mode by default.
+2. Add shared workspace primitives stylesheet and import it from `frontend/src/index.css`.
+3. Refine app shell and connected navigation for a compact dark workspace.
+4. Update page group CSS incrementally:
+   - global terminal/news
+   - pro lab/backtest studio
+   - insights/guided investing
+   - learning/community
+   - admin pages
+5. Run build/lint.
+6. Start dev server and visually inspect representative routes.
 
 ## Testing Strategy
 
-Manual testing (không có test framework cho UI hiện tại):
-1. Login → app mặc định dark
-2. Toggle → chuyển light, reload → vẫn light (persist)
-3. Logout, login lại → vẫn nhớ preference
-4. Auth page (login/register) → luôn light dù preference là dark
-5. Mỗi page sau Auth: text readable, contrast đủ, không có màu hardcode bị vỡ
+Automated:
 
-## Boundaries
+- `cd frontend && npm run build`
+- `cd frontend && npm run lint`
 
-**Always:**
-- Dùng CSS custom properties từ `tokens.css` (`--bg`, `--surface`, `--ink`, `--accent`, v.v.)
-- Auth views (`auth_login`, `auth_register`) luôn `data-theme="light"`
-- Persist preference vào localStorage với key `nf.theme`
-- Default dark cho user mới (chưa có preference)
+Manual:
 
-**Ask first:**
-- Thay đổi màu accent (hiện `--accent: #2563eb` light / `#3b82f6` dark)
-- Thêm custom dark palette ngoài tokens.css
-- Redesign layout của bất kỳ page cụ thể nào (spec này chỉ fix CSS vars, không redesign)
+- login flow still routes to the same authenticated landing
+- each post-auth route renders without breaking feature controls
+- nav active state remains correct
+- no mobile horizontal page overflow
+- charts/tables keep readable dimensions
+- admin actions remain discoverable
+- reduced motion path is acceptable
 
-**Never:**
-- Hardcode màu hex trong component CSS mới
-- Dùng `!important` để override dark mode (ngoại trừ reset hiện có)
-- Thêm dark mode library (prefers-color-scheme listener đủ dùng qua tokens)
-- Thay đổi auth page layout
+## Decision Log
 
-## Layout Unification
+1. Scope is the full authenticated workspace.
+   - Alternative: only redesign a few priority pages.
+   - Reason: user requested the entire workspace, with feature flows preserved.
 
-Các page CSS hiện tại có một số hardcode màu hex thay vì CSS vars. Task sẽ audit và fix.
+2. Use a unified shell plus page-specific workbenches.
+   - Alternative: redesign every page independently.
+   - Reason: this keeps consistency and lowers maintenance risk.
 
-**Unified surface pattern cho edu-finance pages:**
-```css
-/* Mọi page container nên dùng pattern này */
-.page-surface {
-  background: var(--bg);
-  color: var(--ink);
-  min-height: 100%;
-}
+3. Dark mode becomes the default authenticated experience.
+   - Alternative: keep mixed light/dark per route.
+   - Reason: mixed route themes are the main consistency problem.
 
-.page-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-}
+4. Preserve existing feature flows.
+   - Alternative: rewrite page flows while redesigning.
+   - Reason: the request is UI/UX rebuilding, not product behavior changes.
 
-.page-section-alt {
-  background: var(--surface-alt);
-  border-radius: var(--radius-lg);
-}
-```
+5. Do not use Three.js by default.
+   - Alternative: add 3D visual effects to the workspace.
+   - Reason: 3D is not needed for the current dashboard/workbench task and could reduce performance/readability.
 
-## Success Criteria
+6. Use restrained motion.
+   - Alternative: heavily animated workspace.
+   - Reason: financial data interfaces need calm, fast feedback.
 
-- [ ] Sau login: app mặc định dark mode
-- [ ] NavBar có ThemeToggle button (sun/moon icon)
-- [ ] Toggle chuyển dark ↔ light, persist qua reload và logout/login
-- [ ] Auth page luôn light
-- [ ] Không có màu hardcode hex nào bị vỡ trong dark mode (contrast đọc được)
-- [ ] Build không có error/warning mới
-- [ ] Pro Lab và Global Terminal vẫn dark (consistent với trước)
+## Open Risks
 
-## Open Questions
+- Existing page CSS is spread across many files, so style conflicts are likely.
+- Some components may hardcode colors instead of tokens.
+- Admin pages may need extra table/form polish after first pass.
+- Full visual validation will require running the app and checking multiple routes.
 
-1. Font chữ heading trong edu pages: Inter hiện tại hay đổi sang serif nhẹ (ví dụ Lora) để trông "học thuật" hơn? → **Giữ Inter cho MVP, hỏi lại sau**
-2. Accent color trong dark mode (`#3b82f6` blue) hay đổi sang màu khác phù hợp tài chính hơn (ví dụ teal `#14b8a6`)? → **Giữ blue, hỏi lại sau**
-3. Admin pages có cần dark mode không? → **Không trong scope này**
+## Exit Criteria
+
+- Authenticated workspace pages share one dark theme.
+- Major workspace page groups use compatible spacing, typography, and surface patterns.
+- Feature flows remain intact.
+- Build passes.
+- Lint either passes or any pre-existing lint issues are clearly reported.
+- Manual visual inspection covers representative routes.

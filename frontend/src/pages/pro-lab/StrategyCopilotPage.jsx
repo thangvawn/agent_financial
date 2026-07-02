@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { aiHealth, aiStrategyCopilot } from '../../modules/pro-lab'
-import './strategy-copilot.css'
 
 const DEMO_IDEA = 'Tìm chiến lược cho cổ phiếu VN ưu tiên doanh nghiệp chất lượng (ROE cao, nợ thấp), momentum 60-90 ngày xác nhận, kiểm soát drawdown bằng vol target. Rebalance hàng tháng.'
 
@@ -108,54 +108,65 @@ export default function StrategyCopilotPage({ onBack }) {
   const ideaLimit = 2000
 
   return (
-    <div className="sc sc-copilot">
-      <div className="sc-copilot__topbar">
-        <nav className="sc-copilot__crumb">
-          <button type="button" onClick={onBack}>Pro Lab</button>
-          <span>›</span>
-          <strong>Strategy Copilot</strong>
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+      className="w-full min-h-screen bg-transparent text-[#c8d6d2] font-sans px-6 md:px-10 py-6 md:py-8 flex flex-col gap-6 max-w-[1720px] mx-auto"
+    >
+      <header className="flex justify-between items-center pb-4 border-b border-[#88aab8]/15">
+        <nav className="flex items-center gap-1.5 text-xs text-[#5e7a72]">
+          <button type="button" className="p-0 border-none bg-transparent text-[#4fd1b4] font-semibold cursor-pointer hover:text-[#6ee0c8] transition !bg-transparent !border-none !shadow-none !h-auto !p-0" onClick={onBack}>Pro Lab</button>
+          <span className="text-[#2a3f3a] text-xs">›</span>
+          <span className="text-[#5e7a72] font-semibold">Strategy Copilot</span>
         </nav>
-        <button type="button" className="sc-copilot__how">▷ How it works</button>
-      </div>
+        <div className="flex gap-2 items-center flex-shrink-0">
+          <button type="button" className="text-xs font-bold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-full transition cursor-pointer active:scale-95 !h-auto !py-1.5">▷ How it works</button>
+          <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">✧ Examples</button>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">
+            {health?.openai_configured ? `Live · ${health.model}` : 'OpenAI offline'}
+          </span>
+        </div>
+      </header>
 
-      <section className="sc-copilot__main">
-        <article className="sc-panel sc-idea-panel">
-          <header className="sc-panel__head">
-            <div>
-              <h2><span>💡</span> 1 Idea Input</h2>
-              <p>Describe your investment idea in natural language.</p>
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <article className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <div className="flex justify-between items-start gap-4 flex-wrap pb-2">
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Strategy Prompter</h2>
+              <p className="text-xs text-[#5e7a72] mt-0.5">Describe your strategy idea, rules, and parameters to refine them.</p>
             </div>
-            <button type="button" className="sc-ghost-btn">✧ Examples</button>
-          </header>
+          </div>
 
-          <div className="sc-copilot-textarea">
+          <div className="relative flex flex-col">
             <textarea
-              className="sc-copilot-textarea__input"
+              className="w-full p-4 rounded-xl border border-[#88aab8]/20 bg-[#0c1720]/80 text-[#edf7f5] text-xs outline-none focus:border-[#4fd1b4] transition leading-relaxed resize-none"
               value={idea}
               onChange={(e) => setIdea(e.target.value.slice(0, ideaLimit))}
               rows={7}
               placeholder="Build a mean-reversion strategy using sector z-scores..."
             />
-            <span>{idea.length} / {ideaLimit}</span>
+            <span className="absolute bottom-3 right-3 text-[10px] text-[#5e7a72] font-semibold">{idea.length} / {ideaLimit}</span>
           </div>
 
-          <div className="sc-context-chips">
-            <button type="button">＋ Add context</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="px-3 py-1 rounded-full text-[10px] font-bold border border-[#88aab8]/15 bg-[#0c1720]/40 text-[#a0b8b0] hover:border-[#4fd1b4]/30 hover:text-white transition cursor-pointer active:scale-95 !h-auto !py-1">＋ Add context</button>
             {['Macro regime', 'Rates outlook', 'Volatility regime', 'Market breadth'].map((label) => (
               <button
                 key={label}
                 type="button"
+                className="px-3 py-1 rounded-full text-[10px] font-bold border border-[#88aab8]/15 bg-[#0c1720]/40 text-[#a0b8b0] hover:border-[#4fd1b4]/30 hover:text-white transition cursor-pointer active:scale-95 !h-auto !py-1"
               >
                 {label}
               </button>
             ))}
           </div>
 
-          <div className="sc-control-strip">
-            <label className="sc-field">
-              <span className="sc-field__label">Model</span>
+          <div className="flex flex-wrap items-end gap-4 p-4 rounded-xl bg-[#0c1720]/50 border border-[#88aab8]/10">
+            <label className="flex flex-col gap-1.5 flex-1 min-w-[140px]">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Model</span>
               <select
-                className="sc-select"
+                className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition"
                 value={market}
                 onChange={(e) => setMarket(e.target.value)}
               >
@@ -165,10 +176,10 @@ export default function StrategyCopilotPage({ onBack }) {
               </select>
             </label>
 
-            <label className="sc-field">
-              <span className="sc-field__label">Cadence</span>
+            <label className="flex flex-col gap-1.5 flex-1 min-w-[140px]">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Cadence</span>
               <select
-                className="sc-select"
+                className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition"
                 value={horizon}
                 onChange={(e) => setHorizon(e.target.value)}
               >
@@ -178,14 +189,14 @@ export default function StrategyCopilotPage({ onBack }) {
               </select>
             </label>
 
-            <label className="sc-field">
-              <span className="sc-field__label">Risk Budget</span>
+            <label className="flex flex-col gap-1.5 flex-1 min-w-[140px]">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Risk Budget</span>
               <input
                 type="number"
                 step="0.5"
                 min="0.1"
                 max="20"
-                className="sc-input"
+                className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition"
                 value={riskBudget}
                 onChange={(e) => setRiskBudget(parseFloat(e.target.value) || 2)}
               />
@@ -193,7 +204,7 @@ export default function StrategyCopilotPage({ onBack }) {
 
             <button
               type="button"
-              className="sc-generate-btn"
+              className="bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center justify-center gap-1 shrink-0 !h-auto !py-2.5"
               onClick={handleGenerate}
               disabled={loading || !health?.openai_configured}
             >
@@ -201,9 +212,9 @@ export default function StrategyCopilotPage({ onBack }) {
             </button>
           </div>
 
-          {error && <div className="sc-error">{error}</div>}
+          {error && <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-900/30 text-rose-400 text-xs font-semibold">{error}</div>}
 
-          <div className="sc-mini-grid">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MiniCard title="Input Signals" badge="3" rows={INPUT_SIGNAL_ROWS} action="Add Signal" />
             <MiniCard title="Universe & Benchmark" rows={SUMMARY_CARDS} action="Add Universe / Benchmark" />
             <MiniCard title="Risk Budget" rows={RISK_ROWS} action="Adjust Risk" />
@@ -211,127 +222,135 @@ export default function StrategyCopilotPage({ onBack }) {
           </div>
         </article>
 
-        <article className="sc-panel sc-draft-panel">
-          <header className="sc-panel__head">
-            <div className="sc-draft-title-row">
-              <h2>Strategy Draft <span>(v0.1)</span></h2>
-              <span className="sc-status-chip">DRAFT</span>
+        <article className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <header className="flex justify-between items-start gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">Strategy Draft <span className="text-xs text-[#5e7a72] lowercase">(v0.1)</span></h2>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">DRAFT</span>
             </div>
-            <div className="sc-draft-actions">
-              <button type="button" className="sc-ghost-btn">⊙ View Blueprint</button>
-              <button type="button" className="sc-icon-btn">⋮</button>
+            <div className="flex gap-2">
+              <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">⊙ View Blueprint</button>
+              <button type="button" className="text-white bg-[#0c1720]/60 border border-[#88aab8]/10 hover:border-[#4fd1b4]/30 flex items-center justify-center p-0 rounded-lg !w-7 !h-7 !h-auto">⋮</button>
             </div>
           </header>
 
           {loading ? (
-            <div className="sc-loading sc-loading--compact">
-              <div className="sc-loading__bar"><span /></div>
-              <p>OpenAI đang phân tích ý tưởng và xây blueprint…</p>
+            <div className="flex flex-col items-center justify-center p-8 gap-4">
+              <div className="w-full h-1.5 bg-[#0c1720]/80 rounded-full overflow-hidden">
+                <div className="block h-full bg-[#4fd1b4] w-[40%] animate-pulse" />
+              </div>
+              <p className="text-xs text-[#88aab8]">OpenAI đang phân tích ý tưởng và xây blueprint…</p>
             </div>
           ) : (
-            <div className="sc-draft-table">
+            <div className="flex flex-col">
               <DraftRow icon="⚑" label="Strategy Name">{displayDraft.strategy_name}</DraftRow>
               <DraftRow icon="◎" label="Objective">{displayDraft.rationale}</DraftRow>
               <DraftRow icon="⌘" label="Asset Universe">{displayDraft.market}</DraftRow>
               <DraftRow icon="⇄" label="Signal Stack">
-                {displayDraft.signal_stack.map((item) => <span key={item} className="sc-chip">{item}</span>)}
+                {displayDraft.signal_stack.map((item) => <span key={item} className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">{item}</span>)}
               </DraftRow>
               <DraftRow icon="◴" label="Risk Budget">
-                {displayDraft.risk_rules.map((item) => <span key={item} className="sc-chip">{item}</span>)}
+                {displayDraft.risk_rules.map((item) => <span key={item} className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">{item}</span>)}
               </DraftRow>
               <DraftRow icon="⏱" label="Cadence">
-                <span className="sc-chip">{displayDraft.horizon}</span>
-                <span className="sc-chip">Hold: 5 trading days</span>
+                <span className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">{displayDraft.horizon}</span>
+                <span className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">Hold: 5 trading days</span>
               </DraftRow>
               <DraftRow icon="⊕" label="Validation Queue">
-                {displayDraft.validation_queue.map((item) => <span key={item} className="sc-chip">{item}</span>)}
-                <span className="sc-chip">+1</span>
+                {displayDraft.validation_queue.map((item) => <span key={item} className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">{item}</span>)}
+                <span className="px-2 py-0.5 rounded bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5] text-[10px] font-semibold">+1</span>
               </DraftRow>
               <DraftRow icon="≈" label="Key Assumptions">
-                <ul className="sc-assumption-list">
+                <ul className="list-disc pl-4 space-y-1 text-[#88aab8]">
                   <li>Mean reversion persists at sector level over short horizon</li>
                   <li>Transaction costs &lt; 15 bps round trip</li>
                   <li>Liquidity sufficient for target universe</li>
                 </ul>
               </DraftRow>
               <DraftRow icon="☷" label="Status">
-                <span className="sc-status-chip sc-status-chip--amber">Draft Generated</span>
-                <span className="sc-draft-date">May 16, 2025 10:22 AM</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20">Draft Generated</span>
+                <span className="text-[10px] text-[#5e7a72] font-semibold mt-0.5">{displayDraft.last_run_time || 'May 16, 2025 10:22 AM'}</span>
               </DraftRow>
             </div>
           )}
 
-          <footer className="sc-draft-footer">
-            <div><span>Draft Confidence</span><strong>Medium</strong></div>
-            <div><span>Est. Sharpe (Backtest)</span><strong>1.15 – 1.45</strong></div>
+          <footer className="flex justify-between items-center gap-4 border-t border-[#88aab8]/15 pt-3 mt-1">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-[#5e7a72] uppercase font-bold">Draft Confidence</span>
+              <strong className="text-sm font-extrabold text-[#4fd1b4]">Medium</strong>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-[#5e7a72] uppercase font-bold">Est. Sharpe (Backtest)</span>
+              <strong className="text-sm font-extrabold text-[#4fd1b4]">1.15 – 1.45</strong>
+            </div>
           </footer>
         </article>
       </section>
 
-      <section className="sc-blueprint-panel">
-        <header className="sc-blueprint-panel__head">
+      <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-6">
+        <header className="flex justify-between items-start gap-4 flex-wrap pb-4 border-b border-[#88aab8]/15">
           <div>
-            <h2><span>②</span> Strategy Blueprint <em>(Editable)</em></h2>
-            <p>Review and refine the generated components.</p>
+            <h2 className="text-base font-extrabold text-white flex items-center gap-1.5"><span>②</span> Strategy Blueprint <em className="text-xs text-[#5e7a72] not-italic font-normal">(Editable)</em></h2>
+            <p className="text-xs text-[#88aab8] mt-0.5">Review and refine the generated components.</p>
           </div>
-          <div>
-            <button type="button" className="sc-ghost-btn">⛶ Expand All</button>
-            <button type="button" className="sc-ghost-btn">⇲ Collapse All</button>
+          <div className="flex gap-2">
+            <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">⛶ Expand All</button>
+            <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">⇲ Collapse All</button>
           </div>
         </header>
-        <div className="sc-blueprint-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {BLUEPRINT_CARDS.map(([icon, title, rows]) => (
-            <article key={title} className="sc-blueprint-card">
-              <header>
-                <h3><span>{icon}</span>{title}</h3>
-                <button type="button">Edit</button>
+            <article key={title} className="p-4 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col gap-3">
+              <header className="flex justify-between items-start gap-2">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5"><span>{icon}</span>{title}</h3>
+                <button type="button" className="text-[10px] font-semibold text-[#4fd1b4] hover:underline cursor-pointer !border-none !bg-transparent !shadow-none !h-auto !p-0">Edit</button>
               </header>
-              <ul>
+              <ul className="list-disc pl-4 space-y-1.5 text-[11px] text-[#88aab8] flex-1">
                 {rows.map((row) => <li key={row}>{row}</li>)}
               </ul>
-              <footer>⊙ Status: <strong>Generated</strong></footer>
+              <footer className="text-[9px] text-[#5e7a72] font-semibold border-t border-[#88aab8]/10 pt-2">⊙ Status: <strong>Generated</strong></footer>
             </article>
           ))}
         </div>
-        <footer className="sc-blueprint-actions">
-          <button type="button" className="sc-ghost-btn">☷ Refine Draft</button>
-          <button type="button" className="sc-ghost-btn">⟳ Regenerate</button>
-          <button type="button" className="sc-ghost-btn">⇔ Compare Variants</button>
-          <span />
-          <button type="button" className="sc-ghost-btn">▣ Save Blueprint</button>
-          <button type="button" className="sc-generate-btn">♙ Send to Committee</button>
+        <footer className="flex flex-wrap gap-3 items-center border-t border-[#88aab8]/15 pt-4 mt-2">
+          <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">☷ Refine Draft</button>
+          <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">⟳ Regenerate</button>
+          <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">⇔ Compare Variants</button>
+          <span className="flex-1" />
+          <button type="button" className="text-xs font-semibold text-[#4fd1b4] bg-[#4fd1b4]/10 hover:bg-[#4fd1b4]/20 border border-[#4fd1b4]/20 px-3.5 py-1.5 rounded-lg transition cursor-pointer active:scale-95 !h-auto !py-1.5">▣ Save Blueprint</button>
+          <button type="button" className="bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 !h-auto !py-2.5">♙ Send to Committee</button>
         </footer>
       </section>
-    </div>
+    </motion.div>
   )
 }
 
 function MiniCard({ title, badge, rows, action }) {
   return (
-    <article className="sc-mini-card">
-      <header>
-        <h3>{title}</h3>
-        {badge ? <span>{badge}</span> : <button type="button">Edit</button>}
+    <article className="p-4 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col gap-3">
+      <header className="flex justify-between items-center">
+        <h3 className="text-xs font-bold text-white">{title}</h3>
+        {badge ? <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">{badge}</span> : <button type="button" className="text-[10px] font-semibold text-[#4fd1b4] hover:underline cursor-pointer !border-none !bg-transparent !shadow-none !h-auto !p-0">Edit</button>}
       </header>
-      <div>
+      <div className="flex flex-col gap-1.5">
         {rows.map(([label, value]) => (
-          <p key={`${title}-${label}`}>
-            <span>{label}</span>
-            <strong className={value === 'Risk' ? 'is-risk' : ''}>{value}</strong>
+          <p key={`${title}-${label}`} className="flex justify-between text-xs">
+            <span className="text-[#88aab8]">{label}</span>
+            <strong className={value === 'Risk' ? 'text-amber-400 font-semibold' : 'font-semibold text-white'}>{value}</strong>
           </p>
         ))}
       </div>
-      <button type="button">＋ {action}</button>
+      <button type="button" className="text-[10px] font-bold text-[#4fd1b4] hover:text-[#6ee0c8] text-left mt-1 !border-none !bg-transparent !shadow-none !h-auto !p-0">＋ {action}</button>
     </article>
   )
 }
 
 function DraftRow({ icon, label, children }) {
   return (
-    <div className="sc-draft-row">
-      <span className="sc-draft-row__icon">{icon}</span>
-      <span className="sc-draft-row__label">{label}</span>
-      <div className="sc-draft-row__value">{children}</div>
+    <div className="flex items-start gap-3 py-3 border-b border-[#88aab8]/10 text-xs">
+      <span className="text-[#4fd1b4] text-xs shrink-0 w-4 text-center mt-0.5">{icon}</span>
+      <span className="text-[#88aab8] w-28 shrink-0">{label}</span>
+      <div className="flex-1 text-[#edf7f5] flex flex-wrap gap-1.5">{children}</div>
     </div>
   )
 }

@@ -137,9 +137,6 @@
   gap: 16px;
   opacity: 1;
   transform: translateY(0) scale(1);
-  transition:
-    opacity var(--t-base) var(--ease),
-    transform var(--t-base) var(--ease);
   will-change: opacity, transform;
 }
 
@@ -838,6 +835,10 @@ button.app-shell__brand:hover {
 .app-shell--pro-lab .surface-panel>*,
 .app-shell--backtest-studio .surface-panel>*,
 .app-shell--news .surface-panel>*,
-.app-shell--news-economic-calendar .surface-panel>* {
+.app-shell--news-economic-calendar .surface-panel>*,
+.app-shell--learning .surface-panel>*,
+.app-shell--guided-investing .surface-panel>*,
+.app-shell--community .surface-panel>*,
+.app-shell--insights .surface-panel>* {
   max-width: 100%;
 }

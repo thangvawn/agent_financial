@@ -1,0 +1,837 @@
+/* ============================================================
+   Northstar Finance Lab — Workspace Layout Primitives
+   Theme: Midnight Trading Desk (Glassmorphism & Technical Data)
+   ============================================================ */
+
+/* Force Outfit and Fira Code typography on all dark-mode authenticated views */
+[data-theme="dark"] {
+  --font-sans: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", monospace;
+  font-family: var(--font-sans);
+}
+
+/* Main outer container for post-auth pages */
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+  color: var(--ink);
+  padding: var(--sp-4);
+  gap: var(--sp-4);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Page Header & Title Grouping */
+.workspace-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.workspace-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.workspace-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.workspace-title {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--ink-strong);
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.workspace-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+/* Toolbar for filters, selectors and search boxes */
+.workspace-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* Grid Layout (12 columns) */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--sp-4);
+  width: 100%;
+}
+
+/* Glassmorphism Cards & Panels */
+.workspace-card,
+.workspace-panel {
+  background: rgba(24, 24, 27, 0.45);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  padding: var(--sp-4);
+  box-sizing: border-box;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+
+.workspace-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.workspace-card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
+}
+
+.workspace-card-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink-strong);
+  margin: 0;
+}
+
+/* Scrollable Table Wrapper */
+.workspace-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 9, 11, 0.2);
+}
+
+/* Metric Strip & Metric Widgets */
+.workspace-metric-strip {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  width: 100%;
+}
+
+.workspace-metric {
+  flex: 1 1 180px;
+  background: rgba(24, 24, 27, 0.35);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.workspace-metric-label {
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.workspace-metric-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.workspace-metric-change {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.workspace-metric-change.positive {
+  color: var(--pos);
+}
+
+.workspace-metric-change.negative {
+  color: var(--neg);
+}
+
+/* Status Badges & Chips */
+.workspace-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.workspace-status-chip--primary {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.workspace-status-chip--success {
+  background-color: var(--pos-soft);
+  color: var(--pos-strong);
+}
+
+.workspace-status-chip--danger {
+  background-color: var(--neg-soft);
+  color: var(--neg-strong);
+}
+
+/* Chart Shell Frame */
+.workspace-chart-shell {
+  min-height: 350px;
+  background: rgba(5, 5, 7, 0.35);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Loading/Empty/Error States */
+.workspace-loading-state,
+.workspace-empty-state,
+.workspace-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: var(--sp-3);
+  text-align: center;
+  padding: var(--sp-6);
+}
+
+/* Responsive grid collapsing */
+@media (max-width: 1024px) {
+  .workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================================
+   AUTHENTICATED PAGES — THEME OVERRIDES (No Light Mode Bleed)
+   ============================================================ */
+
+/* ── 1. Guided Investing & BCTC Analysis (guided-investing.css) ── */
+[data-theme="dark"] .guided-page {
+  color: var(--ink) !important;
+  background: var(--bg) !important;
+}
+
+[data-theme="dark"] .guided-hero {
+  border-color: var(--line) !important;
+  background: rgba(24, 24, 27, 0.45) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+[data-theme="dark"] .guided-hero p {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .guided-tab {
+  border-color: var(--line) !important;
+  background: rgba(24, 24, 27, 0.35) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .guided-tab:hover {
+  background: rgba(24, 24, 27, 0.55) !important;
+}
+
+[data-theme="dark"] .guided-tab span {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .guided-tab--active {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+[data-theme="dark"] .guided-tab--active span {
+  color: var(--accent) !important;
+}
+
+[data-theme="dark"] .guided-trust-pill,
+[data-theme="dark"] .guided-card,
+[data-theme="dark"] .guided-panel,
+[data-theme="dark"] .guided-metric {
+  border-color: var(--line) !important;
+  background: rgba(24, 24, 27, 0.45) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .guided-trust-pill span,
+[data-theme="dark"] .guided-metric strong {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .guided-panel {
+  background: rgba(24, 24, 27, 0.45) !important;
+}
+
+[data-theme="dark"] .guided-watchlist button {
+  background: rgba(24, 24, 27, 0.35) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .guided-watchlist button:hover {
+  background: rgba(24, 24, 27, 0.55) !important;
+  border-color: var(--line-strong) !important;
+}
+
+[data-theme="dark"] .guided-history div,
+[data-theme="dark"] .guided-journal-list article {
+  background: rgba(24, 24, 27, 0.35) !important;
+  border: 1px solid var(--line) !important;
+}
+
+[data-theme="dark"] .guided-journal-list h4 {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .guided-journal-list small {
+  color: var(--ink-muted) !important;
+}
+
+/* ── 2. Learn Hub & Quiz cockpits (learning.css) ── */
+[data-theme="dark"] .learn-os-search,
+[data-theme="dark"] .learn-os-topbar-actions button,
+[data-theme="dark"] .learn-os-section-title button,
+[data-theme="dark"] .learn-os-topic-tile,
+[data-theme="dark"] .learn-os-course-card,
+[data-theme="dark"] .learn-os-hero__summary-bar,
+[data-theme="dark"] .learn-os-pills--hero span {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .learn-os-hero--dashboard {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+[data-theme="dark"] .learn-os-hero__copy h1,
+[data-theme="dark"] .learn-os-hero__copy p {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .learn-os-search input {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .learn-os-course-card__cover.is-paper {
+  background: linear-gradient(135deg, #27272a, #18181b) !important;
+  color: var(--ink) !important;
+}
+
+/* ── 3. Education platform (education-platform.css) ── */
+[data-theme="dark"] .edu-page {
+  color: var(--ink) !important;
+  background: var(--bg) !important;
+}
+
+[data-theme="dark"] .edu-hero,
+[data-theme="dark"] .edu-safety,
+[data-theme="dark"] .edu-panel,
+[data-theme="dark"] .edu-table-row,
+[data-theme="dark"] .edu-rubric-row,
+[data-theme="dark"] .edu-action-list li,
+[data-theme="dark"] .edu-step,
+[data-theme="dark"] .edu-control-row,
+[data-theme="dark"] .edu-kpi,
+[data-theme="dark"] .edu-table-container,
+[data-theme="dark"] .edu-stepper-indicator {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .edu-hero h1,
+[data-theme="dark"] .edu-panel h2,
+[data-theme="dark"] .edu-table-row strong,
+[data-theme="dark"] .edu-rubric-row strong,
+[data-theme="dark"] .edu-stepper-content strong,
+[data-theme="dark"] .edu-control-row strong,
+[data-theme="dark"] .edu-kpi strong,
+[data-theme="dark"] .edu-data-table td strong {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .edu-hero p:not(.edu-eyebrow),
+[data-theme="dark"] .edu-hero-status span,
+[data-theme="dark"] .edu-hero-status small,
+[data-theme="dark"] .edu-table-row,
+[data-theme="dark"] .edu-rubric-row p,
+[data-theme="dark"] .edu-stepper-content p,
+[data-theme="dark"] .edu-kpi p,
+[data-theme="dark"] .edu-panel blockquote,
+[data-theme="dark"] .edu-text-muted,
+[data-theme="dark"] .edu-data-table th {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .edu-hero-status {
+  background: rgba(24, 24, 27, 0.35) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .edu-hero-status strong {
+  color: var(--accent) !important;
+}
+
+[data-theme="dark"] .edu-button--secondary,
+[data-theme="dark"] .edu-button--ghost {
+  background: rgba(24, 24, 27, 0.55) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .edu-safety span {
+  background: rgba(24, 24, 27, 0.6) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+[data-theme="dark"] .edu-data-table th {
+  background: rgba(9, 9, 11, 0.45) !important;
+  border-bottom-color: var(--line-strong) !important;
+}
+
+[data-theme="dark"] .edu-data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="dark"] .edu-stepper-item--completed .edu-stepper-indicator {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .edu-stepper-item--current .edu-stepper-indicator {
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+[data-theme="dark"] .edu-stepper-item--upcoming .edu-stepper-indicator {
+  background: rgba(9, 9, 11, 0.2) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-subtle) !important;
+}
+
+/* ── 4. Insights (insights.css) ── */
+[data-theme="dark"] .insights-v2 {
+  --v2-bg: transparent !important;
+  --v2-card: rgba(24, 24, 27, 0.45) !important;
+  --v2-ink: var(--ink) !important;
+  --v2-muted: var(--ink-muted) !important;
+  --v2-line: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .app-shell--insights .surface-panel>section.insights-modern {
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insights-page__head-copy h1 {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .insights-page__head-copy p {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .insights-page__back {
+  background: rgba(24, 24, 27, 0.55) !important;
+  border: 1px solid var(--line-strong) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insights-page__level {
+  background: rgba(24, 24, 27, 0.35) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insights-controls {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .insights-controls label {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .insights-controls input,
+[data-theme="dark"] .insights-controls select {
+  background: rgba(9, 9, 11, 0.4) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insight-story-card {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: var(--line) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .insight-story-card__head h2,
+[data-theme="dark"] .insight-story-card__headline {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .insight-story-card__summary,
+[data-theme="dark"] .insight-story-card__narrative p,
+[data-theme="dark"] .insight-story-card__details p {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .insight-story-card__badges span {
+  background: rgba(9, 9, 11, 0.4) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insight-signal-chart__row {
+  background: rgba(9, 9, 11, 0.4) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insight-signal-chart__row-value {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .insight-story-card__details {
+  border-top-color: var(--line) !important;
+}
+
+[data-theme="dark"] .insight-story-card__details summary {
+  color: var(--accent) !important;
+}
+
+[data-theme="dark"] .insights-snapshot,
+[data-theme="dark"] .insights-panel,
+[data-theme="dark"] .insights-learn {
+  border-color: var(--line) !important;
+  background: rgba(24, 24, 27, 0.45) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .insights-narrative p {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .insights-trend__grid section {
+  border-color: var(--line) !important;
+  background: rgba(9, 9, 11, 0.3) !important;
+}
+
+[data-theme="dark"] .insights-ai>button {
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: var(--accent-strong) !important;
+}
+
+[data-theme="dark"] .insights-ai div button {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .insights-ai div button:last-child {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .insights-learn button {
+  background: rgba(24, 24, 27, 0.45) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+/* ── 5. Community page (community.css) ── */
+[data-theme="dark"] .community-page {
+  color: var(--ink) !important;
+  background-color: var(--bg) !important;
+}
+
+[data-theme="dark"] .community-stat-card,
+[data-theme="dark"] .community-composer,
+[data-theme="dark"] .community-post-card,
+[data-theme="dark"] .community-widget,
+[data-theme="dark"] .community-topic-card {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .community-stat-card__content strong,
+[data-theme="dark"] .community-post-card__author-info strong,
+[data-theme="dark"] .community-post-card__body h3,
+[data-theme="dark"] .community-widget__head h3,
+[data-theme="dark"] .community-group-row__info strong,
+[data-theme="dark"] .community-leaderboard-info strong,
+[data-theme="dark"] .community-leaderboard-points,
+[data-theme="dark"] .community-event-row strong,
+[data-theme="dark"] .community-saved-item__content strong {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .community-stat-card__content p,
+[data-theme="dark"] .community-post-card__body p,
+[data-theme="dark"] .community-group-row__info span,
+[data-theme="dark"] .community-leaderboard-info span,
+[data-theme="dark"] .community-event-row span,
+[data-theme="dark"] .community-saved-item__content span,
+[data-theme="dark"] .community-guideline-item {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .community-feed-tabs {
+  background: rgba(9, 9, 11, 0.4) !important;
+}
+
+[data-theme="dark"] .community-feed-tab {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .community-feed-tab.is-active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .community-composer__placeholder {
+  background: rgba(9, 9, 11, 0.3) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-subtle) !important;
+}
+
+[data-theme="dark"] .community-composer__type-btn {
+  background: rgba(24, 24, 27, 0.4) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .community-composer__type-btn:hover {
+  background: rgba(24, 24, 27, 0.6) !important;
+}
+
+[data-theme="dark"] .community-group-row,
+[data-theme="dark"] .community-event-row {
+  background: rgba(9, 9, 11, 0.25) !important;
+  border: 1px solid var(--line) !important;
+}
+
+[data-theme="dark"] .community-group-row:hover {
+  background: rgba(9, 9, 11, 0.4) !important;
+}
+
+[data-theme="dark"] .community-leaderboard-rank--4 {
+  background: rgba(9, 9, 11, 0.4) !important;
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] .community-tag {
+  background: rgba(9, 9, 11, 0.4) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-muted) !important;
+}
+
+/* ── 6. Pro Lab, Learn Hub, BCTC, Community & Insights (premium dark mode) ── */
+[data-theme="dark"] .app-shell--pro-lab,
+[data-theme="dark"] .app-shell--learning,
+[data-theme="dark"] .app-shell--guided-investing,
+[data-theme="dark"] .app-shell--community,
+[data-theme="dark"] .app-shell--insights {
+  background: radial-gradient(circle at 50% 0%, #0d1527 0%, #05070f 100%) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab::before,
+[data-theme="dark"] .app-shell--learning::before,
+[data-theme="dark"] .app-shell--guided-investing::before,
+[data-theme="dark"] .app-shell--community::before,
+[data-theme="dark"] .app-shell--insights::before {
+  background: radial-gradient(circle at 50% 0%, #0d1527 0%, #05070f 100%) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab .connected-nav,
+[data-theme="dark"] .app-shell--learning .connected-nav,
+[data-theme="dark"] .app-shell--guided-investing .connected-nav,
+[data-theme="dark"] .app-shell--community .connected-nav,
+[data-theme="dark"] .app-shell--insights .connected-nav {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab .connected-nav *,
+[data-theme="dark"] .app-shell--learning .connected-nav *,
+[data-theme="dark"] .app-shell--guided-investing .connected-nav *,
+[data-theme="dark"] .app-shell--community .connected-nav *,
+[data-theme="dark"] .app-shell--insights .connected-nav * {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"],
+[data-theme="dark"] .app-shell--pro-lab .bs-page,
+[data-theme="dark"] .app-shell--pro-lab .os-page,
+[data-theme="dark"] .app-shell--pro-lab .bv-page,
+[data-theme="dark"] .app-shell--pro-lab .dr-page,
+[data-theme="dark"] .app-shell--pro-lab .jr-page,
+[data-theme="dark"] .app-shell--pro-lab .ac-page {
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class*="breadcrumb__current"] {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class*="btn--outline"],
+[data-theme="dark"] .app-shell--pro-lab [class*="btn--ghost"] {
+  background: rgba(24, 24, 27, 0.45) !important;
+  color: var(--ink) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class*="btn--outline"]:hover,
+[data-theme="dark"] .app-shell--pro-lab [class*="btn--ghost"]:hover {
+  background: rgba(24, 24, 27, 0.65) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab .bs-card,
+[data-theme="dark"] .app-shell--pro-lab .os-card,
+[data-theme="dark"] .app-shell--pro-lab .bv-card,
+[data-theme="dark"] .app-shell--pro-lab .dr-card,
+[data-theme="dark"] .app-shell--pro-lab .jr-card,
+[data-theme="dark"] .app-shell--pro-lab .ac-card,
+[data-theme="dark"] .app-shell--pro-lab [class*="-section"],
+[data-theme="dark"] .app-shell--pro-lab [class*="-panel"] {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"] :is(h1, h2, h3, h4, h5, table, input, textarea, select) {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"] input,
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"] textarea,
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"] select {
+  background: rgba(9, 9, 11, 0.4) !important;
+  border-color: var(--line-strong) !important;
+}
+
+[data-theme="dark"] .app-shell--pro-lab [class$="-page"] tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="dark"] .pl {
+  --pl-bg: var(--bg);
+  --pl-surface: rgba(24, 24, 27, 0.45);
+  --pl-surface-alt: rgba(9, 9, 11, 0.3);
+  --pl-border: rgba(255, 255, 255, 0.06);
+  --pl-border-strong: rgba(255, 255, 255, 0.12);
+  --pl-text: var(--ink);
+  --pl-text-muted: var(--ink-muted);
+  --pl-text-subtle: var(--ink-subtle);
+  --pl-accent: var(--accent);
+  --pl-accent-soft: var(--accent-soft);
+  --pl-surface-card: rgba(24, 24, 27, 0.45);
+}
+
+[data-theme="dark"] .pl-module-nav__back {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .pl-module-nav__breadcrumb span:last-child {
+  color: var(--ink-strong) !important;
+}
+
+[data-theme="dark"] .pl-risk-cta {
+  background: rgba(24, 24, 27, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .pl-risk-cta:hover {
+  background: rgba(24, 24, 27, 0.6) !important;
+}
+
+[data-theme="dark"] [class*="sc-page"] {
+  --sc-bg: var(--bg) !important;
+  --sc-surface: rgba(24, 24, 27, 0.45) !important;
+  --sc-surface-alt: rgba(9, 9, 11, 0.3) !important;
+  --sc-text: var(--ink) !important;
+  --sc-text-muted: var(--ink-muted) !important;
+  --sc-border: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .strategy-copilot-container {
+  background: var(--bg) !important;
+}
+
+/* ── 7. Admin pages (Analytics, Community Moderation, Ops) ── */
+[data-theme="dark"] .bg-white\/90 {
+  background-color: rgba(24, 24, 27, 0.45) !important;
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: rgba(24, 24, 27, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-slate-50\/80 {
+  background-color: rgba(9, 9, 11, 0.25) !important;
+}
+
+[data-theme="dark"] .border-slate-200\/70,
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-slate-700 {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-slate-500 {
+  color: var(--ink-muted) !important;
+}

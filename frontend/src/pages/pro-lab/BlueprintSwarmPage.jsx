@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { aiHealth, aiSwarmCommittee } from '../../modules/pro-lab'
 
 const EXPERTS = [
@@ -112,20 +113,9 @@ function MiniSparkline({ data, color }) {
   const step = w / (data.length - 1)
   const points = data.map((v, i) => `${i * step},${h - ((v - min) / range) * h}`).join(' ')
   return (
-    <svg width={w} height={h} className="bs-spark" viewBox={`0 0 ${w} ${h}`}>
+    <svg width={w} height={h} className="block" viewBox={`0 0 ${w} ${h}`}>
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
-  )
-}
-
-function ConfidenceBar({ value, color }) {
-  return (
-    <div className="bs-conf">
-      <div className="bs-conf__track">
-        <div className="bs-conf__fill" style={{ width: `${value}%`, background: color }} />
-      </div>
-      <span className="bs-conf__label" style={{ color }}>{value}%</span>
-    </div>
   )
 }
 
@@ -177,56 +167,61 @@ export default function BlueprintSwarmPage({ onBack }) {
   }
 
   return (
-    <div className="bs-page">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+      className="w-full min-h-screen bg-transparent text-[#c8d6d2] font-sans px-6 md:px-10 py-6 md:py-8 flex flex-col gap-6 max-w-[1720px] mx-auto"
+    >
       {/* ── Header ──────────────────────────────────────────── */}
-      <header className="bs-header">
-        <nav className="bs-breadcrumb">
-          <button type="button" className="bs-breadcrumb__link" onClick={onBack}>Pro Lab</button>
-          <span className="bs-breadcrumb__sep">›</span>
-          <span className="bs-breadcrumb__link">Swarm Committee</span>
-          <span className="bs-breadcrumb__sep">›</span>
-          <span className="bs-breadcrumb__current">Blueprint Designer</span>
+      <header className="flex justify-between items-center pb-4 border-b border-[#88aab8]/15">
+        <nav className="flex items-center gap-1.5 text-xs text-[#5e7a72]">
+          <button type="button" className="p-0 border-none bg-transparent text-[#4fd1b4] font-semibold cursor-pointer hover:text-[#6ee0c8] transition" onClick={onBack}>Pro Lab</button>
+          <span className="text-[#2a3f3a] text-xs">›</span>
+          <span className="p-0 border-none bg-transparent text-[#4fd1b4] font-semibold cursor-pointer hover:text-[#6ee0c8] transition">Swarm Committee</span>
+          <span className="text-[#2a3f3a] text-xs">›</span>
+          <span className="text-[#5e7a72] font-semibold">Blueprint Designer</span>
         </nav>
-        <div className="bs-header__actions">
-          <button type="button" className="bs-btn bs-btn--primary">Save Blueprint</button>
-          <button type="button" className="bs-btn bs-btn--outline">Export Blueprint</button>
-          <span className="bs-version-badge">
+        <div className="flex gap-2 items-center flex-shrink-0">
+          <button type="button" className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] !h-auto !py-1.5">Save Blueprint</button>
+          <button type="button" className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 text-[#a0b8b0] bg-transparent border border-[#4fd1b4]/10 hover:border-[#4fd1b4]/25 !h-auto !py-1.5">Export Blueprint</button>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">
             {health?.openai_configured ? `Live · ${health.model}` : 'OpenAI offline'}
           </span>
         </div>
       </header>
 
       {/* ── Two-column body ─────────────────────────────────── */}
-      <div className="bs-body">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* LEFT — Blueprint Designer */}
-        <section className="bs-card bs-designer">
-          <div className="bs-section-head">
-            <span className="bs-section-icon">✦</span>
-            <div>
-              <h2 className="bs-section-title">Blueprint Designer</h2>
-              <p className="bs-section-sub">Design and configure your strategy using no-code blocks.</p>
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <div className="flex justify-between items-start gap-4 flex-wrap pb-2">
+            <span className="w-[38px] h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-lg flex-shrink-0 bg-[#4fd1b4]/10 border border-[#4fd1b4]/20 text-[#4fd1b4]">✦</span>
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Blueprint Designer</h2>
+              <p className="text-xs text-[#5e7a72] mt-0.5">Design and configure your strategy using no-code blocks.</p>
             </div>
           </div>
 
-          <div className="bs-form">
-            <label className="bs-field">
-              <span className="bs-field__label">Strategy Name</span>
-              <div className="bs-field__wrap">
+          <div className="grid gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Strategy Name</span>
+              <div className="relative flex flex-col">
                 <input
-                  className="bs-input"
+                  className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition"
                   type="text"
                   maxLength={80}
                   value={strategyName}
                   onChange={(e) => setStrategyName(e.target.value)}
                 />
-                <span className="bs-field__count">{strategyName.length}/80</span>
+                <span className="absolute bottom-3 right-3 text-[10px] text-[#5e7a72] font-semibold">{strategyName.length}/80</span>
               </div>
             </label>
 
-            <label className="bs-field">
-              <span className="bs-field__label">Objective</span>
-              <div className="bs-field__wrap">
-                <select className="bs-select" defaultValue={objective}>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Objective</span>
+              <div className="relative flex flex-col">
+                <select className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition" defaultValue={objective}>
                   <option value="sharpe">Maximize risk-adjusted returns (Sharpe)</option>
                   <option value="sortino">Maximize downside-adjusted returns (Sortino)</option>
                   <option value="cagr">Maximize CAGR</option>
@@ -234,18 +229,18 @@ export default function BlueprintSwarmPage({ onBack }) {
               </div>
             </label>
 
-            <div className="bs-field">
-              <span className="bs-field__label">Asset Universe</span>
-              <div className="bs-field__wrap bs-field__wrap--row">
-                <span className="bs-input bs-input--readonly">Global Equities (Large &amp; Mid Cap)</span>
-                <span className="bs-pill">6,412 assets</span>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Asset Universe</span>
+              <div className="flex items-center gap-2">
+                <span className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs select-all flex-1">Global Equities (Large &amp; Mid Cap)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">6,412 assets</span>
               </div>
             </div>
 
-            <label className="bs-field">
-              <span className="bs-field__label">Benchmark</span>
-              <div className="bs-field__wrap">
-                <select className="bs-select" defaultValue="msci-acwi">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Benchmark</span>
+              <div className="relative flex flex-col">
+                <select className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition" defaultValue="msci-acwi">
                   <option value="msci-acwi">MSCI ACWI Net Total Return</option>
                   <option value="sp500">S&amp;P 500 Total Return</option>
                   <option value="ftse">FTSE All-World</option>
@@ -253,10 +248,10 @@ export default function BlueprintSwarmPage({ onBack }) {
               </div>
             </label>
 
-            <label className="bs-field">
-              <span className="bs-field__label">Rebalance Frequency</span>
-              <div className="bs-field__wrap">
-                <select className="bs-select" defaultValue="monthly">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Rebalance Frequency</span>
+              <div className="relative flex flex-col">
+                <select className="w-full bg-[#0c1720]/80 border border-[#88aab8]/20 text-[#edf7f5] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#4fd1b4] transition" defaultValue="monthly">
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
@@ -264,60 +259,68 @@ export default function BlueprintSwarmPage({ onBack }) {
               </div>
             </label>
 
-            <div className="bs-field">
-              <span className="bs-field__label">Risk Constraints</span>
-              <button type="button" className="bs-expand-row">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Risk Constraints</span>
+              <div
+                role="button"
+                tabIndex={0}
+                className="flex justify-between items-center text-xs p-2.5 rounded-xl border border-[#88aab8]/10 bg-[#0c1720]/30 hover:border-[#4fd1b4]/20 cursor-pointer transition-all"
+              >
                 <span>4 Constraints</span>
-                <span className="bs-expand-arrow">▸</span>
-              </button>
+                <span className="text-[#4fd1b4] font-bold">▸</span>
+              </div>
             </div>
 
-            <div className="bs-field">
-              <span className="bs-field__label">Assumptions</span>
-              <button type="button" className="bs-expand-row">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Assumptions</span>
+              <div
+                role="button"
+                tabIndex={0}
+                className="flex justify-between items-center text-xs p-2.5 rounded-xl border border-[#88aab8]/10 bg-[#0c1720]/30 hover:border-[#4fd1b4]/20 cursor-pointer transition-all"
+              >
                 <span>3 Assumptions</span>
-                <span className="bs-expand-arrow">▸</span>
-              </button>
+                <span className="text-[#4fd1b4] font-bold">▸</span>
+              </div>
             </div>
 
-            <label className="bs-field">
-              <span className="bs-field__label">Notes</span>
-              <div className="bs-field__wrap">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[#5e7a72] uppercase tracking-wider">Notes</span>
+              <div className="relative flex flex-col">
                 <textarea
-                  className="bs-textarea"
+                  className="w-full p-4 rounded-xl border border-[#88aab8]/20 bg-[#0c1720]/80 text-[#edf7f5] text-xs outline-none focus:border-[#4fd1b4] transition leading-relaxed resize-none"
                   maxLength={500}
                   rows={3}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-                <span className="bs-field__count">{notes.length}/500</span>
+                <span className="absolute bottom-3 right-3 text-[10px] text-[#5e7a72] font-semibold">{notes.length}/500</span>
               </div>
             </label>
           </div>
 
-          <footer className="bs-designer-footer">
+          <footer className="flex flex-wrap gap-2 items-center border-t border-[#88aab8]/15 pt-3 mt-1 text-[10px] text-[#5e7a72] font-semibold">
             <span>Blueprint ID: BP-2025-05-16-0013</span>
-            <span className="bs-designer-footer__sep">|</span>
-            <button type="button" className="bs-link-btn">Duplicate</button>
-            <span className="bs-designer-footer__sep">|</span>
+            <span className="text-[#2a3f3a] mx-1">|</span>
+            <button type="button" className="text-[#4fd1b4] hover:text-[#6ee0c8] cursor-pointer hover:underline border-none bg-transparent p-0">Duplicate</button>
+            <span className="text-[#2a3f3a] mx-1">|</span>
             <span>Last saved: May 16, 2025 10:22 AM</span>
-            <span className="bs-designer-footer__sep">|</span>
-            <span className="bs-saved-check">Saved ✓</span>
+            <span className="text-[#2a3f3a] mx-1">|</span>
+            <span className="text-emerald-400">Saved ✓</span>
           </footer>
         </section>
 
         {/* RIGHT — Swarm Committee */}
-        <section className="bs-card bs-swarm">
-          <div className="bs-section-head">
-            <div>
-              <h2 className="bs-section-title">Swarm Committee</h2>
-              <p className="bs-section-sub">
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <div className="flex justify-between items-start gap-4 flex-wrap pb-2">
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Swarm Committee</h2>
+              <p className="text-xs text-[#5e7a72] mt-0.5">
                 {aiResult ? 'Multi-agent experts đã hoàn thành review.' : 'Bấm "Run Committee" để OpenAI mô phỏng investment committee debate.'}
               </p>
             </div>
             <button
               type="button"
-              className="bs-btn bs-btn--primary bs-btn--sm"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] !h-auto !py-1.5"
               onClick={runCommittee}
               disabled={loading || !health?.openai_configured}
             >
@@ -326,43 +329,45 @@ export default function BlueprintSwarmPage({ onBack }) {
           </div>
 
           {error && (
-            <div className="bs-error-bar">{error}</div>
+            <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-900/30 text-rose-400 text-xs font-semibold">{error}</div>
           )}
 
           {!aiResult && !loading && (
-            <div className="bs-empty">
-              <span className="bs-empty__icon">⌥</span>
-              <p>Committee chưa chạy. Khi bấm Run, AI sẽ mô phỏng 4 vai trò debate (Bull · Bear · Quant · PM) và đưa ra final call.</p>
+            <div className="flex flex-col items-center justify-center p-8 gap-4 text-center">
+              <span className="text-2xl text-[#5e7a72]">⌥</span>
+              <p className="text-xs text-[#88aab8] max-w-sm">Committee chưa chạy. Khi bấm Run, AI sẽ mô phỏng 4 vai trò debate (Bull · Bear · Quant · PM) và đưa ra final call.</p>
             </div>
           )}
 
           {loading && (
-            <div className="bs-loading">
-              <div className="bs-loading__bar"><span /></div>
-              <p>Bull, Bear, Quant và PM đang debate strategy của bạn…</p>
+            <div className="flex flex-col items-center justify-center p-8 gap-4 text-center">
+              <div className="w-full h-1.5 bg-[#0c1720]/80 rounded-full overflow-hidden">
+                <div className="block h-full bg-[#4fd1b4] w-[40%] animate-pulse" />
+              </div>
+              <p className="text-xs text-[#88aab8]">Bull, Bear, Quant và PM đang debate strategy của bạn…</p>
             </div>
           )}
 
           {aiResult && (
-            <div className="bs-experts-grid">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {aiResult.memos.map((memo, idx) => {
                 const stanceKey = memo.stance.toLowerCase()
                 const color = STANCE_COLOR[stanceKey] || '#6366f1'
                 return (
-                  <article key={idx} className="bs-expert-card">
-                    <div className="bs-expert-head">
-                      <span className="bs-expert-icon">{ROLE_ICONS[memo.role] || '◯'}</span>
-                      <div>
-                        <h3 className="bs-expert-role">{memo.role}</h3>
-                        <p className="bs-expert-title">{memo.stance}</p>
+                  <article key={idx} className="p-4 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col gap-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#4fd1b4]/10 text-[#4fd1b4] text-xs font-bold">{ROLE_ICONS[memo.role] || '◯'}</span>
+                      <div className="flex-1">
+                        <h3 className="text-xs font-bold text-white">{memo.role}</h3>
+                        <p className="text-[10px] text-[#5e7a72] font-semibold">{memo.stance}</p>
                       </div>
-                      <span className="bs-stance" style={{ color, borderColor: color }}>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border" style={{ color, borderColor: color }}>
                         {memo.stance}
                       </span>
                     </div>
-                    <p className="bs-expert-memo">{memo.memo}</p>
+                    <p className="text-xs text-[#88aab8] leading-relaxed p-3 bg-[#0c1720]/40 rounded-lg border-l-2 border-[#4fd1b4]">{memo.memo}</p>
                     {memo.key_concerns.length > 0 && (
-                      <ul className="bs-expert-bullets">
+                      <ul className="list-disc pl-4 space-y-1.5 text-[11px] text-[#5e7a72]">
                         {memo.key_concerns.map((c, i) => <li key={i}>{c}</li>)}
                       </ul>
                     )}
@@ -376,607 +381,36 @@ export default function BlueprintSwarmPage({ onBack }) {
 
       {/* ── Bottom — Committee Verdict ──────────────────────── */}
       {aiResult && (
-        <section className="bs-card bs-verdict">
-          <h2 className="bs-section-title">Committee Verdict — AI synthesis</h2>
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4 mt-6">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider">Committee Verdict — AI synthesis</h2>
 
-          <div className="bs-verdict-grid">
-            <article className="bs-metric-card">
-              <span className="bs-metric-label">Consensus</span>
-              <span className="bs-metric-value" style={{ color: aiResult.consensus === 'buy' ? '#10b981' : aiResult.consensus === 'reject_or_revise' ? '#ef4444' : '#f59e0b' }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <article className="p-4 rounded-xl bg-[#0c1720]/60 border border-[#88aab8]/10 flex flex-col gap-1">
+              <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Consensus</span>
+              <span className="text-lg font-extrabold" style={{ color: aiResult.consensus === 'buy' ? '#10b981' : aiResult.consensus === 'reject_or_revise' ? '#ef4444' : '#f59e0b' }}>
                 {aiResult.consensus}
               </span>
-              <span className="bs-metric-sub">Confidence: {aiResult.confidence}</span>
+              <span className="text-[10px] text-[#5e7a72] font-semibold">Confidence: {aiResult.confidence}</span>
             </article>
-            <article className="bs-metric-card" style={{ gridColumn: 'span 2' }}>
-              <span className="bs-metric-label">PM Decision Summary</span>
-              <p style={{ margin: '6px 0 0', fontSize: '0.92rem', lineHeight: 1.6 }}>{aiResult.decision_summary}</p>
+            <article className="p-4 rounded-xl bg-[#0c1720]/60 border border-[#88aab8]/10 flex flex-col gap-1 md:col-span-2">
+              <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">PM Decision Summary</span>
+              <p style={{ margin: '6px 0 0', fontSize: '0.85rem', lineHeight: 1.6 }} className="text-[#88aab8]">{aiResult.decision_summary}</p>
             </article>
           </div>
 
-          <div className="bs-next-step">
-            <strong>Recommended Next Steps:</strong>
-            <ol style={{ margin: '8px 0 0', paddingLeft: 22, lineHeight: 1.7 }}>
+          <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/30 text-xs text-[#88aab8] leading-relaxed">
+            <strong className="text-white">Recommended Next Steps:</strong>
+            <ol style={{ margin: '8px 0 0', paddingLeft: 22, lineHeight: 1.7 }} className="list-decimal">
               {aiResult.next_actions.map((a, i) => <li key={i}>{a}</li>)}
             </ol>
           </div>
 
-          <div className="bs-verdict-actions">
-            <button type="button" className="bs-btn bs-btn--outline" onClick={runCommittee}>Run Committee Again</button>
-            <button type="button" className="bs-btn bs-btn--primary">Send to Backtest</button>
+          <div className="flex gap-2">
+            <button type="button" className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 text-[#a0b8b0] bg-transparent border border-[#4fd1b4]/10 hover:border-[#4fd1b4]/25" onClick={runCommittee}>Run Committee Again</button>
+            <button type="button" className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016]">Send to Backtest</button>
           </div>
         </section>
       )}
-
-      <style>{`
-        /* ═══════════════════════════════════════════════════════
-           Blueprint + Swarm — bs- prefix (LIGHT sparkle theme)
-           ═══════════════════════════════════════════════════════ */
-
-        .bs-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          min-height: 100vh;
-          padding: clamp(1.2rem, 2.5vw, 2rem) clamp(1rem, 2vw, 1.6rem);
-          color: #252b3b;
-          background: #ffffff;
-          font-family: Montserrat, Inter, system-ui, sans-serif;
-        }
-
-        .bs-empty,
-        .bs-loading {
-          display: grid;
-          place-items: center;
-          gap: 12px;
-          padding: 40px 24px;
-          text-align: center;
-          color: rgba(37, 43, 59, 0.55);
-        }
-
-        .bs-empty__icon {
-          font-size: 2.2rem;
-          opacity: 0.5;
-        }
-
-        .bs-empty p,
-        .bs-loading p {
-          margin: 0;
-          font-size: 0.92rem;
-          max-width: 440px;
-        }
-
-        .bs-loading__bar {
-          width: 100%;
-          max-width: 320px;
-          height: 6px;
-          border-radius: 999px;
-          background: rgba(37, 43, 59, 0.08);
-          overflow: hidden;
-        }
-
-        .bs-loading__bar span {
-          display: block;
-          height: 100%;
-          width: 30%;
-          border-radius: inherit;
-          background: linear-gradient(90deg, #3b82f6, #6366f1);
-          animation: bs-loading-slide 1.4s ease-in-out infinite;
-        }
-
-        @keyframes bs-loading-slide {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(330%); }
-        }
-
-        .bs-error-bar {
-          padding: 10px 14px;
-          border-radius: 8px;
-          background: rgba(220, 38, 38, 0.06);
-          border: 1px solid rgba(220, 38, 38, 0.18);
-          color: #b91c1c;
-          font-size: 0.86rem;
-          font-weight: 600;
-        }
-
-        .bs-expert-memo {
-          margin: 8px 0 12px;
-          padding: 12px;
-          background: #f8fbff;
-          border-radius: 8px;
-          font-size: 0.88rem;
-          line-height: 1.55;
-          color: #252b3b;
-          border-left: 3px solid #3b82f6;
-        }
-
-        /* ── Header ─────────────────────────────────────────── */
-        .bs-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-          max-width: 1720px;
-          margin-inline: auto;
-          width: 100%;
-        }
-
-        .bs-breadcrumb {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.85rem;
-          color: #7a9b92;
-        }
-
-        .bs-breadcrumb__link {
-          background: none;
-          border: none;
-          color: #7a9b92;
-          cursor: pointer;
-          font: inherit;
-          padding: 0;
-          transition: color .15s;
-        }
-
-        .bs-breadcrumb__link:hover { color: #4fd1b4; }
-        .bs-breadcrumb__sep { opacity: .45; }
-        .bs-breadcrumb__current { color: #dceae5; font-weight: 600; }
-
-        .bs-header__actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .bs-version-badge {
-          font-size: 0.75rem;
-          color: #7a9b92;
-          border: 1px solid rgba(79,209,180,.12);
-          border-radius: 6px;
-          padding: 0.25rem 0.65rem;
-          white-space: nowrap;
-        }
-
-        /* ── Buttons ────────────────────────────────────────── */
-        .bs-btn {
-          font: inherit;
-          font-size: 0.82rem;
-          font-weight: 600;
-          padding: 0.45rem 1rem;
-          border-radius: 7px;
-          border: 1px solid transparent;
-          cursor: pointer;
-          transition: background .15s, border-color .15s, opacity .15s;
-          white-space: nowrap;
-        }
-
-        .bs-btn--primary {
-          background: #4fd1b4;
-          color: #091210;
-        }
-
-        .bs-btn--primary:hover { background: #38bfa2; }
-
-        .bs-btn--outline {
-          background: transparent;
-          border-color: rgba(79,209,180,.25);
-          color: #4fd1b4;
-        }
-
-        .bs-btn--outline:hover { border-color: #4fd1b4; background: rgba(79,209,180,.06); }
-
-        .bs-btn--sm { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
-
-        .bs-btn--danger {
-          background: rgba(239,68,68,.15);
-          border-color: rgba(239,68,68,.35);
-          color: #f87171;
-        }
-
-        .bs-btn--danger:hover { background: rgba(239,68,68,.25); }
-
-        .bs-btn--success {
-          background: #22c55e;
-          color: #091210;
-        }
-
-        .bs-btn--success:hover { background: #16a34a; }
-
-        .bs-link-btn {
-          background: none;
-          border: none;
-          color: #4fd1b4;
-          cursor: pointer;
-          font: inherit;
-          font-size: 0.78rem;
-          padding: 0;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-
-        .bs-link-btn:hover { color: #38bfa2; }
-
-        /* ── Cards ──────────────────────────────────────────── */
-        .bs-card {
-          background: rgba(12,22,18,.7);
-          border: 1px solid rgba(79,209,180,.08);
-          border-radius: 14px;
-          padding: 1.5rem;
-          max-width: 1720px;
-          margin-inline: auto;
-          width: 100%;
-        }
-
-        /* ── Body two-col ──────────────────────────────────── */
-        .bs-body {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1.25rem;
-          max-width: 1720px;
-          margin-inline: auto;
-          width: 100%;
-        }
-
-        @media (max-width: 1100px) {
-          .bs-body { grid-template-columns: 1fr; }
-        }
-
-        /* ── Section headings ──────────────────────────────── */
-        .bs-section-head {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.65rem;
-          margin-bottom: 1.25rem;
-        }
-
-        .bs-section-icon {
-          font-size: 1.35rem;
-          color: #4fd1b4;
-          line-height: 1;
-          margin-top: 0.1rem;
-        }
-
-        .bs-section-title {
-          margin: 0;
-          font-size: 1.15rem;
-          font-weight: 700;
-          color: #dceae5;
-        }
-
-        .bs-section-sub {
-          margin: 0.15rem 0 0;
-          font-size: 0.8rem;
-          color: #7a9b92;
-        }
-
-        /* ── Form ──────────────────────────────────────────── */
-        .bs-form {
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-        }
-
-        .bs-field {
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-
-        .bs-field__label {
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: #9bb5ad;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .bs-field__wrap {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .bs-field__wrap--row {
-          flex-direction: row;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .bs-field__count {
-          position: absolute;
-          right: 10px;
-          bottom: 7px;
-          font-size: 0.7rem;
-          color: #5a7a72;
-          pointer-events: none;
-        }
-
-        .bs-input,
-        .bs-select,
-        .bs-textarea {
-          width: 100%;
-          padding: 0.55rem 0.75rem;
-          font: inherit;
-          font-size: 0.88rem;
-          color: #dceae5;
-          background: rgba(6,14,12,.6);
-          border: 1px solid rgba(79,209,180,.1);
-          border-radius: 8px;
-          outline: none;
-          transition: border-color .15s;
-          box-sizing: border-box;
-        }
-
-        .bs-input:focus,
-        .bs-select:focus,
-        .bs-textarea:focus {
-          border-color: rgba(79,209,180,.35);
-        }
-
-        .bs-input--readonly {
-          cursor: default;
-          opacity: .85;
-          flex: 1;
-        }
-
-        .bs-select { appearance: none; cursor: pointer; }
-
-        .bs-textarea { resize: vertical; min-height: 3.2rem; }
-
-        .bs-pill {
-          font-size: 0.72rem;
-          font-weight: 600;
-          color: #4fd1b4;
-          background: rgba(79,209,180,.1);
-          border-radius: 20px;
-          padding: 0.2rem 0.6rem;
-          white-space: nowrap;
-        }
-
-        .bs-expand-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          padding: 0.55rem 0.75rem;
-          font: inherit;
-          font-size: 0.88rem;
-          color: #b0c8c0;
-          background: rgba(6,14,12,.6);
-          border: 1px solid rgba(79,209,180,.1);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: border-color .15s;
-        }
-
-        .bs-expand-row:hover { border-color: rgba(79,209,180,.25); }
-
-        .bs-expand-arrow {
-          color: #4fd1b4;
-          font-size: 0.85rem;
-          transition: transform .2s;
-        }
-
-        /* ── Designer footer ───────────────────────────────── */
-        .bs-designer-footer {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.35rem;
-          margin-top: 1.25rem;
-          padding-top: 0.85rem;
-          border-top: 1px solid rgba(79,209,180,.06);
-          font-size: 0.74rem;
-          color: #5a7a72;
-        }
-
-        .bs-designer-footer__sep { opacity: .35; }
-
-        .bs-saved-check { color: #34d399; }
-
-        /* ── Expert cards ──────────────────────────────────── */
-        .bs-experts-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.85rem;
-        }
-
-        @media (max-width: 700px) {
-          .bs-experts-grid { grid-template-columns: 1fr; }
-        }
-
-        .bs-expert-card {
-          background: rgba(6,14,12,.55);
-          border: 1px solid rgba(79,209,180,.07);
-          border-radius: 10px;
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-        }
-
-        .bs-expert-head {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.5rem;
-        }
-
-        .bs-expert-icon {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 8px;
-          background: rgba(79,209,180,.08);
-          color: #4fd1b4;
-          font-size: 1rem;
-          flex-shrink: 0;
-        }
-
-        .bs-expert-role {
-          margin: 0;
-          font-size: 0.92rem;
-          font-weight: 700;
-          color: #dceae5;
-        }
-
-        .bs-expert-title {
-          margin: 0;
-          font-size: 0.72rem;
-          color: #7a9b92;
-        }
-
-        .bs-stance {
-          margin-left: auto;
-          font-size: 0.7rem;
-          font-weight: 600;
-          border: 1px solid;
-          border-radius: 20px;
-          padding: 0.15rem 0.55rem;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .bs-expert-bullets {
-          margin: 0;
-          padding-left: 1.1rem;
-          font-size: 0.78rem;
-          line-height: 1.55;
-          color: #a8c4bb;
-        }
-
-        .bs-expert-bullets li + li { margin-top: 0.3rem; }
-
-        /* ── Confidence bar ────────────────────────────────── */
-        .bs-conf {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .bs-conf__track {
-          flex: 1;
-          height: 5px;
-          background: rgba(79,209,180,.08);
-          border-radius: 3px;
-          overflow: hidden;
-        }
-
-        .bs-conf__fill {
-          height: 100%;
-          border-radius: 3px;
-          transition: width .4s ease;
-        }
-
-        .bs-conf__label {
-          font-size: 0.78rem;
-          font-weight: 700;
-          min-width: 2.5rem;
-          text-align: right;
-        }
-
-        /* ── Vote buttons ──────────────────────────────────── */
-        .bs-expert-vote { margin-top: auto; }
-
-        .bs-vote-btn {
-          font: inherit;
-          font-size: 0.78rem;
-          font-weight: 600;
-          padding: 0.35rem 0.85rem;
-          border-radius: 6px;
-          border: none;
-          cursor: pointer;
-          transition: opacity .15s;
-        }
-
-        .bs-vote-btn:hover { opacity: .85; }
-
-        .bs-vote-btn--approve {
-          background: rgba(34,197,94,.15);
-          color: #34d399;
-          border: 1px solid rgba(34,197,94,.3);
-        }
-
-        .bs-vote-btn--revise {
-          background: rgba(239,68,68,.12);
-          color: #f87171;
-          border: 1px solid rgba(239,68,68,.25);
-        }
-
-        /* ── Verdict ───────────────────────────────────────── */
-        .bs-verdict-grid {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 0.75rem;
-          margin-bottom: 1.25rem;
-        }
-
-        @media (max-width: 900px) {
-          .bs-verdict-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-
-        @media (max-width: 600px) {
-          .bs-verdict-grid { grid-template-columns: 1fr 1fr; }
-        }
-
-        .bs-metric-card {
-          background: rgba(6,14,12,.5);
-          border: 1px solid rgba(79,209,180,.06);
-          border-radius: 9px;
-          padding: 0.85rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-
-        .bs-metric-label {
-          font-size: 0.72rem;
-          font-weight: 600;
-          color: #7a9b92;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-        }
-
-        .bs-metric-value {
-          font-size: 1.05rem;
-          font-weight: 700;
-        }
-
-        .bs-metric-sub-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.4rem;
-        }
-
-        .bs-metric-sub {
-          font-size: 0.72rem;
-          color: #5a7a72;
-        }
-
-        .bs-spark { display: block; }
-
-        .bs-next-step {
-          font-size: 0.82rem;
-          line-height: 1.6;
-          color: #9bb5ad;
-          margin: 0 0 1.15rem;
-          padding: 0.75rem;
-          background: rgba(79,209,180,.04);
-          border-radius: 8px;
-          border-left: 3px solid rgba(79,209,180,.25);
-        }
-
-        .bs-next-step strong { color: #dceae5; }
-
-        .bs-verdict-actions {
-          display: flex;
-          gap: 0.65rem;
-          flex-wrap: wrap;
-        }
-      `}</style>
-    </div>
+    </motion.div>
   )
 }

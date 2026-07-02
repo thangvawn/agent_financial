@@ -48,8 +48,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.5em;
-  height: 2.286rem;            /* 32px */
-  padding: 0 0.857rem;          /* 12px */
+  min-height: 2.286rem;        /* 32px */
+  padding: 0.4rem 0.857rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);

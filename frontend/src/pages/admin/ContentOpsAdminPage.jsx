@@ -51,7 +51,7 @@ const DEFAULT_PAYLOAD_BY_TYPE = {
   community_policy_snippet: '{\n  "surface": "community",\n  "policy_type": "posting_rule",\n  "body": "",\n  "risk_tags": []\n}',
 }
 
-const shellClass = 'mx-auto flex w-full max-w-[1440px] flex-col gap-5 rounded-[28px] border border-slate-200/70 bg-white/90 p-6 text-slate-800 shadow-[0_18px_45px_rgba(15,23,42,0.08)]'
+const shellClass = 'mx-auto flex w-full max-w-[1720px] flex-col gap-5 rounded-[28px] border border-slate-200/70 bg-white/90 px-6 md:px-10 py-6 text-slate-800 shadow-[0_18px_45px_rgba(15,23,42,0.08)]'
 const sectionClass = 'rounded-2xl border border-slate-200 bg-slate-50/80 p-4'
 const sectionTitleClass = 'text-lg font-semibold text-slate-900'
 const inputClass = 'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100'

@@ -10,14 +10,14 @@ export default function ProLabExperimentsPage({
   reportExport,
 }) {
   if (!workspace) {
-    return <p className="pro-lab-state">Mở workspace Pro để chạy scenario hoặc backtest.</p>
+    return <p className="text-xs text-[#88aab8]">Mở workspace Pro để chạy scenario hoặc backtest.</p>
   }
   const runActions = [
     {
       title: 'Scenario: FX / Rate Stress',
       summary: 'Xem blueprint nhạy với tỷ giá và lãi suất như thế nào.',
       button: 'Run scenario',
-      onClick: onScenarioRun,
+      onClick: () => onScenarioRun(selectedBlueprintId, 'fx_rate_stress', defaultPayloadFor('scenario_lab', 'fx_rate_stress')),
       disabled: !selectedBlueprintId,
       meta: 'macro sensitivity',
     },
@@ -25,7 +25,7 @@ export default function ProLabExperimentsPage({
       title: 'Backtest: Benchmark Sandbox',
       summary: 'So sánh giả định với benchmark, có caveat về dữ liệu và execution.',
       button: 'Run backtest',
-      onClick: onBacktestRun,
+      onClick: () => onBacktestRun(selectedBlueprintId, '2023-01-01', '2025-12-31'),
       disabled: !selectedBlueprintId,
       meta: 'historical sandbox',
     },
@@ -48,53 +48,56 @@ export default function ProLabExperimentsPage({
   ]
 
   return (
-    <section className="pro-lab-section">
-      <section className="pro-lab-run-console">
+    <div className="grid gap-6">
+      <section className="flex justify-between items-start gap-4 flex-wrap pb-2">
         <div>
-          <p className="pro-lab-eyebrow">Run Console</p>
-          <h2>Chọn run cần chạy</h2>
-          <p>Không cần đọc provider. Chọn mục tiêu nghiên cứu, hệ thống sẽ gọi command phù hợp.</p>
+          <p className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Run Console</p>
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider mt-1">Chọn run cần chạy</h2>
+          <p className="text-xs text-[#88aab8]">Không cần đọc provider. Chọn mục tiêu nghiên cứu, hệ thống sẽ gọi command phù hợp.</p>
         </div>
-        <span className="pro-lab-badge">{selectedBlueprintId ? 'Blueprint selected' : 'Create/select blueprint first'}</span>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20">{selectedBlueprintId ? 'Blueprint selected' : 'Create/select blueprint first'}</span>
       </section>
 
-      <section className="pro-lab-action-grid">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {runActions.map((action) => (
-          <article key={action.title} className="pro-lab-action-card">
-            <span className="pro-lab-badge">{action.meta}</span>
-            <h3>{action.title}</h3>
-            <p>{action.summary}</p>
-            <button type="button" onClick={action.onClick} disabled={action.disabled}>
+          <article key={action.title} className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-3 justify-between">
+            <div className="flex flex-col gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4fd1b4]/10 text-[#4fd1b4] border border-[#4fd1b4]/20 self-start">{action.meta}</span>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider mt-1">{action.title}</h3>
+              <p className="text-xs text-[#88aab8] leading-relaxed">{action.summary}</p>
+            </div>
+            <button className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 bg-[#4fd1b4] hover:bg-[#6ee0c8] text-[#071016] disabled:opacity-50 disabled:pointer-events-none w-full" type="button" onClick={action.onClick} disabled={action.disabled}>
               {action.button}
             </button>
           </article>
         ))}
       </section>
 
-      <div className="pro-lab-runs-layout">
-        <section className="pro-lab-card pro-lab-advanced-catalog">
-          <p className="pro-lab-eyebrow">Registry</p>
-          <h3>Commands</h3>
-          <p className="pro-lab-muted">Advanced view cho provider/command thô.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <p className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Registry</p>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Commands</h3>
+          <p className="text-xs text-[#5e7a72]">Advanced view cho provider/command thô.</p>
           {catalog ? (
-            <div className="pro-lab-stack">
+            <div className="flex flex-col gap-3">
               {catalog.providers.map((provider) => (
-                <article key={provider.provider_id} className="pro-lab-mini-card">
-                  <div className="pro-lab-provider-card__header">
-                    <strong>{provider.label}</strong>
-                    <span>{provider.category}</span>
+                <article key={provider.provider_id} className="p-4 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col gap-2">
+                  <div className="flex justify-between items-center text-xs pb-1 border-b border-[#88aab8]/10">
+                    <strong className="text-white font-bold">{provider.label}</strong>
+                    <span className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">{provider.category}</span>
                   </div>
-                  <p>{provider.description}</p>
-                  <div className="pro-lab-command-list">
+                  <p className="text-xs text-[#88aab8] leading-relaxed">{provider.description}</p>
+                  <div className="flex flex-col gap-1.5 mt-2">
                     {provider.commands.map((command) => (
                       <button
                         key={`${provider.provider_id}-${command.command_id}`}
                         type="button"
+                        className="flex justify-between items-center text-left text-xs p-2 rounded-lg bg-[#0c1720]/60 border border-[#88aab8]/10 hover:border-[#4fd1b4]/20 transition cursor-pointer text-[#edf7f5]"
                         onClick={() => onRunCommand(provider.provider_id, command.command_id, defaultPayloadFor(provider.provider_id, command.command_id))}
                         disabled={!selectedBlueprintId && provider.provider_id !== 'report_builder'}
                       >
                         <span>{command.label}</span>
-                        <small>{command.risk_level}</small>
+                        <small className="text-[9px] font-bold text-[#5e7a72] uppercase">{command.risk_level}</small>
                       </button>
                     ))}
                   </div>
@@ -102,85 +105,85 @@ export default function ProLabExperimentsPage({
               ))}
             </div>
           ) : (
-            <p>Catalog chưa được tải.</p>
+            <p className="text-xs text-[#88aab8]">Catalog chưa được tải.</p>
           )}
         </section>
 
-        <section className="pro-lab-card">
-          <p className="pro-lab-eyebrow">Latest Run</p>
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <p className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Latest Run</p>
           {lastRun ? (
             <>
-              <h3>{lastRun.provider_id}:{lastRun.command_id}</h3>
-              <div className="pro-lab-progress"><span style={{ width: `${lastRun.progress_pct}%` }} /></div>
-              <div className="pro-lab-badges">
-                <span className="pro-lab-badge pro-lab-badge--ok">{lastRun.status}</span>
-                <span className="pro-lab-badge">{lastRun.progress_pct}%</span>
-                <span className="pro-lab-badge">stale: {String(lastRun.data_freshness?.stale)}</span>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">{lastRun.provider_id}:{lastRun.command_id}</h3>
+              <div className="w-full h-1.5 bg-[#0c1720]/80 rounded-full overflow-hidden"><span className="block h-full bg-[#4fd1b4]" style={{ width: `${lastRun.progress_pct}%` }} /></div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/20 text-emerald-400 border border-emerald-900/30">{lastRun.status}</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5]">{lastRun.progress_pct}%</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5]">stale: {String(lastRun.data_freshness?.stale)}</span>
               </div>
-              <p className="pro-lab-muted">Safety flags: {lastRun.safety_flags.join(', ') || 'none'}</p>
-              <div className="pro-lab-log-list">
+              <p className="text-xs text-[#5e7a72]">Safety flags: {lastRun.safety_flags.join(', ') || 'none'}</p>
+              <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto bg-[#0c1720]/60 p-3 rounded-lg border border-[#88aab8]/10 font-mono text-[10px] [scrollbar-width:thin]">
                 {lastRun.logs.map((log, index) => (
-                  <div key={`${lastRun.run_id}-${index}`}>
-                    <strong>{log.level}</strong>
-                    <span>{log.message}</span>
+                  <div key={`${lastRun.run_id}-${index}`} className="flex gap-2">
+                    <strong className="text-[#4fd1b4]">{log.level}</strong>
+                    <span className="text-[#88aab8]">{log.message}</span>
                   </div>
                 ))}
               </div>
-              <pre className="pro-lab-code-block">{JSON.stringify(lastRun.output_payload, null, 2)}</pre>
+              <pre className="p-3 rounded-lg bg-[#0c1720]/80 text-[#a8c4bb] font-mono text-[10px] overflow-x-auto border border-[#88aab8]/10 [scrollbar-width:thin]">{JSON.stringify(lastRun.output_payload, null, 2)}</pre>
             </>
           ) : (
-            <p>Chưa có run trong session hiện tại. Chọn command bên trái để chạy thử.</p>
+            <p className="text-xs text-[#88aab8]">Chưa có run trong session hiện tại. Chọn command bên trái để chạy thử.</p>
           )}
         </section>
       </div>
 
-      <section className="pro-lab-card">
-        <p className="pro-lab-eyebrow">History</p>
-        <h3>Experiment History</h3>
+      <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+        <p className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">History</p>
+        <h3 className="text-xs font-bold text-white uppercase tracking-wider">Experiment History</h3>
         {workspace.experiments.length ? (
-          <div className="pro-lab-experiment-grid">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {workspace.experiments.map((item) => (
-              <article key={item.experiment_id} className="pro-lab-mini-card">
-                <div className="pro-lab-provider-card__header">
-                  <strong>{item.experiment_type}</strong>
-                  <span>{item.review_status}</span>
+              <article key={item.experiment_id} className="p-4 rounded-xl bg-[#0c1720]/40 border border-[#88aab8]/10 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-xs pb-1 border-b border-[#88aab8]/10">
+                  <strong className="text-white font-bold">{item.experiment_type}</strong>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0c1720]/80 border border-[#88aab8]/15 text-[#edf7f5]">{item.review_status}</span>
                 </div>
-                <p>{item.created_at}</p>
-                <div className="pro-lab-stack">
+                <p className="text-[10px] text-[#5e7a72] font-semibold">{item.created_at}</p>
+                <div className="flex flex-col gap-3">
                   {item.notebook_sections.map((section, index) => (
-                    <div key={`${item.experiment_id}-${index}`}>
-                      <strong>{section.title}</strong>
-                      <p>{section.body}</p>
+                    <div key={`${item.experiment_id}-${index}`} className="flex flex-col gap-1">
+                      <strong className="text-xs font-bold text-[#4fd1b4] uppercase tracking-wider">{section.title}</strong>
+                      <p className="text-xs text-[#88aab8] leading-relaxed">{section.body}</p>
                     </div>
                   ))}
                 </div>
-                {item.caveats.length ? <p>{item.caveats.join(' | ')}</p> : null}
-                {item.review_notes ? <p>Review notes: {item.review_notes}</p> : null}
-                <button type="button" onClick={() => onExportReport(item.experiment_id)}>
+                {item.caveats.length ? <p className="text-xs text-[#5e7a72] font-semibold italic">{item.caveats.join(' | ')}</p> : null}
+                {item.review_notes ? <p className="text-xs text-amber-400 font-semibold">Review notes: {item.review_notes}</p> : null}
+                <button className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition active:scale-95 bg-[#3b82f6] hover:bg-[#60a5fa] text-white self-start mt-2" type="button" onClick={() => onExportReport(item.experiment_id)}>
                   Export report
                 </button>
               </article>
             ))}
           </div>
         ) : (
-          <p>Chưa có experiment nào. Workspace này sẽ lưu lại trail nghiên cứu để review sau.</p>
+          <p className="text-xs text-[#88aab8]">Chưa có experiment nào. Workspace này sẽ lưu lại trail nghiên cứu để review sau.</p>
         )}
       </section>
 
       {reportExport ? (
-        <section className="pro-lab-card">
-          <p className="pro-lab-eyebrow">Export</p>
-          <h3>Report Export</h3>
-          <p>{reportExport.filename}</p>
-          <p>Confidence: {reportExport.confidence_label}</p>
-          {reportExport.disclaimer_title ? <p><strong>{reportExport.disclaimer_title}:</strong> {reportExport.disclaimer_text}</p> : null}
-          {reportExport.risk_banner ? <p>{reportExport.risk_banner}</p> : null}
-          <p><strong>Đây là gì:</strong> {reportExport.what_this_is}</p>
-          <p><strong>Đây không phải:</strong> {reportExport.what_this_is_not}</p>
-          <pre className="pro-lab-code-block">{reportExport.content}</pre>
+        <section className="p-5 rounded-2xl bg-[#101d26]/60 border border-[#88aab8]/15 shadow-md flex flex-col gap-4">
+          <p className="text-[9px] font-bold text-[#5e7a72] uppercase tracking-wider">Export</p>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Report Export</h3>
+          <p className="text-xs text-white font-bold">{reportExport.filename}</p>
+          <p className="text-xs text-[#88aab8]">Confidence: {reportExport.confidence_label}</p>
+          {reportExport.disclaimer_title ? <p className="text-xs text-rose-400 font-semibold"><strong>{reportExport.disclaimer_title}:</strong> {reportExport.disclaimer_text}</p> : null}
+          {reportExport.risk_banner ? <p className="text-xs text-rose-400 font-semibold">{reportExport.risk_banner}</p> : null}
+          <p className="text-xs text-[#88aab8]"><strong>Đây là gì:</strong> {reportExport.what_this_is}</p>
+          <p className="text-xs text-[#88aab8]"><strong>Đây không phải:</strong> {reportExport.what_this_is_not}</p>
+          <pre className="p-3 rounded-lg bg-[#0c1720]/80 text-[#a8c4bb] font-mono text-[10px] overflow-x-auto border border-[#88aab8]/10 [scrollbar-width:thin]">{reportExport.content}</pre>
         </section>
       ) : null}
-    </section>
+    </div>
   )
 }
 

@@ -22,12 +22,31 @@ def extract_vn30_tickers(listings: pd.DataFrame) -> list[str]:
 
 
 def _fetch_company_listing() -> pd.DataFrame:
-    from vnstock import listing_companies  # type: ignore
+    from vnstock import Listing
 
-    out = listing_companies()
-    if not isinstance(out, pd.DataFrame) or out.empty:
-        raise RuntimeError("listing_companies returned empty data")
-    return out
+    # Use KBS because it supports all_symbols and symbols_by_group
+    listing = Listing(source='KBS')
+    df = listing.all_symbols()
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        raise RuntimeError("all_symbols returned empty data")
+    
+    # Rename column 'symbol' to 'ticker'
+    if 'symbol' in df.columns:
+        df = df.rename(columns={'symbol': 'ticker'})
+    
+    # Ensure 'ticker' column exists
+    if 'ticker' not in df.columns:
+        raise RuntimeError("ticker column not found in company listing")
+
+    # Get VN30 group symbols
+    try:
+        vn30_series = listing.symbols_by_group('VN30')
+        vn30_tickers = set(vn30_series.dropna().astype(str).tolist())
+    except Exception:
+        vn30_tickers = set()
+
+    df['VN30'] = df['ticker'].isin(vn30_tickers)
+    return df
 
 
 def _fetch_history(
@@ -39,20 +58,22 @@ def _fetch_history(
     source: str,
     retries: int = 3,
 ) -> pd.DataFrame:
-    from vnstock import stock_historical_data  # type: ignore
+    from vnstock.api.quote import Quote
+
+    # Map DNSE or other unsupported sources to 'vci' since DNSE is removed in vnstock v4
+    src = source.lower()
+    allowed_sources = ['vci', 'kbs', 'msn', 'fmp']
+    if src not in allowed_sources:
+        src = 'vci'
 
     last_err: Exception | None = None
     for attempt in range(retries):
         try:
-            out = stock_historical_data(
-                symbol=symbol,
-                start_date=start.isoformat(),
-                end_date=end.isoformat(),
-                resolution="1D",
-                type=instrument_type,
-                beautify=False,
-                decor=False,
-                source=source,
+            q = Quote(symbol=symbol, source=src)
+            out = q.history(
+                start=start.isoformat(),
+                end=end.isoformat(),
+                interval="1D",
             )
             if isinstance(out, pd.DataFrame) and not out.empty:
                 return out

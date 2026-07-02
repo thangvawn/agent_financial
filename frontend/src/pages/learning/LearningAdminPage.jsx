@@ -6,7 +6,6 @@ import {
   listLearningCmsDocuments,
   upsertLearningCmsDocument,
 } from '../../modules/learning-admin'
-import './learning.css'
 
 const DOC_TYPE_CONFIG = {
   lessons: {

@@ -1,7 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
 
 @import "./styles/tokens.css";
 @import "./styles/base-elements.css";
 @import "./styles/app-shell.css";
 @import "./styles/retail-surfaces.css";
+@import "./styles/workspace-primitives.css";
+
+@import "tailwindcss/utilities.css" layer(utilities);
