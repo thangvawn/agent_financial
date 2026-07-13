@@ -51,3 +51,7 @@ frontend/.playwright-cli/
 .matplotlib/
 .pycache_tmp/
 notebooks/.ipynb_checkpoints/
+
+#graph
+.codegraph/
+.codegraph/**
