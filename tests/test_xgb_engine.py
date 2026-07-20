@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from risk_dashboard.quant.xgb_engine import (
+from risk_dashboard.engines.quant.xgb_engine import (
     BREADTH_FEATURE_COLS,
     FEATURE_COLS,
     FEATURE_COLS_BY_HORIZON,

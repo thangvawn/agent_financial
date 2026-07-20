@@ -21,6 +21,22 @@ SNAPSHOT_TTL_SECONDS = 15
 
 _LOG = logging.getLogger(__name__)
 
+# Fallback share-count registry used when the quote provider does not include
+# listed shares in its price-board response. Prices remain live; this registry
+# is only the slower-moving denominator needed to calculate market cap.
+KNOWN_SHARES_OUTSTANDING: dict[str, float] = {
+    "VIC": 7_762_186_000,
+    "VHM": 4_107_409_000,
+    "VCB": 8_355_084_000,
+    "BID": 7_280_593_000,
+    "VGI": 3_044_000_000,
+    "CTG": 7_767_000_000,
+    "TCB": 7_088_000_000,
+    "VPB": 7_934_000_000,
+    "MBB": 8_055_000_000,
+    "HPG": 8_442_000_000,
+}
+
 
 @dataclass(frozen=True)
 class VnTicker:
@@ -108,6 +124,7 @@ class VnMarketFeedProducer:
     def snapshot(self, *, force_refresh: bool = False) -> dict[str, Any]:
         cached = self._load_json(SNAPSHOT_PATH)
         if not force_refresh and self._is_fresh(cached, self.snapshot_ttl_seconds):
+            self._enrich_market_cap(cached)
             return cached
         live = self._fetch_snapshot_live()
         if live["items"]:
@@ -115,8 +132,22 @@ class VnMarketFeedProducer:
             return live
         if cached:
             cached.setdefault("freshness", "stale")
+            self._enrich_market_cap(cached)
             return cached
         return live
+
+    def _enrich_market_cap(self, payload: dict[str, Any]) -> None:
+        shares_map = _cached_profile_shares(self.cache_dir)
+        for item in payload.get("items", []) or []:
+            shares = shares_map.get(str(item.get("symbol") or "").upper())
+            if shares:
+                item["shares_outstanding"] = _round(shares, 0)
+                if item.get("price") is not None:
+                    item["market_cap"] = _round(float(item["price"]) * shares / 1_000_000_000, 2)
+            if item.get("price") is not None:
+                buy = float(item.get("foreign_buy_volume") or 0)
+                sell = float(item.get("foreign_sell_volume") or 0)
+                item["foreign_net_buy"] = _round((buy - sell) * float(item["price"]) / 1_000_000, 2)
 
     def _fetch_snapshot_live(self) -> dict[str, Any]:
         universe = self.universe().get("tickers", [])
@@ -142,6 +173,11 @@ class VnMarketFeedProducer:
             return {"as_of": _utc_now_iso(), "items": [], "source": "vnstock", "freshness": "degraded"}
 
         items = _normalize_price_board(board)
+        # Recalculate market cap from the live matched price and the latest
+        # available share count. This keeps ranking intraday without fetching
+        # one company profile per ticker.
+        shares_map = _cached_profile_shares(self.cache_dir)
+
         # Annotate with name from universe
         name_map = {t["symbol"]: t["name"] for t in universe}
         ex_map = {t["symbol"]: t["exchange"] for t in universe}
@@ -151,6 +187,15 @@ class VnMarketFeedProducer:
                 item["name"] = name_map[sym]
             if not item.get("exchange") and sym in ex_map:
                 item["exchange"] = ex_map[sym]
+            shares = shares_map.get(sym)
+            if shares:
+                item["shares_outstanding"] = _round(shares, 0)
+                if item.get("price") is not None:
+                    item["market_cap"] = _round(float(item["price"]) * shares / 1_000_000_000, 2)
+            if item.get("price") is not None:
+                buy = float(item.get("foreign_buy_volume") or 0)
+                sell = float(item.get("foreign_sell_volume") or 0)
+                item["foreign_net_buy"] = _round((buy - sell) * float(item["price"]) / 1_000_000, 2)
         return {
             "as_of": _utc_now_iso(),
             "source": "vnstock",
@@ -239,6 +284,23 @@ def _normalize_price_board(board: pd.DataFrame) -> list[dict[str, Any]]:
         last_price = match_price if match_price is not None else ref
         change = (last_price - ref) if (match_price is not None and ref) else None
         change_pct = (change / ref * 100) if (change is not None and ref) else None
+        market_cap = next(
+            (value for value in (
+                _safe_num(col("listing", "market_cap").iat[i]),
+                _safe_num(col("listing", "market_capitalization").iat[i]),
+                _safe_num(col("listing", "market_capitalisation").iat[i]),
+            ) if value is not None),
+            None,
+        )
+        shares_outstanding = next(
+            (value for value in (
+                _safe_num(col("listing", "outstanding_shares").iat[i]),
+                _safe_num(col("listing", "listed_shares").iat[i]),
+                _safe_num(col("listing", "listed_volume").iat[i]),
+                _safe_num(col("listing", "issue_share").iat[i]),
+            ) if value is not None),
+            None,
+        )
         out.append(
             {
                 "symbol": symbol,
@@ -256,6 +318,8 @@ def _normalize_price_board(board: pd.DataFrame) -> list[dict[str, Any]]:
                 "match_vol": _round(_safe_num(col("match", "match_vol").iat[i]), 0),
                 "volume": _round(_safe_num(col("match", "accumulated_volume").iat[i]), 0),
                 "value": _round(_safe_num(col("match", "accumulated_value").iat[i]), 0),
+                "market_cap": _round(market_cap, 2),
+                "shares_outstanding": _round(shares_outstanding, 0),
                 "foreign_buy_volume": _round(_safe_num(col("match", "foreign_buy_volume").iat[i]), 0),
                 "foreign_sell_volume": _round(_safe_num(col("match", "foreign_sell_volume").iat[i]), 0),
                 "bid_1_price": _round(_safe_num(col("bid_ask", "bid_1_price").iat[i])),
@@ -300,6 +364,28 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     if value is None:
         return None
     return round(value, digits)
+
+
+def _cached_profile_shares(cache_dir: Path) -> dict[str, float]:
+    """Read cached share counts without a network request per ticker."""
+    result: dict[str, float] = dict(KNOWN_SHARES_OUTSTANDING)
+    profile_dirs = [
+        cache_dir / "profiles",
+        cache_dir.parent.parent / "src" / "data" / "vn_market" / "profiles",
+    ]
+    for profile_dir in profile_dirs:
+        if not profile_dir.exists():
+            continue
+        for path in profile_dir.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                symbol = str(payload.get("symbol") or path.stem).strip().upper()
+                shares = _safe_num(payload.get("outstanding_shares"))
+                if symbol and shares and shares > 0:
+                    result[symbol] = shares
+            except (OSError, ValueError, TypeError):
+                continue
+    return result
 
 
 def _utc_now_iso() -> str:

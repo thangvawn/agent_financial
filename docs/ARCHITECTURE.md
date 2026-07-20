@@ -11,9 +11,9 @@ Stack: **FastAPI (Python) → React (Vite) → SQLite + Redis**
 ```
 Nguồn dữ liệu                 Backend (src/)                Frontend (frontend/src/)
 ──────────────                 ──────────────                ────────────────────────
-vnstock / yfinance  →  data/   →  pipeline/  →  quant/   →  api/  →  pages/
-CSV / Google Drive  →  data/   →  agents/    →  modules/ →  api/     modules/
-BCTC upload                    →  platform/  (cross-cutting)         shared/
+vnstock / yfinance  →  data/   →  pipeline/  →  engines/ →  api/  →  features/
+CSV / Google Drive  →  data/   →  modules/   →  platform/ →  api/     shared/
+BCTC upload                    →  (quant + agents trong engines/)
 ```
 
 ---
@@ -34,53 +34,42 @@ src/risk_dashboard/
 │   ├── config/       settings.py (pydantic-settings, đọc .env)
 │   └── registry/     module_definition + registry (auto-mount feature modules)
 │
-├── modules/          22 feature modules (vertical slices)
+├── modules/          feature modules (vertical slices)
 │   ├── auth/
-│   ├── home_onboarding/
-│   ├── learning/
-│   ├── guided_investing/
-│   ├── insights/
-│   ├── news_intelligence/
-│   ├── pro_lab/
-│   ├── community/
-│   ├── ai_assistant/       multi-turn LLM chat (LangGraph)
-│   ├── agent_orchestration/ HTTP routing layer cho agents
-│   ├── quant_risk/         API endpoint cho quant engine
-│   ├── financials_product/ BCTC upload + analysis API
-│   ├── data_hub/           market data API
+│   ├── home_onboarding/     HOME
+│   ├── learning/            Learn Hub
+│   ├── guided_investing/    BCTC surface (UI)
+│   ├── news_intelligence/   News & Intelligence
+│   ├── pro_lab/             Simulation Lab (backtest/scenario)
+│   ├── financials_product/  BCTC upload + analysis API
+│   ├── data_hub/            market data API
+│   ├── market_portfolio/    facade /api/v1/market-portfolio (watchlist, mock orders, PnL)
+│   ├── watchlist_product/   legacy price-cache helpers
+│   ├── portfolio_product/   legacy backtest stub (410)
 │   ├── watchlist_product/
 │   ├── portfolio_product/
-│   ├── financial_health/
-│   ├── goals/
+│   ├── ai_assistant/        multi-turn LLM chat (LangGraph)
+│   ├── agent_orchestration/ HTTP routing layer cho agents
+│   ├── quant_risk/          API endpoint cho quant engine
 │   ├── analytics_monitoring/
 │   ├── admin_cms/
 │   ├── trust_safety/
 │   ├── system_surface/
-│   └── ...
+│   └── … (legacy: community/goals/financial_health — routers OFF by default)
 │   Mỗi module có cấu trúc: api/ application/ domain/ infrastructure/ schemas/
 │
-├── agents/           EOD narrative agents (LangGraph)
-│   │  Chú ý: tách biệt với modules/ai_assistant (chat) và
-│   │         modules/agent_orchestration (HTTP routing)
-│   ├── graph.py      LangGraph EOD graph
-│   ├── narrative.py  build NarrativeBundle
-│   ├── reviewer.py   verify narrative vs numbers
-│   ├── router.py     intent routing
-│   ├── multi_agent.py supervisor graph
-│   └── tools/        LangChain tools (macro, fundamental, quant...)
+│   Product map: app/registry/product_domains.py
+│   Phase 4 slugs: home, simulation_lab (packages may remain home_onboarding/pro_lab)
+│   Unmounted archive: community, goals, financial_health
+│   Retired off-by-default: guided_investing (BCTC → financials_product)
+│   Đã gỡ khỏi product surface: insights, Community UI,
+│   Pro Lab research extras (Swarm/Copilot/Optimizer/Monte Carlo)
 │
-├── quant/            Quantitative engines
-│   ├── xgb_engine.py     XGBoost risk classifier
-│   ├── var_engine.py     Vector AutoRegression
-│   ├── shap_explain.py   SHAP feature attribution
-│   ├── eod_pipeline.py   orchestrate train+predict
-│   ├── backtest.py       rolling holdout
-│   ├── scenario.py       macro override
-│   ├── financial_analysis.py  ratio analysis
-│   ├── financial_quality_charts.py
-│   ├── balance_sheet_strength.py
-│   ├── peer_compare.py
-│   └── advanced_engine.py HMM regime detection
+├── engines/          Computational core (Phase 5)
+│   ├── README.md     ranh giới: quant vs agents; modules chỉ gọi qua application
+│   ├── quant/        models, risk, backtest, BCTC analytics, EOD pipeline
+│   └── agents/       LangGraph narrative / multi-agent / trading lab tools
+│       (shims deprecated: risk_dashboard.quant.* / risk_dashboard.agents.*)
 │
 ├── data/             Data connectors & ETL
 │   ├── interfaces.py     abstract MacroSource, MarketSource
@@ -104,7 +93,7 @@ src/risk_dashboard/
 │   └── panel_materialize.py gộp + ghi Parquet
 │
 ├── platform/         Cross-cutting infrastructure
-│   ├── database/     SQLite connections (app_state.db)
+│   ├── database/     SQLite connections (data/db/northstar.db)
 │   ├── feature_flags/ feature flag service
 │   ├── model_runtime/ model registry (pkl)
 │   ├── runtime/      panel store (in-memory cache)
@@ -154,34 +143,25 @@ frontend/src/
 │   ├── NavBar.jsx          Top navigation bar
 │   └── domainRoutes.js     URL ↔ view name mapping
 │
-├── pages/                  Page-level components (UI containers)
-│   ├── home-onboarding/    HomePage, OnboardingPage, MarketOverviewPage
-│   ├── auth/               AuthPage
-│   ├── learning/           LearningHomePage, EducationPlatformPage
-│   ├── guided-investing/   GuidedInvestingPage
-│   ├── insights/           InsightsPage
-│   ├── community/          CommunityPage
-│   ├── global-terminal/    GlobalTerminalPage, NewsPage, NewsEconCalendarPage
-│   ├── pro-lab/            ProLabPage, ProLabBacktestStudioPage, ...
-│   └── admin/              ContentOpsAdminPage, AnalyticsAdminPage,
-│                           CommunityModerationPage, TrustSafetyAdminPage,
-│                           ProLabAdminPage, LearningAdminPage
+├── app/
+│   ├── AppShell.jsx
+│   ├── domainRoutes.js
+│   └── productRegistry.js  # map 6 product domains ↔ routes/nav
 │
-├── modules/                Feature modules (business logic)
-│   ├── home-onboarding/    hooks, services, components, analytics
-│   ├── auth/               useAuth hook
-│   ├── learning/           hooks, services, components, content
-│   ├── guided-investing/   services
-│   ├── insights/           services
-│   ├── community/          services
-│   ├── data-hub/           services (market data, global terminal)
-│   ├── financials/         services (BCTC upload/analysis)
-│   ├── pro-lab/            services
-│   ├── analytics-admin/    services
-│   ├── content-ops-admin/  services
-│   ├── trust-safety-admin/ services
-│   ├── learning-admin/     services
-│   └── pro-lab-admin/      services
+├── features/               Product domains (pages + services + components)
+│   ├── home/
+│   ├── market-portfolio/
+│   ├── learn-hub/
+│   ├── bctc/
+│   ├── news/
+│   ├── simulation-lab/
+│   └── auth/
+│
+├── shared/                 Cross-cutting UI (nav, assistant, analytics)
+│
+│ Legacy shims (không thêm code mới):
+│   pages/index.js → re-export features
+│   modules/README.md → deprecated
 │
 ├── shared/                 Cross-cutting UI utilities
 │   ├── assistant/          FloatingAssistant component + API

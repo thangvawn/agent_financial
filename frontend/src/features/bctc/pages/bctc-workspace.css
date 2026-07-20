@@ -1,0 +1,180 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R4 V5 */
+/* Hallmark · genre: financial data terminal · macrostructure: dense report explorer · reference: WiData company financial tab */
+.bctc-workspace {
+  --blue: #2374d8; --blue-dark: #155db9; --blue-soft: #eaf3ff; --ink: #1f2937;
+  --muted: #697386; --line: #dfe4ea; --line-soft: #edf0f3; --surface: #fff;
+  --chart-cyan: #59b9cd; --chart-coral: #ff6556; --chart-green: #1fc47b;
+  --chart-yellow: #efc900; --chart-blue: #4169e1; --chart-red: #fb5965;
+  --chart-purple: #7668e9; --chart-teal: #13a7af; --chart-amber: #e3a923;
+  --chart-magenta: #d34c8b; --chart-slate: #78889b; --positive: #0a9860;
+  --negative: #d83b45; --warning-soft: #fff8e4; --success-soft: #e7f7ef;
+  width: 100%; min-width: 0; min-height: calc(100dvh - 56px); overflow-x: hidden; color: var(--ink); background: #f2f4f7;
+  font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.bctc-workspace * { box-sizing: border-box; }
+.bctc-workspace button, .bctc-workspace input, .bctc-workspace select { font: inherit; }
+.bctc-workspace button:focus-visible, .bctc-workspace input:focus-visible, .bctc-workspace select:focus-visible { outline: 2px solid #78aef0; outline-offset: 1px; }
+.bctc-workspace :is(h1,p) { margin: 0; }
+.bctc-company-bar { display: flex; min-height: 78px; align-items: center; justify-content: space-between; gap: 24px; padding: 12px clamp(18px, 3vw, 42px); border-bottom: 1px solid var(--line); background: var(--surface); }
+.bctc-symbol-block { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.bctc-back { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: #fff; cursor: pointer; }
+.bctc-logo { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 4px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 800; }
+.bctc-company-title { display: flex; align-items: center; gap: 8px; }
+.bctc-company-title h1 { font-size: 20px; line-height: 1; }
+.bctc-company-title span { padding: 2px 5px; border: 1px solid #b9c1cb; border-radius: 2px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.bctc-company-title svg { width: 15px; color: #a5adb8; }
+.bctc-symbol-block p { max-width: 650px; margin-top: 7px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.bctc-symbol-search { display: grid; width: min(340px, 36vw); grid-template-columns: 34px 1fr auto; align-items: center; border: 1px solid #cbd2da; border-radius: 4px; background: #fff; }
+.bctc-symbol-search svg { width: 15px; justify-self: center; color: #8a94a2; }
+.bctc-symbol-search input { min-width: 0; height: 38px; border: 0; outline: 0; color: var(--ink); background: transparent; font-weight: 700; text-transform: uppercase; }
+.bctc-symbol-search button { align-self: stretch; padding: 0 15px; border: 0; border-left: 1px solid var(--line); color: #fff; background: var(--blue); font-weight: 700; cursor: pointer; }
+.bctc-company-facts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0 clamp(18px, 3vw, 42px); border-bottom: 1px solid var(--line); background: #fff; }
+.bctc-company-facts > div { min-width: 0; padding: 13px 18px; border-right: 1px solid var(--line-soft); }
+.bctc-company-facts > div:first-child { padding-left: 0; }
+.bctc-company-facts span, .bctc-company-facts small { display: block; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.bctc-company-facts strong { display: block; margin: 5px 0 3px; overflow: hidden; font-size: 15px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.bctc-company-facts small.up { color: #0a9860; } .bctc-company-facts small.down { color: #d83b45; }
+.bctc-company-tabs { display: flex; min-height: 45px; gap: 25px; padding: 0 clamp(18px, 3vw, 42px); border-bottom: 1px solid var(--line); background: #fff; overflow-x: auto; }
+.bctc-company-tabs button { position: relative; border: 0; color: #66717f; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
+.bctc-company-tabs button.is-active { color: var(--blue); }
+.bctc-company-tabs button.is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: var(--blue); content: ""; }
+.bctc-stage { min-width: 0; padding: 18px clamp(12px, 2.4vw, 34px) 32px; }
+.bctc-report-window { width: 100%; min-width: 0; max-width: 1500px; margin: 0 auto; overflow: hidden; border: 1px solid #cfd5dc; border-radius: 4px; background: #fff; box-shadow: 0 8px 30px rgb(31 41 55 / 10%); }
+.bctc-report-topline { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 15px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.bctc-report-topline label { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; }
+.bctc-report-topline svg { width: 14px; color: var(--muted); }
+.bctc-source-stamp { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.bctc-source-stamp i { width: 7px; height: 7px; border-radius: 50%; background: #16a46b; box-shadow: 0 0 0 3px #e2f6ed; }
+.bctc-report-tabs { display: flex; min-height: 48px; padding: 0 15px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.bctc-report-tabs button { position: relative; padding: 0 17px; border: 0; color: #596575; background: transparent; font-size: 12px; cursor: pointer; }
+.bctc-report-tabs button.is-active { color: var(--blue); font-weight: 700; }
+.bctc-report-tabs button.is-active::after { position: absolute; right: 12px; bottom: -1px; left: 12px; height: 2px; background: var(--blue); content: ""; }
+.bctc-report-controls { display: flex; min-height: 57px; align-items: center; gap: 9px; padding: 9px 15px; border-bottom: 1px solid var(--line); background: #fbfcfd; }
+.bctc-period-range { display: flex; align-items: center; overflow: hidden; border: 1px solid #ccd3db; border-radius: 3px; background: #fff; }
+.bctc-period-range button { width: 31px; height: 33px; border: 0; color: var(--muted); background: #fff; cursor: pointer; }
+.bctc-period-range span { min-width: 68px; padding: 0 8px; font-size: 10px; font-weight: 700; text-align: center; }
+.bctc-period-range b { color: #a2abb7; font-weight: 400; }
+.bctc-control-spacer { flex: 1; }
+.bctc-report-controls label { position: relative; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.bctc-report-controls select { height: 34px; min-width: 85px; padding: 0 27px 0 9px; appearance: none; border: 1px solid #ccd3db; border-radius: 3px; color: var(--ink); background: #fff; font-size: 11px; cursor: pointer; }
+.bctc-report-controls label svg { position: absolute; right: 7px; width: 12px; pointer-events: none; }
+.bctc-refresh, .bctc-export { display: inline-flex; height: 34px; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid #c8d0d9; border-radius: 3px; color: #4d5968; background: #fff; font-size: 11px; cursor: pointer; }
+.bctc-export { border-color: var(--blue); color: #fff; background: var(--blue); }
+.bctc-refresh svg, .bctc-export svg { width: 13px; }
+.bctc-refresh:disabled { opacity: .55; }
+.bctc-expand-row { display: flex; min-height: 39px; align-items: center; justify-content: space-between; gap: 15px; padding: 0 15px; border-bottom: 1px solid var(--line); }
+.bctc-expand-row button { display: inline-flex; align-items: center; gap: 5px; border: 0; color: #4d5968; background: transparent; font-size: 11px; cursor: pointer; }
+.bctc-expand-row svg { width: 13px; }
+.bctc-expand-row span { color: var(--muted); font-size: 10px; }
+.bctc-report-scroll { width: 100%; min-width: 0; max-height: min(64vh, 720px); overflow: auto; }
+.bctc-report-table { width: 100%; min-width: 940px; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.bctc-report-table th, .bctc-report-table td { height: 35px; padding: 6px 12px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); background: #fff; font-size: 11px; font-variant-numeric: tabular-nums; }
+.bctc-report-table thead th { position: sticky; top: 0; z-index: 3; height: 45px; color: #5f6a79; background: #f7f8fa; font-weight: 700; text-align: right; }
+.bctc-report-table thead th:first-child { z-index: 5; text-align: left; }
+.bctc-report-table thead th:not(:first-child) { min-width: 132px; }
+.bctc-report-table thead th span { display: inline-block; vertical-align: middle; }
+.bctc-report-table thead svg { width: 12px; margin-left: 7px; color: #e25a61; vertical-align: middle; }
+.bctc-report-table th:first-child { position: sticky; left: 0; z-index: 2; width: 330px; min-width: 330px; padding-left: calc(14px + var(--level, 0) * 17px); box-shadow: 1px 0 0 var(--line); text-align: left; }
+.bctc-report-table tbody th { color: #3d4856; font-weight: 500; }
+.bctc-report-table tbody th svg { width: 13px; margin-right: 5px; vertical-align: -2px; color: #738092; }
+.bctc-report-table tbody th i { display: inline-block; width: 18px; }
+.bctc-report-table td { color: #323b47; text-align: right; }
+.bctc-report-table td.is-negative { color: #d63f49; }
+.bctc-report-table tr.is-total :is(th,td) { color: #174f92; background: #edf5ff; font-weight: 700; }
+.bctc-report-table tr.is-group :is(th,td) { color: #fff; background: #4f8fd8; font-weight: 700; }
+.bctc-report-table tbody tr:hover :is(th,td) { background: #f3f7fb; }
+.bctc-report-table tbody tr.is-total:hover :is(th,td) { background: #e4f0ff; }
+.bctc-report-table tbody tr.is-group:hover :is(th,td) { background: #4384cf; }
+.bctc-report-footer { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 15px; border-top: 1px solid var(--line); color: var(--muted); background: #fbfcfd; font-size: 9px; }
+.bctc-insight-surface { width: 100%; min-width: 0; max-width: 1500px; margin: 0 auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); box-shadow: 0 8px 30px rgb(31 41 55 / 8%); }
+.bctc-chart-toolbar { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.bctc-chart-toolbar > div { display: grid; grid-template-columns: auto auto; align-items: center; gap: 2px 8px; }
+.bctc-chart-toolbar svg { grid-row: 1 / 3; width: 20px; color: var(--blue); }
+.bctc-chart-toolbar strong { font-size: 13px; }
+.bctc-chart-toolbar span, .bctc-chart-toolbar small { color: var(--muted); font-size: 10px; }
+.bctc-financial-chart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; background: #f7f8fa; }
+.bctc-chart-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); }
+.bctc-chart-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bctc-chart-card > header strong { font-size: 11px; }
+.bctc-chart-card > header span { color: var(--muted); font-size: 9px; }
+.bctc-combo-chart { position: relative; height: 190px; margin-top: 8px; overflow: hidden; }
+.bctc-chart-gridlines { position: absolute; inset: 8px 0 12px; display: flex; flex-direction: column; justify-content: space-between; }
+.bctc-chart-gridlines i { border-top: 1px dotted var(--line); }
+.bctc-bars { position: absolute; inset: 12px 8px 12px; display: flex; align-items: end; justify-content: space-around; gap: 3px; }
+.bctc-bars i { width: min(15px, 3.4%); height: var(--height); min-height: 2px; border-radius: 2px 2px 0 0; background: var(--bar); opacity: .94; }
+.bctc-combo-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bctc-combo-chart polyline { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 1px rgb(31 41 55 / 16%)); }
+.bctc-chart-periods { display: flex; justify-content: space-between; color: var(--muted); font-size: 8px; }
+.bctc-chart-card > footer { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 11px; color: #505c6b; font-size: 9px; }
+.bctc-chart-card > footer span { display: inline-flex; align-items: center; gap: 6px; }
+.bctc-chart-card > footer i { width: 10px; height: 8px; border-radius: 1px; background: var(--legend); }
+.bctc-chart-card > footer i.is-line { height: 2px; }
+.bctc-technical-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.bctc-technical-metric { padding: 14px 16px; border-right: 1px solid var(--line); }
+.bctc-technical-metric span { display: block; color: var(--muted); font-size: 10px; }
+.bctc-technical-metric strong { display: block; margin-top: 5px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.bctc-technical-metric.is-up strong { color: var(--positive); } .bctc-technical-metric.is-down strong { color: var(--negative); }
+.bctc-price-chart { padding: 16px; }
+.bctc-price-chart > header, .bctc-analysis-panel > header, .bctc-governance-profile > header, .bctc-governance-table > header, .bctc-document-table > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.bctc-price-chart > header div, .bctc-analysis-panel > header, .bctc-governance-profile > header, .bctc-governance-table > header, .bctc-document-table > header { justify-content: flex-start; }
+.bctc-price-chart header div, .bctc-analysis-panel > header, .bctc-governance-profile > header, .bctc-governance-table > header, .bctc-document-table > header { display: flex; align-items: center; gap: 9px; }
+.bctc-price-chart header svg, .bctc-analysis-panel header > svg, .bctc-governance-profile header > svg, .bctc-governance-table header > svg, .bctc-document-table header > svg { width: 18px; color: var(--blue); }
+.bctc-price-chart header span, .bctc-analysis-panel header span, .bctc-governance-profile header span, .bctc-governance-table header span, .bctc-document-table header span { display: block; color: var(--muted); font-size: 9px; }
+.bctc-price-plot { height: 320px; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, transparent, transparent 79px, var(--line-soft) 80px); }
+.bctc-price-plot svg { width: 100%; height: 100%; }
+.bctc-price-plot polyline { fill: none; vector-effect: non-scaling-stroke; }
+.bctc-price-plot .price { stroke: var(--blue); stroke-width: 2; } .bctc-price-plot .average { stroke: var(--chart-amber); stroke-width: 1.5; }
+.bctc-volume-bars { display: flex; height: 70px; align-items: end; gap: 1px; padding-top: 8px; }
+.bctc-volume-bars i { flex: 1; height: var(--height); background: color-mix(in srgb, var(--blue) 42%, transparent); }
+.bctc-analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; padding: 1px; background: var(--line); }
+.bctc-analysis-panel { min-width: 0; padding: 17px; background: var(--surface); }
+.bctc-health-list { display: grid; gap: 12px; }
+.bctc-health-list > div { display: grid; grid-template-columns: 95px minmax(0, 1fr) 30px; align-items: center; gap: 10px; }
+.bctc-health-list span { color: var(--muted); font-size: 10px; }
+.bctc-health-list i { height: 6px; overflow: hidden; border-radius: 2px; background: var(--line-soft); }
+.bctc-health-list b { display: block; width: var(--value); height: 100%; background: var(--blue); }
+.bctc-health-list strong { text-align: right; font-size: 10px; }
+.bctc-alert-list { display: grid; }
+.bctc-alert-list > div { display: flex; gap: 9px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.bctc-alert-list svg { flex: 0 0 15px; width: 15px; color: var(--chart-amber); }
+.bctc-alert-list p { display: grid; gap: 3px; }
+.bctc-alert-list strong { font-size: 10px; } .bctc-alert-list span { color: var(--muted); font-size: 9px; }
+.bctc-ratio-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bctc-ratio-list > div { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 9px; border-bottom: 1px solid var(--line-soft); }
+.bctc-ratio-list span { color: var(--muted); font-size: 9px; } .bctc-ratio-list strong { font-size: 10px; }
+.bctc-governance-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 1px; padding: 1px; background: var(--line); }
+.bctc-governance-profile, .bctc-governance-table { min-width: 0; padding: 17px; background: var(--surface); }
+.bctc-governance-table.is-wide { grid-column: 1 / -1; }
+.bctc-governance-profile dl { margin: 0; }
+.bctc-governance-profile dl > div { display: grid; grid-template-columns: 100px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.bctc-governance-profile dt { color: var(--muted); font-size: 9px; } .bctc-governance-profile dd { margin: 0; overflow-wrap: anywhere; font-size: 10px; }
+.bctc-governance-table table, .bctc-document-table table { width: 100%; border-collapse: collapse; }
+.bctc-governance-table :is(th,td), .bctc-document-table :is(th,td) { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); font-size: 10px; text-align: left; }
+.bctc-governance-table th, .bctc-document-table th { color: var(--muted); background: #f8f9fb; font-weight: 600; }
+.bctc-documents-view { padding: 16px; }
+.bctc-document-upload { display: flex; align-items: center; gap: 13px; padding: 17px; border: 1px dashed #b9c6d5; background: #f8fbff; }
+.bctc-document-upload > svg { width: 25px; color: var(--blue); }
+.bctc-document-upload > div { display: grid; flex: 1; gap: 3px; }
+.bctc-document-upload span { color: var(--muted); font-size: 9px; }
+.bctc-document-upload button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 3px; color: var(--surface); background: var(--blue); cursor: pointer; }
+.bctc-document-table { margin-top: 14px; border: 1px solid var(--line); padding: 14px; }
+.bctc-document-table td i { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--positive); }
+.bctc-source-warning { display: flex; gap: 10px; margin-top: 14px; padding: 13px; border: 1px solid #ead8a3; background: var(--warning-soft); }
+.bctc-source-warning svg { flex: 0 0 17px; width: 17px; color: var(--chart-amber); }
+.bctc-source-warning p { display: grid; gap: 3px; } .bctc-source-warning span { color: var(--muted); font-size: 9px; }
+.bctc-upload-status { margin-top: 10px; padding: 9px 12px; border: 1px solid var(--line); font-size: 10px; }
+.bctc-upload-status.is-success { color: var(--positive); background: var(--success-soft); } .bctc-upload-status.is-error { color: var(--negative); }
+.bctc-insight-loading, .bctc-insight-empty { display: grid; min-height: 360px; place-items: center; align-content: center; gap: 8px; color: var(--muted); text-align: center; }
+.bctc-insight-loading svg, .bctc-insight-empty svg { width: 23px; color: var(--blue); }
+.bctc-insight-empty.is-compact { min-height: 150px; }
+.bctc-insight-empty span { max-width: 52ch; font-size: 9px; }
+.bctc-loading, .bctc-empty-report, .bctc-error { display: grid; min-height: 360px; place-items: center; align-content: center; gap: 8px; color: var(--muted); text-align: center; }
+.bctc-loading svg { width: 24px; color: var(--blue); animation: bctc-spin 1s linear infinite; }
+.bctc-loading strong, .bctc-empty-report strong, .bctc-error strong { color: var(--ink); }
+.bctc-empty-report svg { width: 26px; color: var(--blue); }
+.bctc-error button { margin-top: 6px; padding: 8px 12px; border: 0; border-radius: 3px; color: #fff; background: var(--blue); cursor: pointer; }
+@media (max-width: 1100px) { .bctc-company-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } .bctc-company-facts > div:nth-child(3) { border-right: 0; } .bctc-report-controls { flex-wrap: wrap; } .bctc-control-spacer { display: none; } .bctc-financial-chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .bctc-company-bar { align-items: stretch; flex-direction: column; } .bctc-symbol-search { width: 100%; } .bctc-company-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bctc-company-tabs { gap: 18px; } .bctc-stage { padding: 10px 0 24px; } .bctc-report-window, .bctc-insight-surface { border-inline: 0; border-radius: 0; } .bctc-report-controls label { flex: 1; } .bctc-report-controls select { width: 100%; } .bctc-period-range { width: 100%; justify-content: space-between; } .bctc-expand-row span { display: none; } .bctc-report-table th:first-child { width: 235px; min-width: 235px; } .bctc-report-footer { align-items: start; flex-direction: column; } .bctc-chart-toolbar { align-items: start; flex-direction: column; } .bctc-financial-chart-grid, .bctc-analysis-grid, .bctc-governance-grid { grid-template-columns: minmax(0, 1fr); } .bctc-governance-table.is-wide { grid-column: auto; } .bctc-technical-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bctc-price-plot { height: 240px; } .bctc-document-upload { align-items: start; flex-wrap: wrap; } .bctc-document-upload > div { flex-basis: calc(100% - 45px); } .bctc-document-upload button { width: 100%; } }
+@media (max-width: 414px) { .bctc-financial-chart-grid { grid-template-columns: minmax(0, 1fr); padding-inline: 8px; } .bctc-combo-chart { height: 170px; } .bctc-ratio-list { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .bctc-workspace * { animation-duration: .01ms !important; } }
+@keyframes bctc-spin { to { transform: rotate(360deg); } }

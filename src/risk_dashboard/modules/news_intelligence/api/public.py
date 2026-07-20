@@ -4,28 +4,10 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from risk_dashboard.modules.news_intelligence.application.finnhub_desk import get_finnhub_desk_snapshot
-from risk_dashboard.modules.news_intelligence.application.news_agent import NewsAnalystAgent, NewsChatContext
 from risk_dashboard.modules.news_intelligence.application.services import NewsIntelligenceService
-from risk_dashboard.modules.news_intelligence.safety.news_policy import (
-    build_analyst_redirect,
-    build_safety_block,
-    is_unsafe_query,
-)
+from risk_dashboard.modules.news_intelligence.safety.news_policy import build_safety_block
 
 router = APIRouter(prefix="/news", tags=["News Intelligence"])
-
-
-class NewsChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=1400)
-    conversation_id: str | None = Field(default=None, max_length=80)
-    category: str | None = Field(default=None, max_length=40)
-    region: str | None = Field(default=None, max_length=20)
-    source_group: str | None = Field(default=None, max_length=60)
-    preset: str | None = Field(default=None, max_length=60)
-    time_range_hours: int = Field(default=168, ge=1, le=168)
-    active_article_id: str | None = Field(default=None, max_length=120)
-    history: list[dict[str, str]] = Field(default_factory=list, max_length=10)
-    user_mode: str = Field(default="investor", pattern=r"^(beginner|investor|pro)$")
 
 
 class SaveNewsRequest(BaseModel):
@@ -125,33 +107,6 @@ def get_news_pulse(
         "data_quality": feed["data_quality"],
         "safety": feed["safety"],
     }
-
-
-@router.post("/chat")
-def news_chat(req: NewsChatRequest) -> dict:
-    if is_unsafe_query(req.message):
-        redirect = build_analyst_redirect()
-        redirect["conversation_id"] = req.conversation_id or ""
-        redirect["message_id"] = f"redirect_{hash(req.message) & 0xFFFFFFFF:08x}"
-        redirect["role"] = "news_analyst"
-        redirect["tools_used"] = ["safety_guardrail"]
-        redirect["warnings"] = ["Câu hỏi liên quan đến khuyến nghị mua/bán — đã chuyển hướng sang phân tích bối cảnh."]
-        redirect["safety"] = build_safety_block()
-        return redirect
-
-    context = NewsChatContext(
-        category=req.category,
-        region=req.region,
-        source_group=req.source_group,
-        preset=req.preset,
-        time_range_hours=req.time_range_hours,
-        active_article_id=req.active_article_id,
-        history=tuple(req.history[-8:]),
-        user_mode=req.user_mode,
-    )
-    result = NewsAnalystAgent().respond(message=req.message, context=context, conversation_id=req.conversation_id)
-    result["safety"] = build_safety_block()
-    return result
 
 
 # ── Saved News ──────────────────────────────────────────────────────────

@@ -20,10 +20,11 @@ build/
 # ── Data & Models (runtime) ─────────
 data/*.db
 data/*.db.*
+data/db/*.db
+data/db/*.db.*
+!data/db/.gitkeep
+!data/db/README.md
 data/cache/
-data/risk_dashboard.db
-data/app_state.db
-data/app_state.db.*
 data/global_market_prices/*.json
 data/global_market_prices/history/*.json
 data/financials/cache/*.json
@@ -38,6 +39,11 @@ data/learning_assets/**
 !data/learning_assets/books/.gitkeep
 !data/learning_assets/images/.gitkeep
 data/Video/
+data/quant_science_drive/
+data/financial_uploads/
+!data/financial_uploads/.gitkeep
+!data/cache/.gitkeep
+Video/
 
 data_outputs/
 output/

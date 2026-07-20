@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { NAV_FLOW } from '../../app/productRegistry'
 import { trackAnalyticsEvent } from '../analytics/trackEvent'
 
 function ChevronDownIcon({ className }) {
@@ -25,18 +26,6 @@ function LibraryIcon({ className }) {
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-    </svg>
-  )
-}
-
-function RobotIcon({ className }) {
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="10" rx="2"></rect>
-      <circle cx="12" cy="5" r="2"></circle>
-      <path d="M12 7v4"></path>
-      <line x1="8" y1="16" x2="8" y2="16"></line>
-      <line x1="16" y1="16" x2="16" y2="16"></line>
     </svg>
   )
 }
@@ -91,58 +80,31 @@ function FileTextIcon({ className }) {
   )
 }
 
-const FLOW = [
-  {
-    id: 'global_terminal',
-    label: 'Global Terminal',
-    short: 'Cross-asset market desk',
-    group: 'analysis',
-    action: 'openGlobalTerminal',
-  },
-  {
-    id: 'learning',
-    label: 'Learn',
-    short: 'Short lessons',
-    group: 'education',
-    action: 'openLearning',
-    dropdown: [
-      { id: 'path', label: 'Lộ trình', icon: MapIcon },
-      { id: 'library', label: 'Thư viện', icon: LibraryIcon },
-      { id: 'tutor', label: 'Hỏi AI', icon: RobotIcon },
-    ],
-  },
-  {
-    id: 'guided_investing',
-    label: 'BCTC',
-    short: 'Financial analysis',
-    group: 'analysis',
-    action: 'openGuidedInvesting',
-    dropdown: [
-      { id: 'income', label: 'Kết quả kinh doanh', icon: BarChartIcon },
-      { id: 'balance', label: 'Bảng cân đối', icon: PieChartIcon },
-      { id: 'cash-flow', label: 'Lưu chuyển tiền', icon: DollarIcon },
-      { id: 'ratios', label: 'Chỉ số', icon: BarChartIcon },
-      { id: 'horizontal', label: 'Phân tích ngang', icon: BarChartIcon },
-      { id: 'vertical', label: 'Phân tích dọc', icon: BarChartIcon },
-      { id: 'risk', label: 'Cảnh báo rủi ro', icon: AlertTriangleIcon },
-      { id: 'report', label: 'Báo cáo', icon: FileTextIcon },
-    ],
-  },
-  {
-    id: 'news',
-    label: 'News',
-    short: 'Market narrative',
-    group: 'analysis',
-    action: 'openNews',
-  },
-  {
-    id: 'pro_lab',
-    label: 'Pro Lab',
-    short: 'Research sandbox',
-    group: 'pro',
-    action: 'openProLab',
-  },
-]
+const FLOW_DROPDOWNS = {
+  learning: [
+    { id: 'path', label: 'Lộ trình', icon: MapIcon },
+    { id: 'library', label: 'Thư viện', icon: LibraryIcon },
+  ],
+  guided_investing: [
+    { id: 'income', label: 'Kết quả kinh doanh', icon: BarChartIcon },
+    { id: 'balance', label: 'Bảng cân đối', icon: PieChartIcon },
+    { id: 'cash-flow', label: 'Lưu chuyển tiền', icon: DollarIcon },
+    { id: 'ratios', label: 'Chỉ số', icon: BarChartIcon },
+    { id: 'horizontal', label: 'Phân tích ngang', icon: BarChartIcon },
+    { id: 'vertical', label: 'Phân tích dọc', icon: BarChartIcon },
+    { id: 'risk', label: 'Cảnh báo rủi ro', icon: AlertTriangleIcon },
+    { id: 'report', label: 'Báo cáo', icon: FileTextIcon },
+  ],
+}
+
+const FLOW = NAV_FLOW.map((domain) => ({
+  id: domain.view,
+  label: domain.label,
+  mobileLabel: domain.mobileLabel,
+  short: domain.short,
+  action: domain.navAction,
+  dropdown: FLOW_DROPDOWNS[domain.view],
+}))
 
 export default function ConnectedWorkspaceNav({ currentView, sessionId, actions, showTabs = true }) {
   const [isScrolled, setIsScrolled] = useState(() => getScrollY() > 18)
@@ -219,7 +181,8 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
               className={`connected-nav__tab ${(currentView === item.id || (item.id === 'news' && currentView === 'news_economic_calendar')) ? 'connected-nav__tab--active' : ''}`}
               onClick={() => open(item)}
             >
-              {item.label}
+              <span className="connected-nav__label connected-nav__label--desktop">{item.label}</span>
+              <span className="connected-nav__label connected-nav__label--mobile">{item.mobileLabel || item.label}</span>
               {item.id === 'pro_lab' ? <span className="connected-nav__pro">PRO</span> : null}
               {item.dropdown ? <ChevronDownIcon className="connected-nav__dropdown-icon" /> : null}
             </button>

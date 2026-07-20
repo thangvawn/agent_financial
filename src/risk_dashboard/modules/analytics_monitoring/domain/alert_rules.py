@@ -25,7 +25,7 @@ ALERT_RULES: tuple[dict[str, object], ...] = (
         "threshold": 4000.0,
         "comparison": "gt",
         "severity_tier": "SEV3",
-        "surface": "ai_assistant",
+        "surface": "pro_lab",
         "summary": "Model latency p95 đang quá cao.",
     },
     {

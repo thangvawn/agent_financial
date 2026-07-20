@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from risk_dashboard.quant.backtest import (
+from risk_dashboard.engines.quant.backtest import (
     backtest_volume_btc_stoploss_strategy,
     compute_buy_and_hold,
     normalize_weights,

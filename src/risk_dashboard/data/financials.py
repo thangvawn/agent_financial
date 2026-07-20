@@ -92,7 +92,10 @@ def _financial_cache_dir() -> Path:
 
 
 def _cache_path_for_ticker(ticker: str) -> Path:
-    return _financial_cache_dir() / f"{ticker.upper().strip()}.json"
+    normalized = ticker.upper().strip()
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9._-]{0,19}", normalized):
+        raise FinancialDataError("Mã cổ phiếu không hợp lệ.", hint="Chỉ dùng chữ cái, số, dấu chấm, gạch dưới hoặc gạch ngang.")
+    return _financial_cache_dir() / f"{normalized}.json"
 
 
 def load_cached_financial_dataset(ticker: str) -> FinancialDataset | None:
@@ -271,13 +274,63 @@ def _build_dataset_from_statement_frames(
 
     periods = [FinancialPeriodData.model_validate(period_data) for period_data in period_map.values()]
 
+    raw_statements = {
+        "income": _serialize_statement_frame(income_df, "Kết quả kinh doanh"),
+        "balance": _serialize_statement_frame(balance_df, "Cân đối kế toán"),
+        "cash_flow": _serialize_statement_frame(cashflow_df, "Lưu chuyển tiền tệ"),
+    }
+
     return FinancialDataset(
         ticker=ticker,
         source=source,
         fetched_at=datetime.now(timezone.utc),
         provider_notes=provider_notes or [],
         periods=periods,
+        raw_statements=raw_statements,
     )
+
+
+def _serialize_statement_frame(statement_df: pd.DataFrame, label: str) -> dict[str, Any]:
+    """Keep provider line items intact for the full financial-report explorer.
+
+    Canonical metrics remain available in ``periods`` for quant engines. This
+    representation is deliberately lossless so the product UI can show every
+    reported line instead of the small canonical subset.
+    """
+    if statement_df.empty:
+        return {"label": label, "periods": [], "rows": []}
+
+    columns = [str(column) for column in statement_df.columns]
+    label_column = next((column for column in columns if _normalize_label(column) in {"item", "chỉ tiêu", "chi tieu"}), columns[0])
+    english_column = next((column for column in columns if _normalize_label(column) == "item_en"), None)
+    id_column = next((column for column in columns if _normalize_label(column) == "item_id"), None)
+    metadata = {label_column, english_column, id_column, None}
+    period_columns = [column for column in columns if column not in metadata and not column.startswith("Unnamed")]
+
+    rows: list[dict[str, Any]] = []
+    for index, (_, source_row) in enumerate(statement_df.iterrows()):
+        row_label = str(source_row.get(label_column) or "").strip()
+        if not row_label:
+            continue
+        row_key = str(source_row.get(id_column) or f"line-{index + 1}") if id_column else f"line-{index + 1}"
+        uppercase = row_label == row_label.upper() and any(character.isalpha() for character in row_label)
+        normalized = _normalize_label(row_label)
+        is_total = uppercase or normalized.startswith(("tổng", "lợi nhuận gộp", "lợi nhuận thuần", "lưu chuyển tiền thuần"))
+        rows.append({
+            "key": row_key,
+            "label": row_label,
+            "label_en": str(source_row.get(english_column) or "").strip() if english_column else None,
+            "level": 0 if uppercase else 1,
+            "is_group": uppercase,
+            "emphasis": is_total,
+            "source": "reported",
+            "values": [
+                {"period": period, "value": _to_float(source_row.get(period))}
+                for period in period_columns
+            ],
+        })
+
+    return {"label": label, "periods": period_columns, "rows": rows}
 
 
 def _prepare_vnstock_runtime() -> None:
@@ -309,9 +362,26 @@ def _attempt_vnstock_fetch(ticker: str) -> FinancialDataset:
         frames: dict[str, pd.DataFrame] = {}
         try:
             finance = Finance(source=source, symbol=ticker, period="quarter", get_all=True, show_log=False)
-            frames["income"] = finance.income_statement(period="quarter", lang="vi", dropna=True)
-            frames["balance"] = finance.balance_sheet(period="quarter", lang="vi", dropna=True)
-            frames["cashflow"] = finance.cash_flow(period="quarter", lang="vi", dropna=True)
+            provider = getattr(finance, "_provider", None)
+
+            def fetch_statement(report_type: str, public_method: str) -> pd.DataFrame:
+                # vnstock 4.0.2 hard-codes four periods on public VCI calls. The
+                # provider supports a limit, so request enough history for the
+                # chart workbench while retaining a public-method fallback.
+                if source == "VCI" and provider is not None and hasattr(provider, "_get_financial_report"):
+                    return provider._get_financial_report(  # noqa: SLF001 - compatibility adapter
+                        report_type,
+                        period="quarter",
+                        lang="vi",
+                        dropna=True,
+                        limit=40,
+                    )
+                method = getattr(finance, public_method)
+                return method(period="quarter", lang="vi", dropna=True)
+
+            frames["income"] = fetch_statement("income_statement", "income_statement")
+            frames["balance"] = fetch_statement("balance_sheet", "balance_sheet")
+            frames["cashflow"] = fetch_statement("cash_flow", "cash_flow")
             if any(frame.empty for frame in frames.values()):
                 raise ValueError("Provider returned empty statement.")
             return _build_dataset_from_statement_frames(

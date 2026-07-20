@@ -13,13 +13,16 @@ from fastapi import APIRouter, HTTPException, UploadFile, Form, File
 from pydantic import BaseModel, Field
 
 from risk_dashboard.data.financials import FinancialDataError, get_financial_dataset, import_financial_dataset
-from risk_dashboard.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
-from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
-from risk_dashboard.quant.financial_quality_charts import build_financial_quality_charts
+from risk_dashboard.engines.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
+from risk_dashboard.engines.quant.financial_analysis import analyze_financial_dataset
+from risk_dashboard.engines.quant.financial_quality_charts import build_financial_quality_charts
 from risk_dashboard.schemas.financials import FinancialDataset, FinancialImportRequest, FinancialPeriodData
 from risk_dashboard.platform.database import open_app_state_db
+from risk_dashboard.modules.financials_product.application import build_company_financial_workspace
 
 router = APIRouter(tags=["Financials"])
+
+MAX_FINANCIAL_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 class StudentIncomeStatementNoteRequest(BaseModel):
@@ -131,7 +134,10 @@ def financial_cockpit(
         for insight in insights
         if insight.get("severity") in ("warning", "risk")
     ]
-    
+
+    all_periods = [p.model_dump(mode="json") for p in dataset.periods]
+    all_periods.sort(key=lambda item: (item.get("year") or 0, item.get("quarter") or 0, str(item.get("period") or "")))
+
     return {
         "ticker": ticker.upper(),
         "company": {
@@ -152,14 +158,56 @@ def financial_cockpit(
                 "points": model["trend_points"]
             }
         },
+        "periods": all_periods,
         "statement_tables": {
             "income": {
                 "rows": model["table_rows"]
-            }
+            },
+            "balance": {"rows": _generic_statement_rows(all_periods, [
+                ("total_assets", "Tổng tài sản"), ("current_assets", "Tài sản ngắn hạn"),
+                ("cash", "Tiền và tương đương tiền"), ("receivables", "Các khoản phải thu"),
+                ("inventory", "Hàng tồn kho"), ("fixed_assets", "Tài sản cố định"),
+                ("total_liabilities", "Tổng nợ phải trả"), ("debt", "Tổng nợ vay"),
+                ("equity", "Vốn chủ sở hữu"), ("retained_earnings", "Lợi nhuận sau thuế chưa phân phối"),
+            ])},
+            "cash_flow": {"rows": _generic_statement_rows(all_periods, [
+                ("operating_cash_flow", "Lưu chuyển tiền từ HĐKD"),
+                ("investing_cash_flow", "Lưu chuyển tiền từ HĐĐT"),
+                ("financing_cash_flow", "Lưu chuyển tiền từ HĐTC"),
+                ("capex", "Chi đầu tư tài sản cố định"),
+            ])},
         },
         "risk_flags": risk_flags,
         "source_evidence": []
     }
+
+
+@router.get("/financials/{ticker}/company-workspace", tags=["Financials"])
+def company_financial_workspace(
+    ticker: str,
+    refresh: bool = False,
+    period_mode: str = "quarter",
+    limit: int = 12,
+):
+    """Single contract consumed by the BCTC company-analysis product surface."""
+    dataset = _load_dataset_or_503(ticker, refresh=refresh)
+    peer_payload: dict[str, Any] | None = None
+    try:
+        from risk_dashboard.engines.quant.peer_compare import compare_peers
+
+        peer_payload = compare_peers(dataset.ticker).to_dict()
+    except Exception:
+        # Peer coverage is optional; company statements must remain available.
+        peer_payload = None
+    try:
+        return build_company_financial_workspace(
+            dataset,
+            period_mode=period_mode,
+            limit=limit,
+            peers=peer_payload,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 
@@ -229,7 +277,7 @@ def financial_balance_sheet_strength(ticker: str, period: str | None = None, ref
 
 @router.get("/financials/{ticker}/peers", tags=["Financials"])
 def financial_peer_compare(ticker: str, peers: str | None = None):
-    from risk_dashboard.quant.peer_compare import compare_peers
+    from risk_dashboard.engines.quant.peer_compare import compare_peers
 
     peer_list = [p.strip().upper() for p in peers.split(",") if p.strip()] if peers else None
     result = compare_peers(ticker, peer_tickers=peer_list)
@@ -238,7 +286,7 @@ def financial_peer_compare(ticker: str, peers: str | None = None):
 
 @router.get("/financials/cached-tickers", tags=["Financials"])
 def list_cached_financial_tickers():
-    from risk_dashboard.quant.peer_compare import list_cached_tickers
+    from risk_dashboard.engines.quant.peer_compare import list_cached_tickers
 
     tickers = list_cached_tickers()
     return {"tickers": tickers, "count": len(tickers)}
@@ -293,12 +341,22 @@ def upload_financials(
         
     upload_id = f"bctc-{uuid.uuid4().hex}"
     
-    uploads_dir = os.getenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", "data/uploads")
+    uploads_dir = os.getenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", "data/financial_uploads")
     os.makedirs(uploads_dir, exist_ok=True)
     
     file_path = os.path.join(uploads_dir, f"{upload_id}{ext}")
-    with open(file_path, "wb") as f:
-        f.write(file.file.read())
+    bytes_written = 0
+    try:
+        with open(file_path, "wb") as f:
+            while chunk := file.file.read(1024 * 1024):
+                bytes_written += len(chunk)
+                if bytes_written > MAX_FINANCIAL_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="File BCTC vượt quá giới hạn 20 MB.")
+                f.write(chunk)
+    except HTTPException:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
         
     metadata = {
         "upload_id": upload_id,
@@ -328,7 +386,7 @@ def upload_financials(
 
 @router.post("/financials/uploads/{upload_id}/analyze", tags=["Financials"])
 def analyze_uploaded_file(upload_id: str):
-    uploads_dir = os.getenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", "data/uploads")
+    uploads_dir = os.getenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", "data/financial_uploads")
     metadata_path = os.path.join(uploads_dir, f"{upload_id}.json")
     
     if not os.path.exists(metadata_path):
@@ -342,6 +400,12 @@ def analyze_uploaded_file(upload_id: str):
         raise HTTPException(status_code=404, detail="Uploaded file not found")
         
     _, ext = os.path.splitext(file_path.lower())
+
+    if ext != ".csv":
+        raise HTTPException(
+            status_code=501,
+            detail="Pipeline trích xuất PDF/XLSX/DOCX/ảnh chưa được triển khai. Chưa import dữ liệu giả vào cache.",
+        )
     
     periods_data = []
     
@@ -564,9 +628,13 @@ def bctc_income_statement_formulas():
 
 @router.get("/api/bctc/income-statement/explain-line-item", tags=["Financials"])
 def bctc_income_statement_explain_line_item(
-    line_item_key: str,
+    line_item_key: str | None = None,
+    item_key: str | None = None,
     student_level: str = "beginner",
 ):
+    line_item_key = line_item_key or item_key
+    if not line_item_key:
+        raise HTTPException(status_code=422, detail={"message": "line_item_key is required"})
     explanations = _line_item_explanations()
     item = explanations.get(line_item_key)
     if not item:
@@ -711,6 +779,22 @@ def _load_dataset_or_503(ticker: str, *, refresh: bool = False) -> FinancialData
                 "notes": exc.notes,
             },
         ) from exc
+
+
+def _generic_statement_rows(periods: list[dict[str, Any]], definitions: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Expose raw statement lines in one consistent shape for the WiData-style table."""
+    rows: list[dict[str, Any]] = []
+    for key, label in definitions:
+        values = [{"period": item.get("period"), "value": _line_value(item, key)} for item in periods]
+        numeric = [row["value"] for row in values if row["value"] is not None]
+        rows.append({
+            "line_item_key": key,
+            "line_item_name": label,
+            "values": values,
+            "latest": numeric[-1] if numeric else None,
+            "source": "reported",
+        })
+    return rows
 
 
 def _build_income_statement_model(

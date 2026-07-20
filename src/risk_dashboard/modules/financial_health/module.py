@@ -4,7 +4,7 @@ from risk_dashboard.modules.financial_health.api.public import router as public_
 module = ModuleDefinition(
     id="financial_health",
     slug="financial_health",
-    enabled_by_default=True,
+    enabled_by_default=False,  # legacy — out of product surface (Phase 2)
     dependencies=("learning", "home_onboarding"),
     feature_flags=(
         "module.financial_health.enabled",

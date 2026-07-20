@@ -2,12 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from risk_dashboard.modules.financial_health.infrastructure.repositories.sqlite import (
-    SqliteFinancialHealthSnapshotRepository,
-)
-from risk_dashboard.modules.goals.infrastructure.repositories.sqlite import (
-    SqliteGoalHomeReader,
-)
 from risk_dashboard.modules.home_onboarding.application.services import (
     AnswerOnboardingQuestion,
     CompleteOnboarding,
@@ -28,7 +22,7 @@ from risk_dashboard.modules.home_onboarding.schemas.responses import (
     OnboardingSessionResponse,
 )
 
-router = APIRouter(tags=["Onboarding"])
+router = APIRouter(tags=["Home"])
 
 
 def _session_repo() -> SqliteOnboardingSessionRepository:
@@ -43,16 +37,8 @@ def _home_repo() -> SqliteHomeStateRepository:
     return SqliteHomeStateRepository()
 
 
-def _financial_health_snapshot_repo() -> SqliteFinancialHealthSnapshotRepository:
-    return SqliteFinancialHealthSnapshotRepository()
-
-
 def _learning_repo() -> SqliteLearningHomeRepository:
     return SqliteLearningHomeRepository()
-
-
-def _goal_home_reader() -> SqliteGoalHomeReader:
-    return SqliteGoalHomeReader()
 
 
 @router.post("/onboarding/start", response_model=OnboardingSessionResponse)
@@ -92,12 +78,11 @@ def onboarding_complete(req: OnboardingAnswerRequest) -> OnboardingCompleteRespo
 @router.get("/home/{session_id}", response_model=HomeResponse)
 def personalized_home(session_id: str) -> HomeResponse:
     try:
+        # Phase 4: no legacy financial_health / goals wiring on product Home.
         return GetHomeState(
             profiles=_profile_repo(),
             home_states=_home_repo(),
-            financial_health_snapshots=_financial_health_snapshot_repo(),
             learning_home_reader=_learning_repo(),
-            goal_home_reader=_goal_home_reader(),
         ).execute(session_id=session_id)
     except ValueError as exc:
         if "before onboarding" in str(exc).lower():

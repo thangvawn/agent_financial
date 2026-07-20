@@ -18,7 +18,6 @@ export default defineConfig({
       '/health': 'http://127.0.0.1:8001',
       '/eod': 'http://127.0.0.1:8001',
       '/scenario': 'http://127.0.0.1:8001',
-      '/chat': 'http://127.0.0.1:8001',
       '/research': 'http://127.0.0.1:8001',
       '/admin': 'http://127.0.0.1:8001',
       '/financials': 'http://127.0.0.1:8001',

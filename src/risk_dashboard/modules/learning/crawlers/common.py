@@ -144,23 +144,22 @@ CREATE INDEX IF NOT EXISTS idx_learning_crawl_runs_started ON learning_crawl_run
 
 
 def default_db_path() -> Path:
-    """Repo-relative default. Matches risk_dashboard.app.config.settings."""
-    return Path(__file__).resolve().parents[5] / "data" / "app_state.db"
+    """Shared Northstar DB path (same as platform.database.config.get_db_path)."""
+    from risk_dashboard.platform.database.config import get_db_path
+
+    return get_db_path()
 
 
 def open_catalog_db(db_path: str | Path | None = None) -> sqlite3.Connection:
-    """Open SQLite + ensure the learning-catalog tables exist (idempotent).
+    """Open the shared DB (learning catalog tables come from baseline migration).
 
-    Standalone of ``risk_dashboard.app.config.settings`` to avoid pulling in
-    the full FastAPI bootstrap chain when running the CLI.
+    Kept as a named helper for CLI/crawler callers; no longer maintains a
+    separate schema or connection stack.
     """
-    resolved = Path(db_path) if db_path else default_db_path()
-    resolved.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(resolved), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.executescript(LEARNING_CATALOG_SCHEMA)
-    conn.commit()
-    return conn
+    from risk_dashboard.platform.database.connection import connect_db
+
+    return connect_db(db_path)
+
 
 
 def utc_now_iso() -> str:

@@ -43,7 +43,7 @@ def main() -> None:
         "--sqlite",
         type=Path,
         default=None,
-        help="Ghi registry SQLite (mặc định: ./data/risk_dashboard.db nếu có --register-db)",
+        help="Ghi registry SQLite (mặc định: data/db/northstar.db nếu có --register-db)",
     )
     p.add_argument(
         "--register-db",

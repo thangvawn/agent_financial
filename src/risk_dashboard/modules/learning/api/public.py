@@ -8,8 +8,6 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Query
 
 from risk_dashboard.app.config.settings import get_settings
-from risk_dashboard.modules.ai_assistant.application.services import RespondWithAssistant
-from risk_dashboard.modules.ai_assistant.infrastructure.repositories.sqlite import SqliteAssistantConversationRepository
 from risk_dashboard.modules.learning.application.services import (
     CompleteLearningLesson,
     GetContextRecommendation,
@@ -21,19 +19,15 @@ from risk_dashboard.modules.learning.application.services import (
 from risk_dashboard.modules.learning.infrastructure.catalog_reader import SqliteLearningCatalog
 from risk_dashboard.modules.learning.infrastructure.repositories.sqlite import SqliteLearningHomeRepository
 from risk_dashboard.modules.learning.schemas.requests import (
-    LearningCoachRequest,
     LearningQuizSubmitRequest,
-    LearningTutorRequest,
 )
 from risk_dashboard.modules.learning.schemas.responses import (
     LearningAssetItemResponse,
     LearningAssetListResponse,
-    LearningCoachResponse,
     LearningContextResponse,
     LearningHomeResponse,
     LearningLessonResponse,
     LearningQuizSubmitResponse,
-    LearningTutorResponse,
 )
 
 router = APIRouter(prefix="/learning")
@@ -45,10 +39,6 @@ def _repo() -> SqliteLearningHomeRepository:
 
 def _catalog() -> SqliteLearningCatalog:
     return SqliteLearningCatalog()
-
-
-def _assistant() -> RespondWithAssistant:
-    return RespondWithAssistant(conversations=SqliteAssistantConversationRepository())
 
 
 VIDEO_EXTENSIONS = {
@@ -195,49 +185,6 @@ def complete_learning_lesson(lesson_id: str, session_id: str = Query(..., min_le
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/tutor", response_model=LearningTutorResponse, tags=["Learning"])
-def learning_tutor(req: LearningTutorRequest) -> LearningTutorResponse:
-    try:
-        reply = _assistant().execute(
-            session_id=req.session_id,
-            surface="learning",
-            prompt=req.question,
-            role_hint="tutor",
-            lesson_id=req.lesson_id,
-            knowledge_level=req.knowledge_level,
-        )
-        return LearningTutorResponse(
-            lesson_id=req.lesson_id,
-            summary=reply.summary,
-            explanation=reply.explanation,
-            check_question=reply.check_question or "Ban se dien dat lai bai nay the nao?",
-            next_lesson_hint=reply.next_step,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
-
-
-@router.post("/coach", response_model=LearningCoachResponse, tags=["Learning"])
-def learning_coach(req: LearningCoachRequest) -> LearningCoachResponse:
-    try:
-        reply = _assistant().execute(
-            session_id=req.session_id,
-            surface="learning",
-            prompt="",
-            role_hint="coach",
-            trigger=req.trigger,
-        )
-        return LearningCoachResponse(
-            nudge_type=req.trigger,
-            title=reply.title,
-            message=reply.explanation,
-            cta_label=reply.next_step,
-            cta_path=reply.cta_path,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
 @router.get("/context", response_model=LearningContextResponse, tags=["Learning"])
 def learning_context(trigger: str = Query(..., min_length=3, max_length=100)) -> LearningContextResponse:
     try:
@@ -378,3 +325,8 @@ def _find_cover_url(*, image_dir: Path, stem: str) -> str | None:
         if _slugify(path.stem) == target_slug:
             return f"/learning-assets/images/{quote(path.name)}"
     return None
+
+
+from risk_dashboard.modules.learning.api.reader_proxy import router as _reader_proxy_router
+
+router.include_router(_reader_proxy_router)

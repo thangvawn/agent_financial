@@ -4,21 +4,12 @@ const SURFACE_LABELS = {
   onboarding: 'Onboarding',
   home: 'Home',
   learning: 'Learn Hub',
-  financial_statement_simulator: 'Financial Statement Simulator',
-  assignments: 'Assignments',
-  content_ops_admin: 'Content Ops',
-  global_terminal: 'Global Terminal',
-  news: 'News Desk',
+  global_terminal: 'Market & Portfolio',
+  news: 'News & Intelligence',
   news_economic_calendar: 'Lịch kinh tế',
-  community: 'Community',
-  community_moderation: 'Community Moderation',
   guided_investing: 'BCTC Analysis',
-  insights: 'Insights',
-  pro_lab: 'Pro Lab',
+  pro_lab: 'Simulation Lab',
   backtest_studio: 'Backtest Studio',
-  pro_lab_admin: 'Pro Lab Admin',
-  trust_safety_admin: 'Trust & Safety',
-  analytics_admin: 'Analytics & Ops',
   auth_login: 'Đăng nhập',
   auth_register: 'Đăng ký',
 }
@@ -46,11 +37,11 @@ export default function NavBar({
       </div>
       <div className="app-shell__masthead-actions">
         <span className={`app-shell__badge app-shell__badge--${tone}`}>
-          {tone === 'operator' ? 'Instructor / Admin' : tone === 'pro' ? 'Paper Research' : 'Education'}
+          {tone === 'pro' ? 'Simulation' : 'Education'}
         </span>
         {sessionId && !['home', 'onboarding', 'global_terminal'].includes(renderedView) ? (
           <button type="button" className="button-ghost" onClick={onOpenTerminal}>
-            Terminal
+            Market
           </button>
         ) : null}
       </div>

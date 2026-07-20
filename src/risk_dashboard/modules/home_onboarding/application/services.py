@@ -1,20 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 from risk_dashboard.modules.analytics_monitoring.application.emitter import emit_product_event
-from risk_dashboard.modules.community.application.services import GetCommunityHome
-from risk_dashboard.modules.community.infrastructure.repositories.sqlite import (
-    SqliteCommunityChallengeProgressRepository,
-    SqliteCommunityMembershipRepository,
-    SqliteCommunityNotificationRepository,
-    SqliteCommunityPostRepository,
-)
 from risk_dashboard.modules.admin_cms.infrastructure.repositories.sqlite import SqliteAdminCmsRepository
-from risk_dashboard.modules.financial_health.domain.entities import FinancialHealthSnapshot
-from risk_dashboard.modules.financial_health.domain.ports import FinancialHealthSnapshotRepository
-from risk_dashboard.modules.goals.domain.entities import Goal, GoalSnapshot
-from risk_dashboard.modules.goals.domain.ports import GoalHomeReader
 from risk_dashboard.modules.home_onboarding.domain.entities import OnboardingProfile, OnboardingSession, utc_now_iso
 from risk_dashboard.modules.home_onboarding.domain.policies import build_home_state, decide_route
 from risk_dashboard.modules.home_onboarding.domain.ports import (
@@ -47,7 +37,7 @@ class StartOnboarding:
         session = self.sessions.create()
         emit_product_event(
             event_name="onboarding_started",
-            module="home_onboarding",
+            module="home",
             surface="onboarding",
             session_id=session.session_id,
             properties={"questions": 5},
@@ -164,7 +154,7 @@ class CompleteOnboarding:
             )
         emit_product_event(
             event_name="onboarding_completed",
-            module="home_onboarding",
+            module="home",
             surface="onboarding",
             session_id=session_id,
             persona_segment=decision.persona_segment,
@@ -178,7 +168,7 @@ class CompleteOnboarding:
         )
         emit_product_event(
             event_name="persona_assigned",
-            module="home_onboarding",
+            module="home",
             surface="onboarding",
             session_id=session_id,
             persona_segment=decision.persona_segment,
@@ -186,7 +176,7 @@ class CompleteOnboarding:
         )
         emit_product_event(
             event_name="primary_route_assigned",
-            module="home_onboarding",
+            module="home",
             surface="home",
             session_id=session_id,
             persona_segment=decision.persona_segment,
@@ -211,12 +201,13 @@ class GetHomeState:
         self,
         profiles: OnboardingProfileRepository,
         home_states: HomeStateRepository,
-        financial_health_snapshots: FinancialHealthSnapshotRepository | None = None,
+        financial_health_snapshots: Any | None = None,
         learning_home_reader: LearningHomeReader | None = None,
-        goal_home_reader: GoalHomeReader | None = None,
+        goal_home_reader: Any | None = None,
     ) -> None:
         self.profiles = profiles
         self.home_states = home_states
+        # Phase 4: legacy readers optional; product Home no longer wires them.
         self.financial_health_snapshots = financial_health_snapshots
         self.learning_home_reader = learning_home_reader
         self.goal_home_reader = goal_home_reader
@@ -287,7 +278,7 @@ class GetHomeState:
 
         emit_product_event(
             event_name="home_loaded_after_onboarding",
-            module="home_onboarding",
+            module="home",
             surface="home",
             session_id=session_id,
             persona_segment=profile.persona_segment,
@@ -341,9 +332,9 @@ class GetHomePreview:
 
 def _build_blocks(
     state,
-    financial_health_snapshot: FinancialHealthSnapshot | None,
+    financial_health_snapshot: Any | None,
     learning_home_state: LearningHomeState | None,
-    latest_goal_summary: tuple[Goal, GoalSnapshot] | None,
+    latest_goal_summary: tuple[Any, Any] | None,
 ) -> list[dict[str, str | None]]:
     blocks: list[dict[str, str | None]] = []
     for block in state.blocks:
@@ -430,7 +421,7 @@ def _build_blocks(
 
 
 def _build_health_snapshot_summary(
-    financial_health_snapshot: FinancialHealthSnapshot | None,
+    financial_health_snapshot: Any | None,
 ) -> HomeHealthSnapshotResponse | None:
     if financial_health_snapshot is None:
         return None
@@ -451,7 +442,7 @@ def _build_health_snapshot_summary(
 
 
 def _build_goal_snapshot_summary(
-    latest_goal_summary: tuple[Goal, GoalSnapshot] | None,
+    latest_goal_summary: tuple[Any, Any] | None,
 ) -> HomeGoalSnapshotResponse | None:
     if latest_goal_summary is None:
         return None
@@ -479,7 +470,7 @@ def _build_goal_snapshot_summary(
     )
 
 
-def _goal_reminder_status(goal_snapshot: GoalSnapshot) -> str:
+def _goal_reminder_status(goal_snapshot: Any) -> str:
     if goal_snapshot.feasibility_band in {"high_stress", "not_feasible_yet"}:
         return "off_track"
     if goal_snapshot.months_remaining <= 3:
@@ -488,69 +479,9 @@ def _goal_reminder_status(goal_snapshot: GoalSnapshot) -> str:
 
 
 def _build_community_snapshot_summary(session_id: str) -> HomeCommunitySnapshotResponse | None:
-    community_home = GetCommunityHome(
-        memberships=SqliteCommunityMembershipRepository(),
-        posts=SqliteCommunityPostRepository(),
-        challenges=SqliteCommunityChallengeProgressRepository(),
-        notifications=SqliteCommunityNotificationRepository(),
-    ).execute(user_id=session_id)
-
-    recommended_space_id = community_home.recommended_space_ids[0] if community_home.recommended_space_ids else None
-    recommended_space = next(
-        (space for space in community_home.spaces if space.space_id == recommended_space_id),
-        None,
-    )
-    challenge = community_home.challenge_progress[0] if community_home.challenge_progress else None
-    notification = community_home.notifications[0] if community_home.notifications else None
-    if recommended_space is None and challenge is None and not community_home.memberships:
-        return None
-
-    if notification is not None:
-        summary = notification.message
-    elif challenge is not None:
-        summary = (
-            f"Challenge {challenge.challenge_id} hiện ở mức {challenge.progress_pct}% "
-            f"({challenge.status}). Đây là vòng quay tốt để quay lại app đều hơn."
-        )
-    elif recommended_space is not None:
-        summary = (
-            f"Space được gợi ý tiếp theo là {recommended_space.title}. "
-            "Community ở đây để học cùng có kiểm soát, không phải room tín hiệu."
-        )
-    else:
-        summary = "Bạn đã có mặt trong Community. Hãy quay lại space đang theo dõi để giữ nhịp học và check-in."
-
-    action_path = (
-        f"/community?space={challenge.challenge_id}"
-        if challenge is not None
-        else (f"/community?space={recommended_space.space_id}" if recommended_space is not None else "/community")
-    )
-    return HomeCommunitySnapshotResponse(
-        recommended_space_id=recommended_space.space_id if recommended_space is not None else None,
-        recommended_space_title=recommended_space.title if recommended_space is not None else None,
-        joined_space_count=len(community_home.memberships),
-        challenge_id=challenge.challenge_id if challenge is not None else None,
-        challenge_status=challenge.status if challenge is not None else None,
-        challenge_progress_pct=challenge.progress_pct if challenge is not None else None,
-        active_notification_count=len(community_home.notifications),
-        next_notification_title=notification.title if notification is not None else None,
-        next_notification_path=notification.cta_path if notification is not None else None,
-        summary=summary,
-        next_action_title=(
-            notification.title
-            if notification is not None
-            else (
-                "Mở Community challenge"
-                if challenge is not None
-                else ("Tham gia Community" if recommended_space is not None else "Mở Community")
-            )
-        ),
-        next_action_path=(
-            notification.cta_path
-            if notification is not None
-            else action_path
-        ),
-    )
+    # Phase 4: community archived from product surface — do not import legacy package.
+    _ = session_id
+    return None
 
 
 def _resolve_home_nudge(*, trigger_type: str, persona_segment: str) -> dict[str, object] | None:

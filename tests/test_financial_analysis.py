@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from risk_dashboard.api.main import app
 from risk_dashboard.data.financials import _build_dataset_from_statement_frames
-from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
+from risk_dashboard.engines.quant.financial_analysis import analyze_financial_dataset
 from risk_dashboard.schemas.financials import FinancialDataset
 
 
@@ -122,7 +122,7 @@ def test_trend_includes_new_fields():
 
 def test_yoy_reference_finds_correct_quarter():
     """YoY should find same quarter previous year, not adjacent quarter."""
-    from risk_dashboard.quant.financial_analysis import _yoy_reference, _sort_periods
+    from risk_dashboard.engines.quant.financial_analysis import _yoy_reference, _sort_periods
     from risk_dashboard.schemas.financials import FinancialPeriodData
 
     periods = _sort_periods([
@@ -138,7 +138,7 @@ def test_yoy_reference_finds_correct_quarter():
 
 
 def test_yoy_reference_returns_none_when_no_match():
-    from risk_dashboard.quant.financial_analysis import _yoy_reference, _sort_periods
+    from risk_dashboard.engines.quant.financial_analysis import _yoy_reference, _sort_periods
     from risk_dashboard.schemas.financials import FinancialPeriodData
 
     periods = _sort_periods([
@@ -150,7 +150,7 @@ def test_yoy_reference_returns_none_when_no_match():
 
 
 def test_ttm_requires_consecutive_quarters():
-    from risk_dashboard.quant.financial_analysis import _ttm_sum, _sort_periods
+    from risk_dashboard.engines.quant.financial_analysis import _ttm_sum, _sort_periods
     from risk_dashboard.schemas.financials import FinancialPeriodData
 
     # Missing Q2 — TTM should return None
@@ -166,7 +166,7 @@ def test_ttm_requires_consecutive_quarters():
 def test_roic_none_when_invested_capital_negative():
     """ROIC should be None when equity+debt-cash <= 0."""
     from risk_dashboard.schemas.financials import FinancialPeriodData
-    from risk_dashboard.quant.financial_analysis import _build_snapshot
+    from risk_dashboard.engines.quant.financial_analysis import _build_snapshot
 
     p = FinancialPeriodData(
         period="2025-Q4", year=2025, quarter=4,

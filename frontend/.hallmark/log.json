@@ -1,0 +1,39 @@
+{
+  "project": "Northstar Finance Lab - BCTC Module",
+  "genre": "modern-minimal",
+  "macrostructure": "Workbench",
+  "typography": {
+    "sans": "Outfit",
+    "mono": "JetBrains Mono"
+  },
+  "geometry": {
+    "radii": {
+      "button": "6px",
+      "card": "10px"
+    }
+  },
+  "themes": [
+    {
+      "id": "teal-minimal",
+      "mode": "light",
+      "accent": "#0d9488",
+      "paper": "#fafafa"
+    },
+    {
+      "id": "teal-minimal-dark",
+      "mode": "dark",
+      "accent": "#2dd4bf",
+      "paper": "#09090b"
+    }
+  ],
+  "runs": [
+    {
+      "timestamp": "2026-07-20T00:00:00+07:00",
+      "description": "Rebuilt the BCTC product as a data-driven company financial workbench with a new backend contract, dense statements, ratio groups, cash-quality analysis, peer comparison and provenance."
+    },
+    {
+      "timestamp": "2026-07-18T19:06:30Z",
+      "description": "Redesigned BCTC page to eliminate glassmorphism, background gradients, and rounded pill styles. Integrated Outfit and JetBrains Mono fonts and standardized 6px border radius on elements."
+    }
+  ]
+}

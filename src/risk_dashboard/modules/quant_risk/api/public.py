@@ -5,10 +5,10 @@ from datetime import date
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from risk_dashboard.agents.graph import run_eod_narrative
+from risk_dashboard.engines.agents.graph import run_eod_narrative
 from risk_dashboard.platform.runtime.panel_store import PanelUnavailableError, get_panel, panel_date_range
-from risk_dashboard.quant.research_report import build_model_research_report
-from risk_dashboard.quant.scenario import rerun_with_macro_override
+from risk_dashboard.engines.quant.research_report import build_model_research_report
+from risk_dashboard.engines.quant.scenario import rerun_with_macro_override
 
 router = APIRouter(tags=["Quant"])
 

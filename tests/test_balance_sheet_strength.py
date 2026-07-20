@@ -1,6 +1,6 @@
 import pytest
 
-from risk_dashboard.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
+from risk_dashboard.engines.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
 from risk_dashboard.schemas.financials import FinancialDataset, FinancialPeriodData
 
 

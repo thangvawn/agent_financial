@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from risk_dashboard.quant.research_report import build_model_research_report, save_model_research_report
+from risk_dashboard.engines.quant.research_report import build_model_research_report, save_model_research_report
 
 
 def main() -> None:

@@ -48,7 +48,7 @@ from risk_dashboard.modules.pro_lab.schemas.responses import (
 )
 from risk_dashboard.modules.trust_safety.application.services import TrustSafetyService
 from risk_dashboard.platform.security.access_control import SqliteAccessControlRepository, issue_token_for_actor
-from risk_dashboard.quant.backtest import run_vn_portfolio_backtest
+from risk_dashboard.engines.quant.backtest import run_vn_portfolio_backtest
 
 
 def is_pro_lab_local_test_open() -> bool:

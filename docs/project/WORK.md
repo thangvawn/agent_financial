@@ -252,7 +252,7 @@ Workspace hiện tại đã có thêm:
 - Có `33` artifact trong `data/models/`.
 - Có `82` file cache báo cáo tài chính trong `data/financials/cache/`.
 - Có `15` file cache dữ liệu trong `data/cache/`.
-- Có SQLite registry tại `data/risk_dashboard.db`.
+- Có SQLite registry tại `data/db/northstar.db` (bảng `ingest_runs`).
 - Có Dockerfile đa stage để build frontend và backend cùng nhau.
 
 Điều này cho thấy dự án đã vượt qua mức prototype rất sớm và đang ở giai đoạn một nền tảng nghiên cứu - demo - vận hành nội bộ khá đầy đủ.

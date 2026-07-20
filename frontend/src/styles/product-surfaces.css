@@ -1,0 +1,279 @@
+/* ============================================================
+   Product module surfaces — Northstar Lab (excl. Home)
+   Tone: teal ink canvas + mono metrics. Pro = charcoal lab.
+   ============================================================ */
+
+.pm-shell {
+  --pm-ink: #0f2b2d;
+  --pm-muted: #4a6366;
+  --pm-line: rgba(15, 43, 45, 0.12);
+  --pm-accent: #0d9488;
+  --pm-accent-strong: #0f766e;
+  --pm-accent-soft: rgba(13, 148, 136, 0.12);
+  --pm-surface: #ffffff;
+  --pm-canvas: #f3f7f6;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 100%;
+  padding: 20px 20px 48px;
+  color: var(--pm-ink);
+  background: var(--pm-canvas);
+  animation: pm-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pm-shell--lab {
+  color-scheme: light;
+}
+
+.pm-shell--pro {
+  --pm-ink: #e8f2ef;
+  --pm-muted: #8eaea8;
+  --pm-line: rgba(143, 190, 178, 0.18);
+  --pm-accent: #2dd4bf;
+  --pm-accent-strong: #5eead4;
+  --pm-accent-soft: rgba(45, 212, 191, 0.14);
+  --pm-surface: #18181b;
+  --pm-canvas: #09090b;
+  color: var(--pm-ink);
+  background: var(--pm-canvas);
+}
+
+.pm-shell__glow {
+  display: none;
+}
+
+.pm-shell__grid {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(15, 43, 45, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 43, 45, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 78%);
+}
+
+.pm-shell--pro .pm-shell__grid {
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(45, 212, 191, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 212, 191, 0.07) 1px, transparent 1px);
+}
+
+.pm-shell__header,
+.pm-shell__tabs,
+.pm-shell__body {
+  position: relative;
+  z-index: 1;
+}
+
+.pm-shell__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1480px;
+  margin: 0 auto 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--pm-line);
+}
+
+.pm-shell__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pm-accent-strong);
+}
+
+.pm-shell__title {
+  margin: 0;
+  font-family: "Sora", var(--font-sans);
+  font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--pm-ink);
+}
+
+.pm-shell__subtitle {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--pm-muted);
+}
+
+.pm-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pm-shell__actions .pm-btn,
+.pm-btn {
+  appearance: none;
+  border: 1px solid var(--pm-line);
+  background: var(--pm-surface);
+  color: var(--pm-ink);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.pm-btn:hover {
+  border-color: var(--pm-accent);
+  background: var(--pm-accent-soft);
+}
+
+.pm-btn--primary {
+  border-color: transparent;
+  background: var(--pm-accent);
+  color: #fff;
+}
+
+.pm-shell--pro .pm-btn--primary {
+  color: #071016;
+}
+
+.pm-btn--primary:hover {
+  background: var(--pm-accent-strong);
+  color: #fff;
+}
+
+.pm-btn:active {
+  transform: translateY(1px);
+}
+
+.pm-shell__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 1480px;
+  margin: 0 auto 18px;
+  padding: 6px;
+  border: 1px solid var(--pm-line);
+  border-radius: 8px;
+  background: var(--pm-surface);
+}
+
+.pm-shell__tabs button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--pm-muted);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.pm-shell__tabs button:hover {
+  color: var(--pm-ink);
+  background: var(--pm-accent-soft);
+}
+
+.pm-shell__tabs button.is-active {
+  color: var(--pm-ink);
+  background: var(--pm-accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.28);
+}
+
+.pm-shell--pro .pm-shell__tabs button.is-active {
+  color: #071016;
+  background: var(--pm-accent);
+  box-shadow: none;
+}
+
+.pm-shell__body {
+  max-width: 1480px;
+  margin: 0 auto;
+  animation: pm-body 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+
+@keyframes pm-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pm-body {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-shell,
+  .pm-shell__body {
+    animation: none;
+  }
+}
+
+/* ---- Module-specific bridges ---- */
+
+.app-shell--global-terminal,
+.app-shell--news,
+.app-shell--learning {
+  background: #f3f7f6 !important;
+}
+
+.app-shell--pro-lab,
+.app-shell--backtest-studio,
+.app-shell--guided-investing {
+  background: #09090b !important;
+}
+
+.news-desk {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 12px 16px 40px;
+}
+
+.news-sparkle-compact-header {
+  border: 1px solid rgba(15, 43, 45, 0.1);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.news-sparkle-compact-title h1 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  color: #0f2b2d;
+}
+
+.news-desk__control-bar {
+  border-radius: 8px !important;
+  border-color: rgba(15, 43, 45, 0.1) !important;
+  background: var(--surface) !important;
+}
+
+.news-desk__market-lens button.is-active,
+.news-sparkle-btn--light {
+  background: rgba(13, 148, 136, 0.14) !important;
+  color: #0f766e !important;
+  border-color: rgba(13, 148, 136, 0.28) !important;
+}
+
+@media (max-width: 720px) {
+  .pm-shell {
+    padding: 14px 12px 36px;
+  }
+
+  .pm-shell__tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+}

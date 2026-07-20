@@ -1,6 +1,6 @@
 import json
 
-from risk_dashboard.quant.research_report import (
+from risk_dashboard.engines.quant.research_report import (
     build_model_research_report,
     render_model_research_markdown,
     save_model_research_report,

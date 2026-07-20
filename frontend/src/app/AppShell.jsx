@@ -2,57 +2,34 @@ import { useEffect, useRef, useState } from 'react'
 import { animate, stagger } from 'animejs'
 
 import {
-  AnalyticsAdminPage,
   AuthPage,
-  CommunityModerationPage,
-  CommunityPage,
-  ContentOpsAdminPage,
-  EducationPlatformPage,
-  GlobalTerminalPage,
   GuidedInvestingPage,
   HomePage,
-  InsightsPage,
   LearningHomePage,
+  MarketPortfolioPage,
   NewsEconCalendarPage,
   NewsPage,
   OnboardingPage,
-  ProLabAdminPage,
   ProLabBacktestStudioPage,
   ProLabPage,
-  TrustSafetyAdminPage,
-} from '../pages'
-import FloatingAssistant from '../shared/assistant/FloatingAssistant'
+} from '../features'
 import { trackAnalyticsEvent } from '../shared/analytics/trackEvent'
 import ConnectedWorkspaceNav from '../shared/navigation/ConnectedWorkspaceNav'
 import NavBar from './NavBar'
 
-const SURFACE_LABELS = {
-  onboarding: 'Onboarding',
-  home: 'Home',
-  learning: 'Learn Hub',
-  financial_statement_simulator: 'Financial Statement Simulator',
-  assignments: 'Assignments',
-  content_ops_admin: 'Content Ops',
-  global_terminal: 'Global Terminal',
-  news: 'News Desk',
-  news_economic_calendar: 'Lịch kinh tế',
-  community: 'Community',
-  community_moderation: 'Community Moderation',
-  guided_investing: 'BCTC Analysis',
-  insights: 'Insights',
-  pro_lab: 'Pro Lab',
-  backtest_studio: 'Backtest Studio',
-  pro_lab_admin: 'Pro Lab Admin',
-  trust_safety_admin: 'Trust & Safety',
-  analytics_admin: 'Analytics & Ops',
-  auth_login: 'Đăng nhập',
-  auth_register: 'Đăng ký',
-}
-
 const PAGE_TRANSITION_MS = 200
 const AUTHENTICATED_LANDING_VIEW = 'global_terminal'
 const DEPRECATED_VIEW_ALIASES = {
-  simulation_lab: 'global_terminal',
+  simulation_lab: 'pro_lab',
+  insights: 'news',
+  community: 'home',
+  community_moderation: 'home',
+  content_ops_admin: 'learning',
+  pro_lab_admin: 'pro_lab',
+  trust_safety_admin: 'pro_lab',
+  analytics_admin: 'pro_lab',
+  financial_statement_simulator: 'guided_investing',
+  assignments: 'guided_investing',
 }
 const PUBLIC_VIEWS = new Set(['home', 'auth_login', 'auth_register'])
 
@@ -71,11 +48,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const [renderedView, setRenderedView] = useState(() => view)
   const [transitionPhase, setTransitionPhase] = useState('entered')
   const [sessionId, setSessionId] = useState(() => readStoredSession())
-  const [homeRefreshKey, setHomeRefreshKey] = useState(0)
   const [guidedFocusCard, setGuidedFocusCard] = useState('overview')
   const [proLabBacktestContext, setProLabBacktestContext] = useState({ selectedBlueprintId: '', workspace: null, accessToken: '' })
-  const [communityFocusSpace, setCommunityFocusSpace] = useState('')
-  const [learningFocusView, setLearningFocusView] = useState('lesson')
   const [pendingPostAuthView, setPendingPostAuthView] = useState('')
   const previousViewRef = useRef('')
   const surfacePanelRef = useRef(null)
@@ -166,15 +140,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   function handleOnboardingCompleted(payload) {
     setSessionId(payload.session_id)
-    setHomeRefreshKey((current) => current + 1)
     setView('home')
-  }
-
-  function handleSessionInvalid() {
-    window.localStorage.removeItem('public-beta.session_id')
-    setSessionId('')
-    setHomeRefreshKey((current) => current + 1)
-    setView('home', { replace: true })
   }
 
   function setView(nextView, options) {
@@ -201,10 +167,6 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     openProtectedView('guided_investing')
   }
 
-  function handleOpenInsights() {
-    openProtectedView('insights')
-  }
-
   function handleOpenGlobalTerminal() {
     openProtectedView('global_terminal')
   }
@@ -218,46 +180,20 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   function handleOpenSimulationLab() {
-    handleOpenGlobalTerminal()
-  }
-
-  function handleOpenAssignments() {
-    openProtectedView('assignments')
-  }
-
-  function handleOpenProLabAdmin() {
-    setView('pro_lab_admin')
+    handleOpenProLab()
   }
 
   function handleOpenBacktestStudio(context = {}) {
-    setProLabBacktestContext({
-      selectedBlueprintId: context.selectedBlueprintId || '',
-      workspace: context.workspace || null,
-      accessToken: context.accessToken || '',
-    })
+    setProLabBacktestContext((current) => ({
+      selectedBlueprintId: context.selectedBlueprintId || current.selectedBlueprintId || '',
+      workspace: context.workspace || current.workspace || null,
+      accessToken: context.accessToken || current.accessToken || '',
+    }))
     setView('backtest_studio')
-  }
-
-  function handleOpenTrustSafetyAdmin() {
-    setView('trust_safety_admin')
-  }
-
-  function handleOpenAnalyticsAdmin() {
-    setView('analytics_admin')
-  }
-
-  function handleOpenCommunity(spaceId = '') {
-    setCommunityFocusSpace(spaceId)
-    openProtectedView('community')
-  }
-
-  function handleOpenCommunityModeration() {
-    setView('community_moderation')
   }
 
   function handleAuthSuccess(payload) {
     setSessionId(payload.session_id)
-    setHomeRefreshKey((current) => current + 1)
     setView(pendingPostAuthView || AUTHENTICATED_LANDING_VIEW)
     setPendingPostAuthView('')
   }
@@ -272,7 +208,6 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     window.localStorage.removeItem('public-beta.view')
     setSessionId('')
     setPendingPostAuthView('')
-    setHomeRefreshKey((current) => current + 1)
     setView('home', { replace: true })
   }
 
@@ -282,24 +217,6 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     content = (
       <LearningHomePage
         sessionId={sessionId}
-        initialFocusView={learningFocusView}
-        onBack={() => setView('home')}
-        onOpenCommunity={handleOpenCommunity}
-        onOpenGuidedInvesting={handleOpenGuidedInvesting}
-        onOpenInsights={handleOpenInsights}
-        onOpenAdmin={() => setView('content_ops_admin')}
-      />
-    )
-  }
-
-  if (renderedView === 'content_ops_admin') {
-    content = <ContentOpsAdminPage onBack={() => setView('learning')} />
-  }
-
-  if (['financial_statement_simulator', 'assignments'].includes(renderedView)) {
-    content = (
-      <EducationPlatformPage
-        surface={renderedView}
         onBack={() => setView('home')}
       />
     )
@@ -307,11 +224,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   if (renderedView === 'global_terminal') {
     content = (
-      <GlobalTerminalPage
+      <MarketPortfolioPage
+        sessionId={sessionId}
         onBack={() => setView('home')}
-        onOpenInsights={handleOpenInsights}
         onOpenProLab={handleOpenProLab}
         onOpenNews={handleOpenNews}
+        onOpenLogin={() => setView('auth_login')}
       />
     )
   }
@@ -332,43 +250,13 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     )
   }
 
-  if (renderedView === 'community') {
-    content = (
-      <CommunityPage
-        sessionId={sessionId}
-        initialSpaceId={communityFocusSpace}
-        onBack={() => setView('home')}
-        onOpenLearning={() => setView('learning')}
-        onOpenModeration={handleOpenCommunityModeration}
-      />
-    )
-  }
-
-  if (renderedView === 'community_moderation') {
-    content = <CommunityModerationPage onBack={() => setView('community')} />
-  }
-
   if (renderedView === 'guided_investing') {
     content = (
       <GuidedInvestingPage
         sessionId={sessionId}
         initialFocusCard={guidedFocusCard}
         onBack={() => setView('home')}
-        onOpenInsights={handleOpenInsights}
         onOpenLearning={() => setView('learning')}
-        onOpenCommunity={handleOpenCommunity}
-        onOpenProLab={handleOpenProLab}
-      />
-    )
-  }
-
-  if (renderedView === 'insights') {
-    content = (
-      <InsightsPage
-        sessionId={sessionId}
-        onBack={() => setView('home')}
-        onOpenLearning={() => setView('learning')}
-        onOpenGuidedInvesting={handleOpenGuidedInvesting}
         onOpenProLab={handleOpenProLab}
       />
     )
@@ -379,7 +267,6 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       <ProLabPage
         sessionId={sessionId}
         onBack={() => setView('home')}
-        onOpenAdmin={handleOpenProLabAdmin}
         onOpenBacktestStudio={handleOpenBacktestStudio}
       />
     )
@@ -398,25 +285,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     )
   }
 
-  if (renderedView === 'pro_lab_admin') {
-    content = <ProLabAdminPage onBack={() => setView('pro_lab')} onOpenTrustSafety={handleOpenTrustSafetyAdmin} onOpenAnalytics={handleOpenAnalyticsAdmin} />
-  }
-
-  if (renderedView === 'trust_safety_admin') {
-    content = <TrustSafetyAdminPage onBack={() => setView('pro_lab_admin')} />
-  }
-
-  if (renderedView === 'analytics_admin') {
-    content = <AnalyticsAdminPage onBack={() => setView('pro_lab_admin')} />
-  }
-
   if (renderedView === 'onboarding') {
     content = (
       <OnboardingPage
         onCompleted={handleOnboardingCompleted}
         onOpenHome={() => setView('home')}
         onOpenGlobalTerminal={handleOpenGlobalTerminal}
-        onOpenInsights={handleOpenInsights}
         onOpenGuidedInvesting={handleOpenGuidedInvesting}
         onOpenProLab={handleOpenProLab}
       />
@@ -448,17 +322,12 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     content = (
       <HomePage
         sessionId={sessionId}
-        refreshKey={homeRefreshKey}
         onOpenLearning={() => openProtectedView('learning')}
-        onOpenSimulationLab={handleOpenSimulationLab}
-        onOpenAssignments={handleOpenAssignments}
         onOpenGuidedInvesting={handleOpenGuidedInvesting}
-        onOpenInsights={handleOpenInsights}
         onOpenGlobalTerminal={handleOpenGlobalTerminal}
+        onOpenNews={handleOpenNews}
         onOpenProLab={handleOpenProLab}
-        onOpenCommunity={handleOpenCommunity}
         onOpenOnboarding={() => openProtectedView('onboarding')}
-        onSessionInvalid={handleSessionInvalid}
       />
     )
   }
@@ -478,25 +347,17 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     )
   }
 
-  const tone = renderedView.includes('admin') ? 'operator' : (renderedView === 'pro_lab' || renderedView === 'backtest_studio') ? 'pro' : 'public'
+  const tone = (renderedView === 'pro_lab' || renderedView === 'backtest_studio') ? 'pro' : 'public'
   const themeAttr = !isPublicView(renderedView) ? 'dark' : 'light'
-  const isAuthView = renderedView === 'auth_login' || renderedView === 'auth_register'
-  const hideAssistant = isAuthView || ['backtest_studio', 'global_terminal', 'news', 'news_economic_calendar'].includes(renderedView)
   const connectedNavActions = {
     openHome: () => setView('home'),
-    openLearning: (payload) => {
-      setLearningFocusView(typeof payload === 'string' ? payload : 'lesson')
-      openProtectedView('learning')
-    },
+    openLearning: () => openProtectedView('learning'),
     openSimulationLab: handleOpenSimulationLab,
-    openAssignments: handleOpenAssignments,
     openGuidedInvesting: (payload) => {
       handleOpenGuidedInvesting(typeof payload === 'string' ? payload : 'overview')
     },
-    openInsights: handleOpenInsights,
     openGlobalTerminal: handleOpenGlobalTerminal,
     openNews: handleOpenNews,
-    openCommunity: handleOpenCommunity,
     openProLab: handleOpenProLab,
     openLogin: () => setView('auth_login'),
     openRegister: () => setView('auth_register'),
@@ -523,7 +384,6 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
             {content}
           </div>
         </main>
-        {!hideAssistant ? <FloatingAssistant sessionId={sessionId} surface={renderedView} surfaceLabel={SURFACE_LABELS[renderedView] || 'Workspace'} /> : null}
       </div>
     </div>
   )

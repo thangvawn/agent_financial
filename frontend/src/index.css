@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Open+Sans:wght@400;600;700&family=Sora:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss/theme.css" layer(theme);
 
@@ -10,5 +10,8 @@
 @import "./styles/app-shell.css";
 @import "./styles/retail-surfaces.css";
 @import "./styles/workspace-primitives.css";
+@import "./styles/product-surfaces.css";
+@import "./styles/education-ux.css";
+@import "./styles/product-navigation.css";
 
 @import "tailwindcss/utilities.css" layer(utilities);

@@ -123,8 +123,8 @@ def test_analytics_monitoring_ingest_rollups_and_alerts(monkeypatch):
                     "event_name": "ops_model_call_logged",
                     "event_category": "ops",
                     "timestamp": (base - timedelta(minutes=1)).isoformat(),
-                    "module": "ai_assistant",
-                    "surface": "ai_assistant",
+                    "module": "pro_lab",
+                    "surface": "pro_lab",
                     "properties": {"role": "analyst", "success": True, "latency_ms": 5001},
                 },
                 {

@@ -1,7 +1,7 @@
 import pandas as pd
 
-from risk_dashboard.quant.shap_explain import contributions_from_tree_model
-from risk_dashboard.quant.xgb_engine import prepare_features, train_risk_model, row_at_date
+from risk_dashboard.engines.quant.shap_explain import contributions_from_tree_model
+from risk_dashboard.engines.quant.xgb_engine import prepare_features, train_risk_model, row_at_date
 
 
 def test_shap_sums_to_one(synthetic_panel, as_of_date):

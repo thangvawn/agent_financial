@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
-from risk_dashboard.modules.ai_assistant.application.services import RespondWithAssistant
-from risk_dashboard.modules.ai_assistant.infrastructure.repositories.sqlite import SqliteAssistantConversationRepository
-from risk_dashboard.modules.ai_assistant.schemas.requests import AssistantRespondRequest
-from risk_dashboard.modules.ai_assistant.schemas.responses import AssistantRespondResponse
 from risk_dashboard.modules.pro_lab.application.services import (
     ArchiveStrategyBlueprint,
     CompareStrategyBlueprints,
@@ -78,10 +74,6 @@ def _workspaces() -> SqliteProLabWorkspaceStateRepository:
 
 def _access_control() -> SqliteAccessControlRepository:
     return SqliteAccessControlRepository()
-
-
-def _assistant() -> RespondWithAssistant:
-    return RespondWithAssistant(conversations=SqliteAssistantConversationRepository())
 
 
 def _require_pro_scope(
@@ -356,20 +348,3 @@ def pro_lab_export_report(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post("/assistant", response_model=AssistantRespondResponse)
-def pro_lab_assistant(
-    req: AssistantRespondRequest,
-    token: AccessToken = Depends(_require_pro_scope),
-) -> AssistantRespondResponse:
-    if token.actor_id != req.session_id and token.role != "internal_admin":
-        raise HTTPException(status_code=403, detail="Token không được phép dùng Pro Assistant cho user khác.")
-    return _assistant().execute(
-        session_id=req.session_id,
-        surface="pro_lab",
-        prompt=req.prompt,
-        role_hint="pro_assistant",
-        conversation_id=req.conversation_id,
-        has_pro_scope=True,
-    )

@@ -18,3 +18,4 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+// Build cache invalidation stamp: 2026-07-18T21:28

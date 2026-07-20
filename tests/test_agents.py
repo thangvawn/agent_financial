@@ -1,10 +1,10 @@
 import pandas as pd
 
-from risk_dashboard.agents.graph import AgentState, run_eod_narrative, run_intent
-from risk_dashboard.agents.reviewer import verify_narrative_against_quant
-from risk_dashboard.agents.router import Intent, route_intent
-from risk_dashboard.quant.eod_pipeline import run_quant_eod
-from risk_dashboard.agents.narrative import build_narrative_bundle
+from risk_dashboard.engines.agents.graph import AgentState, run_eod_narrative, run_intent
+from risk_dashboard.engines.agents.reviewer import verify_narrative_against_quant
+from risk_dashboard.engines.agents.router import Intent, route_intent
+from risk_dashboard.engines.quant.eod_pipeline import run_quant_eod
+from risk_dashboard.engines.agents.narrative import build_narrative_bundle
 
 
 def test_router_what_if():

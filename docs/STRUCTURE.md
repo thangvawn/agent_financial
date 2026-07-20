@@ -1,59 +1,75 @@
 # Repository Structure
 
-Mục tiêu của cấu trúc repo là tách rõ source code, frontend app, tài liệu, runtime data và thử nghiệm.
+Mục tiêu: tách rõ source code, frontend app, tài liệu, runtime data; frontend tổ chức theo **product domain**.
 
 ## Root
 
-- `README.md`: hướng dẫn chạy nhanh và tổng quan.
-- `pyproject.toml`: package backend, pytest, ruff.
-- `Makefile`: lệnh vận hành chung.
-- `Dockerfile`, `docker-compose.yml`: build và chạy stack.
-- `.env.example`: template biến môi trường. Không commit `.env`.
+- `README.md`, `pyproject.toml`, `Makefile`, `Dockerfile`, `docker-compose.yml`
+- `.env.example` — không commit `.env`
+- `plans/` — kế hoạch triển khai (gồm refactor cấu trúc)
 
-## Backend
+## Backend (`src/risk_dashboard/`)
 
-- `src/risk_dashboard/`: Python package chính.
-- `src/risk_dashboard/modules/`: bounded modules theo domain sản phẩm.
-- `src/risk_dashboard/platform/`: database, security, runtime, feature flags.
-- `src/risk_dashboard/quant/`: mô hình định lượng, backtest, analytics.
-- `src/risk_dashboard/data/`: connector, ingest, ETL.
-- `src/risk_dashboard/cli/`: command line entrypoints.
+- `modules/` — vertical slice theo domain (API + application + domain + infrastructure)
+- `platform/` — database, security, feature flags
+  - **Database module:** `platform/database/` — một SQLite transactional
+    (`RISK_DASHBOARD_DB_PATH`, default `data/db/northstar.db`; xem `platform/database/README.md`)
+- `engines/` — `quant` + `agents` (xem `engines/README.md`); shims `quant/` + `agents/` vẫn re-export
+- `data/` — connectors / cache / uploads (parquet, pkl, JSON — không nhét vào SQLite)
+- `app/registry/` — mount modules
 
-## Frontend
+Product domains: `home`, `market_portfolio`, `learn_hub`, `bctc`, `news`, `simulation_lab`, `auth`.
 
-- `frontend/`: React + Vite app riêng.
-- `frontend/src/app/`: shell, route mapping, app-level orchestration.
-- `frontend/src/pages/`: page-level UI.
-- `frontend/src/modules/`: frontend API/service/hooks theo domain.
-- `frontend/src/shared/`: shared components, assistant, navigation, analytics.
+- Map + alias: `src/risk_dashboard/app/registry/product_domains.py`
+- Registry helpers: `get_module_by_slug`, `get_enabled_modules_by_domain`, `resolve_module_slug`
+- Registered product slugs (Phase 4): `home`, `simulation_lab`, `market_portfolio`, …
+  - Package folders may still be `home_onboarding` / `pro_lab` (HTTP `/pro-lab` kept)
+- Market & Portfolio facade: `/api/v1/market-portfolio`
+- Unmounted (archived packages): `community`, `goals`, `financial_health`
+- Retired off-by-default: `guided_investing` (BCTC = `financials_product`)
+- Alias flags: `RISK_FLAG__MODULE__PRO_LAB__ENABLED` → `simulation_lab`;
+  `RISK_FLAG__MODULE__HOME_ONBOARDING__ENABLED` → `home`
 
-Không đưa frontend source vào `src/`; giữ `frontend/` riêng để Node tooling, lockfile và build output không trộn với backend package.
+Chi tiết roadmap: `plans/2026-07-17-northstar-codebase-structure-refactor.md`.
 
-## Documentation
+## Frontend (`frontend/src/`)
 
-- `docs/project/`: worklog, notes, tài liệu quản lý dự án.
-- `docs/research/word/`: tài liệu Word nghiên cứu, đề cương, proposal.
-- `docs/architecture/`: dùng cho ADR/sơ đồ nếu cần.
-- `docs/operations/`: dùng cho runbook nếu cần.
+```
+app/                 # AppShell, routes, productRegistry
+features/            # một folder = một product domain
+  home/
+  market-portfolio/
+  learn-hub/
+  bctc/
+  news/
+  simulation-lab/
+  auth/
+shared/              # navigation, assistant, analytics
+styles/
+```
 
-## Data And Runtime
+Mỗi feature thường có:
 
-- `data/`: dữ liệu runtime, cache, SQLite local, model artifacts, learning assets.
-- `tests/fixtures/`: dữ liệu nhỏ, ổn định, dùng cho test.
-- `notebooks/`: phân tích thử nghiệm, không được coi là production code.
-- `output/`: artifact sinh ra khi kiểm thử thủ công hoặc browser automation.
+- `pages/` — màn hình route
+- `services/` — HTTP API
+- `components/` / `hooks/` — nội bộ feature
+- `index.js` — public export
 
-Quy tắc: dữ liệu có thể tái tạo hoặc thay đổi theo runtime không nên commit, trừ fixture nhỏ phục vụ test.
+`pages/` và `modules/` cũ chỉ còn shim/README — không thêm code mới vào đó.
 
-## Scripts
+Nguồn tên domain / nav: `frontend/src/app/productRegistry.js`.
 
-- `scripts/`: script batch hoặc thao tác vận hành có thể chạy lại.
-- `scripts/manual/`: smoke script/thử nghiệm thủ công, không phải pytest.
+## Documentation / Data
 
-## Khi Thêm Module Mới
+- `docs/` — architecture, specs, project notes
+- `data/` — runtime cache/SQLite (không commit secrets)
+- `tests/` — pytest
+- `output/` — artifact trình bày (excalidraw…)
 
-1. Backend domain vào `src/risk_dashboard/modules/<module_name>/`.
-2. Frontend page vào `frontend/src/pages/<module-name>/`.
-3. Frontend service/hook vào `frontend/src/modules/<module-name>/`.
-4. Test backend vào `tests/test_<module_name>.py`.
-5. Tài liệu module vào `docs/project/` hoặc `docs/architecture/` tùy mục đích.
+## Khi thêm feature mới
+
+1. Tạo `frontend/src/features/<domain>/…`
+2. Đăng ký trong `productRegistry.js` + `domainRoutes.js`
+3. Backend module trong `src/risk_dashboard/modules/<domain>/`
+4. Test `tests/test_<domain>.py`
+5. Không đặt logic domain vào `shared/`

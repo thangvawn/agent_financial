@@ -1,6 +1,6 @@
 import pandas as pd
 
-from risk_dashboard.quant.var_engine import fit_var_summary
+from risk_dashboard.engines.quant.var_engine import fit_var_summary
 
 
 def test_var_insufficient_obs():

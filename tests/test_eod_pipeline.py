@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from risk_dashboard.quant.eod_pipeline import run_quant_eod
-from risk_dashboard.quant.scenario import rerun_with_macro_override
+from risk_dashboard.engines.quant.eod_pipeline import run_quant_eod
+from risk_dashboard.engines.quant.scenario import rerun_with_macro_override
 from risk_dashboard.schemas.snapshots import ShapContribution, VarSummary
 
 
@@ -60,25 +60,25 @@ def test_eod_pipeline_uses_benchmark_training_config(monkeypatch, synthetic_pane
             },
         )
 
-    monkeypatch.setattr("risk_dashboard.quant.eod_pipeline.resolve_benchmark_training_config", fake_resolve)
-    monkeypatch.setattr("risk_dashboard.quant.eod_pipeline.train_risk_model", fake_train)
-    monkeypatch.setattr("risk_dashboard.quant.eod_pipeline.prepare_features", lambda df, vn30_panel=None: df)
-    monkeypatch.setattr("risk_dashboard.quant.eod_pipeline.row_at_date", lambda df, as_of: df.iloc[-1])
+    monkeypatch.setattr("risk_dashboard.engines.quant.eod_pipeline.resolve_benchmark_training_config", fake_resolve)
+    monkeypatch.setattr("risk_dashboard.engines.quant.eod_pipeline.train_risk_model", fake_train)
+    monkeypatch.setattr("risk_dashboard.engines.quant.eod_pipeline.prepare_features", lambda df, vn30_panel=None: df)
+    monkeypatch.setattr("risk_dashboard.engines.quant.eod_pipeline.row_at_date", lambda df, as_of: df.iloc[-1])
     monkeypatch.setattr(
-        "risk_dashboard.quant.eod_pipeline.predict_horizons",
+        "risk_dashboard.engines.quant.eod_pipeline.predict_horizons",
         lambda model, row: (0.1, 0.2, 0.3, -1.5, 0.19),
     )
     monkeypatch.setattr(
-        "risk_dashboard.quant.eod_pipeline.contributions_from_tree_model",
+        "risk_dashboard.engines.quant.eod_pipeline.contributions_from_tree_model",
         lambda model, row, features: [
             ShapContribution(feature_name="ret_5d", share=1.0, direction="increases_risk"),
         ],
     )
     monkeypatch.setattr(
-        "risk_dashboard.quant.eod_pipeline.fit_var_summary",
+        "risk_dashboard.engines.quant.eod_pipeline.fit_var_summary",
         lambda panel: VarSummary(fitted=False, n_obs=len(panel), max_lag=1, note="n/a"),
     )
-    monkeypatch.setattr("risk_dashboard.quant.eod_pipeline.var_impulse_note", lambda panel: "n/a")
+    monkeypatch.setattr("risk_dashboard.engines.quant.eod_pipeline.var_impulse_note", lambda panel: "n/a")
 
     q = run_quant_eod(synthetic_panel, as_of_date, benchmark_dir="custom/models")
 

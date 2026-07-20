@@ -1,0 +1,177 @@
+/* Education-first guidance and interaction standards for product modules. */
+.edu-context {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 1480px;
+  margin: 0 auto 20px;
+  border: 1px solid var(--pm-line);
+  border-radius: 12px;
+  background: var(--pm-surface);
+  box-shadow: 0 8px 24px rgba(15, 43, 45, 0.05);
+}
+
+.edu-context__item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 16px;
+  color: var(--pm-accent-strong);
+}
+
+.edu-context__item + .edu-context__item {
+  border-left: 1px solid var(--pm-line);
+}
+
+.edu-context__item--caution {
+  color: #9a5b13;
+  background: rgba(180, 83, 9, 0.055);
+}
+
+.edu-context__item strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--pm-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.edu-context__item p {
+  margin: 0;
+  color: var(--pm-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.pm-shell {
+  font-size: 16px;
+}
+
+.app-shell--global-terminal .surface-panel > section.pm-shell--lab,
+.app-shell--learning .surface-panel > section.pm-shell--lab,
+.app-shell--guided-investing .surface-panel > section.pm-shell--lab,
+.app-shell--news .surface-panel > section.pm-shell--lab {
+  background: var(--pm-canvas) !important;
+  color: var(--pm-ink) !important;
+}
+
+.app-shell--learning .surface-panel > section.lh-shell,
+.app-shell--learning .surface-panel {
+  background: #fff !important;
+  color: #1a1a1a !important;
+}
+
+.app-shell--pro-lab .surface-panel > section.pm-shell--pro,
+.app-shell--backtest-studio .surface-panel > section.pm-shell--pro {
+  background:
+    radial-gradient(900px 420px at 12% -10%, rgba(45, 212, 191, 0.14), transparent 55%),
+    var(--pm-canvas) !important;
+  color: var(--pm-ink) !important;
+}
+
+.pm-shell__glow,
+.pm-shell__grid {
+  display: none;
+}
+
+.pm-shell :is(button, input, select, textarea, a):focus-visible {
+  outline: 3px solid rgba(13, 148, 136, 0.28);
+  outline-offset: 2px;
+}
+
+.pm-shell button,
+.pm-shell input,
+.pm-shell select {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.pm-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.pm-shell [class*="text-[9px]"],
+.pm-shell [class*="text-[10px]"] {
+  font-size: 0.75rem !important;
+}
+
+.pm-shell [class*="text-[11px]"] {
+  font-size: 0.8125rem !important;
+}
+
+.edu-inline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: rgba(13, 148, 136, 0.06);
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.edu-inline-note strong {
+  color: var(--ink);
+}
+
+.app-shell--news .news-sparkle-compact-header {
+  border-color: var(--pm-line) !important;
+  background: var(--pm-surface) !important;
+}
+
+.app-shell--news .news-sparkle-compact-header :is(h1, .pm-btn) {
+  color: var(--pm-ink) !important;
+}
+
+.app-shell--news .news-desk__market-lens button {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--pm-muted) !important;
+}
+
+.app-shell--news .news-desk__market-lens button.is-active {
+  border-color: rgba(13, 148, 136, 0.25) !important;
+  background: rgba(13, 148, 136, 0.12) !important;
+  color: #0f766e !important;
+}
+
+.app-shell--news .news-desk__search label span {
+  color: var(--pm-ink) !important;
+}
+
+.app-shell--news .news-desk__search input {
+  border-color: var(--pm-line) !important;
+  background: var(--pm-surface) !important;
+  color: var(--pm-ink) !important;
+}
+
+.app-shell--news .news-desk__search input::placeholder {
+  color: var(--pm-muted) !important;
+}
+
+@media (max-width: 760px) {
+  .edu-context {
+    grid-template-columns: 1fr;
+  }
+
+  .edu-context__item + .edu-context__item {
+    border-top: 1px solid var(--pm-line);
+    border-left: 0;
+  }
+
+  .pm-shell__tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .pm-shell__tabs button {
+    min-width: 0;
+    white-space: normal;
+  }
+
+}

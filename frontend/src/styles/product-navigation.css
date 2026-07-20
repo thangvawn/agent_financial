@@ -1,0 +1,120 @@
+/* Product-only navigation. Home keeps its existing presentation. */
+.connected-nav__label--mobile {
+  display: none;
+}
+
+:is(
+  .app-shell--global-terminal,
+  .app-shell--learning,
+  .app-shell--news
+) .connected-nav {
+  border-bottom-color: rgba(15, 43, 45, 0.1) !important;
+  background: rgba(243, 247, 246, 0.96) !important;
+}
+
+:is(
+  .app-shell--global-terminal,
+  .app-shell--learning,
+  .app-shell--news
+) .connected-nav :is(.connected-nav__brand-btn strong, .connected-nav__tab) {
+  color: #29494c !important;
+}
+
+:is(
+  .app-shell--global-terminal,
+  .app-shell--learning,
+  .app-shell--news
+) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost) {
+  border-color: rgba(15, 43, 45, 0.16) !important;
+  background: #fff !important;
+  color: #29494c !important;
+}
+
+@media (max-width: 760px) {
+  :is(
+    .app-shell--global-terminal,
+    .app-shell--learning,
+    .app-shell--guided-investing,
+    .app-shell--news,
+    .app-shell--pro-lab,
+    .app-shell--backtest-studio
+  ) .connected-nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    height: auto;
+    min-height: 96px;
+    padding: 6px 12px 4px;
+  }
+
+  :is(
+    .app-shell--global-terminal,
+    .app-shell--learning,
+    .app-shell--guided-investing,
+    .app-shell--news,
+    .app-shell--pro-lab,
+    .app-shell--backtest-studio
+  ) .connected-nav__brand-btn {
+    grid-row: 1;
+    grid-column: 1;
+    width: auto;
+    justify-self: start;
+  }
+
+  :is(
+    .app-shell--global-terminal,
+    .app-shell--learning,
+    .app-shell--guided-investing,
+    .app-shell--news,
+    .app-shell--pro-lab,
+    .app-shell--backtest-studio
+  ) :is(.connected-nav__account, .connected-nav__auth-actions) {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  :is(
+    .app-shell--global-terminal,
+    .app-shell--learning,
+    .app-shell--guided-investing,
+    .app-shell--news,
+    .app-shell--pro-lab,
+    .app-shell--backtest-studio
+  ) .connected-nav__tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    min-width: 0;
+    height: 44px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__tab {
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__label--desktop,
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__pro,
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__dropdown-icon {
+    display: none;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__label--mobile {
+    display: inline;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__brand-btn strong {
+    font-size: 0.82rem;
+  }
+
+  :is(.app-shell--global-terminal, .app-shell--learning, .app-shell--guided-investing, .app-shell--news, .app-shell--pro-lab, .app-shell--backtest-studio) .connected-nav__logout {
+    min-height: 36px;
+    padding-inline: 10px;
+  }
+}

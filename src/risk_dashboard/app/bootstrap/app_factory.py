@@ -27,10 +27,14 @@ class SPAStaticFiles(StaticFiles):
 
     async def get_response(self, path: str, scope):
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            return response
         except StarletteHTTPException as exc:
             if exc.status_code == 404 and self._fallback.exists():
-                return FileResponse(str(self._fallback), media_type="text/html")
+                resp = FileResponse(str(self._fallback), media_type="text/html")
+                resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                return resp
             raise
 
 

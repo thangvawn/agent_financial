@@ -2,7 +2,7 @@ import sqlite3
 import urllib.request
 import urllib.error
 
-DB_PATH = "data/app_state.db"
+DB_PATH = "data/db/northstar.db"
 
 def check_video_exists(url):
     oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"

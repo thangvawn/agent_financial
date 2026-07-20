@@ -10,12 +10,23 @@ _combined_pro_router = APIRouter()
 _combined_pro_router.include_router(pro_router)
 _combined_pro_router.include_router(ai_router)
 
+# Phase 4: registered slug is simulation_lab; package folder remains pro_lab (HTTP /pro-lab kept for FE).
 module = ModuleDefinition(
-    id="pro_lab",
-    slug="pro_lab",
+    id="simulation_lab",
+    slug="simulation_lab",
     enabled_by_default=True,
-    feature_flags=("module.pro_lab.enabled",),
-    permission_scopes=("public:pro_lab:read", "pro:pro_lab:use", "admin:pro_lab:manage"),
+    feature_flags=(
+        "module.simulation_lab.enabled",
+        "module.pro_lab.enabled",  # backward-compatible flag
+    ),
+    permission_scopes=(
+        "public:simulation_lab:read",
+        "pro:simulation_lab:use",
+        "admin:simulation_lab:manage",
+        "public:pro_lab:read",
+        "pro:pro_lab:use",
+        "admin:pro_lab:manage",
+    ),
     public_router=public_router,
     public_mount_prefix="/api/v1/public",
     pro_router=_combined_pro_router,

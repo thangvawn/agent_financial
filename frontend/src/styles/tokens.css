@@ -6,13 +6,12 @@
 :root {
   color-scheme: light;
 
-  /* Typography */
+  /* Typography — Outfit display + JetBrains Mono metrics */
   --font-sans:
     "Outfit", "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Helvetica Neue", Arial, sans-serif;
   --font-mono:
-    "JetBrains Mono", "SF Mono", "Menlo", "Cascadia Mono", "Consolas",
-    monospace;
+    "JetBrains Mono", "SF Mono", "Fira Code", "Menlo", monospace;
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -54,13 +53,13 @@
   --surface-ink: var(--ink);
   --surface-muted: var(--ink-muted);
 
-  /* Accents */
-  --accent: #2563eb;          /* blue-600 — primary action */
-  --accent-strong: #1d4ed8;   /* blue-700 — hover */
-  --accent-soft: #dbeafe;     /* blue-100 — badge bg */
+  /* Accents — Northstar teal (aligned with Home, not generic blue) */
+  --accent: #0d9488;
+  --accent-strong: #0f766e;
+  --accent-soft: #ccfbf1;
   --accent-ink: #ffffff;
-  --accent-warm: #d97706;     /* amber-600 — secondary */
-  --accent-warm-soft: #fef3c7;
+  --accent-warm: #c2410c;
+  --accent-warm-soft: #ffedd5;
 
   /* Semantic (PnL / status) */
   --pos: #16a34a;             /* green-600 */
@@ -108,7 +107,7 @@
   --shadow-xl:
     0 24px 60px rgba(9, 9, 11, 0.14),
     0 8px 20px rgba(9, 9, 11, 0.08);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(13, 148, 136, 0.22);
 
   /* Legacy shadow tokens */
   --shadow: var(--shadow-md);
@@ -144,11 +143,11 @@
   --surface-ink: var(--ink);
   --surface-muted: var(--ink-muted);
 
-  --accent: #3b82f6;
-  --accent-strong: #60a5fa;
-  --accent-soft: rgba(59, 130, 246, 0.16);
-  --accent-warm: #f59e0b;
-  --accent-warm-soft: rgba(245, 158, 11, 0.16);
+  --accent: #2dd4bf;
+  --accent-strong: #5eead4;
+  --accent-soft: rgba(45, 212, 191, 0.16);
+  --accent-warm: #fb923c;
+  --accent-warm-soft: rgba(251, 146, 60, 0.16);
 
   --pos: #22c55e;
   --pos-strong: #4ade80;
@@ -174,7 +173,7 @@
   --shadow-xl:
     0 24px 60px rgba(0, 0, 0, 0.50),
     0 8px 20px rgba(0, 0, 0, 0.32);
-  --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.28);
+  --shadow-focus: 0 0 0 3px rgba(45, 212, 191, 0.28);
 
   --shadow: var(--shadow-md);
   --shadow-soft: var(--shadow-sm);

@@ -1,24 +1,13 @@
-export { default as AnalyticsAdminPage } from './admin/AnalyticsAdminPage.jsx'
-export { default as AuthPage } from './auth/AuthPage.jsx'
-export { default as CommunityModerationPage } from './admin/CommunityModerationPage.jsx'
-export { default as ContentOpsAdminPage } from './admin/ContentOpsAdminPage.jsx'
-export { default as TrustSafetyAdminPage } from './admin/TrustSafetyAdminPage.jsx'
-export { default as CommunityPage } from './community/CommunityPage.jsx'
-export { default as EducationPlatformPage } from './learning/EducationPlatformPage.jsx'
-export { default as HomePage } from './home-onboarding/HomePage.jsx'
-export { default as MarketOverviewPage } from './home-onboarding/MarketOverviewPage.jsx'
-export { default as OnboardingPage } from './home-onboarding/OnboardingPage.jsx'
-export { default as GlobalTerminalPage } from './global-terminal/GlobalTerminalPage.jsx'
-export { default as NewsPage } from './global-terminal/NewsPage.jsx'
-export { default as NewsEconCalendarPage } from './global-terminal/NewsEconCalendarPage.jsx'
-export { default as GuidedInvestingPage } from './guided-investing/GuidedInvestingPage.jsx'
-export { default as InsightsPage } from './insights/InsightsPage.jsx'
-export { default as LearningAdminPage } from './learning/LearningAdminPage.jsx'
-export { default as LearningHomePage } from './learning/LearningHomePage.jsx'
-export { default as ProLabAdminPage } from './pro-lab/ProLabAdminPage.jsx'
-export { default as ProLabBacktestStudioPage } from './pro-lab/ProLabBacktestStudioPage.jsx'
-export { default as ProLabBlueprintsPage } from './pro-lab/ProLabBlueprintsPage.jsx'
-export { default as ProLabExperimentsPage } from './pro-lab/ProLabExperimentsPage.jsx'
-export { default as ProLabOverviewPage } from './pro-lab/ProLabOverviewPage.jsx'
-export { default as ProLabPage } from './pro-lab/ProLabPage.jsx'
-export { default as ProLabSessionsPage } from './pro-lab/ProLabSessionsPage.jsx'
+/** @deprecated Import from `../features` instead. Kept as compatibility shim. */
+export {
+  AuthPage,
+  HomePage,
+  OnboardingPage,
+  GlobalTerminalPage,
+  NewsPage,
+  NewsEconCalendarPage,
+  GuidedInvestingPage,
+  LearningHomePage,
+  ProLabPage,
+  ProLabBacktestStudioPage,
+} from '../features'

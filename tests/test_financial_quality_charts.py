@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from risk_dashboard.api.main import app
-from risk_dashboard.quant.financial_quality_charts import (
+from risk_dashboard.engines.quant.financial_quality_charts import (
     build_cash_flow_quality,
     build_financial_quality_charts,
     build_margin_analysis,

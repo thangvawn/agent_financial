@@ -51,10 +51,10 @@ from risk_dashboard.modules.guided_investing.schemas.responses import (
 from risk_dashboard.modules.trust_safety.application.services import TrustSafetyService
 from risk_dashboard.platform.database import open_app_state_db
 from risk_dashboard.platform.runtime.panel_store import PanelUnavailableError, get_panel
-from risk_dashboard.quant.eod_pipeline import run_quant_eod
-from risk_dashboard.quant.financial_analysis import analyze_financial_dataset
-from risk_dashboard.quant.peer_compare import compare_peers
-from risk_dashboard.quant.scenario import rerun_with_macro_override
+from risk_dashboard.engines.quant.eod_pipeline import run_quant_eod
+from risk_dashboard.engines.quant.financial_analysis import analyze_financial_dataset
+from risk_dashboard.engines.quant.peer_compare import compare_peers
+from risk_dashboard.engines.quant.scenario import rerun_with_macro_override
 
 
 class GetGuidedEligibility:

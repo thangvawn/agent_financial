@@ -90,19 +90,13 @@ def test_learning_home_lesson_quiz_and_context_flow():
             "knowledge_level": "beginner",
         },
     )
-    assert tutor.status_code == 200
-    tutor_payload = tutor.json()
-    assert tutor_payload["summary"]
-    assert tutor_payload["check_question"]
+    assert tutor.status_code == 404
 
     coach = client.post(
         "/api/v1/public/learning/coach",
         json={"session_id": session_id, "trigger": "continue_path"},
     )
-    assert coach.status_code == 200
-    coach_payload = coach.json()
-    assert coach_payload["title"]
-    assert coach_payload["cta_path"] == "/learn"
+    assert coach.status_code == 404
 
     context = client.get("/api/v1/public/learning/context?trigger=drawdown")
     assert context.status_code == 200

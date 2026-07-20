@@ -4,7 +4,7 @@ from risk_dashboard.modules.goals.api.public import router as public_router
 module = ModuleDefinition(
     id="goals",
     slug="goals",
-    enabled_by_default=True,
+    enabled_by_default=False,  # legacy — out of product surface (Phase 2)
     dependencies=("financial_health", "learning", "home_onboarding"),
     feature_flags=(
         "module.goals.enabled",

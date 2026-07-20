@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from risk_dashboard.modules.ai_assistant.application.services import RespondWithAssistant
-from risk_dashboard.modules.ai_assistant.infrastructure.repositories.sqlite import SqliteAssistantConversationRepository
 from risk_dashboard.modules.guided_investing.application.services import (
     CreateGuidedJournalEntry,
     GetSavedGuidedPortfolio,
@@ -28,7 +26,6 @@ from risk_dashboard.modules.guided_investing.schemas.requests import (
     GuidedJournalCreateRequest,
     GuidedPortfolioReviewRequest,
     GuidedSavePortfolioRequest,
-    GuidedSafeChatRequest,
     GuidedWatchlistItemCreateRequest,
 )
 from risk_dashboard.modules.guided_investing.schemas.responses import (
@@ -40,7 +37,6 @@ from risk_dashboard.modules.guided_investing.schemas.responses import (
     GuidedPortfolioReviewResponse,
     GuidedPortfolioReviewHistoryResponse,
     GuidedSavedPortfolioResponse,
-    GuidedSafeReplyResponse,
     GuidedWatchlistItemResponse,
     GuidedWatchlistReviewResponse,
 )
@@ -58,10 +54,6 @@ def _journals() -> SqliteGuidedJournalRepository:
 
 def _portfolios() -> SqliteGuidedPortfolioRepository:
     return SqliteGuidedPortfolioRepository()
-
-
-def _assistant() -> RespondWithAssistant:
-    return RespondWithAssistant(conversations=SqliteAssistantConversationRepository())
 
 
 @router.get("/eligibility", response_model=GuidedEligibilityResponse)
@@ -167,23 +159,3 @@ def guided_journal_add(req: GuidedJournalCreateRequest) -> GuidedJournalEntryRes
         uncertainties=req.uncertainties,
         review_condition=req.review_condition,
     )
-
-
-@router.post("/safe-chat", response_model=GuidedSafeReplyResponse)
-def guided_safe_chat(req: GuidedSafeChatRequest) -> GuidedSafeReplyResponse:
-    try:
-        reply = _assistant().execute(
-            session_id=req.session_id,
-            surface="guided_investing",
-            prompt=req.prompt,
-            role_hint="analyst",
-        )
-        return GuidedSafeReplyResponse(
-            allowed=reply.allowed,
-            headline=reply.title,
-            message=reply.explanation,
-            suggested_path=reply.cta_path,
-            linked_lesson_id=reply.linked_lesson_id or "tool-risk-score-101",
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc

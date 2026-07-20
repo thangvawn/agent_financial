@@ -6,20 +6,20 @@ import time
 import urllib.request
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import HTMLResponse
 
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.data import cross_asset_prices as cross_asset_prices_mod
 from risk_dashboard.platform.model_runtime.registry import model_runtime_health
 from risk_dashboard.platform.runtime.panel_store import PanelUnavailableError, get_panel, panel_status
-from risk_dashboard.quant.advanced_engine import (
+from risk_dashboard.engines.quant.advanced_engine import (
     compute_garch_volatility,
     compute_market_regime,
     optimize_portfolio_allocation,
 )
-from risk_dashboard.quant.eod_pipeline import _get_cached_trained_model
-from risk_dashboard.quant.xgb_engine import predict_horizons, prepare_features
+from risk_dashboard.engines.quant.eod_pipeline import _get_cached_trained_model
+from risk_dashboard.engines.quant.xgb_engine import predict_horizons, prepare_features
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["System"])
@@ -29,7 +29,12 @@ def _dashboard_html() -> str:
     settings = get_settings()
     index_path = settings.frontend_dist / "index.html"
     html_path = index_path if index_path.exists() else settings.legacy_dashboard_html
-    return html_path.read_text(encoding="utf-8")
+    html_content = html_path.read_text(encoding="utf-8")
+    import time
+    ts = int(time.time())
+    html_content = html_content.replace(".js\"", f".js?v={ts}\"")
+    html_content = html_content.replace(".css\"", f".css?v={ts}\"")
+    return html_content
 
 
 def _get_live_vnindex_dnse(default_val: float) -> tuple[float, int]:
@@ -63,7 +68,8 @@ def health() -> dict:
 
 
 @router.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
-def dashboard() -> str:
+def dashboard(response: Response) -> str:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return _dashboard_html()
 
 
@@ -71,6 +77,8 @@ def dashboard() -> str:
 @router.get("/home", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/global-terminal", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/markets", response_class=HTMLResponse, tags=["Frontend"])
+@router.get("/market", response_class=HTMLResponse, tags=["Frontend"])
+@router.get("/portfolio", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/news", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/news/economic-calendar", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/news-desk", response_class=HTMLResponse, tags=["Frontend"])
@@ -96,7 +104,8 @@ def dashboard() -> str:
 @router.get("/login", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/register", response_class=HTMLResponse, tags=["Frontend"])
 @router.get("/auth", response_class=HTMLResponse, tags=["Frontend"])
-def frontend_app() -> str:
+def frontend_app(response: Response) -> str:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return _dashboard_html()
 
 

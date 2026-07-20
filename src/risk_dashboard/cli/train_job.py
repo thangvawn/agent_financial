@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from risk_dashboard.quant.model_benchmark import resolve_benchmark_training_config
-from risk_dashboard.quant.xgb_engine import train_risk_model
+from risk_dashboard.engines.quant.model_benchmark import resolve_benchmark_training_config
+from risk_dashboard.engines.quant.xgb_engine import train_risk_model
 
 
 def main() -> None:

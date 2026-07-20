@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
+
+import re
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -51,11 +54,15 @@ class FinancialDataset(BaseModel):
     industry: str | None = None
     provider_notes: list[str] = Field(default_factory=list)
     periods: list[FinancialPeriodData] = Field(default_factory=list)
+    raw_statements: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @field_validator("ticker")
     @classmethod
     def normalize_ticker(cls, value: str) -> str:
-        return value.upper().strip()
+        normalized = value.upper().strip()
+        if not re.fullmatch(r"[A-Z0-9][A-Z0-9._-]{0,19}", normalized):
+            raise ValueError("ticker must contain only letters, numbers, dot, underscore or hyphen")
+        return normalized
 
 
 class FinancialFlag(BaseModel):

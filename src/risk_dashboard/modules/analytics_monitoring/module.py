@@ -6,7 +6,7 @@ module = ModuleDefinition(
     id="analytics_monitoring",
     slug="analytics_monitoring",
     enabled_by_default=True,
-    dependencies=("trust_safety", "community", "pro_lab"),
+    dependencies=("trust_safety", "simulation_lab"),
     feature_flags=("module.analytics_monitoring.enabled",),
     permission_scopes=(
         "public:analytics_monitoring:write",

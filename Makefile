@@ -1,4 +1,4 @@
-.PHONY: install dev test lint fmt build up down logs clean
+.PHONY: install dev test lint fmt build build-backend build-frontend up down logs clean
 
 install:
 	pip install -e ".[dev,auto]"
@@ -24,7 +24,12 @@ fmt:
 	ruff format src/ tests/
 	ruff check --fix src/ tests/
 
-build:
+build: build-backend build-frontend
+
+build-backend:
+	PYTHONPATH=src PYTHONPYCACHEPREFIX=.local-dev/pycache python3 -m compileall -q src/risk_dashboard
+
+build-frontend:
 	cd frontend && npm run build
 
 docker-build:

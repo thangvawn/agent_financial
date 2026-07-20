@@ -2030,36 +2030,6 @@
           </div>
         </div>
 
-        <!-- FLOATING QUANT CHAT -->
-        <div class="floating-chat-btn" id="fabChat" title="Chat với Quant AI">💬</div>
-        
-        <div id="floatingChatPopup" class="floating-chat-popup">
-          <div class="floating-chat-header">
-            <span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 18px;">🤖</span> Quant Assistant</span>
-            <span class="floating-chat-close" id="fabClose">&times;</span>
-          </div>
-          <div class="chat-interface" style="flex: 1; border: none; border-radius: 0; padding: 12px; display: flex; flex-direction: column; overflow: hidden; background: transparent;">
-            <div class="chat-history" id="chatHistoryBox" style="flex: 1; margin-bottom: 0;">
-              <div class="chat-msg assistant">
-                <div class="msg-bubble">Chào bạn, tôi là Quant AI. Bạn có thể hỏi tôi về phân tích rủi ro thị trường, giải thích số liệu hiện tại, mô phỏng tỷ giá. Hôm nay tôi có thể giúp gì cho bạn?</div>
-              </div>
-            </div>
-            
-            <div class="chat-input-area" style="padding-top: 12px; border-top: 1px solid var(--border);">
-              <div class="chat-prompts">
-                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Sao rủi ro tăng?</div>
-                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Nếu Tỷ giá vượt 25.5k?</div>
-                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Stress test danh mục</div>
-                <div class="prompt-chip" style="font-size: 11px; padding: 4px 8px;">Rủi ro FPT</div>
-              </div>
-              
-              <div class="chat-form">
-                <input type="text" id="chatInputField" placeholder="Hỏi phân tích rủi ro, stress test, vĩ mô..." style="font-size: 13px; flex: 1;" />
-                <button class="btn btn-primary" id="chatSendBtn" style="padding: 10px 14px;">↗</button>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
 
@@ -2486,40 +2456,6 @@
         }
       }
 
-      async function sendChat(msg) {
-        if (!asOfInput.value) return alert("Chọn ngày lập lưới dữ liệu trước.");
-        
-        const box = document.getElementById('chatHistoryBox');
-        
-        // Append User
-        const uDiv = document.createElement('div');
-        uDiv.className = 'chat-msg user';
-        uDiv.innerHTML = `<div class="msg-bubble">${msg}</div>`;
-        box.appendChild(uDiv);
-        
-        // Typing indicator
-        const tDiv = document.createElement('div');
-        tDiv.className = 'chat-msg assistant';
-        tDiv.innerHTML = `<div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
-        box.appendChild(tDiv);
-        box.scrollTop = box.scrollHeight;
-
-        try {
-           const res = await fetch("/chat", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ as_of: asOfInput.value, message: msg })
-          });
-          const payload = await res.json();
-          tDiv.innerHTML = `
-            <div class="msg-bubble">${payload.text || "Lỗi nội dung."}</div>
-            ${payload.provenance ? `<div class="msg-meta">Model: ${payload.provenance.model_version} | ID: ${payload.provenance.run_id}</div>` : ''}
-          `;
-        } catch(e) {
-          tDiv.innerHTML = `<div class="msg-bubble" style="color: var(--bad)">Network Error.</div>`;
-        }
-        box.scrollTop = box.scrollHeight;
-      }
-
       // Event Listeners bind
       document.getElementById('runEodBtn').addEventListener('click', runEOD);
       document.getElementById('runScenarioBtn').addEventListener('click', runScenario);
@@ -2553,18 +2489,6 @@
       irSlider.addEventListener('input', e => { irInputSc.value = e.target.value; irLab.textContent = e.target.value; });
       irInputSc.addEventListener('input', e => { irSlider.value = e.target.value; irLab.textContent = e.target.value; });
 
-      // Chat bindings
-      const chatIn = document.getElementById('chatInputField');
-      document.getElementById('chatSendBtn').addEventListener('click', () => {
-        if(chatIn.value.trim()) { sendChat(chatIn.value.trim()); chatIn.value = ''; }
-      });
-      chatIn.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter') { sendChat(chatIn.value.trim()); chatIn.value = ''; }
-      });
-      document.querySelectorAll('.prompt-chip').forEach(chip => {
-        chip.addEventListener('click', () => { sendChat(chip.textContent); });
-      });
-      
       // Export behavior
       document.getElementById('exportBtn').addEventListener('click', () => { window.print(); });
 
@@ -2648,14 +2572,6 @@
       // Khởi chạy Money Flow kèm BootSystem
       fetchMoneyFlow();
       setInterval(fetchMoneyFlow, 60000);
-
-      // Booting toggle floating chat
-      document.getElementById('fabChat').addEventListener('click', () => {
-         document.getElementById('floatingChatPopup').classList.toggle('open');
-      });
-      document.getElementById('fabClose').addEventListener('click', () => {
-         document.getElementById('floatingChatPopup').classList.remove('open');
-      });
 
       // Init
       bootSystem();

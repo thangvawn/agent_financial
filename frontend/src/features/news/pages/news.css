@@ -1,0 +1,95 @@
+/* ============================================================
+   Northstar Finance Lab — News & Intelligence Desk Styles
+   ============================================================ */
+
+/* Fade-in animations for dynamic feed loads */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hide scrollbars but preserve scrolling for clean interfaces */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Text coloring variants for sentiment labels */
+.text-emerald-450 {
+  color: #34d399; /* emerald-400 */
+}
+.text-red-405 {
+  color: #f87171; /* red-400 */
+}
+.text-slate-450 {
+  color: #94a3b8; /* slate-400 */
+}
+
+/* Smooth custom scrollbars for feed lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f293d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Page responsiveness overrides */
+@media (max-width: 1024px) {
+  .max-h-\[500px\] {
+    max-height: 400px;
+  }
+}
+
+/* Refined Institutional News Feed Card Override to bypass generic button styles from base-elements.css */
+.news-feed-item-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0.75rem !important; /* p-3 */
+  border-radius: var(--radius-md) !important;
+  background: rgba(15, 20, 32, 0.6) !important; /* bg-[#0f1420]/60 */
+  border: 1px solid rgba(31, 41, 61, 0.6) !important; /* border-[#1f293d]/60 */
+  color: inherit !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.news-feed-item-btn:hover {
+  background: rgba(15, 20, 32, 0.9) !important;
+  border-color: #374151 !important;
+}
+
+.news-feed-item-btn:active {
+  transform: translateY(0.5px) !important;
+}
+
+.news-feed-item-btn.is-active {
+  background: rgba(13, 148, 136, 0.08) !important; /* bg-teal-950/20 */
+  border-color: rgba(45, 212, 191, 0.4) !important; /* border-teal-500/40 */
+}

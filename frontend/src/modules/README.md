@@ -1,13 +1,8 @@
-Module ownership:
+# Deprecated
 
-- `pages/` renders route-level screens.
-- `modules/` owns domain logic, APIs, hooks, schemas, analytics, and reusable domain components.
-- `shared/` holds cross-domain UI and helpers.
+Frontend domain code đã chuyển sang `frontend/src/features/<domain>/`.
 
-Import from each module root when wiring pages, for example:
-
-- `../../modules/home-onboarding`
-- `../../modules/learning`
-- `../../modules/pro-lab`
-
-This keeps route components thin and makes future file moves safer.
+Xem:
+- `frontend/src/features/`
+- `frontend/src/app/productRegistry.js`
+- `plans/2026-07-17-northstar-codebase-structure-refactor.md`

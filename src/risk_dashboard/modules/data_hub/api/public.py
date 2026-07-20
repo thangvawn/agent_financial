@@ -45,7 +45,7 @@ def get_vn_universe() -> dict:
 
 @router.get("/vn-market/snapshot")
 def get_vn_snapshot(
-    sort: str = Query("change_desc", pattern="^(change_desc|change_asc|volume_desc|value_desc|symbol_asc)$"),
+    sort: str = Query("market_cap_desc", pattern="^(market_cap_desc|change_desc|change_asc|volume_desc|value_desc|foreign_net_buy_desc|symbol_asc)$"),
     exchange: str | None = Query(None, pattern="^(HOSE|HSX|HNX|UPCOM)$"),
     search: str | None = Query(None, max_length=12),
     limit: int = Query(50, ge=1, le=500),
@@ -67,7 +67,9 @@ def get_vn_snapshot(
     def _safe(v, default=0):
         return v if v is not None else default
 
-    if sort == "change_desc":
+    if sort == "market_cap_desc":
+        items = sorted(items, key=lambda x: _safe(x.get("market_cap"), -1), reverse=True)
+    elif sort == "change_desc":
         items = sorted(items, key=lambda x: _safe(x.get("change_pct"), -1e9), reverse=True)
     elif sort == "change_asc":
         items = sorted(items, key=lambda x: _safe(x.get("change_pct"), 1e9))
@@ -75,6 +77,12 @@ def get_vn_snapshot(
         items = sorted(items, key=lambda x: _safe(x.get("volume")), reverse=True)
     elif sort == "value_desc":
         items = sorted(items, key=lambda x: _safe(x.get("value")), reverse=True)
+    elif sort == "foreign_net_buy_desc":
+        items = sorted(
+            items,
+            key=lambda x: _safe(x.get("foreign_net_buy")),
+            reverse=True,
+        )
     else:
         items = sorted(items, key=lambda x: (x.get("symbol") or ""))
 
@@ -91,4 +99,3 @@ def get_vn_snapshot(
         "returned": min(limit, len(items)),
         "items": items[:limit],
     }
-

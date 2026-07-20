@@ -12,6 +12,7 @@ from risk_dashboard.data.macro_auto import AutoMacroSource
 from risk_dashboard.data.macro_connector import CsvMacroSource
 from risk_dashboard.data.macro_official import OfficialCsvMacroSource
 from risk_dashboard.data.market_connector import CsvMarketSource, VnstockMarketSource
+from risk_dashboard.platform.database.config import get_db_path
 from risk_dashboard.storage.sqlite_store import IngestRegistry
 
 
@@ -19,7 +20,11 @@ def main() -> None:
     p = argparse.ArgumentParser(
         description="Job EOD: ingest (tuỳ chọn) + ghi registry SQLite để tra cứu Parquet."
     )
-    p.add_argument("--sqlite", default="./data/risk_dashboard.db", help="Đường dẫn file SQLite")
+    p.add_argument(
+        "--sqlite",
+        default=None,
+        help="Đường dẫn SQLite (mặc định: get_db_path() / RISK_DASHBOARD_DB_PATH)",
+    )
     p.add_argument("--skip-ingest", action="store_true", help="Chỉ đăng ký file Parquet có sẵn")
     p.add_argument("--parquet", help="Khi --skip-ingest: đường dẫn Parquet đã có")
     p.add_argument("--manifest", help="Manifest JSON đi kèm (tuỳ chọn)")
@@ -36,8 +41,8 @@ def main() -> None:
     p.add_argument("--vnstock-source", default="VCI")
 
     args = p.parse_args()
-
-    reg = IngestRegistry(args.sqlite)
+    sqlite_path = args.sqlite or str(get_db_path())
+    reg = IngestRegistry(sqlite_path)
 
     if args.skip_ingest:
         if not args.parquet:

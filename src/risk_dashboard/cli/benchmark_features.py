@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from risk_dashboard.quant.model_benchmark import (
+from risk_dashboard.engines.quant.model_benchmark import (
     run_feature_variant_benchmark,
     save_feature_benchmark_results,
     summarize_best_feature_variants,

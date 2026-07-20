@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import requests
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
@@ -24,6 +25,8 @@ class FeedInstrument:
     focus: str
     data_source: str = "yahoo"  # "yahoo" or "vnstock"
     vn_symbol: str = ""  # only used when data_source == "vnstock"
+    category: str = ""
+    unit: str = ""
 
 
 GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
@@ -42,12 +45,28 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
     FeedInstrument("USDJPY", "USD/JPY", "JPY=X", "fx", "JPY carry stress"),
     FeedInstrument("AUDUSD", "AUD/USD", "AUDUSD=X", "fx", "Commodity FX"),
     FeedInstrument("USDCNH", "USD/CNH", "CNH=X", "fx", "China currency pressure"),
-    FeedInstrument("XAU", "Gold", "GC=F", "commodities", "Safe-haven / inflation hedge"),
-    FeedInstrument("WTI", "Oil WTI", "CL=F", "commodities", "Growth and energy pressure"),
-    FeedInstrument("COPPER", "Copper", "HG=F", "commodities", "Industrial cycle proxy"),
-    FeedInstrument("SILVER", "Silver", "SI=F", "commodities", "Safe-haven and cyclicality"),
+    FeedInstrument("XAU", "Gold", "GC=F", "commodities", "Safe-haven / inflation hedge", category="metals", unit="USD/oz"),
+    FeedInstrument("SILVER", "Silver", "SI=F", "commodities", "Safe-haven and cyclicality", category="metals", unit="USD/oz"),
+    FeedInstrument("COPPER", "Copper", "HG=F", "commodities", "Industrial cycle proxy", category="metals", unit="USD/lb"),
+    FeedInstrument("PLATINUM", "Platinum", "PL=F", "commodities", "Auto and industrial demand", category="metals", unit="USD/oz"),
+    FeedInstrument("PALLADIUM", "Palladium", "PA=F", "commodities", "Auto catalyst demand", category="metals", unit="USD/oz"),
+    FeedInstrument("WTI", "Crude Oil WTI", "CL=F", "commodities", "Growth and energy pressure", category="energy", unit="USD/bbl"),
+    FeedInstrument("BRENT", "Brent Crude", "BZ=F", "commodities", "Global oil benchmark", category="energy", unit="USD/bbl"),
+    FeedInstrument("NATGAS", "Natural Gas", "NG=F", "commodities", "Power and heating demand", category="energy", unit="USD/MMBtu"),
+    FeedInstrument("CORN", "Corn", "ZC=F", "commodities", "Grain supply cycle", category="grains", unit="US cents/bu"),
+    FeedInstrument("WHEAT", "Wheat", "ZW=F", "commodities", "Food inflation pressure", category="grains", unit="US cents/bu"),
+    FeedInstrument("SOYBEAN", "Soybean", "ZS=F", "commodities", "Feed and oilseed cycle", category="grains", unit="US cents/bu"),
+    FeedInstrument("SUGAR", "Sugar", "SB=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
+    FeedInstrument("COFFEE", "Coffee", "KC=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
+    FeedInstrument("COCOA", "Cocoa", "CC=F", "commodities", "Soft commodities", category="raw_materials", unit="USD/ton"),
+    FeedInstrument("COTTON", "Cotton", "CT=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
+    FeedInstrument("LUMBER", "Lumber", "LBS=F", "commodities", "Construction cycle", category="raw_materials", unit="USD/1000 board ft"),
     FeedInstrument("BTC", "Bitcoin", "BTC-USD", "crypto", "Global risk appetite"),
     FeedInstrument("ETH", "Ethereum", "ETH-USD", "crypto", "Crypto breadth"),
+    FeedInstrument("BNB", "Binance Coin", "BNB-USD", "crypto", "Exchange utility token"),
+    FeedInstrument("SOL", "Solana", "SOL-USD", "crypto", "L1 network speed"),
+    FeedInstrument("XRP", "Ripple", "XRP-USD", "crypto", "Cross-border payment"),
+    FeedInstrument("DOGE", "Dogecoin", "DOGE-USD", "crypto", "Meme speculation pulse"),
 )
 
 
@@ -146,6 +165,9 @@ class GlobalMarketFeedProducer:
                 continue
             change = float(current) - float(previous)
             change_pct = (change / float(previous)) * 100 if float(previous) else 0.0
+            highs = _extract_field_series(frame, instrument.yahoo_symbol, "High") if not frame.empty else pd.Series(dtype=float)
+            lows = _extract_field_series(frame, instrument.yahoo_symbol, "Low") if not frame.empty else pd.Series(dtype=float)
+            volumes = _extract_field_series(frame, instrument.yahoo_symbol, "Volume") if not frame.empty else pd.Series(dtype=float)
             items.append(
                 {
                     "symbol": instrument.symbol,
@@ -155,13 +177,79 @@ class GlobalMarketFeedProducer:
                     "price": round(float(current), 6),
                     "change": round(change, 6),
                     "change_pct": round(change_pct, 3),
+                    "high_24h": round(float(highs.iloc[-1]), 6) if not highs.empty else None,
+                    "low_24h": round(float(lows.iloc[-1]), 6) if not lows.empty else None,
+                    "volume_24h": round(float(volumes.iloc[-1]), 4) if not volumes.empty else None,
+                    "category": instrument.category,
+                    "unit": instrument.unit,
                     "focus": instrument.focus,
                     "source": "yahoo_finance",
                     "updated_at": _series_updated_at(closes),
                 }
             )
         items.extend(self._fetch_vnstock_snapshot_items())
+        crypto_items = self._fetch_crypto_snapshot_items()
+        if crypto_items:
+            items = [item for item in items if item.get("group") != "crypto"]
+            items.extend(crypto_items)
         return {"as_of": _utc_now_iso(), "source": "mixed", "items": items}
+
+    def _fetch_crypto_snapshot_items(self) -> list[dict[str, Any]]:
+        """Use a market-data feed with 24h stats instead of daily-only crypto bars."""
+        ids = {
+            "BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin",
+            "SOL": "solana", "XRP": "ripple", "DOGE": "dogecoin",
+        }
+        try:
+            response = requests.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "ids": ",".join(ids.values()),
+                    "order": "market_cap_desc",
+                    "per_page": len(ids),
+                    "page": 1,
+                    "sparkline": "true",
+                    "price_change_percentage": "24h",
+                },
+                timeout=8,
+                headers={"Accept": "application/json", "User-Agent": "risk-dashboard/1.0"},
+            )
+            response.raise_for_status()
+            rows = response.json()
+        except Exception:
+            return []
+
+        by_id = {value: key for key, value in ids.items()}
+        items: list[dict[str, Any]] = []
+        for row in rows if isinstance(rows, list) else []:
+            symbol = by_id.get(row.get("id"))
+            price = _safe_float(row.get("current_price"))
+            if not symbol or price is None:
+                continue
+            change = _safe_float(row.get("price_change_24h"))
+            change_pct = _safe_float(row.get("price_change_percentage_24h"))
+            sparkline = row.get("sparkline_in_7d", {}).get("price", [])
+            items.append({
+                "symbol": symbol,
+                "name": row.get("name") or symbol,
+                "yahoo_symbol": f"{symbol}-USD",
+                "group": "crypto",
+                "price": round(price, 8),
+                "change": round(change, 8) if change is not None else None,
+                "change_pct": round(change_pct, 4) if change_pct is not None else None,
+                "high_24h": _safe_float(row.get("high_24h")),
+                "low_24h": _safe_float(row.get("low_24h")),
+                "volume_24h": _safe_float(row.get("total_volume")),
+                "market_cap": _safe_float(row.get("market_cap")),
+                "market_cap_rank": row.get("market_cap_rank"),
+                "circulating_supply": _safe_float(row.get("circulating_supply")),
+                "sparkline": [round(float(value), 8) for value in sparkline if _safe_float(value) is not None][-48:],
+                "focus": "24h market pulse",
+                "source": "coingecko",
+                "updated_at": row.get("last_updated") or _utc_now_iso(),
+            })
+        return items
 
     def _fetch_vnstock_snapshot_items(self) -> list[dict[str, Any]]:
         vn_instruments = [i for i in GLOBAL_MARKET_INSTRUMENTS if i.data_source == "vnstock"]
@@ -603,6 +691,15 @@ def _looks_like_vn_ticker(symbol: str) -> bool:
     if not (3 <= len(symbol) <= 5):
         return False
     return symbol.isalpha()
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 _VN_INDICES = frozenset({"VNINDEX", "VN30", "HNXINDEX", "HNXINDEX30", "UPCOMINDEX"})

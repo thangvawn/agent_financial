@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from risk_dashboard.quant.model_benchmark import run_model_benchmark, save_benchmark_results, summarize_best_models
+from risk_dashboard.engines.quant.model_benchmark import run_model_benchmark, save_benchmark_results, summarize_best_models
 
 
 def main() -> None:

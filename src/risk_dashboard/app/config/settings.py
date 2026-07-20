@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from risk_dashboard.platform.database.config import get_db_path
+
 
 @dataclass(frozen=True)
 class AppSettings:
@@ -11,7 +13,8 @@ class AppSettings:
     version: str
     description: str
     project_root: Path
-    app_state_db_path: Path
+    app_state_db_path: Path  # compat alias of db_path
+    db_path: Path
     legacy_dashboard_html: Path
     frontend_dist: Path
     learning_assets_dir: Path
@@ -22,7 +25,7 @@ class AppSettings:
 @lru_cache(maxsize=1)
 def get_settings() -> AppSettings:
     project_root = Path(__file__).resolve().parents[4]
-    app_state_db_path = project_root / "data" / "app_state.db"
+    db_path = get_db_path()
     legacy_dashboard_html = project_root / "src" / "risk_dashboard" / "api" / "dashboard.html"
     frontend_dist = project_root / "frontend" / "dist"
     learning_assets_dir = project_root / "data" / "learning_assets"
@@ -32,7 +35,8 @@ def get_settings() -> AppSettings:
         version="0.1.0",
         description="Neural-symbolic risk pipeline for Vietnamese equity market",
         project_root=project_root,
-        app_state_db_path=app_state_db_path,
+        app_state_db_path=db_path,
+        db_path=db_path,
         legacy_dashboard_html=legacy_dashboard_html,
         frontend_dist=frontend_dist,
         learning_assets_dir=learning_assets_dir,

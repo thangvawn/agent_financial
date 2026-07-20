@@ -92,54 +92,18 @@ def test_news_intelligence_public_feed_endpoint(monkeypatch):
     assert payload["confidence_label"] in {"moderate", "limited"}
 
 
-def test_news_analyst_chat_uses_news_context(monkeypatch):
-    reset_app_state_tables()
-    monkeypatch.setenv("NEWS_ANALYST_AGENT_ENABLED", "0")
-    monkeypatch.setenv("NEWS_ANALYST_TAVILY_ENABLED", "0")
-    monkeypatch.setattr(
-        "risk_dashboard.modules.news_intelligence.application.services.NewsRssProducer.fetch",
-        lambda self: FakeProducer().fetch(),
-    )
-    client = TestClient(app)
-
-    response = client.post(
-        "/api/v1/public/news/chat",
-        json={
-            "message": "Fed giảm 2% lãi suất thì tác động tới hàng hóa thế nào?",
-            "time_range_hours": 168,
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["role"] == "news_analyst"
-    assert "search_news_articles" in payload["tools_used"]
-    assert payload["key_points"]
-    assert payload["confidence_label"] in {"moderate", "limited"}
-    assert "safety_note" in payload
-    assert "affected_markets" in payload
-    assert "what_to_monitor" in payload
-    assert "suggested_followups" in payload
-    assert payload["safety"]["no_buy_sell_recommendation"] is True
-
-
-def test_news_analyst_redirects_unsafe_query(monkeypatch):
+def test_news_chat_endpoint_removed(monkeypatch):
     reset_app_state_tables()
     monkeypatch.setattr(
         "risk_dashboard.modules.news_intelligence.application.services.NewsRssProducer.fetch",
         lambda self: FakeProducer().fetch(),
     )
     client = TestClient(app)
-
     response = client.post(
         "/api/v1/public/news/chat",
-        json={"message": "nên mua mã nào bây giờ?", "time_range_hours": 168},
+        json={"message": "Fed giảm lãi suất?", "time_range_hours": 168},
     )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert "safety_guardrail" in payload["tools_used"]
-    assert payload["safety"]["no_buy_sell_recommendation"] is True
+    assert response.status_code == 404
 
 
 def test_news_feed_has_today_brief():

@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from risk_dashboard.quant.model_benchmark import (
+from risk_dashboard.engines.quant.model_benchmark import (
     build_vn30_breadth_features,
     default_model_factories,
     default_feature_variants,

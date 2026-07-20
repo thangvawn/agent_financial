@@ -95,36 +95,7 @@ def test_dashboard_cross_asset_returns_payload(mock_cross_asset):
     mock_cross_asset.assert_called_once_with(limit=180)
 
 
-@mock.patch("risk_dashboard.api.main.run_backtest_strategy_lab")
-def test_trading_lab_strategy_design_returns_payload(mock_strategy):
-    mock_strategy.return_value = {
-        "mode": "backtest_strategy_lab",
-        "agents": [
-            {"role": "analyst", "label": "Nhà phân tích", "memo": "Luận điểm tăng trưởng."},
-            {"role": "stop_loss", "label": "Agent Stop-loss", "memo": "SL 8%."},
-        ],
-        "blueprint": {
-            "title": "Chiến lược nháp",
-            "summary": "Tăng trưởng có kiểm soát rủi ro.",
-            "execution_rule": {
-                "enabled": True,
-                "strategy_type": "volume_btc_confirm_stop_loss",
-                "summary": "Volume tăng mạnh, BTC xác nhận, SL 4%.",
-                "params": {
-                    "volume_spike_multiplier": 2.0,
-                    "btc_daily_change_min_pct": 3.0,
-                    "stop_loss_pct": 4.0,
-                },
-                "parser_notes": [],
-                "unsupported_parts": [],
-            },
-            "backtest_ready": {
-                "tickers": ["FPT", "VCB"],
-                "equal_weight": False,
-                "weights": {"FPT": 0.6, "VCB": 0.4},
-            },
-        },
-    }
+def test_trading_lab_strategy_design_removed():
     c = TestClient(app)
     r = c.post(
         "/admin/trading-lab/strategy-design",
@@ -140,12 +111,7 @@ def test_trading_lab_strategy_design_returns_payload(mock_strategy):
             "holding_period": "1-3 tháng",
         },
     )
-    assert r.status_code in (200, 401, 503)
-    if r.status_code == 200:
-        body = r.json()
-        assert body["mode"] == "backtest_strategy_lab"
-        assert body["blueprint"]["backtest_ready"]["tickers"] == ["FPT", "VCB"]
-        assert body["blueprint"]["execution_rule"]["enabled"] is True
+    assert r.status_code == 404
 
 
 def test_research_model_report_endpoint():
@@ -157,16 +123,12 @@ def test_research_model_report_endpoint():
     assert "model_version" in payload["summary"]
 
 
-def test_chat_endpoint_returns_response(synthetic_panel):
+def test_chat_endpoint_removed(synthetic_panel):
     set_panel_for_testing(synthetic_panel)
     c = TestClient(app)
     as_of = synthetic_panel["date"].iloc[-1].date()
     r = c.post("/chat", json={"as_of": str(as_of), "message": "giải thích rủi ro hiện tại"})
-    assert r.status_code == 200
-    payload = r.json()
-    assert payload["text"]
-    assert "route" in payload
-    assert "provenance" in payload
+    assert r.status_code == 404
 
 
 def test_backtest_run_rejects_invalid_range():
