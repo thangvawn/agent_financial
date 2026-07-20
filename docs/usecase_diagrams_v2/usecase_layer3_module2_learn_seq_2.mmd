@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant CS as Content Store
+    participant DB as SQLite DB
+
+    S->>UI: Truy cập Kho tài liệu/Video
+    activate UI
+    UI->>API: GET /courses/content-list
+    activate API
+    API->>DB: Query accessible contents
+    activate DB
+    DB-->>API: Content Metadata
+    deactivate DB
+    API-->>UI: Return list
+    deactivate API
+    UI-->>S: Hiển thị danh sách khóa học
+
+    S->>UI: Click xem Video/Tài liệu
+    UI->>API: GET /content/{id}
+    activate API
+    API->>CS: Fetch stream URL / Signed URL
+    activate CS
+    CS-->>API: URL
+    deactivate CS
+    API-->>UI: Trả về link nội dung
+    deactivate API
+    UI->>CS: Stream Video / Download Doc
+    UI-->>S: Trình chiếu nội dung
+    deactivate UI

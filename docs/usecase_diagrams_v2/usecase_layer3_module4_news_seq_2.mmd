@@ -1,0 +1,12 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant News DB
+
+    Student->>SPA: Chọn bộ lọc (Khu vực/Ngành/Công ty)
+    SPA->>API: GET /api/news?region=..&industry=..&ticker=..
+    API->>News DB: Truy vấn theo điều kiện lọc
+    News DB-->>API: Danh sách bài viết
+    API-->>SPA: JSON
+    SPA-->>Student: Hiển thị Feed tin tức đã lọc

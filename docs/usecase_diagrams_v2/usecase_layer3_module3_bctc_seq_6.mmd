@@ -1,0 +1,12 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant Report Generator
+
+    Student->>SPA: Bấm Xuất báo cáo (PDF/Image)
+    SPA->>API: POST /api/export/report (gửi layout, chart data)
+    API->>Report Generator: Khởi tạo PDF/Image nhúng biểu đồ
+    Report Generator-->>API: Trả về file URL / Blob
+    API-->>SPA: Link tải file
+    SPA-->>Student: Tải file xuống máy (Download)

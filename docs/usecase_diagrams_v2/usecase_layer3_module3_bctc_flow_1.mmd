@@ -1,0 +1,19 @@
+flowchart TD
+    Student((Student))
+    AIEngine[[AI Engine]]
+
+    subgraph Module 3: Phân Tích BCTC
+        UCM31[UC-M3.1: Xem báo cáo tài chính đa kỳ]
+        UCM32[UC-M3.2: Trực quan hóa dữ liệu]
+        UCM33[UC-M3.3: So sánh ngang]
+        UCM34[UC-M3.4: Yêu cầu AI giải thích/chấm điểm]
+        UCM35[UC-M3.5: Xuất báo cáo phân tích]
+    end
+
+    Student --> UCM31
+    Student --> UCM32
+    Student --> UCM33
+    Student --> UCM34
+    Student --> UCM35
+    
+    UCM34 -. <<extend>> .-> AIEngine

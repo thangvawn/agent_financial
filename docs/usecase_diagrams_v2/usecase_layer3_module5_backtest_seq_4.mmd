@@ -1,0 +1,11 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant StatsCalc as Stats Calculator
+    
+    Student->>SPA: Yêu cầu xem báo cáo
+    SPA->>API: Lấy báo cáo hiệu quả
+    API->>StatsCalc: Tính toán Win rate, Max Drawdown, Sharpe, PnL
+    StatsCalc-->>API: Trả kết quả tính toán
+    API-->>SPA: Hiển thị biểu đồ & thống kê

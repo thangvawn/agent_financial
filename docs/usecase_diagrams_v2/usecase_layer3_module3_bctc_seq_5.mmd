@@ -1,0 +1,15 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant AI Engine
+    participant LLM Provider
+
+    Student->>SPA: Yêu cầu AI (Giải thích / Chấm điểm)
+    SPA->>API: POST /api/ai/analyze (Context: Data/Term)
+    API->>AI Engine: Gửi yêu cầu phân tích
+    AI Engine->>LLM Provider: Tính toán Z-Score, F-Score & Tạo text
+    LLM Provider-->>AI Engine: Kết quả (Kèm Disclaimer)
+    AI Engine-->>API: Trả về nội dung AI
+    API-->>SPA: Payload AI response
+    SPA-->>Student: Hiển thị giải thích & Điểm sức khỏe

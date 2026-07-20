@@ -1,0 +1,22 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant System as System/DB
+    participant LearnHub as Learn Hub
+    participant QuizEngine
+    
+    Student->>SPA: Truy cập Dashboard (thấy 'Account Locked')
+    Student->>SPA: Bấm 'Học để mở khóa'
+    SPA->>System: Yêu cầu mở khóa
+    System->>LearnHub: Chuyển hướng
+    LearnHub->>QuizEngine: Mở bài Quiz Quản trị Rủi Ro (QTRR)
+    Student->>QuizEngine: Hoàn thành bài Quiz
+    QuizEngine->>System: Gửi điểm số
+    alt score >= 80%
+        System->>System: Unlock account, restore virtual capital
+        System->>System: Log 'Account Unlocked via Education'
+        System-->>SPA: Thông báo thành công, tiếp tục giao dịch
+    else score < 80%
+        System-->>SPA: Yêu cầu làm lại Quiz (score < 80%)
+        SPA->>QuizEngine: Quay lại bài Quiz
+    end

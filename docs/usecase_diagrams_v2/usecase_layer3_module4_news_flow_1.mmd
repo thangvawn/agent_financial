@@ -1,0 +1,17 @@
+flowchart TD
+    Student((Student))
+    System((System))
+    NewsAggregator[[News Aggregator]]
+
+    subgraph Module 4: Tin Tức & Thị Trường
+        UCM41[UC-M4.1: Lọc tin tức theo Khu vực/Ngành/Doanh nghiệp]
+        UCM42[UC-M4.2: Đánh giá độ uy tín nguồn tin]
+        UCM43[UC-M4.3: Tương tác với Ticker Tag]
+    end
+
+    Student --> UCM41
+    System --> UCM42
+    NewsAggregator -.-> UCM41
+    Student --> UCM43
+    UCM43 -. <<include>> .-> ShowPopup(Hiển thị popup giá)
+    UCM43 -. <<include>> .-> NavBCTC(Chuyển hướng BCTC)

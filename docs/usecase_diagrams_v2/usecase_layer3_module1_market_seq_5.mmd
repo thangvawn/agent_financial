@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant DB as SQLite DB
+
+    S->>UI: Xem Sổ lệnh
+    activate UI
+    UI->>API: GET /orders?date=today
+    activate API
+    API->>DB: Query Orders by UserID
+    activate DB
+    DB-->>API: List of Orders (Pending, Matched, Cancelled)
+    deactivate DB
+    API-->>UI: Return Order Book
+    deactivate API
+    UI-->>S: Hiển thị Sổ lệnh
+    
+    opt Hủy lệnh
+        S->>UI: Click "Hủy lệnh" (Order ID)
+        UI->>API: DELETE /order/{id}
+        activate API
+        API->>DB: Check status == Pending?
+        activate DB
+        alt Status là Pending
+            DB-->>API: Valid
+            API->>DB: Update Status = Cancelled & Unhold Funds
+            DB-->>API: Success
+            API-->>UI: Hủy thành công
+        else Đã khớp
+            DB-->>API: Invalid
+            API-->>UI: Lỗi: Lệnh đã khớp
+        end
+        deactivate DB
+        deactivate API
+        UI-->>S: Cập nhật giao diện Sổ lệnh
+    end
+    deactivate UI

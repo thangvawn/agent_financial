@@ -1,0 +1,17 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant StrategyBuilder
+    participant DB
+    
+    Student->>SPA: Mở tính năng Strategy Builder
+    SPA->>API: Yêu cầu danh sách chỉ báo khả dụng
+    API->>StrategyBuilder: Lấy dữ liệu
+    StrategyBuilder-->>API: Trả về MA, RSI, PE, PB
+    API-->>SPA: Hiển thị danh sách
+    Student->>SPA: Chọn và cấu hình chỉ báo
+    SPA->>API: Lưu chiến lược
+    API->>DB: Lưu cấu hình
+    DB-->>API: OK
+    API-->>SPA: Thông báo thành công

@@ -1,0 +1,22 @@
+flowchart LR
+    %% Actors
+    HocVien["🧑‍🎓 Student/Trainee"]
+    MarketData["📊 Market Data Provider"]
+
+    %% Use Cases
+    UC11("UC-M1.1: Xem dữ liệu thị trường (EOD/Trễ 15p) & Biểu đồ")
+    UC12("UC-M1.2: Quản lý Watchlist (Thêm/Xóa/Phân loại)")
+    UC13("UC-M1.3: Đặt lệnh ảo (MP/LO)")
+    UC13_Inc("Kiểm tra số dư tiền mặt ảo")
+    UC14("UC-M1.4: Xem Sổ lệnh (Order Book) & Trạng thái khớp lệnh")
+    UC15("UC-M1.5: Xem Dashboard tài sản (Tổng tài sản, PnL, Giá vốn)")
+
+    %% Relationships
+    HocVien --> UC11
+    HocVien --> UC12
+    HocVien --> UC13
+    HocVien --> UC14
+    HocVien --> UC15
+    MarketData --> UC11
+    
+    UC13 -. "<<include>>" .-> UC13_Inc

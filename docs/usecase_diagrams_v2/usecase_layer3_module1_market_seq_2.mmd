@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant MDP as 📊 Market Data Provider
+    participant DB as SQLite DB
+
+    S->>UI: Truy cập Bảng điện
+    activate UI
+    UI->>API: GET /market/data
+    activate API
+    API->>MDP: Fetch delayed data (nếu cache hết hạn)
+    activate MDP
+    MDP-->>API: Market Data
+    deactivate MDP
+    API->>DB: Lưu/Cập nhật dữ liệu
+    activate DB
+    DB-->>API: Success
+    deactivate DB
+    API-->>UI: Dữ liệu thị trường
+    deactivate API
+    UI-->>S: Hiển thị Bảng điện
+
+    S->>UI: Chọn mã cổ phiếu xem biểu đồ
+    UI->>API: GET /market/chart/{symbol}
+    activate API
+    API->>DB: Lấy dữ liệu lịch sử giá
+    activate DB
+    DB-->>API: Historical Data
+    deactivate DB
+    API-->>UI: Chart Data
+    deactivate API
+    UI-->>S: Render biểu đồ kỹ thuật
+    deactivate UI

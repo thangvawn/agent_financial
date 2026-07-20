@@ -1,0 +1,22 @@
+flowchart LR
+    %% Actors
+    HocVien["🧑‍🎓 Student"]
+    GiangVien["👨‍🏫 Instructor/Admin"]
+
+    %% Use Cases
+    UC21("UC-M2.1: Truy cập kho tài liệu số & Video bài giảng")
+    UC22("UC-M2.2: Xem lộ trình học được gợi ý (CFA, BCTC, v.v.)")
+    UC23("UC-M2.3: Làm bài Quiz sau chương")
+    
+    UC23_Ext1("Mở khóa tính năng nâng cao (Backtest/Deep BCTC)")
+    UC23_Ext2("Gợi ý học lại nội dung")
+
+    %% Relationships
+    HocVien --> UC21
+    HocVien --> UC22
+    HocVien --> UC23
+    
+    GiangVien --> UC21
+    
+    UC23_Ext1 -. "<<extend>>" .-> UC23
+    UC23_Ext2 -. "<<extend>>" .-> UC23

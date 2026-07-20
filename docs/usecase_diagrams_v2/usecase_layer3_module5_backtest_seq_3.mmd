@@ -1,0 +1,14 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant BacktestEngine
+    participant HistoryDB as Historical Data Store
+    
+    Student->>SPA: Chọn kịch bản (2008 crisis, 2020 COVID)
+    SPA->>API: Gửi yêu cầu Backtest
+    API->>BacktestEngine: Khởi chạy engine
+    BacktestEngine->>HistoryDB: Truy xuất dữ liệu quá khứ
+    HistoryDB-->>BacktestEngine: Trả dữ liệu
+    BacktestEngine-->>API: Stream diễn biến
+    API-->>SPA: Hiển thị Tua nhanh/Bar replay liên tục

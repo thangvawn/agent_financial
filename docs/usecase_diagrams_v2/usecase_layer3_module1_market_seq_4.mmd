@@ -1,0 +1,42 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant BC as Balance Checker
+    participant OE as Order Engine
+    participant DB as SQLite DB
+
+    S->>UI: Đặt lệnh Mua (Symbol, LO/MP, Vol, Price)
+    activate UI
+    UI->>API: POST /order
+    activate API
+    
+    %% Include Balance Check
+    API->>BC: Validate Balance & Portfolio
+    activate BC
+    BC->>DB: Get current Virtual Balance
+    activate DB
+    DB-->>BC: Balance Data
+    deactivate DB
+    alt Không đủ số dư
+        BC-->>API: Invalid (Insufficient funds)
+        API-->>UI: Error: Không đủ số dư
+    else Đủ số dư
+        BC-->>API: Valid
+    end
+    deactivate BC
+
+    API->>OE: Process Order
+    activate OE
+    OE->>DB: Insert Order (Status: Pending)
+    activate DB
+    DB-->>OE: Order Created
+    deactivate DB
+    OE->>DB: Hold Funds/Shares
+    OE-->>API: Order Accepted
+    deactivate OE
+
+    API-->>UI: Đặt lệnh thành công
+    deactivate API
+    UI-->>S: Hiển thị thông báo xác nhận
+    deactivate UI

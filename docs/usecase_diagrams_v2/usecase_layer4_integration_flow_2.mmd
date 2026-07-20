@@ -1,0 +1,7 @@
+graph TD
+    A[Trading violation: PnL < -50% or 3 stop-loss violations] --> B[Account locked]
+    B --> C[Learn Hub Quiz: Quản trị rủi ro]
+    C --> D{Pass Quiz >= 80%?}
+    D -- Yes --> E[Unlock Account & Restore Capital]
+    D -- No --> C
+    E --> F[Resume trading in Backtest Lab]

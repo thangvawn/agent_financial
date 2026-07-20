@@ -1,0 +1,18 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant Peer Compare Engine
+    participant Financial DB
+
+    Student->>SPA: Chọn tính năng So sánh
+    SPA->>API: GET /api/peers/{ticker}
+    API-->>SPA: Trả về danh sách đối thủ cùng ngành ICB
+    Student->>SPA: Chọn Ngành và <=3 Đối thủ
+    SPA->>API: GET /api/compare?tickers=...&industry=...
+    API->>Peer Compare Engine: Yêu cầu so sánh
+    Peer Compare Engine->>Financial DB: Truy vấn dữ liệu
+    Financial DB-->>Peer Compare Engine: Data
+    Peer Compare Engine-->>API: Kết quả so sánh tổng hợp
+    API-->>SPA: JSON
+    SPA-->>Student: Hiển thị bảng/biểu đồ so sánh

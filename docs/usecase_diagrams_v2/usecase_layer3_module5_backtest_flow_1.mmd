@@ -1,0 +1,25 @@
+flowchart LR
+    %% Actors
+    Student["🧑‍🎓 Sinh viên (Student)"]
+    System["⚙️ Hệ thống (System)"]
+
+    %% Module 5: Backtest & Thực Hành
+    subgraph M5["Module 5: Backtest & Thực Hành"]
+        UC51(["UC-M5.1: Xây dựng chiến lược (Strategy Builder)"])
+        UC52(["UC-M5.2: Tua nhanh thời gian / Kịch bản lịch sử"])
+        UC53(["UC-M5.3: Xem thống kê hiệu quả"])
+        UC54(["UC-M5.4: Mở khóa tài khoản bị phạt"])
+    end
+
+    %% Module 2: Learn Hub (Cross-module)
+    subgraph M2["Module 2: Learn Hub"]
+        Quiz(["Làm Quiz Quản trị Rủi ro"])
+    end
+
+    %% Relationships
+    Student --> UC51
+    Student --> UC52
+    Student --> UC53
+    Student --> UC54
+    System -.->|"Tự động khóa/mở khóa"| UC54
+    UC54 -.->|"≪include≫"| Quiz

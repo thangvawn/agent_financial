@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant LE as Learning Engine
+    participant DB as SQLite DB
+
+    S->>UI: Xem "Lộ trình học tập"
+    activate UI
+    UI->>API: GET /learning-paths/recommendations
+    activate API
+    API->>LE: Request personalized paths
+    activate LE
+    LE->>DB: Get User Profile & Progress
+    activate DB
+    DB-->>LE: Progress Data
+    deactivate DB
+    Note right of LE: Analyze & Determine<br>optimal path (CFA, BCTC...)
+    LE-->>API: Recommended Path Roadmap
+    deactivate LE
+    API-->>UI: Roadmap Data
+    deactivate API
+    UI-->>S: Hiển thị giao diện Roadmap
+    deactivate UI

@@ -1,0 +1,40 @@
+graph TB
+    %% Actors
+    Student["🧑🎓 Sinh viên / NĐT tập sự"]
+    Instructor["👨🏫 Giảng viên / Admin"]
+
+    %% Pillars
+    subgraph Pillar1 ["Trụ cột 1: Nạp Kiến Thức (Learn Hub)"]
+        UC1_1(["UC1.1: Theo dõi lộ trình học cá nhân hóa"])
+        UC1_2(["UC1.2: Làm bài Quiz kiểm tra năng lực"])
+    end
+
+    subgraph Pillar2 ["Trụ cột 2: Phân Tích & Quan Sát (Market, BCTC, News)"]
+        UC2_1(["UC2.1: Quan sát thị trường & Quản lý danh mục"])
+        UC2_2(["UC2.2: Phân tích BCTC & So sánh ngang"])
+        UC2_3(["UC2.3: Đọc tin tức thông minh & Gắn thẻ mã cổ phiếu"])
+    end
+
+    subgraph Pillar3 ["Trụ cột 3: Thực Hành & Mô Phỏng (Simulation Lab)"]
+        UC3_1(["UC3.1: Đặt lệnh ảo & Quản lý tài sản"])
+        UC3_2(["UC3.2: Chạy Backtest với kịch bản lịch sử"])
+        UC3_3(["UC3.3: Xử lý phạt giáo dục"])
+    end
+
+    %% Actor Connections
+    Student --> UC1_1
+    Student --> UC1_2
+    Student --> UC2_1
+    Student --> UC2_2
+    Student --> UC2_3
+    Student --> UC3_1
+    Student --> UC3_2
+    
+    Instructor --> UC1_1
+    Instructor --> UC1_2
+    Instructor --> UC3_2
+    Instructor --> UC3_3
+
+    %% Cross-pillar relationships (User Journey flow)
+    Pillar1 -. "Kiến thức lý thuyết" .-> Pillar2
+    Pillar2 -. "Cơ sở ra quyết định" .-> Pillar3

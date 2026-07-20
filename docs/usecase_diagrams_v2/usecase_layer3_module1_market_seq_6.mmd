@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant Calc as Portfolio Calculator
+    participant DB as SQLite DB
+
+    S->>UI: Mở Dashboard tài sản
+    activate UI
+    UI->>API: GET /portfolio/summary
+    activate API
+    API->>Calc: Calculate Portfolio Metrics
+    activate Calc
+    Calc->>DB: Get Holdings & Cash Balance
+    activate DB
+    DB-->>Calc: Holdings Data (Volume, Cost Price)
+    deactivate DB
+    Calc->>DB: Get Latest Market Price (EOD/Delayed)
+    activate DB
+    DB-->>Calc: Market Prices
+    deactivate DB
+    
+    Note right of Calc: Tính toán NAV, PnL, Tỷ trọng
+    Calc-->>API: Portfolio Summary (NAV, PnL, Metrics)
+    deactivate Calc
+    
+    API-->>UI: Return Summary Data
+    deactivate API
+    UI-->>S: Hiển thị Biểu đồ và Bảng danh mục
+    deactivate UI

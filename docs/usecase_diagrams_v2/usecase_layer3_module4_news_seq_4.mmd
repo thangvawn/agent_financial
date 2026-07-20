@@ -1,0 +1,16 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API (Market/BCTC)
+    
+    Student->>SPA: Tương tác Ticker Tag ('MWG')
+    
+    alt Nhánh A: Xem nhanh giá (Popup)
+        SPA->>API (Market/BCTC): Lấy giá hiện tại (Market Data - Module 1)
+        API (Market/BCTC)-->>SPA: Trả về giá & % biến động
+        SPA-->>Student: Hiển thị Popup với thông tin Market Data
+    else Nhánh B: Điều hướng Phân tích BCTC
+        Student->>SPA: Click "Xem Báo Cáo Tài Chính"
+        SPA->>API (Market/BCTC): Khởi tạo ngữ cảnh Phân tích (Module 3)
+        SPA-->>Student: Navigate Route -> /bctc/MWG (Chuyển trang)
+    end

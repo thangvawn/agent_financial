@@ -1,0 +1,25 @@
+graph TB
+    %% Actors
+    Student["🧑🎓 Sinh viên / Nhà đầu tư tập sự"]
+    Instructor["👨🏫 Giảng viên / Admin"]
+
+    %% Core System
+    subgraph CoreSystem ["Nền tảng Đào tạo Đầu tư"]
+        direction LR
+        Pillar1["Nạp Kiến Thức (Learn Hub)"]
+        Pillar2["Phân Tích & Quan Sát"]
+        Pillar3["Thực Hành & Mô Phỏng"]
+    end
+
+    %% External Systems
+    MarketData[["📈 Market Data Provider (VNINDEX/VN30)"]]
+    NewsAggregator[["📰 News Aggregator"]]
+    AIEngine[["🧠 AI Engine (LLM/Quant)"]]
+
+    %% Connections
+    Student -->|Sử dụng nền tảng| CoreSystem
+    Instructor -->|Quản lý & Hỗ trợ| CoreSystem
+    
+    CoreSystem -.->|Lấy dữ liệu thị trường| MarketData
+    CoreSystem -.->|Lấy tin tức| NewsAggregator
+    CoreSystem -.->|Gửi/Nhận phân tích & dữ liệu| AIEngine

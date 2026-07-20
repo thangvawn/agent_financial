@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant QE as Quiz Engine & Scoring
+    participant FG as Feature Gate Service
+
+    S->>UI: Submit bài Quiz
+    activate UI
+    UI->>API: POST /quiz/{id}/submit (Answers)
+    activate API
+    API->>QE: Calculate Score
+    activate QE
+    Note right of QE: Chấm điểm bài làm
+    QE-->>API: Score result (e.g., 85% or 60%)
+    deactivate QE
+
+    alt Score >= 80% (Pass)
+        API->>FG: Unlock Features (Backtest, BCTC)
+        activate FG
+        FG-->>API: Features Unlocked
+        deactivate FG
+        API-->>UI: Result: Pass & Unlocked
+        UI-->>S: Chúc mừng! Đã mở khóa tính năng nâng cao.
+    else Score < 80% (Fail)
+        API->>API: Generate Re-learn suggestions
+        API-->>UI: Result: Fail & Suggestion List
+        UI-->>S: Hiển thị điểm và gợi ý học lại phần kiến thức hổng.
+    end
+    
+    deactivate API
+    deactivate UI

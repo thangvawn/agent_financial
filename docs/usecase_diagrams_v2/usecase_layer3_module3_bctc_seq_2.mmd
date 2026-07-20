@@ -1,0 +1,12 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant Financial Data Store
+
+    Student->>SPA: Chọn xem BCTC (Quý/Năm)
+    SPA->>API: GET /api/financials/{ticker}?period={type}
+    API->>Financial Data Store: Truy vấn dữ liệu đa kỳ
+    Financial Data Store-->>API: Trả về dữ liệu JSON
+    API-->>SPA: Dữ liệu BCTC
+    SPA-->>Student: Hiển thị bảng BCTC đa kỳ

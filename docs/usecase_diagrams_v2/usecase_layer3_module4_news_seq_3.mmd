@@ -1,0 +1,11 @@
+sequenceDiagram
+    actor System
+    participant Scoring Engine
+    participant Source DB
+    participant News DB
+
+    System->>Scoring Engine: Gửi metadata bài viết mới (Domain)
+    Scoring Engine->>Source DB: Truy vấn điểm uy tín domain
+    Source DB-->>Scoring Engine: Trả về thuật toán & phân loại (Tier 1/2/3)
+    Scoring Engine->>Scoring Engine: Chạy thuật toán Reliability Scoring
+    Scoring Engine->>News DB: Lưu bài viết kèm Badge phân loại (Uy tín)

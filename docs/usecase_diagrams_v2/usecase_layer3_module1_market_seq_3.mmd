@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant S as 🧑‍🎓 Student
+    participant UI as React SPA
+    participant API as FastAPI
+    participant DB as SQLite DB
+
+    S->>UI: Tạo Watchlist mới (Tên)
+    activate UI
+    UI->>API: POST /watchlist
+    activate API
+    API->>DB: Insert Watchlist
+    DB-->>API: Success
+    API-->>UI: Watchlist created
+    deactivate API
+    UI-->>S: Hiển thị Watchlist mới
+
+    S->>UI: Tìm & Thêm mã CP vào Watchlist
+    UI->>API: POST /watchlist/{id}/items (symbol)
+    activate API
+    API->>DB: Insert symbol to Watchlist
+    DB-->>API: Success
+    API-->>UI: Item added
+    deactivate API
+    UI-->>S: Cập nhật hiển thị Watchlist
+    deactivate UI

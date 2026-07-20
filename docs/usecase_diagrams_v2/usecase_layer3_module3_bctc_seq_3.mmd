@@ -1,0 +1,12 @@
+sequenceDiagram
+    actor Student
+    participant SPA
+    participant API
+    participant Visualization Engine
+
+    Student->>SPA: Chọn chỉ tiêu & Loại biểu đồ (Cột/Đường/Cơ cấu)
+    SPA->>API: (Optional) Lấy dữ liệu series
+    API-->>SPA: Trả về data
+    SPA->>Visualization Engine: Truyền dữ liệu và config
+    Visualization Engine-->>SPA: Render biểu đồ
+    SPA-->>Student: Hiển thị biểu đồ tương tác
