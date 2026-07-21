@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from risk_dashboard.engines.quant.backtest import (
+    backtest_sma_trend_strategy,
     backtest_volume_btc_stoploss_strategy,
     compute_buy_and_hold,
     normalize_weights,
@@ -119,3 +120,30 @@ def test_volume_btc_stoploss_strategy_hits_stop_loss():
     assert trade["exit_reason"] == "stop_loss"
     assert trade["entry_date"] == str(idx[2].date())
     assert trade["return_pct"] == pytest.approx(-4.0)
+
+
+def test_sma_trend_strategy_emits_entry_and_exit_trades():
+    idx = pd.date_range("2024-01-01", periods=80, freq="B")
+    prices = np.concatenate([np.linspace(100, 90, 25), np.linspace(90, 125, 30), np.linspace(125, 95, 25)])
+    close = pd.DataFrame({"AAA": prices}, index=idx)
+
+    out = backtest_sma_trend_strategy(
+        close,
+        {"AAA": 1.0},
+        1_000_000.0,
+        benchmark_close=None,
+        sma_window=10,
+    )
+
+    assert out["strategy"]["name"] == "sma_trend"
+    assert out["strategy"]["metrics"]["trade_count"] >= 1
+    trade = out["strategy"]["trades"][0]
+    assert trade["ticker"] == "AAA"
+    assert trade["entry_date"] < trade["exit_date"]
+    assert trade["entry_price"] > 0
+    assert trade["exit_price"] > 0
+    assert len(out["series"]["instruments"]["AAA"]) == len(close)
+    candle = out["series"]["instruments"]["AAA"][0]
+    assert {"open", "high", "low", "close", "sma"}.issubset(candle)
+    assert out["portfolio_snapshot"]["total_value"] > 0
+    assert out["portfolio_snapshot"]["sleeves"][0]["ticker"] == "AAA"

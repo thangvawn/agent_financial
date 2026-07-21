@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import replace
 from datetime import date, datetime, timezone
 
@@ -934,17 +935,20 @@ def _build_offline_backtest_result(
     }
 
 
-def _strategy_config_from_text(strategy_text: str | None) -> dict[str, float] | None:
+def _strategy_config_from_text(strategy_text: str | None) -> dict[str, object] | None:
     text = (strategy_text or "").lower()
     if not text:
         return None
-    if "volume" not in text and "btc" not in text and "stop" not in text:
-        return None
-    return {
-        "volume_spike_multiplier": 2.0,
-        "btc_daily_change_min_pct": 3.0,
-        "stop_loss_pct": 4.0,
-    }
+    if "volume" in text or "btc" in text or "stop" in text:
+        return {
+            "volume_spike_multiplier": 2.0,
+            "btc_daily_change_min_pct": 3.0,
+            "stop_loss_pct": 4.0,
+        }
+    sma_match = re.search(r"sma[_\s-]?(\d{1,3})", text)
+    if sma_match and "close" in text:
+        return {"mode": "sma_trend", "sma_window": float(sma_match.group(1))}
+    return None
 
 
 def _to_unix_seconds(value: date) -> int:

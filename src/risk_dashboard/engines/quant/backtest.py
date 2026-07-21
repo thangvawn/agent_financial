@@ -173,8 +173,15 @@ def _close_to_df(raw: pd.DataFrame, symbols_plain: list[str], *, keep_time: bool
     for t in symbols_plain:
         col = _yf_symbol(t)
         if col not in close.columns:
-            raise ValueError(f"Không tìm thấy cột giá cho {t} ({col}).")
-        out[t] = close[col]
+            logger.warning("Bỏ qua %s: yfinance không trả cột %s.", t, col)
+            continue
+        values = pd.to_numeric(close[col], errors="coerce")
+        if values.dropna().empty:
+            logger.warning("Bỏ qua %s: chuỗi giá trả về rỗng.", t)
+            continue
+        out[t] = values
+    if out.empty:
+        raise ValueError("Không có mã nào tải được dữ liệu giá hợp lệ.")
     out.index = _normalize_index(out.index, keep_time=keep_time)
     out = out[~out.index.duplicated(keep="last")]
     out = out.sort_index()
@@ -283,7 +290,9 @@ def fetch_vn_close_separate_benchmark(
         interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
-        threads=True,
+        # yfinance's SQLite cookie cache is prone to `database is locked`
+        # when its internal worker threads overlap with market-data prefetch.
+        threads=False,
     )
     stocks = _close_to_df(raw_stocks, tickers, keep_time=keep_time)
     stocks = _resample_close_frame(stocks, normalized_interval)
@@ -321,10 +330,64 @@ def fetch_vn_stocks_only(tickers: list[str], start: date, end: date, *, interval
         interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
-        threads=True,
+        threads=False,
     )
     close = _close_to_df(raw_stocks, tickers, keep_time=keep_time)
     return _resample_close_frame(close, normalized_interval)
+
+
+def fetch_vn_ohlcv_only(
+    tickers: list[str], start: date, end: date, *, interval: str = "1d"
+) -> dict[str, pd.DataFrame]:
+    """Download OHLCV once and keep valid symbols instead of failing the whole universe."""
+    import yfinance as yf
+
+    normalized_interval = _normalize_interval(interval)
+    keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
+    stock_syms = [_yf_symbol(ticker) for ticker in tickers]
+    raw = yf.download(
+        stock_syms,
+        start=start,
+        end=end + timedelta(days=1),
+        interval=_download_interval_for(normalized_interval),
+        auto_adjust=True,
+        progress=False,
+        threads=False,
+    )
+    frames: dict[str, pd.DataFrame] = {}
+    for ticker in tickers:
+        try:
+            frame = _ohlcv_frames_from_download(raw, [ticker], keep_time=keep_time)[ticker]
+            frames[ticker] = frame
+        except ValueError as exc:
+            logger.warning("Bỏ qua OHLCV %s: %s", ticker, exc)
+    if not frames:
+        raise ValueError("Không có mã nào tải được dữ liệu OHLCV hợp lệ.")
+    return _resample_ohlcv_frames(frames, normalized_interval)
+
+
+def fetch_vn_benchmark_close(start: date, end: date, *, interval: str = "1d") -> pd.Series | None:
+    import yfinance as yf
+
+    normalized_interval = _normalize_interval(interval)
+    keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
+    try:
+        raw = yf.download(
+            "^VNINDEX",
+            start=start,
+            end=end + timedelta(days=1),
+            interval=_download_interval_for(normalized_interval),
+            auto_adjust=True,
+            progress=False,
+            threads=False,
+        )
+        if raw is None or raw.empty or "Close" not in raw.columns:
+            return None
+        close = _normalize_close_series(raw["Close"], keep_time=keep_time)
+        return _resample_benchmark(close, normalized_interval)
+    except Exception as exc:
+        logger.info("Benchmark ^VNINDEX không tải được: %s", exc)
+        return None
 
 
 def fetch_vn_ohlcv_with_regime_inputs(
@@ -350,7 +413,7 @@ def fetch_vn_ohlcv_with_regime_inputs(
         interval=_download_interval_for(normalized_interval),
         auto_adjust=True,
         progress=False,
-        threads=True,
+        threads=False,
     )
     stock_frames = _ohlcv_frames_from_download(raw_stocks, tickers, keep_time=keep_time)
     stock_frames = _resample_ohlcv_frames(stock_frames, normalized_interval)
@@ -410,7 +473,9 @@ def compute_buy_and_hold(
 
     sub = close[ordered].copy()
     sub = sub.sort_index()
-    sub = sub.dropna(how="any")
+    # Preserve a portfolio when one symbol has sparse holidays/missing bars;
+    # never backfill before the first valid observation.
+    sub = sub.ffill().dropna(how="any")
     if len(sub) < 20:
         raise ValueError("Không đủ ngày giao dịch sau khi căn chỉnh (cần >= 20).")
 
@@ -829,6 +894,152 @@ def backtest_volume_btc_stoploss_strategy(
     return summary
 
 
+def backtest_sma_trend_strategy(
+    close: pd.DataFrame,
+    weights: dict[str, float],
+    initial_capital: float,
+    *,
+    benchmark_close: pd.Series | None,
+    sma_window: int = 20,
+    interval: str = "1d",
+    ohlcv_frames: dict[str, pd.DataFrame] | None = None,
+) -> dict[str, Any]:
+    """Long-only SMA strategy with next-bar execution and an auditable trade ledger."""
+    if not 2 <= int(sma_window) <= 250:
+        raise ValueError("sma_window phải nằm trong [2, 250].")
+
+    frames: list[pd.Series] = []
+    trades: list[dict[str, Any]] = []
+    instrument_series: dict[str, list[dict[str, Any]]] = {}
+    sleeves: list[dict[str, Any]] = []
+    open_positions: list[dict[str, Any]] = []
+    for ticker in weights:
+        prices = pd.to_numeric(close[ticker], errors="coerce").sort_index().ffill().dropna()
+        if len(prices) < sma_window + 3:
+            raise ValueError(f"Không đủ dữ liệu cho {ticker} để tính SMA{sma_window}.")
+        moving_average = prices.rolling(sma_window).mean()
+        desired_position = (prices > moving_average).shift(1).astype("boolean").fillna(False).astype(bool)
+        sleeve_capital = float(initial_capital) * float(weights[ticker])
+        cash = sleeve_capital
+        shares = 0.0
+        entry_price: float | None = None
+        entry_date: pd.Timestamp | None = None
+        equity: list[float] = []
+
+        for index, (dt, price_value) in enumerate(prices.items()):
+            price = float(price_value)
+            should_hold = bool(desired_position.loc[dt])
+            if should_hold and shares == 0.0 and price > 0:
+                shares = cash / price
+                cash = 0.0
+                entry_price = price
+                entry_date = pd.Timestamp(dt)
+            elif not should_hold and shares > 0.0 and entry_price is not None and entry_date is not None:
+                cash = shares * price
+                trades.append(
+                    {
+                        "ticker": ticker,
+                        "entry_date": str(entry_date.date()),
+                        "entry_price": round(entry_price, 4),
+                        "exit_date": str(pd.Timestamp(dt).date()),
+                        "exit_price": round(price, 4),
+                        "return_pct": round((price / entry_price - 1.0) * 100.0, 3),
+                        "exit_reason": f"close_below_sma_{sma_window}",
+                        "holding_days": int((pd.Timestamp(dt) - entry_date).days),
+                    }
+                )
+                shares = 0.0
+                entry_price = None
+                entry_date = None
+
+            equity.append(cash if shares == 0.0 else shares * price)
+        frames.append(pd.Series(equity, index=prices.index, name=ticker))
+        ohlcv = (ohlcv_frames or {}).get(ticker)
+        if ohlcv is not None:
+            ohlcv = ohlcv.reindex(prices.index).ffill()
+        instrument_series[ticker] = []
+        for dt, value in prices.items():
+            close_value = float(value)
+            row = ohlcv.loc[dt] if ohlcv is not None and dt in ohlcv.index else None
+            instrument_series[ticker].append(
+                {
+                    "time": _to_ts(pd.Timestamp(dt)),
+                    "open": round(float(row["open"]), 4) if row is not None and pd.notna(row["open"]) else round(close_value, 4),
+                    "high": round(float(row["high"]), 4) if row is not None and pd.notna(row["high"]) else round(close_value, 4),
+                    "low": round(float(row["low"]), 4) if row is not None and pd.notna(row["low"]) else round(close_value, 4),
+                    "close": round(close_value, 4),
+                    "sma": round(float(moving_average.loc[dt]), 4) if pd.notna(moving_average.loc[dt]) else None,
+                }
+            )
+        last_price = float(prices.iloc[-1])
+        market_value = float(shares * last_price)
+        sleeve_value = float(cash + market_value)
+        sleeve = {
+            "ticker": ticker,
+            "status": "open" if shares > 0 else "cash",
+            "weight_pct": round(float(weights[ticker]) * 100.0, 2),
+            "initial_value": round(sleeve_capital, 2),
+            "cash": round(float(cash), 2),
+            "market_value": round(market_value, 2),
+            "current_value": round(sleeve_value, 2),
+            "total_pnl": round(sleeve_value - sleeve_capital, 2),
+            "total_return_pct": round((sleeve_value / sleeve_capital - 1.0) * 100.0, 3),
+            "last_price": round(last_price, 4),
+            "shares": round(float(shares), 6),
+        }
+        if shares > 0 and entry_price is not None and entry_date is not None:
+            position = {
+                "ticker": ticker,
+                "entry_date": str(entry_date.date()),
+                "entry_price": round(entry_price, 4),
+                "last_price": round(last_price, 4),
+                "shares": round(float(shares), 6),
+                "market_value": round(market_value, 2),
+                "unrealized_pnl": round((last_price - entry_price) * shares, 2),
+                "unrealized_return_pct": round((last_price / entry_price - 1.0) * 100.0, 3),
+            }
+            open_positions.append(position)
+            sleeve["open_position"] = position
+        sleeves.append(sleeve)
+
+    total_equity = pd.concat(frames, axis=1).sort_index().ffill().fillna(0.0).sum(axis=1)
+    summary = _summarize_equity_curve(
+        total_equity,
+        initial_capital=float(initial_capital),
+        benchmark_close=benchmark_close,
+        warnings=[],
+        periods_per_year=_bars_per_year(interval),
+    )
+    wins = sum(1 for trade in trades if float(trade["return_pct"]) > 0)
+    summary["metrics"]["concentration_herfindahl"] = round(sum(float(value) ** 2 for value in weights.values()), 4)
+    summary["strategy"] = {
+        "enabled": True,
+        "name": "sma_trend",
+        "config": {"sma_window": int(sma_window), "execution": "next_bar_close"},
+        "metrics": {
+            "trade_count": len(trades),
+            "win_rate_pct": round(wins / len(trades) * 100.0, 2) if trades else None,
+            "avg_holding_days": round(sum(int(item["holding_days"]) for item in trades) / len(trades), 2) if trades else None,
+        },
+        "trades": trades,
+        "open_positions": open_positions,
+    }
+    summary["series"]["instruments"] = instrument_series
+    final_value = float(total_equity.iloc[-1])
+    summary["portfolio_snapshot"] = {
+        "as_of": str(pd.Timestamp(total_equity.index[-1]).date()),
+        "initial_capital": round(float(initial_capital), 2),
+        "total_value": round(final_value, 2),
+        "cash": round(sum(float(item["cash"]) for item in sleeves), 2),
+        "market_value": round(sum(float(item["market_value"]) for item in sleeves), 2),
+        "total_pnl": round(final_value - float(initial_capital), 2),
+        "total_return_pct": round((final_value / float(initial_capital) - 1.0) * 100.0, 3),
+        "open_position_count": len(open_positions),
+        "sleeves": sleeves,
+    }
+    return summary
+
+
 def run_vn_portfolio_backtest(
     tickers: list[str],
     start: date,
@@ -846,10 +1057,33 @@ def run_vn_portfolio_backtest(
     normalized_interval = _normalize_interval(interval)
     _validate_interval_date_range(start, end, normalized_interval)
     tix = parse_ticker_list(tickers)
+    requested_tickers = list(tix)
     w = normalize_weights(tix, equal_weight=equal_weight, weights=weights)
     strategy_cfg = dict(strategy or {})
 
-    if strategy_cfg:
+    if strategy_cfg and strategy_cfg.get("mode") == "sma_trend":
+        stock_frames = fetch_vn_ohlcv_only(tix, start, end, interval=normalized_interval)
+        stocks = pd.DataFrame({ticker: frame["close"] for ticker, frame in stock_frames.items()})
+        bench_raw = fetch_vn_benchmark_close(start, end, interval=normalized_interval) if include_benchmark else None
+        available_tickers = [ticker for ticker in tix if ticker in stock_frames and ticker in stocks.columns and not stocks[ticker].dropna().empty]
+        if not available_tickers:
+            raise ValueError("Không có mã nào đủ dữ liệu để chạy chiến lược SMA.")
+        missing_tickers = [ticker for ticker in tix if ticker not in available_tickers]
+        stocks = stocks[available_tickers]
+        w = normalize_weights(available_tickers, equal_weight=True, weights=None)
+        tix = available_tickers
+        result = backtest_sma_trend_strategy(
+            stocks,
+            w,
+            initial_capital,
+            benchmark_close=bench_raw if include_benchmark else None,
+            sma_window=int(strategy_cfg.get("sma_window", 20)),
+            interval=normalized_interval,
+            ohlcv_frames={ticker: stock_frames[ticker] for ticker in available_tickers},
+        )
+        if missing_tickers:
+            result["warnings"].append("Đã bỏ qua mã không tải được dữ liệu: " + ", ".join(missing_tickers) + ".")
+    elif strategy_cfg:
         stock_frames, bench_raw, btc_close = fetch_vn_ohlcv_with_regime_inputs(
             tix,
             start,
@@ -873,6 +1107,19 @@ def run_vn_portfolio_backtest(
             stocks = fetch_vn_stocks_only(tix, start, end, interval=normalized_interval)
             bench_raw = None
 
+        available_tickers = [ticker for ticker in tix if ticker in stocks.columns and not stocks[ticker].dropna().empty]
+        if not available_tickers:
+            raise ValueError("Không có mã nào đủ dữ liệu để chạy backtest.")
+        missing_tickers = [ticker for ticker in tix if ticker not in available_tickers]
+        if missing_tickers:
+            stocks = stocks[available_tickers]
+            if equal_weight:
+                w = normalize_weights(available_tickers, equal_weight=True, weights=None)
+            else:
+                surviving_weights = {ticker: w[ticker] for ticker in available_tickers}
+                w = normalize_weights(available_tickers, equal_weight=False, weights=surviving_weights)
+            tix = available_tickers
+
         result = compute_buy_and_hold(
             stocks,
             w,
@@ -880,9 +1127,19 @@ def run_vn_portfolio_backtest(
             benchmark_close=bench_raw if include_benchmark else None,
             periods_per_year=_bars_per_year(normalized_interval),
         )
+        if missing_tickers:
+            result["warnings"].append(
+                "Đã bỏ qua mã không tải được dữ liệu: " + ", ".join(missing_tickers) + "."
+            )
 
     payload = {
         "tickers": tix,
+        "requested_tickers": requested_tickers,
+        "data_coverage": {
+            "requested": len(requested_tickers),
+            "loaded": len(tix),
+            "missing": [ticker for ticker in requested_tickers if ticker not in tix],
+        },
         "interval": normalized_interval,
         "weights": {k: round(v, 6) for k, v in w.items()},
         "start_date": start.isoformat(),
@@ -898,4 +1155,6 @@ def run_vn_portfolio_backtest(
     }
     if result.get("strategy"):
         payload["strategy"] = result["strategy"]
+    if result.get("portfolio_snapshot"):
+        payload["portfolio_snapshot"] = result["portfolio_snapshot"]
     return payload

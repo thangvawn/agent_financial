@@ -20,6 +20,7 @@ from risk_dashboard.modules.pro_lab.application.services import (
     SaveStrategyBlueprint,
     UpdateStrategyBlueprint,
 )
+from risk_dashboard.modules.pro_lab.application.backtest_studio import GetBacktestStudio, RunBacktestStudio
 from risk_dashboard.modules.pro_lab.infrastructure.repositories.sqlite import (
     SqliteProLabAuditRepository,
     SqliteProLabBlueprintRepository,
@@ -47,6 +48,7 @@ from risk_dashboard.modules.pro_lab.schemas.responses import (
     ProLabWorkspaceStateResponse,
     ProLabWorkspaceResponse,
 )
+from risk_dashboard.modules.pro_lab.schemas.studio import StudioBootstrapResponse, StudioRunRequest, StudioRunResponse
 from risk_dashboard.platform.security.access_control import AccessToken, SqliteAccessControlRepository, require_scope_from_token
 
 router = APIRouter(prefix="/pro-lab", tags=["Pro Lab"])
@@ -87,6 +89,29 @@ def _require_pro_scope(
             scopes=("public:*", "pro:*", "admin:pro_lab:manage"),
         )
     return require_scope_from_token("pro:pro_lab:use", x_access_token)
+
+
+@router.get("/studio/bootstrap", response_model=StudioBootstrapResponse)
+def pro_lab_studio_bootstrap(
+    user_id: str,
+    token: AccessToken = Depends(_require_pro_scope),
+) -> StudioBootstrapResponse:
+    if token.actor_id != user_id and token.role != "internal_admin":
+        raise HTTPException(status_code=403, detail="Token không được phép mở studio của user khác.")
+    return GetBacktestStudio(_blueprints(), _experiments()).execute(user_id=user_id)
+
+
+@router.post("/studio/runs", response_model=StudioRunResponse)
+def pro_lab_studio_run(
+    req: StudioRunRequest,
+    token: AccessToken = Depends(_require_pro_scope),
+) -> StudioRunResponse:
+    if token.actor_id != req.user_id and token.role != "internal_admin":
+        raise HTTPException(status_code=403, detail="Token không được phép chạy studio cho user khác.")
+    try:
+        return RunBacktestStudio(_blueprints(), _experiments(), _audit()).execute(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/workspace", response_model=ProLabWorkspaceResponse)

@@ -1,0 +1,277 @@
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4
+   Backtest chart uses native financial-chart interaction, not decorative SVG imitation. */
+.simlab {
+  --sl-bg: #080b0f;
+  --sl-panel: #0d1116;
+  --sl-panel-2: #11171d;
+  --sl-line: #202830;
+  --sl-line-soft: #171e25;
+  --sl-text: #e7edf2;
+  --sl-muted: #82909d;
+  --sl-dim: #5f6b76;
+  --sl-accent: #23b7d9;
+  --sl-green: #32c596;
+  --sl-red: #ef6a72;
+  --sl-amber: #d8a84e;
+  --sl-blue: #5e8ce8;
+  background: var(--sl-bg);
+  color: var(--sl-text);
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  min-height: calc(100vh - 56px);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.simlab *, .simlab *::before, .simlab *::after { box-sizing: border-box; }
+.simlab button, .simlab input, .simlab select, .simlab textarea { font: inherit; }
+.simlab button { color: inherit; }
+
+.simlab__rail { background: #0a0e12; border-right: 1px solid var(--sl-line); display: flex; flex-direction: column; min-height: 100%; padding: 15px 12px; }
+.simlab__brand { align-items: center; display: flex; font-size: 14px; font-weight: 700; gap: 9px; letter-spacing: -.01em; padding: 3px 8px 17px; }
+.simlab__brand svg { color: var(--sl-accent); }
+.simlab__back, .simlab__rail nav button, .simlab__template { align-items: center; background: none; border: 0; border-radius: 5px; cursor: pointer; display: flex; gap: 9px; text-align: left; width: 100%; }
+.simlab__back { border-bottom: 1px solid var(--sl-line-soft); border-radius: 0; color: var(--sl-muted); font-size: 12px; margin-bottom: 14px; padding: 0 8px 14px; }
+.simlab__rail nav button { color: #9ba7b2; font-size: 12px; margin: 2px 0; padding: 9px 9px; }
+.simlab__rail nav button:hover, .simlab__rail nav button.is-active { background: #111b22; color: var(--sl-text); }
+.simlab__rail nav button.is-active { box-shadow: inset 2px 0 var(--sl-accent); }
+.simlab__rail nav button.is-active svg { color: var(--sl-accent); }
+.simlab__rail nav button b { background: #1b242b; border-radius: 8px; color: var(--sl-muted); font-size: 10px; margin-left: auto; padding: 1px 6px; }
+.simlab__nav-label { color: #52606b; font-size: 9px; font-weight: 700; letter-spacing: .14em; margin: 8px 9px 7px; }
+.simlab__rail-section { border-top: 1px solid var(--sl-line-soft); margin-top: 14px; padding-top: 10px; }
+.simlab__template { color: var(--sl-muted); font-size: 11px; justify-content: space-between; padding: 8px 9px; }
+.simlab__template:hover { background: var(--sl-panel-2); color: var(--sl-text); }
+.simlab__data-pill { border-top: 1px solid var(--sl-line-soft); margin-top: auto; padding: 15px 8px 2px; }
+.simlab__data-pill span, .simlab__data-pill strong { align-items: center; display: flex; font-size: 10px; gap: 6px; }
+.simlab__data-pill span { color: var(--sl-muted); }
+.simlab__data-pill strong { color: #a8b5bf; font-weight: 500; margin-top: 8px; }
+.simlab__data-pill i, .simlab__source i { background: var(--sl-green); border-radius: 50%; box-shadow: 0 0 0 3px rgba(50,197,150,.09); height: 6px; width: 6px; }
+
+.simlab__main { min-width: 0; }
+.simlab__topbar { align-items: center; background: rgba(10,14,18,.94); border-bottom: 1px solid var(--sl-line); display: flex; height: 64px; justify-content: space-between; padding: 0 22px; position: sticky; top: 0; z-index: 20; }
+.simlab__title-block { display: flex; flex-direction: column; gap: 3px; }
+.simlab__title-block input { background: transparent; border: 0; color: var(--sl-text); font-size: 14px; font-weight: 650; outline: none; padding: 0; width: min(420px, 38vw); }
+.simlab__title-block span { align-items: center; color: var(--sl-dim); display: flex; font-size: 9px; gap: 5px; }
+.simlab__title-block span svg { color: var(--sl-green); fill: currentColor; }
+.simlab__actions { display: flex; gap: 8px; }
+.simlab__icon-btn, .simlab__run, .simlab__mobile-menu { align-items: center; border-radius: 4px; cursor: pointer; display: inline-flex; justify-content: center; }
+.simlab__icon-btn, .simlab__mobile-menu { background: var(--sl-panel-2); border: 1px solid var(--sl-line); height: 34px; width: 34px; }
+.simlab__run { background: var(--sl-accent); border: 1px solid var(--sl-accent); color: #041014; font-size: 11px; font-weight: 750; gap: 7px; height: 34px; padding: 0 14px; }
+.simlab__run:disabled { cursor: wait; opacity: .55; }
+.simlab__mobile-menu { display: none; }
+.simlab__error { align-items: center; background: rgba(239,106,114,.1); border-bottom: 1px solid rgba(239,106,114,.3); color: #ff9ca3; display: flex; font-size: 11px; gap: 8px; padding: 9px 22px; }
+.is-spinning { animation: sl-spin .8s linear infinite; }
+@keyframes sl-spin { to { transform: rotate(360deg); } }
+
+.simlab__workspace { display: grid; grid-template-columns: minmax(0, 1fr) 292px; min-height: calc(100vh - 120px); }
+.simlab__canvas { min-width: 0; padding: 28px clamp(18px, 3vw, 42px) 80px; }
+.simlab__section-head, .simlab__results-head { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 24px; }
+.simlab__kicker { color: var(--sl-accent); display: block; font-size: 9px; font-weight: 750; letter-spacing: .16em; margin-bottom: 7px; }
+.simlab__section-head h1, .simlab__results-head h1 { font-size: clamp(19px, 2.1vw, 26px); font-weight: 600; letter-spacing: -.035em; margin: 0; }
+.simlab__status { align-items: center; background: rgba(50,197,150,.08); border: 1px solid rgba(50,197,150,.2); border-radius: 3px; color: var(--sl-green); display: flex; font-size: 9px; gap: 5px; padding: 5px 8px; }
+.simlab__hypothesis { align-items: flex-start; background: #0c1217; border: 1px solid var(--sl-line); border-left: 2px solid var(--sl-accent); display: flex; gap: 11px; margin-bottom: 17px; padding: 13px 15px; }
+.simlab__hypothesis svg { color: var(--sl-accent); flex: 0 0 auto; margin-top: 2px; }
+.simlab__hypothesis textarea { background: transparent; border: 0; color: #b6c1c9; line-height: 1.5; min-height: 45px; outline: none; resize: vertical; width: 100%; }
+
+.simlab__block { background: var(--sl-panel); border: 1px solid var(--sl-line); display: grid; grid-template-columns: 42px minmax(0, 1fr); margin-bottom: 12px; position: relative; }
+.simlab__block::before { background: var(--block-color); bottom: 0; content: ''; left: -1px; position: absolute; top: 0; width: 2px; }
+.simlab__block--blue { --block-color: var(--sl-blue); }
+.simlab__block--green { --block-color: var(--sl-green); }
+.simlab__block--red { --block-color: var(--sl-red); }
+.simlab__block-index { align-items: center; border-right: 1px solid var(--sl-line-soft); color: var(--block-color); display: flex; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; justify-content: center; }
+.simlab__block-body { min-width: 0; padding: 15px 16px 16px; }
+.simlab__block-body header h2 { font-size: 12px; margin: 0; }
+.simlab__block-body header p { color: var(--sl-dim); font-size: 9px; margin: 4px 0 0; }
+.simlab__block-content { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+
+.simlab__field { display: flex; flex: 1 1 120px; flex-direction: column; gap: 6px; min-width: 0; }
+.simlab__field--wide { flex-basis: 280px; }
+.simlab__field > span, .simlab__date-grid label span { color: var(--sl-muted); font-size: 9px; }
+.simlab input, .simlab select, .simlab textarea { color-scheme: dark; }
+.simlab__field input, .simlab__field select, .simlab__date-grid input, .simlab__rule input, .simlab__rule select { background: #090d11; border: 1px solid #252e36; border-radius: 3px; color: #cbd4da; height: 33px; min-width: 0; outline: none; padding: 0 9px; width: 100%; }
+.simlab__field input:focus, .simlab__field select:focus, .simlab__rule input:focus, .simlab__rule select:focus { border-color: #397b8c; }
+.simlab__rules { width: 100%; }
+.simlab__rule { align-items: center; display: grid; gap: 7px; grid-template-columns: 34px minmax(100px, 1.1fr) minmax(90px, .9fr) minmax(100px, 1fr) 28px; margin-bottom: 7px; }
+.simlab__logic { color: var(--block-color); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; font-weight: 800; }
+.simlab__rule button, .simlab__add-rule { background: transparent; border: 0; cursor: pointer; }
+.simlab__rule button { color: var(--sl-dim); padding: 5px; }
+.simlab__rule button:hover { color: var(--sl-red); }
+.simlab__add-rule { align-items: center; color: var(--sl-muted); display: flex; font-size: 9px; gap: 5px; margin-left: 34px; padding: 4px 0; }
+
+.simlab__config { background: #0a0e12; border-left: 1px solid var(--sl-line); }
+.simlab__config-head { align-items: center; border-bottom: 1px solid var(--sl-line); display: flex; font-size: 11px; gap: 8px; height: 49px; padding: 0 16px; }
+.simlab__config-head svg { color: var(--sl-muted); }
+.simlab__config-group { border-bottom: 1px solid var(--sl-line-soft); padding: 16px; }
+.simlab__config-group h3 { color: #697783; font-size: 8px; letter-spacing: .13em; margin: 0 0 13px; text-transform: uppercase; }
+.simlab__config-group .simlab__field + .simlab__field { margin-top: 11px; }
+.simlab__date-grid, .simlab__split { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.simlab__date-grid label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.simlab__date-grid input { font-size: 10px; }
+.simlab__source, .simlab__vn-rules { align-items: center; background: var(--sl-panel); border: 1px solid var(--sl-line); display: flex; gap: 9px; margin-top: 10px; padding: 10px; }
+.simlab__source svg, .simlab__vn-rules svg { color: var(--sl-accent); flex: 0 0 auto; }
+.simlab__source div, .simlab__vn-rules div { display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.simlab__source strong, .simlab__vn-rules strong { font-size: 10px; font-weight: 600; }
+.simlab__source span, .simlab__vn-rules span { color: var(--sl-dim); font-size: 8px; }
+.simlab__input-suffix { display: flex; position: relative; }
+.simlab__input-suffix b { color: var(--sl-muted); font-size: 9px; font-weight: 500; position: absolute; right: 9px; top: 10px; }
+.simlab__input-suffix input { padding-right: 24px; }
+.simlab__fidelity { align-items: flex-start; color: #9b865a; display: flex; font-size: 9px; gap: 8px; line-height: 1.5; padding: 14px 16px; }
+.simlab__fidelity svg { flex: 0 0 auto; }
+.simlab__fidelity p { margin: 0; }
+.simlab__fidelity strong { color: var(--sl-amber); display: block; }
+
+.simlab__results, .simlab__table-page { padding: 28px clamp(18px, 3vw, 42px) 80px; }
+.simlab__results-head p { color: var(--sl-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; margin: 8px 0 0; }
+.simlab__fidelity-badge { align-items: center; background: rgba(50,197,150,.08); border: 1px solid rgba(50,197,150,.2); color: var(--sl-green); display: flex; font-size: 9px; gap: 6px; padding: 6px 9px; }
+.simlab__fidelity-badge.is-offline { background: rgba(216,168,78,.08); border-color: rgba(216,168,78,.24); color: var(--sl-amber); }
+.simlab__metrics { border: 1px solid var(--sl-line); display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+.simlab__metric { background: var(--sl-panel); border-right: 1px solid var(--sl-line); display: flex; flex-direction: column; gap: 8px; padding: 13px 15px; }
+.simlab__metric:last-child { border: 0; }
+.simlab__metric span { color: var(--sl-muted); font-size: 9px; }
+.simlab__metric strong { color: var(--sl-green); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 550; }
+.simlab__metric strong.is-negative { color: var(--sl-red); }
+.simlab__chart-panel, .simlab__report-card { background: var(--sl-panel); border: 1px solid var(--sl-line); }
+.simlab__instrument, .simlab__portfolio { background: var(--sl-panel); border: 1px solid var(--sl-line); margin-bottom: 12px; }
+.simlab__instrument-tabs { background: #090d11; border-bottom: 1px solid var(--sl-line); display: flex; gap: 2px; overflow-x: auto; padding: 8px 11px 0; }
+.simlab__instrument-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--sl-muted); cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 650; padding: 8px 14px 9px; }
+.simlab__instrument-tabs button:hover { color: var(--sl-text); }
+.simlab__instrument-tabs button.is-active { border-color: var(--sl-accent); color: var(--sl-accent); }
+.simlab__position-chip { background: #151b20; border: 1px solid var(--sl-line); color: var(--sl-muted); font-size: 9px; padding: 6px 9px; }
+.simlab__position-chip.positive, .simlab__portfolio .positive, .simlab__sleeves .positive { color: var(--sl-green); }
+.simlab__position-chip.negative, .simlab__portfolio .negative, .simlab__sleeves .negative { color: var(--sl-red); }
+.simlab__price-chart { height: 390px; min-width: 0; width: 100%; }
+.simlab__portfolio .simlab__panel-title > strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 600; }
+.simlab__capital-split { border-bottom: 1px solid var(--sl-line); display: grid; grid-template-columns: repeat(4, 1fr); }
+.simlab__capital-split > div { border-right: 1px solid var(--sl-line-soft); display: flex; flex-direction: column; gap: 6px; padding: 13px 15px; }
+.simlab__capital-split > div:last-child { border: 0; }
+.simlab__capital-split span { color: var(--sl-muted); font-size: 8px; }
+.simlab__capital-split strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 550; }
+.simlab__sleeves { display: grid; grid-template-columns: .7fr .8fr 1fr 1fr; }
+.simlab__sleeves > div { border-bottom: 1px solid var(--sl-line-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; padding: 9px 13px; }
+.simlab__sleeves .head { background: #0a0e12; color: var(--sl-dim); font-family: inherit; font-size: 8px; text-transform: uppercase; }
+.simlab__sleeves strong, .simlab__sleeves small { display: block; }
+.simlab__sleeves small { color: var(--sl-dim); font-size: 8px; margin-top: 3px; }
+.simlab__sleeves .open, .simlab__sleeves .cash { border: 1px solid; display: inline-block; font-size: 8px; padding: 3px 6px; }
+.simlab__sleeves .open { background: rgba(50,197,150,.08); border-color: rgba(50,197,150,.22); color: var(--sl-green); }
+.simlab__sleeves .cash { background: #141a1f; border-color: var(--sl-line); color: var(--sl-muted); }
+.simlab__portfolio-chart { margin-top: 12px; }
+.simlab__panel-title { align-items: center; border-bottom: 1px solid var(--sl-line-soft); display: flex; justify-content: space-between; padding: 13px 15px; }
+.simlab__panel-title h2 { font-size: 11px; margin: 0; }
+.simlab__panel-title p { color: var(--sl-dim); font-size: 8px; margin: 3px 0 0; }
+.simlab__legend { display: flex; gap: 13px; }
+.simlab__legend span { align-items: center; color: var(--sl-muted); display: flex; font-size: 8px; gap: 5px; }
+.simlab__legend i { height: 2px; width: 14px; }
+.simlab__legend .portfolio { background: var(--sl-accent); }
+.simlab__legend .benchmark { background: var(--sl-amber); }
+.simlab__legend .entry { background: var(--sl-green); }
+.simlab__legend .exit { background: var(--sl-red); }
+.simlab__equity { height: 330px; padding: 15px 14px 8px; }
+.simlab__equity svg { height: 100%; overflow: visible; width: 100%; }
+.simlab__equity path { fill: none; vector-effect: non-scaling-stroke; }
+.simlab__equity .grid { stroke: #1a2229; stroke-width: 1; }
+.simlab__equity .area { fill: url(#simlabArea); stroke: none; }
+.simlab__equity .primary { stroke: var(--sl-accent); stroke-width: 2; }
+.simlab__equity .secondary { stroke: var(--sl-amber); stroke-dasharray: 4 4; stroke-width: 1.2; }
+.simlab__equity .trade-marker circle { fill: var(--sl-bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.simlab__equity .trade-marker.entry circle { stroke: var(--sl-green); }
+.simlab__equity .trade-marker.exit circle { stroke: var(--sl-red); }
+.simlab__chart-empty { align-items: center; color: var(--sl-muted); display: flex; height: 270px; justify-content: center; }
+.simlab__result-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-top: 12px; }
+.simlab__report-card { min-height: 170px; padding: 15px; }
+.simlab__report-card h3 { align-items: center; display: flex; font-size: 11px; gap: 8px; margin: 0 0 14px; }
+.simlab__report-card h3 svg { color: var(--sl-accent); }
+.simlab__report-card dl { margin: 0; }
+.simlab__report-card dl div { border-top: 1px solid var(--sl-line-soft); display: grid; font-size: 9px; grid-template-columns: 120px 1fr; padding: 8px 0; }
+.simlab__report-card dt { color: var(--sl-muted); }
+.simlab__report-card dd { margin: 0; text-align: right; }
+.simlab__report-card ul { color: #aa8d67; font-size: 9px; line-height: 1.55; padding-left: 17px; }
+.simlab__quiet { color: var(--sl-muted); font-size: 10px; }
+.simlab__no-trades { align-items: center; background: rgba(216,168,78,.06); border: 1px solid rgba(216,168,78,.2); color: #b89b67; display: flex; font-size: 10px; gap: 8px; margin-top: 12px; padding: 11px 13px; }
+.simlab__trades { background: var(--sl-panel); border: 1px solid var(--sl-line); margin-top: 12px; }
+.simlab__trades .simlab__panel-title > span { color: var(--sl-muted); font-size: 9px; }
+.simlab__trade-table { display: grid; grid-template-columns: 70px 1.25fr 1.25fr .8fr .7fr; max-height: 310px; overflow: auto; }
+.simlab__trade-table > div { border-bottom: 1px solid var(--sl-line-soft); color: #aeb9c1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; padding: 9px 13px; }
+.simlab__trade-table .head { background: #0a0e12; color: var(--sl-dim); font-family: inherit; font-size: 8px; position: sticky; top: 0; z-index: 1; }
+.simlab__trade-table b, .simlab__trade-table small { display: block; }
+.simlab__trade-table b { font-weight: 550; }
+.simlab__trade-table small { color: var(--sl-dim); margin-top: 3px; }
+.simlab__trade-table .buy, .simlab__trade-table .positive { color: var(--sl-green); }
+.simlab__trade-table .sell, .simlab__trade-table .negative { color: var(--sl-red); }
+
+.simlab__empty { align-items: center; color: var(--sl-muted); display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 24px; text-align: center; }
+.simlab__empty svg { color: var(--sl-dim); }
+.simlab__empty h1 { color: var(--sl-text); font-size: 18px; margin: 14px 0 6px; }
+.simlab__empty p { font-size: 11px; line-height: 1.6; margin: 0; max-width: 430px; }
+.simlab__run-progress { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 32px; text-align: center; }
+.simlab__run-progress .simlab__pulse { align-items: center; animation: sl-pulse 1.4s ease-in-out infinite; background: rgba(35,183,217,.1); border: 1px solid rgba(35,183,217,.3); color: var(--sl-accent); display: flex; height: 48px; justify-content: center; margin-bottom: 18px; width: 48px; }
+.simlab__run-progress h1 { font-size: 20px; margin: 0 0 8px; }
+.simlab__run-progress p { color: var(--sl-muted); font-size: 10px; line-height: 1.6; margin: 0; max-width: 440px; }
+.simlab__run-progress > div { background: #142029; height: 2px; margin-top: 22px; overflow: hidden; width: min(320px, 80vw); }
+.simlab__run-progress > div i { animation: sl-progress 1.6s ease-in-out infinite; background: var(--sl-accent); display: block; height: 100%; width: 36%; }
+@keyframes sl-pulse { 50% { box-shadow: 0 0 0 9px rgba(35,183,217,.04); transform: scale(1.04); } }
+@keyframes sl-progress { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
+.simlab__run-list { border: 1px solid var(--sl-line); }
+.simlab__run-list button { align-items: center; background: var(--sl-panel); border: 0; border-bottom: 1px solid var(--sl-line); cursor: pointer; display: grid; gap: 12px; grid-template-columns: 34px minmax(160px, 1fr) 70px 90px 18px; padding: 12px 14px; text-align: left; width: 100%; }
+.simlab__run-list button:last-child { border: 0; }
+.simlab__run-list button:hover { background: var(--sl-panel-2); }
+.simlab__run-list button > span { color: var(--sl-muted); font-size: 10px; }
+.simlab__run-list button > span:nth-child(4) { color: var(--sl-green); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+.simlab__run-list strong, .simlab__run-list small { display: block; }
+.simlab__run-list strong { color: var(--sl-text); font-size: 10px; }
+.simlab__run-list small { color: var(--sl-dim); font-size: 8px; margin-top: 3px; }
+.simlab__run-icon { align-items: center; background: #101a20; display: flex; height: 30px; justify-content: center; width: 30px; }
+.simlab__run-icon svg { color: var(--sl-accent); }
+.simlab__compare-table { background: var(--sl-panel); border: 1px solid var(--sl-line); display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, 1fr); }
+.simlab__compare-table > div { border-bottom: 1px solid var(--sl-line); color: #b8c3cb; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; padding: 11px 13px; }
+.simlab__compare-table .head { background: #0a0e12; color: var(--sl-muted); font-family: inherit; font-size: 8px; text-transform: uppercase; }
+.simlab__compare-table strong, .simlab__compare-table span { display: block; }
+.simlab__compare-table span { color: var(--sl-dim); font-size: 8px; margin-top: 3px; }
+
+@media (max-width: 980px) {
+  .simlab { display: block; }
+  .simlab__main { width: 100%; }
+  .simlab__rail { bottom: 0; box-shadow: 12px 0 30px rgba(0,0,0,.4); left: 0; position: fixed; top: 56px; transform: translateX(-102%); transition: transform .2s ease; width: 224px; z-index: 40; }
+  .simlab__rail.is-open { transform: translateX(0); }
+  .simlab__mobile-menu { display: inline-flex; margin-right: 10px; }
+  .simlab__title-block { margin-right: auto; }
+  .simlab__workspace { grid-template-columns: minmax(0, 1fr); }
+  .simlab__config { border-left: 0; border-top: 1px solid var(--sl-line); }
+}
+
+@media (max-width: 640px) {
+  .simlab { min-height: 100vh; }
+  .simlab__topbar { height: 58px; padding: 0 12px; }
+  .simlab__title-block input { font-size: 12px; width: 36vw; }
+  .simlab__title-block span { display: none; }
+  .simlab__icon-btn { display: none; }
+  .simlab__run { font-size: 9px; padding: 0 9px; }
+  .simlab__canvas, .simlab__results, .simlab__table-page { padding: 20px 12px 60px; }
+  .simlab__section-head { margin-bottom: 17px; }
+  .simlab__status { display: none; }
+  .simlab__block { grid-template-columns: 30px minmax(0, 1fr); }
+  .simlab__block-body { padding: 13px 10px; }
+  .simlab__rule { grid-template-columns: 28px minmax(0, 1fr) 26px; }
+  .simlab__rule select:nth-of-type(2), .simlab__rule input { grid-column: 2; }
+  .simlab__rule button { grid-column: 3; grid-row: 1; }
+  .simlab__add-rule { margin-left: 28px; }
+  .simlab__metrics { grid-template-columns: 1fr 1fr; }
+  .simlab__metric:nth-child(2) { border-right: 0; }
+  .simlab__metric:nth-child(-n+2) { border-bottom: 1px solid var(--sl-line); }
+  .simlab__metric strong { font-size: 14px; }
+  .simlab__result-grid { grid-template-columns: 1fr; }
+  .simlab__equity { height: 240px; }
+  .simlab__price-chart { height: 320px; }
+  .simlab__capital-split { grid-template-columns: 1fr 1fr; }
+  .simlab__capital-split > div:nth-child(2) { border-right: 0; }
+  .simlab__capital-split > div:nth-child(-n+2) { border-bottom: 1px solid var(--sl-line-soft); }
+  .simlab__sleeves { grid-template-columns: .6fr .8fr 1fr; overflow-x: auto; }
+  .simlab__sleeves > div:nth-child(4n+3), .simlab__sleeves > .head:nth-child(3) { display: none; }
+  .simlab__legend { display: none; }
+  .simlab__trade-table { grid-template-columns: 48px 1fr 1fr .65fr; }
+  .simlab__trade-table > div:nth-child(5n+4), .simlab__trade-table > .head:nth-child(4) { display: none; }
+  .simlab__results-head { gap: 10px; }
+  .simlab__fidelity-badge { white-space: nowrap; }
+  .simlab__run-list button { grid-template-columns: 30px minmax(120px, 1fr) 65px 14px; }
+  .simlab__run-list button > span:nth-child(3) { display: none; }
+  .simlab__compare-table { grid-template-columns: minmax(120px, 1.4fr) repeat(3, 1fr); overflow-x: auto; }
+  .simlab__compare-table > div { font-size: 8px; padding: 9px 7px; }
+}

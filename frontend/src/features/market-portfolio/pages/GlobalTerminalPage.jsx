@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { BarChart3, ChevronRight, CircleDot, Star } from 'lucide-react'
 
 import {
   fetchGlobalTerminal,
@@ -46,8 +47,9 @@ const CHART_PRESETS = [
 ]
 
 const DEFAULT_PRESET_ID = '6M'
+const MARKET_FAVORITES_KEY = 'northstar.market-favorites'
 
-export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProLab, onOpenNews }) {
+export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews }) {
   const mappedView = TAB_MAP[activeTab]?.view || 'dashboard'
   const isVnMode = activeTab === 'dashboard'
   const [payload, setPayload] = useState(null)
@@ -68,21 +70,23 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
   const [vnSort, setVnSort] = useState('market_cap_desc')
   const [vnPageSize, setVnPageSize] = useState(50)
   const [vnExchange, setVnExchange] = useState('')
-  const [vnSearch, setVnSearch] = useState('')
-  const [debouncedVnSearch, setDebouncedVnSearch] = useState('')
   const [detailedMode, setDetailedMode] = useState(false)
   const [activeDetailSymbol, setActiveDetailSymbol] = useState(null)
+  const [favoriteSymbols, setFavoriteSymbols] = useState(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(MARKET_FAVORITES_KEY) || '[]')
+      return Array.isArray(stored) ? stored : []
+    } catch {
+      return []
+    }
+  })
   
   const terminalRequestSeqRef = useRef(0)
   const historyRequestSeqRef = useRef(0)
   const vnRequestSeqRef = useRef(0)
   const historyCacheRef = useRef(new Map())
   const commandInputRef = useRef(null)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedVnSearch(vnSearch.trim()), 320)
-    return () => window.clearTimeout(timer)
-  }, [vnSearch])
 
   useEffect(() => {
     function handleShortcut(event) {
@@ -139,7 +143,6 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
         const data = await fetchVnSnapshot({
           sort: vnSort,
           exchange: vnExchange,
-          search: debouncedVnSearch,
           limit: vnPageSize,
           signal: controller.signal,
         })
@@ -161,7 +164,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
       controller.abort()
       window.clearInterval(timer)
     }
-  }, [activeView, vnSort, vnExchange, debouncedVnSearch, vnPageSize, refreshTick])
+  }, [activeView, vnSort, vnExchange, vnPageSize, refreshTick])
 
   useEffect(() => {
     let cancelled = false
@@ -257,6 +260,16 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
     }
   }
 
+  function handleToggleFavorite(symbol) {
+    setFavoriteSymbols((current) => {
+      const next = current.includes(symbol)
+        ? current.filter((item) => item !== symbol)
+        : [...current, symbol]
+      window.localStorage.setItem(MARKET_FAVORITES_KEY, JSON.stringify(next))
+      return next
+    })
+  }
+
   if (loading && !payload) {
     return <TerminalLoadingState />
   }
@@ -294,7 +307,6 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
         volume: item.volume,
       }))
     : buildWatchlist(widgets, activeView)
-  const tickerItems = payload?.ticker_tape || []
   const indexItems = sortByPriority([...(widgets.global_indices || []), ...(widgets.global_snapshot || [])])
   const selectedQuote = isVnTab
     ? (vnSnapshot?.items || []).find((item) => item.symbol === selectedSymbol)
@@ -302,18 +314,28 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
 
   return (
     <section className="global-terminal">
-      <CompactSearchBar
-        inputRef={commandInputRef}
-        command={command}
-        onCommandChange={setCommand}
-        onCommandSubmit={handleCommandSubmit}
-        timestamp={payload?.terminal?.as_of}
-        syncing={loading || vnLoading || historyLoading}
-        onRefresh={handleRefreshAll}
-      />
+      {!isVnTab || activeDetailSymbol ? (
+        <CompactSearchBar
+          inputRef={commandInputRef}
+          command={command}
+          onCommandChange={setCommand}
+          onCommandSubmit={handleCommandSubmit}
+          timestamp={payload?.terminal?.as_of}
+          syncing={loading || vnLoading || historyLoading}
+          onRefresh={handleRefreshAll}
+        />
+      ) : null}
 
-      {activeView !== 'indices' ? (
-        <IndexCardsRow tickerItems={tickerItems} selectedSymbol={selectedSymbol} onSelect={handleSelectRow} />
+      {activeView !== 'indices' && !activeDetailSymbol ? (
+        <IndexCardsRow
+          indexItems={indexItems}
+          vnItems={vnSnapshot?.items || []}
+          marketSummary={vnSnapshot?.market_summary}
+          selectedSymbol={selectedSymbol}
+          onSelect={handleSelectRow}
+          statsActive={detailedMode}
+          onOpenStats={() => setDetailedMode((current) => !current)}
+        />
       ) : null}
 
       {isVnTab ? (
@@ -328,8 +350,6 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
             presetId={presetId}
             onPresetChange={setPresetId}
             onRetryHistory={() => setHistoryRefreshTick((n) => n + 1)}
-            onOpenNews={onOpenNews}
-            onSelect={handleSelectRow}
           />
         ) : (
           <div className="gt-full-workspace">
@@ -338,17 +358,8 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
               onSortChange={setVnSort}
               exchange={vnExchange}
               onExchangeChange={setVnExchange}
-              search={vnSearch}
-              onSearchChange={setVnSearch}
-              total={vnSnapshot?.total}
-              showing={vnSnapshot?.items?.length || 0}
-              loading={vnLoading}
-              freshness={vnSnapshot?.freshness}
-              asOf={vnSnapshot?.as_of}
               pageSize={vnPageSize}
               onPageSizeChange={setVnPageSize}
-              detailedMode={detailedMode}
-              onDetailedModeChange={setDetailedMode}
             />
             {detailedMode ? (
               <VnPriceBoard
@@ -358,8 +369,6 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
                 total={vnSnapshot?.total}
                 loading={vnLoading}
                 error={vnError}
-                freshness={vnSnapshot?.freshness}
-                asOf={vnSnapshot?.as_of}
               />
             ) : (
               <VnOverviewTable
@@ -369,8 +378,8 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenProL
                 total={vnSnapshot?.total}
                 loading={vnLoading}
                 error={vnError}
-                freshness={vnSnapshot?.freshness}
-                asOf={vnSnapshot?.as_of}
+                favoriteSymbols={favoriteSymbols}
+                onToggleFavorite={handleToggleFavorite}
               />
             )}
           </div>
@@ -449,56 +458,6 @@ function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit,
   )
 }
 
-function getIndexCardSparkline(symbol, changePct, width = 68, height = 28) {
-  const seed = symbol.charCodeAt(0) + (symbol.charCodeAt(1) || 0)
-  const points = 12
-  const prices = []
-  let current = 100
-  prices.push(current)
-  for (let i = 1; i < points - 1; i++) {
-    const factor = Math.sin(seed + i) * 8
-    current += factor
-    prices.push(current)
-  }
-  prices.push(100 + (Number(changePct) || 0) * 12)
-  
-  const min = Math.min(...prices)
-  const max = Math.max(...prices)
-  const range = max - min || 1
-  return prices
-    .map((val, idx) => {
-      const x = (idx / (points - 1)) * width
-      const y = height - ((val - min) / range) * (height - 4) - 2
-      return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-    .join(' ')
-}
-
-function getStockSparklinePath(symbol, changePct, width = 60, height = 20) {
-  const seed = symbol.charCodeAt(0) + (symbol.charCodeAt(1) || 0) + (symbol.charCodeAt(2) || 0)
-  const points = 10
-  const prices = []
-  let current = 50
-  prices.push(current)
-  for (let i = 1; i < points - 1; i++) {
-    const factor = Math.cos(seed * i) * 6
-    current += factor
-    prices.push(current)
-  }
-  prices.push(50 + (Number(changePct) || 0) * 8)
-  
-  const min = Math.min(...prices)
-  const max = Math.max(...prices)
-  const range = max - min || 1
-  return prices
-    .map((val, idx) => {
-      const x = (idx / (points - 1)) * width
-      const y = height - ((val - min) / range) * (height - 4) - 2
-      return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-    .join(' ')
-}
-
 function buildStockMiniChart(row, width = 60, height = 24) {
   const ref = Number(row.ref_price || row.price || 1)
   const close = Number(row.price || ref)
@@ -524,76 +483,123 @@ function buildStockMiniChart(row, width = 60, height = 24) {
   })
   const coords = prices.map(point)
   const path = coords.map((p, index) => `${index === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+  const segments = coords.slice(1).map((current, index) => ({
+    path: `M ${coords[index].x.toFixed(1)} ${coords[index].y.toFixed(1)} L ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
+    aboveReference: ((prices[index] + prices[index + 1]) / 2) >= ref,
+  }))
   const last = coords[coords.length - 1]
   const first = coords[0]
   const area = `${path} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`
   const refY = Number.isFinite(ref) && ref > 0 ? point(ref, 0).y : null
-  return { path, area, last, refY, aboveReference: close >= ref }
+  return { path, segments, area, last, refY, aboveReference: close >= ref }
 }
 
 /* ====================== Index Cards Row ====================== */
-function IndexCardsRow({ tickerItems, selectedSymbol, onSelect }) {
+function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onSelect, statsActive, onOpenStats }) {
   const indices = useMemo(() => {
-    if (!tickerItems?.length) return []
-    const priority = ['VNINDEX', 'VN30', 'HNXINDEX', 'HNX30', 'UPCOM']
-    const sorted = [...tickerItems].sort((a, b) => {
-      const ai = priority.indexOf(a.symbol)
-      const bi = priority.indexOf(b.symbol)
-      if (ai === -1 && bi === -1) return 0
-      if (ai === -1) return 1
-      if (bi === -1) return -1
-      return ai - bi
-    })
-    return sorted.slice(0, 4)
-  }, [tickerItems])
+    const lookup = new Map((indexItems || []).map((item) => [String(item.symbol || '').toUpperCase(), item]))
+    const definitions = [
+      { symbol: 'VNINDEX', label: 'VN-INDEX', exchanges: ['HSX', 'HOSE'] },
+      { symbol: 'HNXINDEX', label: 'HNX-INDEX', exchanges: ['HNX'] },
+      { symbol: 'UPCOM', label: 'UPCOM', exchanges: ['UPCOM'], aliases: ['UPCOMINDEX'] },
+    ]
 
-  if (!indices.length) {
-    return (
-      <div className="gt-index-cards">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="gt-index-card gt-index-card--skeleton">
-            <div className="gt-skel gt-skel--bar" style={{ width: '60%' }} />
-            <div className="gt-skel gt-skel--price" style={{ width: '40%', height: '28px' }} />
-          </div>
-        ))}
-      </div>
-    )
-  }
+    return definitions.map((definition) => {
+      const quote = lookup.get(definition.symbol)
+        || definition.aliases?.map((alias) => lookup.get(alias)).find(Boolean)
+        || null
+      const marketRows = (vnItems || []).filter((row) => definition.exchanges.includes(String(row.exchange || '').toUpperCase()))
+      const fallbackBreadth = marketRows.reduce((result, row) => {
+        const change = Number(row.change_pct ?? row.changePct)
+        if (!Number.isFinite(change)) return result
+        if (change === 0) result.flat += 1
+        else if (change > 0) result.up += 1
+        else result.down += 1
+        return result
+      }, { up: 0, flat: 0, down: 0 })
+      const exchangeKey = definition.exchanges[0] === 'HOSE' ? 'HSX' : definition.exchanges[0]
+      const summary = marketSummary?.[exchangeKey]
+      return {
+        ...definition,
+        ...quote,
+        symbol: definition.symbol,
+        label: definition.label,
+        breadth: summary ? {
+          up: summary.advances || 0,
+          flat: summary.unchanged || 0,
+          down: summary.declines || 0,
+        } : fallbackBreadth,
+        sampleSize: marketRows.length,
+        turnover: summary?.turnover_billion,
+      }
+    })
+  }, [indexItems, marketSummary, vnItems])
 
   return (
-    <div className="gt-index-cards">
+    <section className="gt-index-cards" aria-label="Tổng quan chỉ số Việt Nam">
       {indices.map((item) => {
-        const positive = Number(item.change_pct) >= 0
+        const changePct = Number(item.change_pct)
+        const change = Number(item.change)
+        const hasQuote = Number.isFinite(Number(item.price))
+        const positive = Number.isFinite(changePct) && changePct >= 0
+        const previous = hasQuote ? Number(item.price) - (Number.isFinite(change) ? change : 0) : 0
+        const chart = hasQuote ? buildIndexMiniPath(item.symbol, previous || Number(item.price), Number(item.price), 92, 50) : null
         return (
           <button
             type="button"
             key={item.symbol}
             className={`gt-index-card ${item.symbol === selectedSymbol ? 'is-selected' : ''}`}
             onClick={() => onSelect(item.symbol)}
+            title={`Mở thông tin ${item.label}`}
           >
             <div className="gt-index-card__main">
-              <span className="gt-index-card__name">{item.symbol}</span>
-              <span className="gt-index-card__price">{formatPrice(item.price)}</span>
-              <span className={`gt-index-card__change ${positive ? 'is-pos' : 'is-neg'}`}>
-                {formatChange(item.change_pct)}
-              </span>
+              <div className="gt-index-card__heading">
+                <span className="gt-index-card__name">{item.label}</span>
+                <span className="gt-index-card__sample">
+                  {Number.isFinite(Number(item.turnover)) ? `${Math.round(Number(item.turnover)).toLocaleString('vi-VN')} tỷ` : '—'}
+                </span>
+              </div>
+              <div className="gt-index-card__quote">
+                <span className={`gt-index-card__price ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>{formatIndexPrice(item.price)}</span>
+                <span className={`gt-index-card__change ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>
+                  {hasQuote ? `${formatSigned(item.change)} (${formatChange(item.change_pct)})` : 'Chưa có quote chỉ số'}
+                </span>
+              </div>
+              <div className="gt-index-card__breadth" aria-label={`Độ rộng ${item.label}`}>
+                <span className="is-pos">▲ {item.breadth.up}</span>
+                <span className="is-flat">● {item.breadth.flat}</span>
+                <span className="is-neg">▼ {item.breadth.down}</span>
+              </div>
             </div>
             <div className="gt-index-card__chart">
-              <svg width="68" height="28" viewBox="0 0 68 28">
-                <path
-                  d={getIndexCardSparkline(item.symbol, item.change_pct)}
-                  fill="none"
-                  stroke={positive ? 'var(--pos)' : 'var(--neg)'}
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              {chart ? (
+                <svg width="92" height="50" viewBox="0 0 92 50" role="img" aria-label={`Biểu đồ ${item.label}`}>
+                  <line x1="0" x2="92" y1={chart.refY} y2={chart.refY} className="gt-index-card__ref" />
+                  <path d={chart.area} className={`gt-index-card__area ${positive ? 'is-up' : 'is-down'}`} />
+                  {chart.segments.map((segment, segmentIndex) => (
+                    <path
+                      key={`${item.symbol}-${segmentIndex}`}
+                      d={segment.path}
+                      className={`gt-index-card__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
+                    />
+                  ))}
+                  <circle cx={chart.last.x} cy={chart.last.y} r="3" className={`gt-index-card__dot ${positive ? 'is-up' : 'is-down'}`} />
+                </svg>
+              ) : <span className="gt-index-card__chart-empty">Đang đồng bộ</span>}
             </div>
           </button>
         )
       })}
-    </div>
+      <button
+        type="button"
+        className={`gt-market-stats-card ${statsActive ? 'is-active' : ''}`}
+        onClick={onOpenStats}
+        aria-pressed={statsActive}
+      >
+        <span className="gt-market-stats-card__title"><BarChart3 size={17} aria-hidden="true" /> Thống kê sàn</span>
+        <span className="gt-market-stats-card__action">Xem chi tiết <ChevronRight size={14} aria-hidden="true" /></span>
+      </button>
+    </section>
   )
 }
 
@@ -659,7 +665,13 @@ function IndexMarketRow({ item, index, selected, onSelect }) {
         <svg width="84" height="26" viewBox="0 0 84 26" role="img" aria-label={`Biểu đồ ${item.symbol}`}>
           <line x1="0" x2="84" y1={path.refY} y2={path.refY} className="gt-indices-board__ref" />
           <path d={path.area} className={`gt-indices-board__area ${positive ? 'is-up' : 'is-down'}`} />
-          <path d={path.path} className={`gt-indices-board__line ${positive ? 'is-up' : 'is-down'}`} />
+          {path.segments.map((segment, segmentIndex) => (
+            <path
+              key={`${item.symbol}-${segmentIndex}`}
+              d={segment.path}
+              className={`gt-indices-board__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
+            />
+          ))}
           <circle cx={path.last.x} cy={path.last.y} r="2.5" className={`gt-indices-board__dot ${positive ? 'is-up' : 'is-down'}`} />
         </svg>
       </td>
@@ -683,41 +695,35 @@ function buildIndexMiniPath(symbol, start, end, width = 84, height = 26) {
   const point = (value, index) => ({ x: (index / (pointCount - 1)) * width, y: height - ((value - min) / valueRange) * (height - 4) - 2 })
   const coords = values.map(point)
   const path = coords.map((pointValue, index) => `${index ? 'L' : 'M'} ${pointValue.x.toFixed(1)} ${pointValue.y.toFixed(1)}`).join(' ')
+  const segments = coords.slice(1).map((current, index) => ({
+    path: `M ${coords[index].x.toFixed(1)} ${coords[index].y.toFixed(1)} L ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
+    aboveReference: ((values[index] + values[index + 1]) / 2) >= start,
+  }))
   const first = coords[0]
   const last = coords.at(-1)
-  return { path, area: `${path} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`, last, refY: first.y }
+  return { path, segments, area: `${path} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`, last, refY: first.y }
 }
 
 /* ====================== Filter Chips Bar ====================== */
-function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, search, onSearchChange, total, showing, loading, freshness, asOf, pageSize, onPageSizeChange, detailedMode, onDetailedModeChange }) {
+function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, pageSize, onPageSizeChange }) {
   const sortOptions = [
     { value: 'market_cap_desc', label: 'Vốn hóa' },
+    { value: 'volume_desc', label: 'Thanh khoản' },
     { value: 'change_desc', label: 'Tăng giá' },
     { value: 'change_asc', label: 'Giảm giá' },
-    { value: 'volume_desc', label: 'Thanh khoản' },
-    { value: 'value_desc', label: 'Giá trị' },
     { value: 'foreign_net_buy_desc', label: 'NN mua ròng' },
-    { value: 'symbol_asc', label: 'A→Z' },
+    { value: 'symbol_asc', label: 'Vần A–Z' },
   ]
   const exchangeOptions = [
     { value: '', label: 'Tất cả sàn' },
-    { value: 'HOSE', label: 'HSX' },
-    { value: 'HNX', label: 'HNX' },
-    { value: 'UPCOM', label: 'UPCOM' },
+    { value: 'HOSE', label: 'Sàn HSX' },
+    { value: 'HNX', label: 'Sàn HNX' },
+    { value: 'UPCOM', label: 'Sàn UPCOM' },
   ]
   return (
     <div className="gt-filter-bar">
-      <div className="gt-filter-bar__row">
-        <input
-          className="gt-filter-bar__search"
-          type="search"
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value.toUpperCase())}
-          placeholder="Tìm mã (FPT, VIC…)"
-          aria-label="Tìm ticker"
-        />
-        <div className="gt-filter-bar__chips">
-          <span className="gt-filter-bar__label">Sắp xếp</span>
+      <div className="gt-filter-bar__market-row">
+        <div className="gt-filter-bar__chips gt-filter-bar__sort" aria-label="Sắp xếp bảng giá">
           {sortOptions.map((opt) => (
             <button
               type="button"
@@ -730,24 +736,7 @@ function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, search
             </button>
           ))}
         </div>
-        <div className="gt-filter-bar__chips gt-filter-bar__page-size" aria-label="Số dòng">
-          <span className="gt-filter-bar__label">Hiển thị</span>
-          {[20, 50, 100].map((size) => (
-            <button
-              type="button"
-              key={size}
-              className={`gt-chip gt-chip--compact ${pageSize === size ? 'is-active' : ''}`}
-              aria-pressed={pageSize === size}
-              onClick={() => onPageSizeChange(size)}
-            >
-              {size}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="gt-filter-bar__row">
-        <div className="gt-filter-bar__chips">
-          <span className="gt-filter-bar__label">Sàn</span>
+        <div className="gt-filter-bar__chips gt-filter-bar__exchanges" aria-label="Lọc theo sàn">
           {exchangeOptions.map((opt) => (
             <button
               type="button"
@@ -760,21 +749,18 @@ function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, search
             </button>
           ))}
         </div>
-        <div className="gt-filter-bar__toggle-container">
-          <button
-            type="button"
-            className={`gt-chip ${detailedMode ? 'is-active' : ''}`}
-            onClick={() => onDetailedModeChange(!detailedMode)}
-            title="Chuyển đổi bảng giá chi tiết"
-          >
-            📊 {detailedMode ? 'Bảng rút gọn' : 'Bảng chi tiết'}
-          </button>
-        </div>
-        <div className="gt-filter-bar__status">
-          <span className={`gt-trust__topic-dot ${freshness || 'stale'}`} />
-          <span>{loading ? 'Đang tải…' : freshness === 'fresh' ? 'Live' : 'Cache'}</span>
-          <span className="gt-filter-bar__count">{showing}{total ? `/${total}` : ''} mã</span>
-          <span>{formatTimestamp(asOf)}</span>
+        <div className="gt-filter-bar__chips gt-filter-bar__page-size" aria-label="Số dòng">
+          {[20, 50, 100].map((size) => (
+            <button
+              type="button"
+              key={size}
+              className={`gt-chip gt-chip--compact ${pageSize === size ? 'is-active' : ''}`}
+              aria-pressed={pageSize === size}
+              onClick={() => onPageSizeChange(size)}
+            >
+              {size}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -932,8 +918,7 @@ function VnWatchlistControls({ sort, onSortChange, exchange, onExchangeChange, s
 /* ====================== VN Price Board ====================== */
 function VnPriceBoard({
   items, selectedSymbol, onSelect,
-  sort, onSortChange, exchange, onExchangeChange, search, onSearchChange,
-  total, loading, error, freshness, asOf,
+  loading, error,
 }) {
   return (
     <section className="gt-priceboard">
@@ -1600,7 +1585,8 @@ function formatChange(value) {
   if (value === null || value === undefined) return '—'
   const number = Number(value)
   if (!Number.isFinite(number)) return '—'
-  return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`
+  if (number === 0) return '0.00%'
+  return `${number > 0 ? '+' : ''}${number.toFixed(2)}%`
 }
 
 function formatTimestamp(value) {
@@ -1611,6 +1597,32 @@ function formatTimestamp(value) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatVnStockPrice(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return (number / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatVnStockChange(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  const normalized = number / 1000
+  if (normalized === 0) return '0.00'
+  return `${normalized > 0 ? '+' : ''}${normalized.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatIndexPrice(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return number.toLocaleString('en-US', { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatVnMarketCap(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return Math.round(number).toLocaleString('vi-VN')
 }
 
 function formatNewsTime(value) {
@@ -1633,17 +1645,9 @@ function getStockMetadata(symbol, price, row = {}) {
 }
 
 /* ====================== Simple Overview Table ====================== */
-function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, error }) {
+function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, error, favoriteSymbols, onToggleFavorite }) {
   return (
-    <section className="gt-priceboard">
-      <div className="gt-priceboard__legend">
-        <span className="gt-px-ce">■ Trần</span>
-        <span className="gt-px-up">■ Tăng</span>
-        <span className="gt-px-tc">■ Tham chiếu</span>
-        <span className="gt-px-dn">■ Giảm</span>
-        <span className="gt-px-fl">■ Sàn</span>
-      </div>
-
+    <section className="gt-priceboard" aria-label={`Bảng giá cổ phiếu Việt Nam, ${total || items.length} mã`} aria-busy={loading}>
       {error ? (
         <div className="gt-priceboard__empty">Snapshot lỗi: {error}</div>
       ) : items.length === 0 ? (
@@ -1653,18 +1657,19 @@ function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, erro
       ) : (
         <div className="gt-priceboard__scroll">
           <table className="gt-priceboard__table gt-priceboard__table--simple">
+            <caption className="sr-only">Danh sách cổ phiếu Việt Nam, sắp xếp theo bộ lọc đã chọn</caption>
             <thead>
               <tr>
-                <th style={{ width: '40px', textAlign: 'center' }}>#</th>
-                <th className="gt-priceboard__sym-head" style={{ textAlign: 'left' }}>Mã CK</th>
-                <th>Giá</th>
-                <th>+/-</th>
-                <th>%</th>
-                <th>Vốn hóa (tỷ)</th>
-                <th>GT (tỷ)</th>
-                <th>Tổng KL</th>
-                <th>GT NN Mua ròng (triệu)</th>
-                <th style={{ width: '90px', textAlign: 'center' }}>Biểu đồ</th>
+                <th scope="col" className="gt-priceboard__rank-head">#</th>
+                <th scope="col" className="gt-priceboard__sym-head">Mã CK</th>
+                <th scope="col">Giá</th>
+                <th scope="col">+/-</th>
+                <th scope="col">%</th>
+                <th scope="col" aria-sort="descending">Vốn hóa (tỷ)</th>
+                <th scope="col">GT (tỷ)</th>
+                <th scope="col">Tổng KL</th>
+                <th scope="col">GT NN mua ròng (triệu)</th>
+                <th scope="col" className="gt-priceboard__chart-head">Biểu đồ</th>
               </tr>
             </thead>
             <tbody>
@@ -1675,6 +1680,8 @@ function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, erro
                   row={row}
                   selected={row.symbol === selectedSymbol}
                   onSelect={onSelect}
+                  favorite={favoriteSymbols.includes(row.symbol)}
+                  onToggleFavorite={onToggleFavorite}
                 />
               ))}
             </tbody>
@@ -1685,9 +1692,8 @@ function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, erro
   )
 }
 
-function VnOverviewRow({ idx, row, selected, onSelect }) {
+function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorite }) {
   const meta = getStockMetadata(row.symbol, row.price, row)
-  const positive = Number(row.change_pct ?? row.changePct ?? 0) >= 0
   const cls = priceClass(row.price, row)
   const valBillion = ((Number(row.price || 0) * Number(row.volume || 0)) / 1e9).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   const miniChart = buildStockMiniChart(row)
@@ -1696,46 +1702,70 @@ function VnOverviewRow({ idx, row, selected, onSelect }) {
     <tr
       className={`gt-priceboard__row ${selected ? 'is-selected' : ''}`}
       onClick={() => onSelect(row.symbol)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect(row.symbol)
+        }
+      }}
+      tabIndex={0}
     >
-      <td style={{ textAlign: 'center', color: 'var(--ink-subtle)' }}>{idx}</td>
+      <td className="gt-priceboard__rank">{idx}</td>
       <td className="gt-priceboard__sym">
-        <div className="gt-overview-sym-col">
-          <div className="gt-overview-sym-row">
-            <strong className={cls}>{row.symbol}</strong>
-            <span className="gt-overview-exchange">{row.exchange || 'HSX'}</span>
+        <div className="gt-overview-sym-layout">
+          <div className="gt-overview-sym-col">
+            <div className="gt-overview-sym-row">
+              <CircleDot className="gt-overview-market-icon" size={15} aria-hidden="true" />
+              <strong>{row.symbol}</strong>
+            </div>
+            <small className="gt-overview-name">{meta.name}</small>
           </div>
-          <small className="gt-overview-name">{meta.name}</small>
+          <button
+            type="button"
+            className={`gt-favorite-button ${favorite ? 'is-active' : ''}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleFavorite(row.symbol)
+            }}
+            aria-label={favorite ? `Bỏ ${row.symbol} khỏi watchlist` : `Thêm ${row.symbol} vào watchlist`}
+            aria-pressed={favorite}
+          >
+            <Star size={16} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />
+          </button>
         </div>
       </td>
-      <td className={`num ${cls}`} style={{ fontWeight: '700', fontSize: '13px' }}>
-        {formatPrice(row.price)}
+      <td className={`num gt-priceboard__last ${cls}`}>
+        {formatVnStockPrice(row.price)}
       </td>
       <td className={`num ${cls}`}>
-        {formatSigned(row.change)}
+        {formatVnStockChange(row.change)}
       </td>
-      <td className={`num ${cls}`} style={{ fontWeight: '600' }}>
+      <td className={`num gt-priceboard__percent ${cls}`}>
         {formatChange(row.change_pct ?? row.changePct)}
       </td>
-      <td className="num">{formatPrice(meta.cap)}</td>
+      <td className="num">{formatVnMarketCap(meta.cap)}</td>
       <td className="num">{valBillion}</td>
       <td className="num">{Number(row.volume || 0).toLocaleString('en-US')}</td>
       <td className={`num ${meta.netBuy == null ? '' : meta.netBuy >= 0 ? 'is-pos' : 'is-neg'}`}>
-        {meta.netBuy == null ? '—' : Number(meta.netBuy).toLocaleString('vi-VN', { minimumFractionDigits: 2 })}
+        {meta.netBuy == null ? '—' : Number(meta.netBuy).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </td>
-      <td style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '38px', textAlign: 'center' }}>
-        <svg className="gt-mini-chart" width="60" height="24" viewBox="0 0 60 24" aria-label={`Biểu đồ mini ${row.symbol}`} role="img">
+      <td className="gt-priceboard__chart-cell">
+        <svg className="gt-mini-chart" width="76" height="30" viewBox="0 0 60 24" aria-label={`Biểu đồ mini ${row.symbol}`} role="img">
           {miniChart.refY != null ? (
             <line x1="0" x2="60" y1={miniChart.refY} y2={miniChart.refY} className="gt-mini-chart__ref" />
           ) : null}
           <path d={miniChart.area} className={`gt-mini-chart__area ${miniChart.aboveReference ? 'is-up' : 'is-down'}`} />
-          <path
-            d={miniChart.path}
-            fill="none"
-            className={`gt-mini-chart__line ${miniChart.aboveReference ? 'is-up' : 'is-down'}`}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {miniChart.segments.map((segment, segmentIndex) => (
+            <path
+              key={`${row.symbol}-${segmentIndex}`}
+              d={segment.path}
+              fill="none"
+              className={`gt-mini-chart__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
           <circle cx={miniChart.last.x} cy={miniChart.last.y} r="2.2" className={`gt-mini-chart__dot ${miniChart.aboveReference ? 'is-up' : 'is-down'}`} />
         </svg>
       </td>
@@ -1744,7 +1774,7 @@ function VnOverviewRow({ idx, row, selected, onSelect }) {
 }
 
 /* ====================== Ticker 3-Column Detailed Analysis Page ====================== */
-function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, historyError, presetId, onPresetChange, onRetryHistory, onOpenNews, onSelect }) {
+function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, historyError, presetId, onPresetChange, onRetryHistory }) {
   const meta = getStockMetadata(symbol, quote?.price || 100)
   const price = quote?.price || history?.points?.[history?.points?.length - 1]?.price || 100
   const chgPct = quote?.change_pct ?? quote?.changePct ?? history?.points?.[history?.points?.length - 1]?.change_pct ?? 0
@@ -1899,7 +1929,7 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
   const unitLabel = cockpit?.charts?.revenue_income_trend?.points ? "nghìn tỷ VNĐ" : "tỷ VNĐ"
   
   return (
-    <div className="gt-ticker-detail-layout">
+    <div className="gt-ticker-detail-layout" aria-busy={loadingProfile}>
       <div className="gt-detail-back-bar">
         <button type="button" className="gt-detail-back-btn" onClick={onBack}>
           ← Quay lại bảng giá

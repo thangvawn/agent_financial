@@ -165,6 +165,25 @@ export async function runProLabBacktest(body, accessToken) {
   return expectJson(response)
 }
 
+export async function fetchSimulationStudio(userId, accessToken) {
+  const response = await fetch(`/api/v1/pro/pro-lab/studio/bootstrap?user_id=${encodeURIComponent(userId)}`, {
+    headers: { 'X-Access-Token': accessToken || '' },
+  })
+  return expectJson(response)
+}
+
+export async function runSimulationStudio(body, accessToken) {
+  const response = await fetch('/api/v1/pro/pro-lab/studio/runs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Access-Token': accessToken || '',
+    },
+    body: JSON.stringify(body),
+  })
+  return expectJson(response)
+}
+
 export async function exportProLabReport(userId, experimentId, accessToken) {
   const params = new URLSearchParams({
     user_id: userId,

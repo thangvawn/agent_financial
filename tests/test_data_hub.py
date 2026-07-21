@@ -110,6 +110,39 @@ def test_data_hub_global_terminal_view_metadata(monkeypatch):
     assert "global_indices" not in payload["terminal"]["visible_widget_keys"]
 
 
+def test_vn_snapshot_returns_exchange_market_summary(monkeypatch):
+    monkeypatch.setattr(
+        "risk_dashboard.modules.data_hub.api.public._vn_market.snapshot",
+        lambda: {
+            "as_of": "2026-07-21T04:00:00+00:00",
+            "source": "test",
+            "freshness": "fresh",
+            "count": 4,
+            "items": [
+                {"symbol": "AAA", "exchange": "HSX", "change_pct": 1.2, "value": 1200},
+                {"symbol": "BBB", "exchange": "HOSE", "change_pct": -0.4, "value": 800},
+                {"symbol": "CCC", "exchange": "HNX", "change_pct": 0, "value": 500},
+                {"symbol": "DDD", "exchange": "UPCOM", "change_pct": None, "value": 100},
+            ],
+        },
+    )
+    client = TestClient(app)
+    response = client.get("/api/v1/public/data-hub/vn-market/snapshot?limit=2")
+
+    assert response.status_code == 200
+    summary = response.json()["market_summary"]
+    assert summary["HSX"] == {
+        "exchange": "HSX",
+        "advances": 1,
+        "unchanged": 0,
+        "declines": 1,
+        "quoted": 2,
+        "turnover_billion": 2.0,
+    }
+    assert summary["HNX"]["unchanged"] == 1
+    assert summary["UPCOM"]["quoted"] == 0
+
+
 def test_data_hub_topic_status_and_lookup(monkeypatch):
     monkeypatch.setattr(
         "risk_dashboard.modules.data_hub.application.services.GlobalMarketFeedProducer.snapshot",

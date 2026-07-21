@@ -33,6 +33,7 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
     FeedInstrument("VNINDEX", "VN-Index", "", "indices", "Vietnam broad market", data_source="vnstock", vn_symbol="VNINDEX"),
     FeedInstrument("VN30", "VN30", "", "indices", "Vietnam large-cap", data_source="vnstock", vn_symbol="VN30"),
     FeedInstrument("HNXINDEX", "HNX-Index", "", "indices", "Vietnam HNX board", data_source="vnstock", vn_symbol="HNXIndex"),
+    FeedInstrument("UPCOMINDEX", "UPCoM-Index", "", "indices", "Vietnam UPCOM board", data_source="vnstock", vn_symbol="UPCOMIndex"),
     FeedInstrument("SPX", "S&P 500", "^GSPC", "indices", "US large-cap breadth"),
     FeedInstrument("NDX", "Nasdaq 100", "^NDX", "indices", "US growth / tech beta"),
     FeedInstrument("RUT", "Russell 2000", "^RUT", "indices", "US small-cap risk appetite"),

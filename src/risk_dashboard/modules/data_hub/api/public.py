@@ -53,6 +53,33 @@ def get_vn_snapshot(
     payload = _vn_market.snapshot()
     items = payload.get("items", []) or []
 
+    def _number(value) -> float | None:
+        try:
+            return None if value is None else float(value)
+        except (TypeError, ValueError):
+            return None
+
+    market_summary: dict[str, dict] = {}
+    for market in ("HSX", "HNX", "UPCOM"):
+        market_items = [
+            item for item in items
+            if ("HSX" if (item.get("exchange") or "").upper() == "HOSE" else (item.get("exchange") or "").upper()) == market
+        ]
+        changes = [_number(item.get("change_pct")) for item in market_items]
+        changes = [value for value in changes if value is not None]
+        traded_value_million = sum(
+            value for value in (_number(item.get("value")) for item in market_items)
+            if value is not None
+        )
+        market_summary[market] = {
+            "exchange": market,
+            "advances": sum(value > 0 for value in changes),
+            "unchanged": sum(value == 0 for value in changes),
+            "declines": sum(value < 0 for value in changes),
+            "quoted": len(changes),
+            "turnover_billion": round(traded_value_million / 1000, 1),
+        }
+
     if exchange:
         norm = "HSX" if exchange == "HOSE" else exchange
         items = [i for i in items if (i.get("exchange") or "").upper() == norm]
@@ -97,5 +124,6 @@ def get_vn_snapshot(
         "freshness": payload.get("freshness"),
         "total": payload.get("count", len(payload.get("items", []) or [])),
         "returned": min(limit, len(items)),
+        "market_summary": market_summary,
         "items": items[:limit],
     }
