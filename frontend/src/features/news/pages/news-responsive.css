@@ -1,0 +1,62 @@
+.news-highlights__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--fs-sm);
+}
+
+.news-highlights__notice.is-error { border-color: var(--neg); color: var(--neg-strong); }
+.news-highlights__notice button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  white-space: nowrap;
+}
+.news-highlights__notice button:hover { opacity: 0.82; }
+.news-highlights__notice button:active { opacity: 0.65; }
+.news-highlights button:disabled { cursor: not-allowed; opacity: 0.5; }
+.news-highlights__skeleton { display: grid; gap: 1px; }
+.news-highlights__skeleton span {
+  display: block;
+  height: 88px;
+  background: var(--surface-alt);
+  animation: news-skeleton 1.2s var(--ease) infinite;
+}
+
+@media (max-width: 767px) {
+  .app-shell--news .surface-panel > .news-desk { padding: 20px 16px 32px; }
+  .news-header__main,
+  .news-highlights__heading { align-items: stretch; flex-direction: column; }
+  .news-header__actions { align-items: stretch; justify-content: space-between; }
+  .news-header__source-status { flex: 1; overflow: hidden; }
+  .news-header__source-status span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .news-header__ticker { align-items: stretch; flex-direction: column; }
+  .news-header__ticker button { align-self: flex-start; }
+  .news-highlights { padding: 16px; }
+  .news-highlights__tabs { width: 100%; }
+  .news-highlights__tabs button { min-width: 0; padding-inline: 8px; }
+  .news-highlight { grid-template-columns: 28px minmax(0, 1fr); }
+  .news-highlights__notice { align-items: flex-start; flex-direction: column; }
+  .news-mobile-switch button { font-size: var(--fs-xs); }
+}
+
+@media (max-width: 374px) {
+  .news-header__actions { flex-direction: column; }
+  .news-header__refresh { width: 100%; }
+  .news-highlights__status { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn { animation: news-fade-in 120ms linear 1 both; }
+  .news-header__spinner,
+  .news-highlights__skeleton span { animation: none; }
+  .news-highlight,
+  .news-header__refresh { transition-duration: 0ms; }
+}

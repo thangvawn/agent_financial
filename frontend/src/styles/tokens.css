@@ -35,6 +35,7 @@
   --fs-hero: 3.428rem;  /* 48 */
 
   /* ---- Light surface palette (default) ---- */
+  --bg-dark: #09090b;
   --bg: #fafafa;
   --bg-deep: #f4f4f5;
   --surface: #ffffff;
@@ -126,7 +127,7 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #09090b;
+  --bg: var(--bg-dark);
   --bg-deep: #050507;
   --surface: #18181b;
   --surface-alt: #27272a;

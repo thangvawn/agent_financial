@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from risk_dashboard.modules.news_intelligence.application.clustering import cluster_articles
-from risk_dashboard.modules.news_intelligence.application.rss_producer import DEFAULT_NEWS_SOURCES, NewsRssProducer
+from risk_dashboard.modules.news_intelligence.application.highlights import (
+    get_or_build_snapshot,
+    rebuild_current_snapshots,
+)
+from risk_dashboard.modules.news_intelligence.application.rss_producer import (
+    DEFAULT_NEWS_SOURCES,
+    NewsRssProducer,
+)
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle, utc_now_iso
-from risk_dashboard.modules.news_intelligence.safety.news_policy import build_data_quality_block, build_safety_block
+from risk_dashboard.modules.news_intelligence.safety.news_policy import (
+    build_data_quality_block,
+    build_safety_block,
+)
 from risk_dashboard.platform.database import open_app_state_db
-
 
 NEWS_CACHE_TTL_SECONDS = 600
 NEWS_PRESETS: dict[str, dict[str, str]] = {
@@ -22,6 +32,7 @@ NEWS_PRESETS: dict[str, dict[str, str]] = {
     "crypto": {"source_group": "crypto"},
 }
 SOURCE_BY_ID = {source.source_id: source for source in DEFAULT_NEWS_SOURCES}
+logger = logging.getLogger(__name__)
 
 
 class NewsIntelligenceService:
@@ -164,6 +175,62 @@ class NewsIntelligenceService:
                 (user_id, article_id, note, utc_now_iso()),
             )
 
+    def get_highlights(
+        self,
+        *,
+        period: str = "day",
+        limit: int = 5,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        refresh_failed = False
+        with open_app_state_db() as conn:
+            if force or self._needs_refresh(conn):
+                conn.execute("SAVEPOINT news_highlight_refresh")
+                try:
+                    self._refresh(conn)
+                except Exception:
+                    conn.execute("ROLLBACK TO SAVEPOINT news_highlight_refresh")
+                    conn.execute("RELEASE SAVEPOINT news_highlight_refresh")
+                    refresh_failed = True
+                    logger.exception("News refresh failed; serving persisted highlights")
+                else:
+                    conn.execute("RELEASE SAVEPOINT news_highlight_refresh")
+            snapshot = get_or_build_snapshot(conn, period)
+            latest_run = self._latest_run(conn)
+
+        freshness = _freshness(latest_run)
+        source_count = int(latest_run.get("source_count") or 0) if latest_run else 0
+        successful_source_count = (
+            int(latest_run.get("successful_source_count") or 0) if latest_run else 0
+        )
+        items = snapshot["items"][:limit]
+        return {
+            "period": snapshot["period_kind"],
+            "period_key": snapshot["period_key"],
+            "timezone": snapshot["timezone"],
+            "window_start": snapshot["window_start"],
+            "window_end": snapshot["window_end"],
+            "as_of": utc_now_iso(),
+            "requested_limit": limit,
+            "count": len(items),
+            "items": items,
+            "generated_at": snapshot["generated_at"],
+            "freshness": freshness,
+            "data_quality": build_data_quality_block(
+                freshness=freshness,
+                source_count=source_count,
+                successful_source_count=successful_source_count,
+                stale_reason=(
+                    "news_refresh_failed_using_persisted_snapshot"
+                    if refresh_failed
+                    else None if freshness == "fresh"
+                    else "news_feed_cache_stale_or_unavailable"
+                ),
+                confidence_label="moderate" if items else "limited",
+            ),
+            "safety": build_safety_block(),
+        }
+
     def unsave_article(self, *, user_id: str, article_id: str) -> None:
         with open_app_state_db() as conn:
             conn.execute("DELETE FROM saved_news WHERE user_id = ? AND article_id = ?", (user_id, article_id))
@@ -227,6 +294,7 @@ class NewsIntelligenceService:
             self._upsert_article(conn, article)
 
         now = utc_now_iso()
+        run_id = f"news_run_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         conn.execute(
             """
             INSERT INTO news_fetch_runs (
@@ -235,7 +303,7 @@ class NewsIntelligenceService:
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                f"news_run_{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+                run_id,
                 started_at,
                 now,
                 int(meta.get("source_count") or 0),
@@ -275,6 +343,8 @@ class NewsIntelligenceService:
                     """,
                     (source.source_id, now),
                 )
+
+        rebuild_current_snapshots(conn, source_run_id=run_id)
 
     def _upsert_article(self, conn: sqlite3.Connection, article: NewsArticle) -> None:
         conn.execute(
@@ -370,7 +440,10 @@ class NewsIntelligenceService:
         importance: str | None = None,
     ) -> list[NewsArticle]:
         since_ts = int((datetime.now(timezone.utc) - timedelta(hours=max(1, time_range_hours))).timestamp())
-        where = ["sort_ts >= ?"]
+        where = [
+            "sort_ts >= ?",
+            "headline NOT LIKE 'Distinct financial event number %'",
+        ]
         params: list[Any] = [since_ts]
         if region and region.lower() != "all":
             where.append("region = ?")
@@ -392,10 +465,20 @@ class NewsIntelligenceService:
         if importance and importance.lower() != "all":
             where.append("importance_label = ?")
             params.append(importance.lower())
-        if query:
-            where.append("(headline LIKE ? OR summary LIKE ? OR source LIKE ?)")
-            needle = f"%{query.strip()}%"
-            params.extend([needle, needle, needle])
+        query_text = (query or "").strip()
+        if query_text:
+            where.append(
+                """
+                (
+                  headline LIKE ? OR summary LIKE ? OR source LIKE ? OR source_id LIKE ?
+                  OR category LIKE ? OR region LIKE ? OR sentiment LIKE ? OR impact LIKE ?
+                  OR tickers_json LIKE ? OR affected_markets_json LIKE ?
+                  OR affected_sectors_json LIKE ? OR related_entities_json LIKE ?
+                )
+                """
+            )
+            needle = f"%{query_text}%"
+            params.extend([needle] * 12)
         params.append(limit)
         # Main feed ranks important items first; recency/source tie-breakers keep ordering deterministic.
         rows = conn.execute(

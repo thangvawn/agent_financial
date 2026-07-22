@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from risk_dashboard.platform.database import (
     clear_db_path_cache,
@@ -41,7 +44,39 @@ def test_migrations_create_baseline_and_ingest(tmp_path: Path, monkeypatch):
     assert "mp_orders" in tables
     assert "ingest_runs" in tables
     assert "learning_topics" in tables
-    assert applied >= {"001_baseline", "002_ingest_runs"}
+    assert "news_highlight_snapshots" in tables
+    assert applied >= {
+        "001_baseline",
+        "002_ingest_runs",
+        "003_commodities",
+        "004_news_highlight_snapshots",
+    }
+
+
+def test_news_highlight_snapshot_constraints(tmp_path: Path, monkeypatch):
+    target = tmp_path / "highlights.db"
+    monkeypatch.setenv("RISK_DASHBOARD_DB_PATH", str(target))
+    clear_db_path_cache()
+
+    with open_db() as conn:
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO news_highlight_snapshots (
+                  snapshot_id, period_kind, period_key, timezone, window_start, window_end,
+                  items_json, item_count, generated_at
+                ) VALUES ('bad', 'quarter', '2026-Q3', 'UTC', '', '', '[]', 0, '')
+                """
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO news_highlight_snapshots (
+                  snapshot_id, period_kind, period_key, timezone, window_start, window_end,
+                  items_json, item_count, generated_at
+                ) VALUES ('too-many', 'day', '2026-07-22', 'UTC', '', '', '[]', 11, '')
+                """
+            )
 
 
 def test_open_app_state_db_compat_alias(tmp_path: Path, monkeypatch):

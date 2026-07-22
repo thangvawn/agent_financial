@@ -2,6 +2,7 @@ export {
   fetchArticleDetail,
   fetchFinnhubMacroDesk,
   fetchNewsFeed,
+  fetchNewsHighlights,
   fetchNewsPulse,
   fetchSavedNews,
   fetchSourceHealth,

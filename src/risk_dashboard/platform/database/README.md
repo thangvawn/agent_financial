@@ -47,8 +47,10 @@ Tracked in `schema_migrations`. Current:
 
 1. `001_baseline` — product + platform tables (from former monolithic SCHEMA)
 2. `002_ingest_runs` — ingest registry (merged from former `risk_dashboard.db`)
+3. `003_commodities` — commodity instruments and quote history
+4. `004_news_highlight_snapshots` — persisted day/week/month News highlight selections
 
-Add new changes as `003_*.sql` / entries in `migrate.py` — do not edit applied migrations.
+Add new changes as `005_*.sql` / entries in `migrate.py` — do not edit applied migrations.
 
 ## Rebuild
 

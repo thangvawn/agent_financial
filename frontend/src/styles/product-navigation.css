@@ -3,31 +3,51 @@
   display: none;
 }
 
-:is(
-  .app-shell--global-terminal,
-  .app-shell--learning,
-  .app-shell--news
-) .connected-nav {
-  border-bottom-color: rgba(15, 43, 45, 0.1) !important;
-  background: rgba(243, 247, 246, 0.96) !important;
+/* Learning uses dark nav — same treatment as News/Global-terminal */
+
+/* Dark workspace nav — News, Market, Learning share the same dark treatment. */
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) :is(.connected-nav-shell, .connected-nav) {
+  border-bottom-color: var(--line) !important;
+  background: var(--bg) !important;
 }
 
-:is(
-  .app-shell--global-terminal,
-  .app-shell--learning,
-  .app-shell--news
-) .connected-nav :is(.connected-nav__brand-btn strong, .connected-nav__tab) {
-  color: #29494c !important;
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav--scrolled {
+  background: color-mix(in srgb, var(--bg) 94%, transparent) !important;
 }
 
-:is(
-  .app-shell--global-terminal,
-  .app-shell--learning,
-  .app-shell--news
-) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost) {
-  border-color: rgba(15, 43, 45, 0.16) !important;
-  background: #fff !important;
-  color: #29494c !important;
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__brand-btn strong, .connected-nav__tab) {
+  color: var(--ink-muted) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__brand-btn strong,
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__tab:hover, .connected-nav__tab--active) {
+  color: var(--ink) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__tab--active::after {
+  background: var(--accent) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost) {
+  border-color: var(--line-strong) !important;
+  background: var(--surface) !important;
+  color: var(--ink-muted) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost):hover {
+  border-color: var(--accent) !important;
+  background: var(--surface-alt) !important;
+  color: var(--ink) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__dropdown {
+  border-color: var(--line-strong) !important;
+  background: var(--surface) !important;
+}
+
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {

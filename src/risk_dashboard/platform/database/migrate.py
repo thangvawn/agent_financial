@@ -59,10 +59,29 @@ CREATE TABLE IF NOT EXISTS commodity_quotes (
 CREATE INDEX IF NOT EXISTS idx_commodity_quotes_symbol_time ON commodity_quotes(symbol, as_of DESC);
 """
 
+NEWS_HIGHLIGHT_SNAPSHOTS_SQL = """
+CREATE TABLE IF NOT EXISTS news_highlight_snapshots (
+  snapshot_id TEXT PRIMARY KEY,
+  period_kind TEXT NOT NULL CHECK (period_kind IN ('day', 'week', 'month')),
+  period_key TEXT NOT NULL,
+  timezone TEXT NOT NULL,
+  window_start TEXT NOT NULL,
+  window_end TEXT NOT NULL,
+  items_json TEXT NOT NULL,
+  item_count INTEGER NOT NULL CHECK (item_count BETWEEN 0 AND 10),
+  generated_at TEXT NOT NULL,
+  source_run_id TEXT,
+  UNIQUE(period_kind, period_key)
+);
+CREATE INDEX IF NOT EXISTS idx_news_highlight_snapshots_period
+ON news_highlight_snapshots(period_kind, period_key);
+"""
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
     ("003_commodities", COMMODITIES_SQL),
+    ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
 ]
 
 
@@ -112,6 +131,7 @@ def apply_migrations(conn) -> list[str]:
         ("001_baseline", _load_baseline()),
         ("002_ingest_runs", INGEST_RUNS_SQL),
         ("003_commodities", COMMODITIES_SQL),
+        ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:

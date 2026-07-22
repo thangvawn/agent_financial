@@ -45,14 +45,17 @@ export default function NewsFilters({
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
+  const hasQuery = Boolean(query.trim())
   const hasActiveSubFilters = timeRangeHours !== 168 || sentiment || impactLevel || importance
+  const hasActiveFilters = hasQuery || hasActiveSubFilters
+  let activeFilterMessage = 'Đang áp dụng bộ lọc nâng cao.'
+  if (hasQuery && hasActiveSubFilters) activeFilterMessage = 'Đang áp dụng tìm kiếm và bộ lọc nâng cao.'
+  else if (hasQuery) activeFilterMessage = 'Đang áp dụng tìm kiếm.'
 
   return (
-    <section className="bg-[#161b26] border border-[#1f293d] rounded-md p-4 mb-6 flex flex-col gap-4">
-      {/* Top Filter Row: Lens tab selectors + search + advanced toggle */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Market Lens tabs */}
-        <div className="flex bg-[#0f1420] p-1 rounded border border-[#1f293d] w-fit" role="tablist">
+    <section className="news-filters" aria-label="Bộ lọc tin tức">
+      <div className="news-filters__top">
+        <div className="news-filters__lenses" role="group" aria-label="Góc nhìn thị trường">
           {[
             { id: 'vietnam', label: 'Thị trường VN' },
             { id: 'global', label: 'Vĩ mô toàn cầu' },
@@ -61,13 +64,8 @@ export default function NewsFilters({
             <button
               key={tab.id}
               type="button"
-              role="tab"
-              aria-selected={marketLens === tab.id}
-              className={`px-3 py-1.5 text-xs font-bold rounded transition-all cursor-pointer ${
-                marketLens === tab.id
-                  ? 'bg-[#0d9488] text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              aria-pressed={marketLens === tab.id}
+              className={marketLens === tab.id ? 'is-active' : ''}
               onClick={() => onLensChange(tab.id)}
             >
               {tab.label}
@@ -75,20 +73,20 @@ export default function NewsFilters({
           ))}
         </div>
 
-        {/* Search input + Advanced Button */}
-        <div className="flex items-center gap-2 flex-1 lg:max-w-md">
-          <div className="relative flex-1">
+        <div className="news-filters__search-row">
+          <div className="news-filters__search">
             <input
               type="text"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder="Tìm kiếm tin tức (ví dụ: Fed, tỉ giá, doanh thu)..."
-              className="w-full bg-[#0f1420] border border-[#1f293d] focus:border-[#0d9488] text-xs text-white rounded px-3 py-2 outline-none font-medium placeholder-slate-500 transition-colors"
+              aria-label="Tìm kiếm tin tức"
             />
             {query && (
               <button
                 type="button"
-                className="absolute right-2 top-2.5 text-slate-500 hover:text-slate-350 cursor-pointer"
+                className="news-filters__clear"
+                aria-label="Xóa tìm kiếm"
                 onClick={() => onQueryChange('')}
               >
                 ×
@@ -98,88 +96,73 @@ export default function NewsFilters({
 
           <button
             type="button"
-            className={`px-3 py-2 text-xs font-bold rounded border cursor-pointer transition-all shrink-0 ${
-              showAdvanced || hasActiveSubFilters
-                ? 'bg-[#1f293d]/50 border-[#0d9488] text-[#2dd4bf]'
-                : 'bg-transparent border-[#1f293d] text-slate-450 hover:bg-[#1f293d]/25'
-            }`}
+            className={showAdvanced || hasActiveFilters ? 'news-filters__toggle is-active' : 'news-filters__toggle'}
+            aria-expanded={showAdvanced || Boolean(hasActiveSubFilters)}
+            aria-controls="news-advanced-filters"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            Bộ lọc {hasActiveSubFilters ? '•' : ''}
+            Bộ lọc {hasActiveFilters ? '•' : ''}
           </button>
         </div>
       </div>
 
-      {/* Advanced Filters Expandable Panel */}
       {(showAdvanced || hasActiveSubFilters) && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-[#1f293d]/45 animate-fadeIn">
-          {/* Time range selection */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Thời gian</span>
+        <div id="news-advanced-filters" className="news-filters__advanced animate-fadeIn">
+          <label>
+            <span>Thời gian</span>
             <select
               value={timeRangeHours}
               onChange={(e) => onTimeRangeHoursChange(Number(e.target.value))}
-              className="bg-[#0f1420] border border-[#1f293d] text-xs text-slate-300 rounded px-2.5 py-1.5 cursor-pointer outline-none"
             >
               {TIME_RANGES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-          </div>
+          </label>
 
-          {/* Sentiment selection */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Sắc thái (AI)</span>
+          <label>
+            <span>Sắc thái (AI)</span>
             <select
               value={sentiment}
               onChange={(e) => onSentimentChange(e.target.value)}
-              className="bg-[#0f1420] border border-[#1f293d] text-xs text-slate-300 rounded px-2.5 py-1.5 cursor-pointer outline-none"
             >
               {SENTIMENTS.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
-          </div>
+          </label>
 
-          {/* Impact level selection */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Mức tác động</span>
+          <label>
+            <span>Mức tác động</span>
             <select
               value={impactLevel}
               onChange={(e) => onImpactLevelChange(e.target.value)}
-              className="bg-[#0f1420] border border-[#1f293d] text-xs text-slate-300 rounded px-2.5 py-1.5 cursor-pointer outline-none"
             >
               {IMPACT_LEVELS.map((i) => (
                 <option key={i.value} value={i.value}>{i.label}</option>
               ))}
             </select>
-          </div>
+          </label>
 
-          {/* Importance level selection */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Độ quan trọng</span>
+          <label>
+            <span>Độ quan trọng</span>
             <select
               value={importance}
               onChange={(e) => onImportanceChange(e.target.value)}
-              className="bg-[#0f1420] border border-[#1f293d] text-xs text-slate-300 rounded px-2.5 py-1.5 cursor-pointer outline-none"
             >
               {IMPORTANCE_LABELS.map((imp) => (
                 <option key={imp.value} value={imp.value}>{imp.label}</option>
               ))}
             </select>
-          </div>
+          </label>
         </div>
       )}
 
-      {/* Clear Filters Prompt */}
-      {hasActiveSubFilters && (
-        <div className="flex items-center justify-between text-xs bg-[#0f1420] px-3 py-2 rounded border border-[#1f293d]/50">
-          <span className="text-slate-400">
-            Đang áp dụng bộ lọc nâng cao.
-          </span>
+      {hasActiveFilters && (
+        <div className="news-filters__active-note">
+          <span>{activeFilterMessage}</span>
           <button
             type="button"
-            className="text-teal-400 hover:text-teal-300 font-bold cursor-pointer"
             onClick={onResetFilters}
           >
             Đặt lại bộ lọc

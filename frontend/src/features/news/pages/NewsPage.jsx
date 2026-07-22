@@ -1,55 +1,66 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  fetchArticleDetail,
-  fetchNewsFeed,
-  saveNewsArticle,
-  unsaveNewsArticle,
-} from '../services'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { fetchArticleDetail, fetchNewsFeed } from '../services'
 import FinancialLearningContext from '../../../shared/ui/FinancialLearningContext'
 import NewsHeader from './components/NewsHeader'
 import NewsFilters from './components/NewsFilters'
-import TodayBriefSection from './components/TodayBriefSection'
+import NewsHighlightsSection from './components/NewsHighlightsSection'
 import NewsFeedList from './components/NewsFeedList'
 import NewsArticleReader from './components/NewsArticleReader'
+import useNewsHighlights from './hooks/useNewsHighlights'
 import './news.css'
 
 const FEED_LIST_INITIAL = 12
 const FEED_LIST_STEP = 12
+const DEFAULT_MARKET_LENS = 'vietnam'
+const DEFAULT_TIME_RANGE_HOURS = 168
+const MARKET_LENS_FILTERS = {
+  vietnam: { preset: 'vietnam', region: 'VN', sourceGroup: '' },
+  global: { preset: 'global_macro', region: '', sourceGroup: 'global_macro' },
+  cross_impact: { preset: 'balanced', region: '', sourceGroup: '' },
+}
 
-export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
+export default function NewsPage() {
   // Feed state
   const [payload, setPayload] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   // Filter state
-  const [marketLens, setMarketLens] = useState('vietnam')
+  const [marketLens, setMarketLens] = useState(DEFAULT_MARKET_LENS)
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
-  const [timeRangeHours, setTimeRangeHours] = useState(168)
+  const [timeRangeHours, setTimeRangeHours] = useState(DEFAULT_TIME_RANGE_HOURS)
   const [sentiment, setSentiment] = useState('')
   const [impactLevel, setImpactLevel] = useState('')
   const [importance, setImportance] = useState('')
 
-  // Article details & saved list
+  // Article details
   const [activeArticleId, setActiveArticleId] = useState('')
   const [articleDetail, setArticleDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [savedIds, setSavedIds] = useState(new Set())
   const [feedVisible, setFeedVisible] = useState(FEED_LIST_INITIAL)
   const [mobileTab, setMobileTab] = useState('feed')
+
+  const {
+    period: highlightPeriod,
+    setPeriod: setHighlightPeriod,
+    payload: highlightPayload,
+    items: highlightItems,
+    loading: highlightsLoading,
+    error: highlightsError,
+    refresh: refreshHighlights,
+  } = useNewsHighlights({ limit: 8 })
 
   const feedSentinelRef = useRef(null)
 
   // Map preset / filters depending on lens selection
-  const preset = marketLens === 'vietnam' ? 'vietnam' : marketLens === 'global' ? 'global_macro' : ''
-  const region = marketLens === 'vietnam' ? 'VN' : marketLens === 'global' ? 'global' : ''
-  const sourceGroup = marketLens === 'vietnam' ? 'vn_markets' : marketLens === 'global' ? 'global_macro' : ''
+  const activeLensFilters = MARKET_LENS_FILTERS[marketLens] || MARKET_LENS_FILTERS.cross_impact
+  const { preset, region, sourceGroup } = activeLensFilters
 
   // Sync mobile tab automatically on mobile widths
   const selectArticle = useCallback((id) => {
     setActiveArticleId(id)
-    if (window.matchMedia('(max-width: 1024px)').matches) {
+    if (window.matchMedia('(max-width: 899px)').matches) {
       setMobileTab('detail')
     }
   }, [])
@@ -57,6 +68,7 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   // Fetch news feed
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadFeed() {
       setLoading(true)
       setError('')
@@ -72,19 +84,23 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           sentiment: sentiment || undefined,
           impactLevel: impactLevel || undefined,
           importance: importance || undefined,
+          signal: controller.signal,
         })
         if (!cancelled) {
           setPayload(data)
-          setActiveArticleId((cur) => cur || data.articles?.[0]?.article_id || '')
+          setActiveArticleId((current) => {
+            const hasCurrent = data.articles?.some((article) => article.article_id === current)
+            return hasCurrent ? current : data.articles?.[0]?.article_id || ''
+          })
         }
       } catch (err) {
-        if (!cancelled) setError(err.message)
+        if (!cancelled && err.name !== 'AbortError') setError(err.message)
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     const delayTimer = setTimeout(loadFeed, 250)
-    return () => { cancelled = true; clearTimeout(delayTimer) }
+    return () => { cancelled = true; clearTimeout(delayTimer); controller.abort() }
   }, [category, query, preset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
 
   // Fetch article detail
@@ -118,32 +134,26 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
       const data = await fetchNewsFeed({
         category: category === 'all' ? '' : category,
         q: query, limit: 80, timeRangeHours, region, sourceGroup,
-        preset, force: true,
+        preset, force: true, sentiment, impactLevel, importance,
       })
       setPayload(data)
       setFeedVisible(FEED_LIST_INITIAL)
-      setActiveArticleId(data.articles?.[0]?.article_id || '')
+      setActiveArticleId((current) => {
+        const hasCurrent = data.articles?.some((article) => article.article_id === current)
+        return hasCurrent ? current : data.articles?.[0]?.article_id || ''
+      })
     } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+    finally {
+      await refreshHighlights({ force: false })
+      setLoading(false)
+    }
   }
 
-  // Toggle save article
-  const handleSave = useCallback(async (articleId) => {
-    const isSaved = savedIds.has(articleId)
-    try {
-      if (isSaved) {
-        await unsaveNewsArticle(articleId)
-        setSavedIds((prev) => { const next = new Set(prev); next.delete(articleId); return next })
-      } else {
-        await saveNewsArticle(articleId)
-        setSavedIds((prev) => new Set(prev).add(articleId))
-      }
-    } catch { /* fail silently */ }
-  }, [savedIds])
-
   const handleResetFilters = () => {
+    setMarketLens(DEFAULT_MARKET_LENS)
+    setCategory('all')
     setQuery('')
-    setTimeRangeHours(168)
+    setTimeRangeHours(DEFAULT_TIME_RANGE_HOURS)
     setSentiment('')
     setImpactLevel('')
     setImportance('')
@@ -152,8 +162,13 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   // Derived articles lists
   const articles = payload?.articles || []
   const feedArticles = articles.slice(0, Math.min(feedVisible, articles.length))
-  const activeArticle = articles.find((a) => a.article_id === activeArticleId) || articles[0]
+  const matchingDetail = articleDetail?.article?.article_id === activeArticleId ? articleDetail : null
+  const activeArticle = matchingDetail?.article
+    || articles.find((article) => article.article_id === activeArticleId)
+    || highlightItems.find((article) => article.article_id === activeArticleId)
+    || (!activeArticleId ? articles[0] : null)
   const todayBrief = payload?.today_brief || []
+  const topHighlight = highlightItems[0] || todayBrief[0]
 
   // Infinite scroll intersection observer
   useEffect(() => {
@@ -169,12 +184,12 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
   }, [articles.length, feedVisible])
 
   return (
-    <section className="news-desk px-4 md:px-6 py-6 text-[#f8fafc] font-sans max-w-[1480px] mx-auto min-h-screen">
+    <section className="news-desk">
       <NewsHeader
-        topBrief={todayBrief[0]}
-        onSelectTopBrief={() => selectArticle(todayBrief[0]?.article_id)}
+        topHighlight={topHighlight}
+        onSelectTopHighlight={() => selectArticle(topHighlight?.article_id)}
         onRefresh={handleRefresh}
-        loading={loading}
+        loading={loading || highlightsLoading}
         freshness={payload?.freshness || 'loading'}
         sourceCount={payload?.source_count || 0}
         successfulSourceCount={payload?.successful_source_count || 0}
@@ -202,30 +217,22 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
         onResetFilters={handleResetFilters}
       />
 
-      <TodayBriefSection
-        todayBrief={todayBrief}
-        activeArticleId={activeArticleId}
-        savedIds={savedIds}
-        onSelectBrief={selectArticle}
-        onSaveBrief={handleSave}
-      />
-
       {/* Mobile Switch Tabs */}
-      <div className="flex lg:hidden bg-[#0f1420] border border-[#1f293d] rounded-md p-0.5 mb-4 shrink-0">
+      <div className="news-mobile-switch" role="group" aria-label="Chế độ xem tin tức">
         <button
           type="button"
-          className={`flex-1 text-center py-2 text-xs font-bold rounded cursor-pointer transition-all ${
-            mobileTab === 'feed' ? 'bg-[#1f293d] text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          aria-pressed={mobileTab === 'feed'}
+          aria-controls="news-mobile-feed-panel"
+          className={mobileTab === 'feed' ? 'is-active' : ''}
           onClick={() => setMobileTab('feed')}
         >
           Dòng tin ({articles.length})
         </button>
         <button
           type="button"
-          className={`flex-1 text-center py-2 text-xs font-bold rounded cursor-pointer transition-all ${
-            mobileTab === 'detail' ? 'bg-[#1f293d] text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          aria-pressed={mobileTab === 'detail'}
+          aria-controls="news-mobile-detail-panel"
+          className={mobileTab === 'detail' ? 'is-active' : ''}
           onClick={() => setMobileTab('detail')}
           disabled={!activeArticle}
         >
@@ -233,29 +240,26 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
         </button>
       </div>
 
-      {/* Responsive grid style — feed column is FIXED width, never changes */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .news-desk-grid {
-          display: grid !important;
-          gap: 24px !important;
-          align-items: start !important;
-          grid-template-columns: 1fr !important;
-        }
-        @media (min-width: 1024px) {
-          .news-desk-grid {
-            grid-template-columns: 420px 1fr !important;
-          }
-        }
-        @media (min-width: 1440px) {
-          .news-desk-grid {
-            grid-template-columns: 480px 1fr !important;
-          }
-        }
-      `}} />
-
-      {/* Workspace Split Desk */}
+      {/* Split studio: discovery on the left, reading on the right. */}
       <div className="news-desk-grid">
-        <div className={mobileTab === 'feed' ? 'block' : 'hidden lg:block'}>
+        <div
+          id="news-mobile-feed-panel"
+          role="region"
+          aria-label="Dòng tin"
+          className={`news-desk__pane news-desk__pane--stream${mobileTab === 'feed' ? ' is-mobile-active' : ''}`}
+        >
+          <NewsHighlightsSection
+            period={highlightPeriod}
+            payload={highlightPayload}
+            items={highlightItems}
+            loading={highlightsLoading}
+            error={highlightsError}
+            activeArticleId={activeArticleId}
+            onPeriodChange={setHighlightPeriod}
+            onSelect={selectArticle}
+            onRetry={() => refreshHighlights({ force: false })}
+          />
+
           <NewsFeedList
             articles={articles}
             feedArticles={feedArticles}
@@ -271,19 +275,22 @@ export default function NewsPage({ sessionId, onBack, onOpenGlobalTerminal }) {
           />
         </div>
 
-        <div className={mobileTab === 'detail' ? 'block' : 'hidden lg:block'}>
+        <div
+          id="news-mobile-detail-panel"
+          role="region"
+          aria-label="Chi tiết bài đọc"
+          className={`news-desk__pane news-desk__pane--reader${mobileTab === 'detail' ? ' is-mobile-active' : ''}`}
+        >
           <NewsArticleReader
             activeArticle={activeArticle}
-            detail={articleDetail}
+            detail={matchingDetail}
             detailLoading={detailLoading}
-            savedIds={savedIds}
-            onSave={handleSave}
             onSelectRelated={selectArticle}
           />
         </div>
       </div>
 
-      <footer className="text-center text-[10px] text-slate-500 font-bold border-t border-[#1f293d]/50 mt-10 pt-4 pb-2">
+      <footer className="news-desk__footer">
         Tin tức là bối cảnh phân tích, không phải khuyến nghị đầu tư. © Northstar Finance Lab.
       </footer>
     </section>

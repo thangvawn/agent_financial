@@ -7,6 +7,25 @@ async function expectJson(response) {
   return payload
 }
 
+const NEWS_HIGHLIGHT_PERIODS = new Set(['day', 'week', 'month'])
+
+export async function fetchNewsHighlights({ period = 'day', limit = 8, force = false, signal } = {}) {
+  if (!NEWS_HIGHLIGHT_PERIODS.has(period)) {
+    throw new Error('Unsupported news highlight period')
+  }
+  if (!Number.isInteger(limit) || limit < 5 || limit > 10) {
+    throw new Error('News highlight limit must be between 5 and 10')
+  }
+
+  const params = new URLSearchParams({
+    period,
+    limit: String(limit),
+    force: String(Boolean(force)),
+  })
+  const response = await fetch(`/api/v1/public/news/highlights?${params}`, { signal })
+  return expectJson(response)
+}
+
 export async function fetchNewsFeed({
   category = '',
   q = '',
@@ -19,6 +38,7 @@ export async function fetchNewsFeed({
   sentiment = '',
   impactLevel = '',
   importance = '',
+  signal,
 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -33,7 +53,7 @@ export async function fetchNewsFeed({
   if (sentiment) params.set('sentiment', sentiment)
   if (impactLevel) params.set('impact_level', impactLevel)
   if (importance) params.set('importance', importance)
-  const response = await fetch(`/api/v1/public/news/feed?${params}`)
+  const response = await fetch(`/api/v1/public/news/feed?${params}`, { signal })
   return expectJson(response)
 }
 

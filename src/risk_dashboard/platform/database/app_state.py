@@ -198,6 +198,7 @@ def reset_app_state_tables() -> None:
             DELETE FROM learning_home_states;
             DELETE FROM learning_lesson_progress;
             DELETE FROM learning_cms_documents;
+            DELETE FROM news_highlight_snapshots;
             DELETE FROM news_articles;
             DELETE FROM app_kv WHERE key = 'news_articles_time_normalize_v1';
             DELETE FROM news_fetch_runs;

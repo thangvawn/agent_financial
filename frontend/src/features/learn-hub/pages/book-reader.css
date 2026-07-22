@@ -1,15 +1,15 @@
 /* Book reader — editorial study desk */
 
 .br-shell {
-  --br-ink: #15201c;
-  --br-muted: #5a6a63;
-  --br-faint: #8a9690;
-  --br-line: #d5ddd8;
+  --br-ink: #09090b;
+  --br-muted: #3f3f46;
+  --br-faint: #52525b;
+  --br-line: #d4d4d8;
   --br-paper: #ffffff;
-  --br-desk: #e8eee9;
-  --br-accent: #0d6d62;
-  --br-accent-soft: #d9efe9;
-  --br-rule: rgba(21, 32, 28, 0.07);
+  --br-desk: #f4f4f5;
+  --br-accent: #0d9488;
+  --br-accent-soft: #ccfbf1;
+  --br-rule: rgba(9, 9, 11, 0.08);
   position: fixed;
   inset: 0;
   z-index: 120;
@@ -41,34 +41,44 @@
   gap: 16px;
   min-height: 56px;
   padding: 10px 20px;
-  background: var(--br-paper);
-  border-bottom: 1px solid var(--br-line);
+  background: #18181b !important;
+  border-bottom: 1px solid #27272a !important;
+  color: #fafafa !important;
 }
 
 .br-top__back {
   border: 0;
   background: transparent;
-  color: var(--br-accent);
+  color: #2dd4bf !important;
   font: inherit;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  padding: 6px 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(45, 212, 191, 0.1) !important;
+  transition: background var(--t-fast) var(--ease);
+}
+
+.br-top__back:hover {
+  background: rgba(45, 212, 191, 0.2) !important;
 }
 
 .br-top__kicker {
   margin: 0;
   font-size: 0.68rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--br-faint);
+  color: #71717a !important;
 }
 
 .br-top__title {
   margin: 2px 0 0;
-  font-size: 1rem;
-  font-weight: 650;
+  font-size: 1.05rem;
+  font-weight: 700;
   line-height: 1.25;
+  color: #ffffff !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,8 +91,8 @@
 }
 
 .br-top__saved {
-  font-size: 0.72rem;
-  color: var(--br-muted);
+  font-size: 0.75rem;
+  color: #a1a1aa !important;
   white-space: nowrap;
 }
 

@@ -50,16 +50,15 @@
 
 .app-shell--global-terminal .surface-panel > section.pm-shell--lab,
 .app-shell--learning .surface-panel > section.pm-shell--lab,
-.app-shell--guided-investing .surface-panel > section.pm-shell--lab,
-.app-shell--news .surface-panel > section.pm-shell--lab {
+.app-shell--guided-investing .surface-panel > section.pm-shell--lab {
   background: var(--pm-canvas) !important;
   color: var(--pm-ink) !important;
 }
 
 .app-shell--learning .surface-panel > section.lh-shell,
 .app-shell--learning .surface-panel {
-  background: #fff !important;
-  color: #1a1a1a !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
 }
 
 .app-shell--pro-lab .surface-panel > section.pm-shell--pro,
@@ -119,38 +118,65 @@
 }
 
 .app-shell--news .news-sparkle-compact-header {
-  border-color: var(--pm-line) !important;
-  background: var(--pm-surface) !important;
+  border-color: var(--line) !important;
+  background: var(--surface) !important;
 }
 
 .app-shell--news .news-sparkle-compact-header :is(h1, .pm-btn) {
-  color: var(--pm-ink) !important;
+  color: var(--ink) !important;
 }
 
 .app-shell--news .news-desk__market-lens button {
   border-color: transparent !important;
   background: transparent !important;
-  color: var(--pm-muted) !important;
+  color: var(--ink-muted) !important;
 }
 
 .app-shell--news .news-desk__market-lens button.is-active {
-  border-color: rgba(13, 148, 136, 0.25) !important;
-  background: rgba(13, 148, 136, 0.12) !important;
-  color: #0f766e !important;
+  border-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent-strong) !important;
 }
 
 .app-shell--news .news-desk__search label span {
-  color: var(--pm-ink) !important;
+  color: var(--ink) !important;
 }
 
 .app-shell--news .news-desk__search input {
-  border-color: var(--pm-line) !important;
-  background: var(--pm-surface) !important;
-  color: var(--pm-ink) !important;
+  border-color: var(--line) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
 }
 
 .app-shell--news .news-desk__search input::placeholder {
-  color: var(--pm-muted) !important;
+  color: var(--ink-muted) !important;
+}
+
+.app-shell--news .edu-context {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.app-shell--news .edu-context__item {
+  color: var(--accent);
+}
+
+.app-shell--news .edu-context__item + .edu-context__item {
+  border-color: var(--line);
+}
+
+.app-shell--news .edu-context__item strong {
+  color: var(--ink);
+}
+
+.app-shell--news .edu-context__item p {
+  color: var(--ink-muted);
+}
+
+.app-shell--news .edu-context__item--caution {
+  color: var(--warn);
+  background: var(--warn-soft);
 }
 
 @media (max-width: 760px) {

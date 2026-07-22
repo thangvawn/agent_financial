@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from risk_dashboard.modules.news_intelligence.application.finnhub_desk import get_finnhub_desk_snapshot
+from risk_dashboard.modules.news_intelligence.application.finnhub_desk import (
+    get_finnhub_desk_snapshot,
+)
 from risk_dashboard.modules.news_intelligence.application.services import NewsIntelligenceService
 from risk_dashboard.modules.news_intelligence.safety.news_policy import build_safety_block
 
@@ -42,6 +46,15 @@ def get_news_feed(
         impact_level=impact_level,
         importance=importance,
     )
+
+
+@router.get("/highlights")
+def get_news_highlights(
+    period: Literal["day", "week", "month"] = Query(default="day"),
+    limit: int = Query(default=5, ge=5, le=10),
+    force: bool = Query(default=False),
+) -> dict:
+    return NewsIntelligenceService().get_highlights(period=period, limit=limit, force=force)
 
 
 @router.get("/articles/{article_id}")
