@@ -31,7 +31,7 @@ export default function BookGrid({ onOpenBook }) {
             {/* Left side: Book Cover Image */}
             <div className="lh-book-card__cover" style={{ background: book.cover_color }}>
               {book.cover_image ? (
-                <img src={book.cover_image} alt={book.title} className="lh-book-card__img" loading="lazy" />
+                <img src={book.cover_image} alt={book.title} className="lh-book-card__img" loading="lazy" onError={(e) => { e.target.style.display = 'none' }} />
               ) : (
                 <>
                   <div className="lh-book-card__spine" />

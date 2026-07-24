@@ -466,6 +466,15 @@
   background: #000;
 }
 
+.lhp-player--placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #94a3b8);
+  text-align: center;
+}
+
 /* ===== LESSON INFO BAR ===== */
 .lhp-lesson-info {
   flex: 0 0 auto;

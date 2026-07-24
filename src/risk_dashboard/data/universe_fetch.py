@@ -125,6 +125,7 @@ def fetch_market_universe_bundle(
     macro_csv_path: str | None = None,
     yfinance_fx_ticker: str = "USDVND=X",
     vnstock_source: str = "DNSE",
+    request_delay_seconds: float = 0.0,
 ) -> UniverseFetchResult:
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -142,6 +143,8 @@ def fetch_market_universe_bundle(
     vn30_frames: list[pd.DataFrame] = []
     errors: dict[str, str] = {}
     for ticker in vn30_tickers:
+        if request_delay_seconds > 0:
+            time.sleep(request_delay_seconds)
         try:
             frame = _fetch_history(
                 ticker,
@@ -164,6 +167,8 @@ def fetch_market_universe_bundle(
     vn30_parquet = out_dir / f"vn30_daily_{compact_start}_{compact_end}_{fetch_id[:8]}.parquet"
     vn30_df.to_parquet(vn30_parquet, index=False)
 
+    if request_delay_seconds > 0:
+        time.sleep(request_delay_seconds)
     vnindex_df = _fetch_history(
         "VNINDEX",
         start,

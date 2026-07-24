@@ -14,7 +14,7 @@ export default function CourseCard({ course, progress, onClick }) {
     <article className="lhc-card" onClick={() => onClick(course.course_id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onClick(course.course_id) }}>
       <div className="lhc-card__thumb" style={!course.thumbnail_image ? { background: course.thumbnail_gradient } : undefined}>
         {course.thumbnail_image ? (
-          <img src={course.thumbnail_image} alt={course.title} className="lhc-card__img" loading="lazy" />
+          <img src={course.thumbnail_image} alt={course.title} className="lhc-card__img" loading="lazy" onError={(e) => { e.target.style.display = 'none' }} />
         ) : null}
         <span className="lhc-card__play-overlay" aria-hidden="true"><PlayIcon size={28} /></span>
         <span className="lhc-card__difficulty" style={{ '--diff-color': DIFFICULTY_COLORS[course.difficulty] || 'var(--accent)' }}>

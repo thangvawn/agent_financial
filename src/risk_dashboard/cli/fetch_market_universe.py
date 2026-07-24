@@ -20,6 +20,12 @@ def main() -> None:
     p.add_argument("--macro-csv", help="CSV vĩ mô khi --macro csv|official")
     p.add_argument("--yfinance-fx", default="USDVND=X")
     p.add_argument("--vnstock-source", default="DNSE")
+    p.add_argument(
+        "--request-delay",
+        type=float,
+        default=0.0,
+        help="Số giây nghỉ giữa các request vnstock để tránh rate limit",
+    )
 
     args = p.parse_args()
     start = date.fromisoformat(args.start)
@@ -41,6 +47,7 @@ def main() -> None:
             macro_csv_path=args.macro_csv,
             yfinance_fx_ticker=args.yfinance_fx,
             vnstock_source=args.vnstock_source,
+            request_delay_seconds=args.request_delay,
         )
     except Exception as exc:
         print(f"Lỗi crawl universe: {exc}", file=sys.stderr)

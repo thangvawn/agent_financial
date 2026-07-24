@@ -7,7 +7,7 @@ import urllib.request
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.data import cross_asset_prices as cross_asset_prices_mod
@@ -65,6 +65,22 @@ def health() -> dict:
             "model_available": model["available"],
         },
     }
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    settings = get_settings()
+    candidates = (
+        settings.frontend_dist / "favicon.ico",
+        settings.frontend_dist / "favicon.svg",
+        settings.project_root / "frontend" / "public" / "favicon.ico",
+        settings.project_root / "frontend" / "public" / "favicon.svg",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            media_type = "image/x-icon" if candidate.suffix == ".ico" else "image/svg+xml"
+            return FileResponse(candidate, media_type=media_type)
+    raise HTTPException(status_code=404, detail="favicon not found")
 
 
 @router.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])

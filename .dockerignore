@@ -44,3 +44,6 @@ tests/
 .home-vnstock/
 .ipython/
 .matplotlib/
+.codegraph/
+**/*.sock
+**/node_modules/

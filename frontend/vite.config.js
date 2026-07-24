@@ -22,6 +22,7 @@ export default defineConfig({
       '/admin': 'http://127.0.0.1:8001',
       '/financials': 'http://127.0.0.1:8001',
       '/backtest': 'http://127.0.0.1:8001',
+      '/learning-assets': 'http://127.0.0.1:8001',
       '/watchlist': 'http://127.0.0.1:8001',
     },
   },

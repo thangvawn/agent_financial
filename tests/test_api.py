@@ -55,6 +55,14 @@ def test_frontend_spa_routes_return_index():
         assert '<div id="root"></div>' in page.text
 
 
+def test_favicon_is_served():
+    c = TestClient(app)
+
+    favicon = c.get("/favicon.ico")
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"].startswith("image/")
+
+
 def test_removed_reports_and_classroom_routes_return_not_found():
     c = TestClient(app)
     assert c.get("/reports").status_code == 404

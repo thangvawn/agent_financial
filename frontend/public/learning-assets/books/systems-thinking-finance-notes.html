@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đọc Báo Cáo Tài Chính & Nhận Biết Rủi Ro — Ghi chú</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117; color: #e2e8f0;
+      line-height: 1.75; padding: 2rem; max-width: 720px; margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; color: #fcd34d; margin-bottom: .25rem; }
+    .subtitle { color: #94a3b8; font-size: .95rem; margin-bottom: 2rem; }
+    h2 { font-size: 1.25rem; color: #fbbf24; margin: 2rem 0 .75rem; border-left: 3px solid #f59e0b; padding-left: .75rem; }
+    p { margin-bottom: 1rem; }
+    blockquote {
+      border-left: 3px solid #334155; padding: .75rem 1rem; margin: 1rem 0;
+      background: rgba(255,255,255,.03); border-radius: 0 8px 8px 0;
+      font-style: italic; color: #cbd5e1;
+    }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: .5rem; }
+    .highlight { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.2); border-radius: 8px; padding: 1rem; margin: 1.5rem 0; }
+    .highlight strong { color: #fcd34d; }
+    .red-flag { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; padding: 1rem; margin: 1.5rem 0; }
+    .red-flag strong { color: #fca5a5; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { padding: .5rem .75rem; border: 1px solid #1e293b; text-align: left; font-size: .9rem; }
+    th { background: rgba(245,158,11,.15); color: #fcd34d; }
+    .footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #1e293b; color: #64748b; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <h1>Đọc Báo Cáo Tài Chính & Nhận Biết Rủi Ro</h1>
+  <p class="subtitle">Financial Statements & Risk Analysis — Northstar Research Team · Ghi chú tóm tắt</p>
+
+  <h2>1. Ba báo cáo tài chính chính</h2>
+  <table>
+    <thead><tr><th>Báo cáo</th><th>Trả lời câu hỏi</th><th>Chỉ số quan trọng</th></tr></thead>
+    <tbody>
+      <tr><td>Bảng cân đối kế toán</td><td>Công ty sở hữu gì? Nợ bao nhiêu?</td><td>D/E, Current Ratio</td></tr>
+      <tr><td>Kết quả kinh doanh</td><td>Công ty kiếm được bao nhiêu?</td><td>Biên lợi nhuận, EPS</td></tr>
+      <tr><td>Lưu chuyển tiền tệ</td><td>Tiền thật đi về đâu?</td><td>CFO, Free Cash Flow</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2. Dòng tiền là sự thật</h2>
+  <p>Lợi nhuận có thể bị "tô vẽ" bằng kế toán sáng tạo. Nhưng dòng tiền từ hoạt động kinh doanh (CFO) khó giả mạo hơn nhiều.</p>
+  <div class="highlight">
+    <strong>Quy tắc vàng:</strong> Nếu lợi nhuận tăng nhưng CFO giảm liên tục 2-3 quý → cần cảnh báo. Kiểm tra khoản phải thu và hàng tồn kho.
+  </div>
+
+  <h2>3. Red Flags trong BCTC</h2>
+  <div class="red-flag">
+    <strong>🚩 Dấu hiệu cảnh báo:</strong>
+    <ul style="margin-top:.5rem">
+      <li>Khoản phải thu tăng nhanh hơn doanh thu → có thể ghi nhận doanh thu ảo</li>
+      <li>Hàng tồn kho phình to → sản phẩm khó bán, rủi ro giảm giá</li>
+      <li>Nợ vay tăng nhanh trong khi CFO yếu → nguy cơ thanh khoản</li>
+      <li>Thay đổi chính sách kế toán bất thường → che giấu thực trạng</li>
+      <li>Biên lợi nhuận gộp giảm liên tục → mất lợi thế cạnh tranh</li>
+    </ul>
+  </div>
+
+  <h2>4. Phân tích tỷ lệ nợ</h2>
+  <p>Tỷ lệ Nợ ròng / EBITDA cho biết công ty cần bao nhiêu năm để trả hết nợ bằng lợi nhuận hoạt động.</p>
+  <table>
+    <thead><tr><th>Mức độ</th><th>Nợ ròng / EBITDA</th><th>Đánh giá</th></tr></thead>
+    <tbody>
+      <tr><td>An toàn</td><td>&lt; 2x</td><td>Khả năng chịu suy thoái tốt</td></tr>
+      <tr><td>Trung bình</td><td>2x – 4x</td><td>Cần theo dõi kỹ</td></tr>
+      <tr><td>Nguy hiểm</td><td>&gt; 4x</td><td>Rủi ro cao khi kinh tế suy thoái</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. Tư duy hệ thống</h2>
+  <p>Đừng nhìn từng chỉ số riêng lẻ. Hãy kết nối ba báo cáo lại với nhau để thấy bức tranh toàn cảnh:</p>
+  <blockquote>"Một chỉ số tốt trong bối cảnh xấu có thể là dấu hiệu nguy hiểm hơn là an toàn."</blockquote>
+
+  <div class="footer">
+    <p>📖 Ghi chú tóm tắt nội bộ — Northstar Research Team.</p>
+    <p>Biên soạn: Northstar Finance Lab · Cập nhật 2025</p>
+  </div>
+</body>
+</html>

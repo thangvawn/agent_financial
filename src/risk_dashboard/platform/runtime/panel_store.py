@@ -69,6 +69,8 @@ def set_panel_from_frame(df: pd.DataFrame, *, source: str) -> None:
 
 def _discover_default_panel_path() -> tuple[Path | None, str | None, str | None]:
     model_dir = Path("data/models")
+    stale_model_report_error: str | None = None
+    stale_model_report_hint: str | None = None
     for report_path in sorted(
         model_dir.glob("risk_model_vnindex*.json"), key=lambda p: p.stat().st_mtime, reverse=True
     ):
@@ -84,11 +86,15 @@ def _discover_default_panel_path() -> tuple[Path | None, str | None, str | None]
             local_candidate = Path("data/cache") / candidate.name
             if local_candidate.exists():
                 return local_candidate, None, None
-            return (
-                None,
-                f"Model report '{report_path.name}' đang tham chiếu tới panel không còn tồn tại: {candidate}",
-                "Chạy lại `risk-fetch-universe --start 2015-01-01 --end 2026-03-29 --out ./data/cache` hoặc khôi phục file parquet rồi restart backend.",
+            stale_model_report_error = (
+                f"Model report '{report_path.name}' đang tham chiếu tới panel không còn tồn tại: "
+                f"{candidate}"
             )
+            stale_model_report_hint = (
+                "Đã bỏ qua model report stale; nếu không có panel cache mới thì chạy lại "
+                "`risk-fetch-universe ... --out ./data/cache`."
+            )
+            continue
 
     cache_dir = Path("data/cache")
     candidates = sorted(cache_dir.glob("panel_*.parquet"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -114,8 +120,9 @@ def _discover_default_panel_path() -> tuple[Path | None, str | None, str | None]
 
     return (
         None,
-        "Không tìm thấy training panel trong `data/cache` và cũng không có model report trỏ tới file hợp lệ.",
-        "Sinh lại panel bằng pipeline ingest/fetch rồi restart backend.",
+        stale_model_report_error
+        or "Không tìm thấy training panel trong `data/cache` và cũng không có model report trỏ tới file hợp lệ.",
+        stale_model_report_hint or "Sinh lại panel bằng pipeline ingest/fetch rồi restart backend.",
     )
 
 

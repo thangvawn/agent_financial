@@ -28,7 +28,10 @@ export default function CoursePlayerPage({ courseId, onBack }) {
   const activeLesson = allLessons.find((l) => l.lesson_id === activeLessonId) || allLessons[0]
   const activeIndex = findLessonIndex(course, activeLessonId)
 
+  const [videoError, setVideoError] = useState(false)
+
   useEffect(() => {
+    setVideoError(false)
     if (videoRef.current) {
       videoRef.current.load()
       videoRef.current.play().catch(() => { /* autoplay blocked */ })
@@ -81,15 +84,26 @@ export default function CoursePlayerPage({ courseId, onBack }) {
       <div className={`lhp-workspace ${sidebarOpen ? '' : 'lhp-workspace--no-sidebar'}`}>
         <div className="lhp-main">
           <div className="lhp-player-wrap">
-            <video
-              ref={videoRef}
-              className="lhp-player"
-              controls
-              src={activeLesson?.video_url || ''}
-              onEnded={handleVideoEnded}
-            >
-              Trình duyệt không hỗ trợ video.
-            </video>
+            {videoError ? (
+              <div className="lhp-player lhp-player--placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                <p style={{ marginTop: '1rem', opacity: 0.5, fontSize: '.9rem' }}>Video demo đang được chuẩn bị</p>
+                <p style={{ opacity: 0.3, fontSize: '.8rem' }}>{activeLesson?.title}</p>
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                className="lhp-player"
+                controls
+                src={activeLesson?.video_url || ''}
+                onEnded={handleVideoEnded}
+                onError={() => setVideoError(true)}
+              >
+                Trình duyệt không hỗ trợ video.
+              </video>
+            )}
           </div>
 
           <div className="lhp-lesson-info">
