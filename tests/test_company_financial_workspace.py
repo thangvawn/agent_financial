@@ -61,3 +61,43 @@ def test_company_workspace_prefers_lossless_provider_statement_rows():
     assert workspace["statements"]["balance"]["rows"][0]["key"] == "bsa1"
     assert workspace["statements"]["balance"]["rows"][0]["is_group"] is True
     assert workspace["statements"]["balance"]["periods"] == ["2025-Q4", "2025-Q3"]
+
+
+def test_company_workspace_exposes_transparent_evaluation_framework():
+    workspace = build_company_financial_workspace(_fixture_dataset(), period_mode="quarter")
+
+    evaluation = workspace["evaluation"]
+    assert evaluation["framework"] == "Northstar evidence-weighted screening v1"
+    assert evaluation["overall"]["status"] in {"good", "watch", "risk"}
+    assert 0 <= evaluation["overall"]["score"] <= 100
+    assert evaluation["overall"]["confidence"] in {"low", "medium", "high"}
+    assert {item["key"] for item in evaluation["categories"]} == {
+        "profitability", "growth", "efficiency", "liquidity", "leverage", "cash_quality",
+    }
+    assert sum(item["weight_pct"] for item in evaluation["categories"]) == 100
+    assert evaluation["models"]["piotroski_f"]["score"] is not None
+    assert len(evaluation["methodology"]["sources"]) == 3
+
+
+def test_company_evaluation_uses_peer_median_as_evidence():
+    peer_payload = {
+        "metrics": [{
+            "field": "roe_pct",
+            "peer_median": 5.0,
+            "rank": 1,
+            "total_peers": 4,
+        }],
+        "peer_tickers": ["AAA", "BBB", "CCC"],
+    }
+
+    workspace = build_company_financial_workspace(
+        _fixture_dataset(),
+        period_mode="quarter",
+        peers=peer_payload,
+    )
+    profitability = next(item for item in workspace["evaluation"]["categories"] if item["key"] == "profitability")
+    roe = next(item for item in profitability["metrics"] if item["key"] == "roe_pct")
+
+    assert roe["peer_median"] == 5.0
+    assert roe["peer_count"] == 4
+    assert any("peers" in item for item in roe["evidence"])

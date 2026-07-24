@@ -77,11 +77,35 @@ CREATE INDEX IF NOT EXISTS idx_news_highlight_snapshots_period
 ON news_highlight_snapshots(period_kind, period_key);
 """
 
+TELEGRAM_NEWS_DELIVERIES_SQL = """
+CREATE TABLE IF NOT EXISTS telegram_news_deliveries (
+  delivery_key TEXT PRIMARY KEY,
+  period_kind TEXT NOT NULL CHECK (period_kind IN ('day', 'week', 'month')),
+  period_key TEXT NOT NULL,
+  chat_id TEXT NOT NULL,
+  telegram_message_ids TEXT,
+  delivered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_telegram_news_deliveries_period
+ON telegram_news_deliveries(period_kind, period_key, chat_id);
+"""
+
+TELEGRAM_NEWS_TRANSLATIONS_SQL = """
+CREATE TABLE IF NOT EXISTS telegram_news_translations (
+  fingerprint TEXT PRIMARY KEY,
+  headline_vi TEXT NOT NULL,
+  summary_vi TEXT NOT NULL,
+  translated_at TEXT NOT NULL
+);
+"""
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
     ("003_commodities", COMMODITIES_SQL),
     ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
+    ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
+    ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
 ]
 
 
@@ -132,6 +156,8 @@ def apply_migrations(conn) -> list[str]:
         ("002_ingest_runs", INGEST_RUNS_SQL),
         ("003_commodities", COMMODITIES_SQL),
         ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
+        ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
+        ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:

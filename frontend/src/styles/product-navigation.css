@@ -6,46 +6,46 @@
 /* Learning uses dark nav — same treatment as News/Global-terminal */
 
 /* Dark workspace nav — News, Market, Learning share the same dark treatment. */
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) :is(.connected-nav-shell, .connected-nav) {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) :is(.connected-nav-shell, .connected-nav) {
   border-bottom-color: var(--line) !important;
   background: var(--bg) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav--scrolled {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav--scrolled {
   background: color-mix(in srgb, var(--bg) 94%, transparent) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__brand-btn strong, .connected-nav__tab) {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav :is(.connected-nav__brand-btn strong, .connected-nav__tab) {
   color: var(--ink-muted) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__brand-btn strong,
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__tab:hover, .connected-nav__tab--active) {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav__brand-btn strong,
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav :is(.connected-nav__tab:hover, .connected-nav__tab--active) {
   color: var(--ink) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__tab--active::after {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav__tab--active::after {
   background: var(--accent) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost) {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost) {
   border-color: var(--line-strong) !important;
   background: var(--surface) !important;
   color: var(--ink-muted) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost):hover {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav :is(.connected-nav__logout, .connected-nav__login--ghost):hover {
   border-color: var(--accent) !important;
   background: var(--surface-alt) !important;
   color: var(--ink) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav__dropdown {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav__dropdown {
   border-color: var(--line-strong) !important;
   background: var(--surface) !important;
 }
 
-:is(.app-shell--news, .app-shell--global-terminal, .app-shell--learning) .connected-nav :is(button, a):focus-visible {
+:is(.app-shell--news, .app-shell--global-terminal, .app-shell--guided-investing, .app-shell--learning) .connected-nav :is(button, a):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

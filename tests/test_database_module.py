@@ -45,11 +45,13 @@ def test_migrations_create_baseline_and_ingest(tmp_path: Path, monkeypatch):
     assert "ingest_runs" in tables
     assert "learning_topics" in tables
     assert "news_highlight_snapshots" in tables
+    assert "telegram_news_deliveries" in tables
     assert applied >= {
         "001_baseline",
         "002_ingest_runs",
         "003_commodities",
         "004_news_highlight_snapshots",
+        "005_telegram_news_deliveries",
     }
 
 

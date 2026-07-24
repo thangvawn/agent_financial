@@ -1,6 +1,6 @@
-/* Hallmark · macrostructure: Split Studio · theme: Midnight Trading Desk · tone: technical-austere · anchor hue: teal
- * pre-emit critique: P5 H5 E5 S5 R5 V5
- * contrast: pass · tokens: pass · responsive: pass
+/* Hallmark · genre: modern-minimal · macrostructure: Split Studio · design-system: global-terminal · designed-as-app
+ * pre-emit critique: P5 H5 E5 S5 R5 V4
+ * contrast: pass · shared tokens: pass · responsive: pass
  */
 
 @import './news-header.css';
@@ -13,30 +13,6 @@
 @keyframes news-fade-in {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.app-shell--news {
-  --bg-dark: #050809;
-  --bg: #050809;
-  --bg-deep: #071313;
-  --surface: #0d1b1d;
-  --surface-alt: #132527;
-  --surface-sunken: #183234;
-  --surface-strong: #173133;
-  --ink: #f4fbfb;
-  --ink-strong: #ffffff;
-  --ink-muted: #a9b8b8;
-  --ink-subtle: #728282;
-  --line: #1c3335;
-  --line-strong: #2d5558;
-  --line-subtle: #122527;
-  --accent: #4fd1c5;
-  --accent-strong: #7ee7dc;
-  --accent-soft: rgba(79, 209, 197, 0.16);
-  --pos: #34d399;
-  --pos-strong: #86efac;
-  --neg: #f87171;
-  --neg-strong: #fca5a5;
 }
 
 .app-shell--news,

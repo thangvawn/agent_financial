@@ -77,7 +77,7 @@ export default function CryptoPanel() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
-  const items = data?.items || []
+  const items = useMemo(() => data?.items || [], [data?.items])
   const visibleItems = useMemo(() => {
     const filtered = items.filter((item) => `${item.symbol} ${item.name}`.toLowerCase().includes(query.toLowerCase()))
     return [...filtered].sort((a, b) => {
@@ -95,13 +95,13 @@ export default function CryptoPanel() {
   }), [items])
 
   if (loading && !data) return <section className="mp-panel crypto-page"><div className="crypto-loading"><Activity size={18} /> Đang kết nối dữ liệu tài sản số...</div></section>
-  if (error && !data) return <section className="mp-panel crypto-page"><div className="crypto-empty"><WalletCards size={24} /><strong>Không tải được tài sản số</strong><span>{error}</span><button onClick={load}>Thử lại</button></div></section>
+  if (error && !data) return <section className="mp-panel crypto-page"><div className="crypto-empty"><WalletCards size={24} /><strong>Không tải được tài sản số</strong><span>{error}</span><button type="button" onClick={load} disabled={loading}>Thử lại</button></div></section>
 
   return (
     <section className="mp-panel crypto-page">
       <header className="crypto-page__head">
         <div>
-          <div className="crypto-kicker"><Bitcoin size={14} /> DIGITAL ASSETS / MARKET MONITOR</div>
+          <div className="crypto-kicker"><Bitcoin size={14} /> TÀI SẢN SỐ</div>
           <h2>Thị trường tài sản số</h2>
           <p>Giá giao ngay, vốn hóa và dòng thanh khoản 24 giờ trên các tài sản dẫn dắt thị trường.</p>
         </div>
@@ -109,7 +109,7 @@ export default function CryptoPanel() {
           <span className={`gt-status-dot ${data?.freshness === 'fresh' ? 'is-live' : ''}`} />
           <span>{data?.freshness === 'fresh' ? 'LIVE FEED' : 'CACHED FEED'}</span>
           <small>{data?.source || '—'} · {data?.as_of ? new Date(data.as_of).toLocaleTimeString('vi-VN') : '—'}</small>
-          <button className="crypto-icon-button" onClick={load} aria-label="Làm mới dữ liệu"><RefreshCw size={15} className={loading ? 'is-spinning' : ''} /></button>
+          <button type="button" className="crypto-icon-button" onClick={load} disabled={loading} aria-label="Làm mới dữ liệu"><RefreshCw size={15} className={loading ? 'is-spinning' : ''} /></button>
         </div>
       </header>
 
@@ -123,7 +123,7 @@ export default function CryptoPanel() {
       <div className="crypto-layout">
         <div className="crypto-main-column">
           <div className="crypto-section-head">
-            <div><span className="crypto-section-index">01</span><h3>Market board</h3></div>
+            <div><h3>Bảng giá thị trường</h3></div>
             <div className="crypto-controls">
               <label className="crypto-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm BTC, Ethereum..." /></label>
               <label className="crypto-sort"><SlidersHorizontal size={13} /><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="market_cap">Vốn hóa</option><option value="change">Biến động</option><option value="volume">Thanh khoản</option></select></label>
@@ -150,7 +150,7 @@ export default function CryptoPanel() {
         </div>
 
         <aside className="crypto-focus-card">
-          <div className="crypto-focus-card__top"><span className="crypto-kicker">SELECTED ASSET</span><span className="crypto-live-pill"><span /> 24H</span></div>
+          <div className="crypto-focus-card__top"><span className="crypto-kicker">TÀI SẢN ĐANG CHỌN</span><span className="crypto-live-pill"><span /> 24H</span></div>
           {selectedCoin ? <>
             <div className="crypto-focus-identity"><span className="crypto-focus-icon">{selectedCoin.symbol.slice(0, 1)}</span><div><h3>{selectedCoin.name}</h3><span>{selectedCoin.symbol} / USD</span></div></div>
             <div className="crypto-focus-price">{price(selectedCoin.price)} <Change value={selectedCoin.change_pct} /></div>

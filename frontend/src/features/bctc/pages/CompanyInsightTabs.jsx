@@ -1,21 +1,23 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import {
-  AlertTriangle, BarChart3, Building2, Database, FileUp, Gauge,
-  LineChart, ShieldCheck, UsersRound,
+  AlertTriangle, BarChart3, BookOpen, Building2, CircleAlert, CircleCheck,
+  Database, FileUp, Gauge, GitCompareArrows, LineChart, Scale, ShieldCheck,
+  UsersRound,
 } from 'lucide-react'
 
 import {
   extractFinancialStatementUpload,
+  fetchFinancialPeers,
   uploadFinancialStatement,
 } from '../services/financialsApi'
 
 const CHART_SERIES = [
-  ['revenue', 'DOANH THU THUẦN', 'var(--chart-cyan)', 'var(--chart-coral)'],
-  ['net_income', 'LỢI NHUẬN SAU THUẾ', 'var(--chart-green)', 'var(--chart-yellow)'],
-  ['gross_profit', 'LỢI NHUẬN GỘP', 'var(--chart-blue)', 'var(--chart-red)'],
-  ['operating_cash_flow', 'DÒNG TIỀN KINH DOANH', 'var(--chart-purple)', 'var(--chart-teal)'],
-  ['free_cash_flow', 'DÒNG TIỀN TỰ DO', 'var(--chart-amber)', 'var(--chart-magenta)'],
-  ['total_assets', 'TỔNG TÀI SẢN', 'var(--chart-slate)', 'var(--blue)'],
+  ['revenue', 'Doanh thu thuần'],
+  ['net_income', 'Lợi nhuận sau thuế'],
+  ['gross_profit', 'Lợi nhuận gộp'],
+  ['operating_cash_flow', 'Dòng tiền kinh doanh'],
+  ['free_cash_flow', 'Dòng tiền tự do'],
+  ['total_assets', 'Tổng tài sản'],
 ]
 
 function number(value) {
@@ -29,9 +31,9 @@ function compact(value) {
   return new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(parsed)
 }
 
-function points(values, width = 440, height = 170, padding = 14) {
+function points(values, width = 440, height = 170, padding = 14, sharedDomain = null) {
   const valid = values.map(number)
-  const present = valid.filter((item) => item !== null)
+  const present = sharedDomain || valid.filter((item) => item !== null)
   if (!present.length) return ''
   const min = Math.min(...present)
   const max = Math.max(...present)
@@ -44,34 +46,127 @@ function points(values, width = 440, height = 170, padding = 14) {
   }).filter(Boolean).join(' ')
 }
 
-function FinancialChartCard({ source, title, barColor, lineColor }) {
+function lineSegments(values, xFor, yFor) {
+  const segments = []
+  let current = []
+  values.forEach((value, index) => {
+    if (value === null) {
+      if (current.length > 1) segments.push(current)
+      current = []
+      return
+    }
+    current.push(`${xFor(index)},${yFor(value)}`)
+  })
+  if (current.length > 1) segments.push(current)
+  return segments
+}
+
+function FinancialChartCard({ source, title, periodMode }) {
+  const [activeIndex, setActiveIndex] = useState(null)
   const values = source?.values || []
   const raw = values.map((item) => number(item.value))
-  const absoluteMax = Math.max(...raw.filter((item) => item !== null).map(Math.abs), 1)
+  const lag = periodMode === 'year' ? 1 : 4
   const growth = raw.map((value, index) => {
-    const previous = raw[index - 4]
+    const previous = raw[index - lag]
     return value === null || previous === null || previous === undefined || previous === 0
       ? null
       : ((value - previous) / Math.abs(previous)) * 100
   })
   const labels = values.map((item) => item.period)
+  const present = raw.filter((item) => item !== null)
+  if (!present.length) {
+    return <article className="bctc-chart-card is-empty">
+      <header><div><strong>{title}</strong><span>Chưa có dữ liệu trong giai đoạn này</span></div></header>
+      <div className="bctc-chart-empty"><BarChart3 /><span>Không có số liệu để lập biểu đồ</span></div>
+    </article>
+  }
+
+  const chart = { width: 680, height: 250, left: 58, right: 54, top: 22, bottom: 40 }
+  const plotWidth = chart.width - chart.left - chart.right
+  const plotHeight = chart.height - chart.top - chart.bottom
+  const minValue = Math.min(0, ...present)
+  const maxValue = Math.max(0, ...present)
+  const valueSpread = maxValue - minValue || Math.abs(maxValue) || 1
+  const yValue = (value) => chart.top + ((maxValue - value) / valueSpread) * plotHeight
+  const zeroY = yValue(0)
+  const slotWidth = plotWidth / Math.max(values.length, 1)
+  const barWidth = Math.min(26, slotWidth * .54)
+  const xValue = (index) => chart.left + slotWidth * index + slotWidth / 2
+  const growthPresent = growth.filter((item) => item !== null)
+  const growthMin = Math.min(0, ...growthPresent)
+  const growthMax = Math.max(0, ...growthPresent)
+  const growthSpread = growthMax - growthMin || Math.abs(growthMax) || 1
+  const yGrowth = (value) => chart.top + ((growthMax - value) / growthSpread) * plotHeight
+  const growthPaths = lineSegments(growth, xValue, yGrowth)
+  const latestIndex = raw.reduce((result, value, index) => value === null ? result : index, -1)
+  const selectedIndex = activeIndex ?? latestIndex
+  const selectedValue = raw[selectedIndex]
+  const selectedGrowth = growth[selectedIndex]
+  const selectedLabel = labels[selectedIndex]
+
   return <article className="bctc-chart-card">
-    <header><strong>{title}</strong><span>{values.length} kỳ</span></header>
-    <div className="bctc-combo-chart">
-      <div className="bctc-chart-gridlines"><i /><i /><i /></div>
-      <div className="bctc-bars">{raw.map((value, index) => <i key={`${labels[index]}-${index}`} style={{ '--height': `${Math.max(2, Math.abs(value || 0) / absoluteMax * 82)}%`, '--bar': barColor }} title={`${labels[index]}: ${compact(value)}`} />)}</div>
-      <svg viewBox="0 0 440 170" preserveAspectRatio="none" aria-label={`${title} và tăng trưởng cùng kỳ`}><polyline points={points(growth)} style={{ stroke: lineColor }} /></svg>
+    <header>
+      <div><strong>{title}</strong><span>{values.length} kỳ · {periodMode === 'year' ? 'theo năm' : 'theo quý'}</span></div>
+      <div className="bctc-chart-current">
+        <span>{selectedLabel || '—'}</span>
+        <strong>{compact(selectedValue)}</strong>
+        <small className={selectedGrowth > 0 ? 'is-positive' : selectedGrowth < 0 ? 'is-negative' : ''}>
+          {selectedGrowth === null || selectedGrowth === undefined ? 'Chưa đủ YoY' : `${selectedGrowth > 0 ? '+' : ''}${selectedGrowth.toFixed(1)}% YoY`}
+        </small>
+      </div>
+    </header>
+    <div className="bctc-combo-chart" onMouseLeave={() => setActiveIndex(null)}>
+      <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`${title}: giá trị tuyệt đối và tăng trưởng cùng kỳ`}>
+        {[0, .5, 1].map((ratio) => {
+          const y = chart.top + plotHeight * ratio
+          return <line key={ratio} className="bctc-chart-gridline" x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} />
+        })}
+        <line className="bctc-chart-zero" x1={chart.left} x2={chart.width - chart.right} y1={zeroY} y2={zeroY} />
+        <text className="bctc-chart-axis" x={chart.left - 8} y={chart.top + 4} textAnchor="end">{compact(maxValue)}</text>
+        <text className="bctc-chart-axis" x={chart.left - 8} y={zeroY + 4} textAnchor="end">0</text>
+        {minValue < 0 ? <text className="bctc-chart-axis" x={chart.left - 8} y={chart.top + plotHeight} textAnchor="end">{compact(minValue)}</text> : null}
+        {growthPresent.length ? <>
+          <text className="bctc-chart-axis is-growth" x={chart.width - chart.right + 8} y={chart.top + 4}>{growthMax.toFixed(0)}%</text>
+          <text className="bctc-chart-axis is-growth" x={chart.width - chart.right + 8} y={chart.top + plotHeight}>{growthMin.toFixed(0)}%</text>
+        </> : null}
+        {raw.map((value, index) => {
+          if (value === null) return null
+          const y = yValue(value)
+          const height = Math.max(2, Math.abs(zeroY - y))
+          return <rect
+            key={`${labels[index]}-${index}`}
+            className={`bctc-chart-bar ${value < 0 ? 'is-negative' : 'is-positive'} ${selectedIndex === index ? 'is-active' : ''}`}
+            x={xValue(index) - barWidth / 2}
+            y={value >= 0 ? y : zeroY}
+            width={barWidth}
+            height={height}
+            rx="2"
+            tabIndex="0"
+            onMouseEnter={() => setActiveIndex(index)}
+            onFocus={() => setActiveIndex(index)}
+            onBlur={() => setActiveIndex(null)}
+            aria-label={`${labels[index]}: ${compact(value)}${growth[index] === null ? '' : `, tăng trưởng ${growth[index].toFixed(1)} phần trăm`}`}
+          />
+        })}
+        {growthPaths.map((segment, index) => <polyline key={index} className="bctc-chart-growth-line" points={segment.join(' ')} />)}
+        {growth.map((value, index) => value === null ? null : <circle key={`${labels[index] || 'period'}-${index}`} className={`bctc-chart-growth-dot ${selectedIndex === index ? 'is-active' : ''}`} cx={xValue(index)} cy={yGrowth(value)} r={selectedIndex === index ? 4 : 2.5} />)}
+        {labels.map((label, index) => {
+          const show = values.length <= 8 || index === 0 || index === values.length - 1 || index === Math.floor(values.length / 2)
+          return show ? <text key={`${label || 'period'}-${index}`} className="bctc-chart-period" x={xValue(index)} y={chart.height - 13} textAnchor="middle">{label}</text> : null
+        })}
+      </svg>
     </div>
-    <div className="bctc-chart-periods"><span>{labels[0] || '—'}</span><span>{labels[Math.floor(labels.length / 2)] || '—'}</span><span>{labels.at(-1) || '—'}</span></div>
-    <footer><span><i style={{ '--legend': barColor }} />{title.toLowerCase()}</span><span><i className="is-line" style={{ '--legend': lineColor }} />Tăng trưởng YoY</span></footer>
+    <footer><span><i className="is-value" />Giá trị báo cáo</span><span><i className="is-line" />Tăng trưởng YoY</span><span><i className="is-negative" />Giá trị âm</span></footer>
   </article>
 }
 
 export function FinancialChartsView({ workspace }) {
   const series = new Map((workspace?.trend?.series || []).map((item) => [item.key, item]))
+  const periodMode = workspace?.controls?.period_mode || 'quarter'
   return <section className="bctc-insight-surface">
-    <div className="bctc-chart-toolbar"><div><BarChart3 /><strong>Bộ biểu đồ tài chính</strong><span>Dữ liệu báo cáo hợp nhất · theo quý</span></div><small>Thanh: giá trị tuyệt đối · Đường: tăng trưởng cùng kỳ</small></div>
-    <div className="bctc-financial-chart-grid">{CHART_SERIES.map(([key, title, barColor, lineColor]) => <FinancialChartCard key={key} source={series.get(key)} title={title} barColor={barColor} lineColor={lineColor} />)}</div>
+    <div className="bctc-chart-toolbar"><div><BarChart3 /><strong>Bộ biểu đồ tài chính</strong><span>Dữ liệu báo cáo hợp nhất · {periodMode === 'year' ? 'theo năm' : 'theo quý'}</span></div><small>Di chuột hoặc dùng Tab trên từng cột để xem số liệu</small></div>
+    <div className="bctc-chart-reading-guide"><span><i className="is-value" />Cột: giá trị báo cáo</span><span><i className="is-growth" />Đường: tăng trưởng cùng kỳ</span><span><i className="is-risk" />Cột đỏ: giá trị âm</span><small>Hai trục được tính độc lập: giá trị bên trái · YoY bên phải</small></div>
+    <div className="bctc-financial-chart-grid">{CHART_SERIES.map(([key, title]) => <FinancialChartCard key={key} source={series.get(key)} title={title} periodMode={periodMode} />)}</div>
   </section>
 }
 
@@ -102,16 +197,31 @@ export function TechnicalView({ marketContext, loading }) {
   const rsi14 = rsi(closes)
   const volumes = bars.map((item) => number(item.volume) || 0)
   const volumeMax = Math.max(...volumes, 1)
+  const sharedPriceDomain = [...bars.map((item) => number(item.close)), ...ma20Series].filter((item) => item !== null)
   if (loading) return <InsightLoading label="Đang tải lịch sử giá và khối lượng" />
   if (!bars.length) return <Unavailable title="Chưa lấy được lịch sử giá" detail="Nguồn OHLCV hiện không phản hồi và cache chưa có dữ liệu cho mã này." />
   return <section className="bctc-insight-surface">
     <div className="bctc-technical-kpis">
       <Metric label="Giá đóng cửa" value={last?.toLocaleString('vi-VN') || '—'} />
-      <Metric label="MA20" value={ma20?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) || '—'} tone={last >= ma20 ? 'up' : 'down'} />
-      <Metric label="MA50" value={ma50?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) || '—'} tone={last >= ma50 ? 'up' : 'down'} />
+      <Metric label="MA20" value={ma20?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) || '—'} tone={last != null && ma20 != null ? (last >= ma20 ? 'up' : 'down') : ''} />
+      <Metric label="MA50" value={ma50?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) || '—'} tone={last != null && ma50 != null ? (last >= ma50 ? 'up' : 'down') : ''} />
       <Metric label="RSI 14" value={rsi14?.toFixed(1) || '—'} tone={rsi14 > 70 ? 'down' : rsi14 < 30 ? 'up' : ''} />
     </div>
-    <article className="bctc-price-chart"><header><div><LineChart /><strong>Giá và xu hướng MA20</strong></div><span>{marketContext?.prices?.source || 'OHLCV cache'}</span></header><div className="bctc-price-plot"><svg viewBox="0 0 960 300" preserveAspectRatio="none"><polyline className="price" points={points(bars.map((item) => item.close), 960, 300, 20)} /><polyline className="average" points={points(ma20Series, 960, 300, 20)} /></svg></div><div className="bctc-volume-bars">{volumes.slice(-120).map((value, index) => <i key={`${bars.at(-120 + index)?.time || index}`} style={{ '--height': `${Math.max(2, value / volumeMax * 100)}%` }} />)}</div></article>
+    <article className="bctc-price-chart">
+      <header><div><LineChart /><strong>Giá và xu hướng MA20</strong></div><span>{marketContext?.prices?.source || 'OHLCV cache'}</span></header>
+      <div className="bctc-price-plot">
+        <svg viewBox="0 0 960 300" preserveAspectRatio="none">
+          <polyline className="price" points={points(bars.map((item) => item.close), 960, 300, 20, sharedPriceDomain)} />
+          <polyline className="average" points={points(ma20Series, 960, 300, 20, sharedPriceDomain)} />
+        </svg>
+      </div>
+      <div className="bctc-volume-bars">
+        {volumes.map((value, index) => {
+          const barKey = `${bars[index]?.time || index}`
+          return <i key={barKey} style={{ '--height': `${Math.max(2, value / volumeMax * 100)}%` }} />
+        })}
+      </div>
+    </article>
   </section>
 }
 
@@ -125,6 +235,195 @@ export function AnalysisView({ workspace }) {
     <article className="bctc-analysis-panel"><header><Gauge /><div><strong>Sức khỏe tài chính</strong><span>Thang điểm định lượng 0–100</span></div></header><div className="bctc-health-list">{Object.entries(workspace?.health?.radar || {}).map(([key, value]) => <div key={key}><span>{({ profitability: 'Sinh lời', growth: 'Tăng trưởng', efficiency: 'Hiệu quả', liquidity: 'Thanh khoản', leverage: 'Đòn bẩy', cash_quality: 'Dòng tiền' })[key] || key}</span><i><b style={{ '--value': `${Math.max(0, Math.min(100, number(value) || 0))}%` }} /></i><strong>{Math.round(number(value) || 0)}</strong></div>)}</div></article>
     <article className="bctc-analysis-panel"><header><AlertTriangle /><div><strong>Cảnh báo cần kiểm tra</strong><span>Suy ra từ BCTC, không phải khuyến nghị</span></div></header>{alerts.length ? <div className="bctc-alert-list">{alerts.map((alert) => <div key={alert.code}><AlertTriangle /><p><strong>{alert.title}</strong><span>{alert.detail}</span></p></div>)}</div> : <Unavailable compact title="Chưa kích hoạt cảnh báo" detail="Không đồng nghĩa doanh nghiệp không có rủi ro." />}</article>
     {(workspace?.ratio_groups || []).map((group) => <article className="bctc-analysis-panel" key={group.key}><header><ShieldCheck /><div><strong>{group.label}</strong><span>Kỳ báo cáo mới nhất</span></div></header><div className="bctc-ratio-list">{group.metrics.map((metric) => <div key={metric.key}><span>{metric.label}</span><strong>{metric.value === null ? '—' : `${Number(metric.value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}${metric.unit === '%' ? '%' : metric.unit === 'x' ? 'x' : ''}`}</strong></div>)}</div></article>)}
+  </section>
+}
+
+const EVALUATION_STATUS = {
+  good: { label: 'Tốt', icon: CircleCheck },
+  watch: { label: 'Theo dõi', icon: CircleAlert },
+  risk: { label: 'Rủi ro', icon: AlertTriangle },
+  unavailable: { label: 'Thiếu dữ liệu', icon: Database },
+}
+
+function evaluationNumber(value, unit = '') {
+  const parsed = number(value)
+  if (parsed === null) return '—'
+  const suffix = unit === '%' ? '%' : unit === 'x' ? 'x' : unit === 'ngày' ? ' ngày' : ''
+  return `${parsed.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}${suffix}`
+}
+
+function StatusBadge({ status }) {
+  const config = EVALUATION_STATUS[status] || EVALUATION_STATUS.unavailable
+  const Icon = config.icon
+  return <span className={`bctc-eval-status is-${status || 'unavailable'}`}><Icon />{config.label}</span>
+}
+
+function relativeStatus(value, reference, higherIsBetter, tolerance) {
+  const current = number(value)
+  const baseline = number(reference)
+  if (current === null || baseline === null) return 'unavailable'
+  const delta = (current - baseline) / Math.max(Math.abs(baseline), 1)
+  if (Math.abs(delta) <= tolerance) return 'watch'
+  return (delta > 0) === higherIsBetter ? 'good' : 'risk'
+}
+
+function previousComparablePeriod(period) {
+  const raw = String(period || '')
+  const matched = raw.match(/^(\d{4})(-Q[1-4])?$/)
+  if (!matched) return 'Kỳ trước'
+  return `${Number(matched[1]) - 1}${matched[2] || ''}`
+}
+
+function EvaluationReport({ evaluation, workspace }) {
+  const categories = evaluation.categories || []
+  const latestPeriod = workspace?.company?.latest_period || 'Kỳ hiện tại'
+  const comparisonPeriod = previousComparablePeriod(latestPeriod)
+  return <section className="bctc-health-report">
+    <header>
+      <div><strong>Báo cáo sức khỏe tài chính</strong><span>Giá trị · xu hướng cùng kỳ · vị thế so với nhóm đối chứng</span></div>
+      <div className="bctc-health-report-legend"><StatusBadge status="good" /><StatusBadge status="watch" /><StatusBadge status="risk" /></div>
+    </header>
+    <div className="bctc-health-table-wrap">
+      <table className="bctc-health-table">
+        <caption className="bctc-sr-only">Bảng đánh giá chi tiết sức khỏe tài chính của doanh nghiệp</caption>
+        <thead>
+          <tr>
+            <th rowSpan="2" scope="col">Chỉ tiêu</th>
+            <th colSpan="3" scope="colgroup">Số liệu đối chiếu</th>
+            <th colSpan="3" scope="colgroup">Đánh giá kết quả</th>
+          </tr>
+          <tr>
+            <th scope="col">{latestPeriod}</th>
+            <th scope="col">{comparisonPeriod}</th>
+            <th scope="col">Trung vị đối chứng</th>
+            <th scope="col">So với cùng kỳ</th>
+            <th scope="col">So với đối chứng</th>
+            <th scope="col">Tổng hợp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {categories.map((category) => <Fragment key={category.key}>
+            <tr className="bctc-health-group">
+              <th colSpan="6" scope="rowgroup"><span>{category.label}</span><small>Trọng số {category.weight_pct}%</small></th>
+              <td><span className="bctc-health-group-score">{category.score ?? '—'}/100</span></td>
+            </tr>
+            {category.metrics.map((metric) => {
+              const trendStatus = relativeStatus(metric.value, metric.yoy_reference, metric.higher_is_better, .03)
+              const peerStatus = relativeStatus(metric.value, metric.peer_median, metric.higher_is_better, .10)
+              return <tr key={metric.key}>
+                <th scope="row"><span>{metric.label}</span><small>{metric.evidence?.join(' · ') || 'Chưa đủ dữ liệu để đối chiếu'}</small></th>
+                <td>{evaluationNumber(metric.value, metric.unit)}</td>
+                <td>{evaluationNumber(metric.yoy_reference, metric.unit)}</td>
+                <td>{evaluationNumber(metric.peer_median, metric.unit)}</td>
+                <td><StatusBadge status={trendStatus} /></td>
+                <td><StatusBadge status={peerStatus} /></td>
+                <td><StatusBadge status={metric.status} /></td>
+              </tr>
+            })}
+          </Fragment>)}
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+function EvaluationGuide() {
+  return <section className="bctc-evaluation-guide" aria-label="Cách đọc kết quả đánh giá">
+    <header><strong>Cách đọc kết quả</strong><span>Không dùng một tỷ số đơn lẻ để kết luận</span></header>
+    <div className="bctc-evaluation-guide-grid">
+      <article className="is-good"><StatusBadge status="good" /><p><strong>Tốt</strong> khi tín hiệu thuận chiếm ưu thế: cải thiện so với cùng kỳ, tốt hơn trung vị đối chứng hoặc đạt ngưỡng nền tảng phù hợp.</p></article>
+      <article className="is-watch"><StatusBadge status="watch" /><p><strong>Theo dõi</strong> khi kết quả gần như đi ngang, tín hiệu cân bằng hoặc chênh lệch chưa đủ lớn để kết luận.</p></article>
+      <article className="is-risk"><StatusBadge status="risk" /><p><strong>Rủi ro</strong> khi suy yếu so với cùng kỳ/đối chứng hoặc có dấu hiệu như thanh khoản dưới 1 lần, biên âm hay CFO không bao phủ LNST.</p></article>
+    </div>
+  </section>
+}
+
+function ComparisonTable({ comparison, ticker, peerTicker }) {
+  const metrics = comparison?.metrics || []
+  if (!metrics.length) return <Unavailable compact title="Chưa có dữ liệu so sánh" detail="Hãy nhập một mã có dữ liệu BCTC đã chuẩn hóa trong hệ thống." />
+  return <div className="bctc-compare-table-wrap">
+    <table className="bctc-compare-table">
+      <thead><tr><th>Tiêu chí</th><th>{ticker}</th><th>{peerTicker}</th><th>Đánh giá tương đối</th></tr></thead>
+      <tbody>{metrics.map((metric) => {
+        const target = number(metric.ticker_value)
+        const peer = number(metric.peer_median ?? metric.peer_avg)
+        let leader = 'Không đủ dữ liệu'
+        if (target !== null && peer !== null) {
+          const targetWins = metric.higher_is_better ? target > peer : target < peer
+          const tied = Math.abs(target - peer) <= Math.max(Math.abs(peer), 1) * .03
+          leader = tied ? 'Tương đương' : targetWins ? `${ticker} tốt hơn` : `${peerTicker} tốt hơn`
+        }
+        const unit = metric.field?.includes('_pct') ? '%' : metric.field === 'debt_to_equity' || metric.field === 'current_ratio' || metric.field === 'ocf_to_net_income' || metric.field === 'asset_turnover' ? 'x' : ''
+        return <tr key={metric.field}><th scope="row">{metric.label}</th><td>{evaluationNumber(target, unit)}</td><td>{evaluationNumber(peer, unit)}</td><td><span className={leader.includes(ticker) ? 'is-target' : leader.includes(peerTicker) ? 'is-peer' : ''}>{leader}</span></td></tr>
+      })}</tbody>
+    </table>
+  </div>
+}
+
+export function EvaluationView({ workspace, ticker }) {
+  const evaluation = workspace?.evaluation || {}
+  const overall = evaluation.overall || {}
+  const defaultPeer = workspace?.peers?.peer_tickers?.[0] || ''
+  const [peerInput, setPeerInput] = useState(defaultPeer)
+  const [peerTicker, setPeerTicker] = useState(defaultPeer)
+  const [comparison, setComparison] = useState(null)
+  const [compareState, setCompareState] = useState({ status: 'idle', message: '' })
+
+  async function compare(event) {
+    event.preventDefault()
+    const symbol = peerInput.trim().toUpperCase()
+    if (!symbol || symbol === ticker) {
+      setCompareState({ status: 'error', message: 'Nhập một mã khác doanh nghiệp hiện tại.' })
+      return
+    }
+    setCompareState({ status: 'loading', message: '' })
+    try {
+      const payload = await fetchFinancialPeers(ticker, symbol)
+      setPeerTicker(symbol)
+      setComparison(payload)
+      setCompareState({ status: 'ready', message: '' })
+    } catch (error) {
+      setComparison(null)
+      setCompareState({ status: 'error', message: error.message || 'Không tải được dữ liệu so sánh.' })
+    }
+  }
+
+  return <section className="bctc-insight-surface bctc-evaluation">
+    <header className="bctc-evaluation-hero">
+      <div className="bctc-evaluation-score">
+        <span>Điểm sàng lọc BCTC</span>
+        <strong>{overall.score ?? '—'}<small>/100</small></strong>
+        <StatusBadge status={overall.status} />
+      </div>
+      <div className="bctc-evaluation-summary">
+        <span className="bctc-report-kicker">ĐÁNH GIÁ ĐA TIÊU CHÍ</span>
+        <h2>{workspace?.company?.name || ticker}</h2>
+        <p>Tổng hợp sức khỏe tài chính, xu hướng cùng kỳ và vị thế tương đối với doanh nghiệp so sánh. Độ phủ dữ liệu {overall.coverage_pct ?? 0}% · độ tin cậy {({ high: 'cao', medium: 'trung bình', low: 'thấp' })[overall.confidence] || 'chưa xác định'}.</p>
+        <div className="bctc-evaluation-notice"><Scale />Đây là công cụ sàng lọc và học tập, không phải khuyến nghị mua hoặc bán.</div>
+      </div>
+    </header>
+
+    <EvaluationGuide />
+    <EvaluationReport evaluation={evaluation} workspace={workspace} />
+
+    <div className="bctc-evaluation-models">
+      <article><header><ShieldCheck /><div><strong>Piotroski F‑Score</strong><span>9 tín hiệu chất lượng nền tảng</span></div></header><b>{evaluation.models?.piotroski_f?.score ?? '—'}<small>/9</small></b><p>{evaluation.models?.piotroski_f?.score >= 7 ? 'Nhiều tín hiệu nền tảng tích cực.' : evaluation.models?.piotroski_f?.score <= 3 ? 'Nhiều tín hiệu nền tảng cần thận trọng.' : 'Tín hiệu nền tảng ở vùng trung tính.'}</p></article>
+      <article><header><AlertTriangle /><div><strong>Altman Z‑Score</strong><span>Cảnh báo distress, không dùng cho tài chính</span></div></header><b>{evaluation.models?.altman_z?.score ?? '—'}</b><p>{evaluation.models?.altman_z?.zone === 'safe' ? 'Nằm trong vùng an toàn của mô hình.' : evaluation.models?.altman_z?.zone === 'grey' ? 'Nằm trong vùng xám của mô hình.' : evaluation.models?.altman_z?.zone === 'distress' ? 'Nằm trong vùng distress của mô hình.' : 'Không áp dụng hoặc thiếu dữ liệu.'}</p></article>
+    </div>
+
+    <section className="bctc-company-compare">
+      <header><GitCompareArrows /><div><strong>So sánh hai doanh nghiệp</strong><span>Cùng bộ chỉ tiêu, ưu tiên doanh nghiệp cùng ngành</span></div></header>
+      <form onSubmit={compare}><label><span className="bctc-sr-only">Mã doanh nghiệp so sánh</span><input value={peerInput} onChange={(event) => setPeerInput(event.target.value.toUpperCase())} placeholder="Ví dụ: FPT" maxLength={20} /></label><button type="submit" disabled={compareState.status === 'loading'}>{compareState.status === 'loading' ? 'Đang so sánh…' : 'So sánh'}</button></form>
+      {compareState.status === 'error' && <p className="bctc-compare-error">{compareState.message}</p>}
+      {comparison && <ComparisonTable comparison={comparison} ticker={ticker} peerTicker={peerTicker} />}
+    </section>
+
+    <details className="bctc-evaluation-method">
+      <summary><BookOpen />Phương pháp, nguồn tham khảo và giới hạn</summary>
+      <p>{evaluation.methodology?.description}</p>
+      <div>{(evaluation.methodology?.sources || []).map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div>
+      <ul>{(evaluation.methodology?.limitations || []).map((item) => <li key={item}>{item}</li>)}</ul>
+    </details>
   </section>
 }
 

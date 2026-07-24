@@ -170,6 +170,7 @@ def _item_payload(row: sqlite3.Row) -> dict:
     return {
         "article_id": row["article_id"], "headline": row["headline"],
         "summary": row["summary"], "source": row["source"],
+        "url": row["url"],
         "source_flag": row["source_flag"], "published_at": row["published_at"],
         "category": category, "region": row["region"],
         "importance_score": int(row["importance_score"] or 0),

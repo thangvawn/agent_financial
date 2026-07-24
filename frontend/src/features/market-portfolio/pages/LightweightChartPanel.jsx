@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { createChart, AreaSeries, CandlestickSeries, HistogramSeries, LineStyle, CrosshairMode } from 'lightweight-charts'
+import { useEffect, useRef, useState } from 'react'
+import { createChart, AreaSeries, CandlestickSeries, HistogramSeries, LineStyle, CrosshairMode, PriceScaleMode } from 'lightweight-charts'
 
 /**
  * React wrapper around TradingView Lightweight Charts.
@@ -8,13 +8,22 @@ import { createChart, AreaSeries, CandlestickSeries, HistogramSeries, LineStyle,
  *
  * Data shape: points = [{date: ISO string, open?, high?, low?, close?, price?, volume?}, ...]
  */
-export default function LightweightChartPanel({ points, mode = 'area', height = 320, ariaLabel = 'Biểu đồ giá theo thời gian' }) {
+export default function LightweightChartPanel({
+  points,
+  mode = 'candle',
+  height = 430,
+  showVolume = true,
+  scaleMode = 'normal',
+  resetTrigger = 0,
+  ariaLabel = 'Biểu đồ giá theo thời gian',
+}) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const seriesRef = useRef(null)
   const volumeSeriesRef = useRef(null)
   const modeRef = useRef(mode)
   const pointsRef = useRef(points)
+  const [legend, setLegend] = useState(null)
 
   const isDark = (() => {
     if (typeof document === 'undefined') return true
@@ -33,7 +42,16 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
     if (!containerRef.current) return
     const chart = createChart(containerRef.current, buildChartOptions(initialOptionsRef.current))
     chartRef.current = chart
-    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } })
+    const handleCrosshair = (param) => {
+      if (!param?.time || !seriesRef.current) {
+        setLegend(null)
+        return
+      }
+      const price = param.seriesData.get(seriesRef.current)
+      const volume = volumeSeriesRef.current ? param.seriesData.get(volumeSeriesRef.current) : null
+      setLegend(normalizeLegend(price, volume, param.time))
+    }
+    chart.subscribeCrosshairMove(handleCrosshair)
 
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0]
@@ -45,6 +63,7 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
 
     return () => {
       ro.disconnect()
+      chart.unsubscribeCrosshairMove(handleCrosshair)
       chart.remove()
       chartRef.current = null
       seriesRef.current = null
@@ -72,18 +91,29 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
       try { chart.removeSeries(volumeSeriesRef.current) } catch { /* ignore */ }
       volumeSeriesRef.current = null
     }
+    if (chart.panes().length > 1) {
+      try { chart.removePane(1) } catch { /* ignore */ }
+    }
     if (mode === 'candle') {
       seriesRef.current = chart.addSeries(CandlestickSeries, candleSeriesOptions())
     } else {
       seriesRef.current = chart.addSeries(AreaSeries, areaSeriesOptions(isDark))
     }
-    volumeSeriesRef.current = chart.addSeries(HistogramSeries, volumeSeriesOptions())
+    if (showVolume) {
+      volumeSeriesRef.current = chart.addSeries(HistogramSeries, volumeSeriesOptions(), 1)
+      const panes = chart.panes()
+      panes[0]?.setStretchFactor(4)
+      panes[1]?.setStretchFactor(1)
+    }
+    chart.priceScale('right', 0).applyOptions({
+      mode: scaleMode === 'log' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+      autoScale: true,
+    })
     modeRef.current = mode
-    // Push current data right away
     pushData(seriesRef.current, pointsRef.current, mode)
     pushVolumeData(volumeSeriesRef.current, pointsRef.current)
     chart.timeScale().fitContent()
-  }, [mode, isDark])
+  }, [mode, isDark, showVolume, scaleMode])
 
   // Push data updates when points change (mode unchanged).
   useEffect(() => {
@@ -93,14 +123,35 @@ export default function LightweightChartPanel({ points, mode = 'area', height = 
     if (chartRef.current) chartRef.current.timeScale().fitContent()
   }, [points])
 
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || resetTrigger === 0) return
+    chart.timeScale().fitContent()
+    chart.priceScale('right', 0).applyOptions({ autoScale: true })
+    if (showVolume) chart.priceScale('right', 1).applyOptions({ autoScale: true })
+  }, [resetTrigger, showVolume])
+
+  const latest = legend || latestLegend(points)
   return (
-    <div
-      ref={containerRef}
-      className="gt-lwchart"
-      style={{ width: '100%', height: `${height}px` }}
-      role="img"
-      aria-label={ariaLabel}
-    />
+    <div className="gt-lwchart-shell">
+      {latest ? <div className="gt-lwchart-legend" aria-live="polite">
+        <span>{formatLegendTime(latest.time)}</span>
+        {mode === 'candle' ? <>
+          <span>O <b>{formatLwPrice(latest.open)}</b></span>
+          <span>H <b>{formatLwPrice(latest.high)}</b></span>
+          <span>L <b>{formatLwPrice(latest.low)}</b></span>
+          <span>C <b className={latest.close >= latest.open ? 'is-up' : 'is-down'}>{formatLwPrice(latest.close)}</b></span>
+        </> : <span>Giá <b>{formatLwPrice(latest.close)}</b></span>}
+        {showVolume ? <span>Vol <b>{formatVolume(latest.volume)}</b></span> : null}
+      </div> : null}
+      <div
+        ref={containerRef}
+        className="gt-lwchart"
+        style={{ width: '100%', height: `${height}px` }}
+        role="img"
+        aria-label={ariaLabel}
+      />
+    </div>
   )
 }
 
@@ -170,6 +221,11 @@ function buildChartOptions({ isDark, height }) {
       fontFamily: 'Inter, "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif',
       fontSize: 11,
       attributionLogo: false,
+      panes: {
+        enableResize: true,
+        separatorColor: palette.line,
+        separatorHoverColor: palette.accent,
+      },
     },
     grid: {
       vertLines: { color: palette.gridSubtle, style: LineStyle.Dotted },
@@ -258,7 +314,7 @@ function candleSeriesOptions() {
 
 function volumeSeriesOptions() {
   return {
-    priceScaleId: 'volume',
+    priceScaleId: 'right',
     priceFormat: { type: 'volume' },
     lastValueVisible: false,
     priceLineVisible: false,
@@ -303,4 +359,54 @@ function formatLwPrice(value) {
   if (!Number.isFinite(value)) return ''
   if (Math.abs(value) >= 1000) return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
   return value.toLocaleString('en-US', { maximumFractionDigits: 4 })
+}
+
+function normalizeLegend(price, volume, time) {
+  if (!price) return null
+  const close = Number(price.close ?? price.value)
+  return {
+    time,
+    open: Number(price.open ?? close),
+    high: Number(price.high ?? close),
+    low: Number(price.low ?? close),
+    close,
+    volume: Number(volume?.value ?? 0),
+  }
+}
+
+function latestLegend(points) {
+  const point = points?.[points.length - 1]
+  if (!point) return null
+  const close = Number(point.close ?? point.price)
+  return {
+    time: toTimeValue(point.date),
+    open: Number(point.open ?? close),
+    high: Number(point.high ?? close),
+    low: Number(point.low ?? close),
+    close,
+    volume: Number(point.volume ?? 0),
+  }
+}
+
+function formatLegendTime(time) {
+  if (!time) return ''
+  const date = typeof time === 'number'
+    ? new Date(time * 1000)
+    : new Date(`${time.year}-${time.month}-${time.day}`)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatVolume(value) {
+  if (!Number.isFinite(value)) return '—'
+  return new Intl.NumberFormat('vi-VN', {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  }).format(value)
 }

@@ -1,19 +1,3 @@
-# HỒ SƠ Ý TƯỞNG THAM DỰ AI–QUANTUM CHALLENGE 2026
-
-## Thông tin đề xuất
-
-- **Tên sản phẩm:** Northstar Finance Lab
-- **Tên đề tài:** Nền tảng AI giải thích được hỗ trợ phân tích rủi ro và kiểm thử chiến lược đầu tư trên thị trường chứng khoán Việt Nam
-- **Chủ đề đăng ký chính:** AI cho Dịch vụ Tài chính thông minh
-- **Hướng tác động bổ trợ:** AI cho Giáo dục Tài chính
-- **Đội thi:** [Tên đội]
-- **Thành viên:** [Họ tên – trường/lớp – vai trò]
-- **Người liên hệ:** [Họ tên – email – số điện thoại]
-
-> Ghi chú: Bản mô tả phân biệt rõ ba mức độ: **đã triển khai**, **đang hoàn thiện** và **định hướng phát triển**. Các chỉ số định lượng chỉ được điền sau khi chạy benchmark trên tập dữ liệu và cấu hình cố định.
-
----
-
 ## 1. Bản tóm tắt dùng cho biểu mẫu đăng ký
 
 Nhà đầu tư cá nhân tại Việt Nam hiện phải sử dụng nhiều nguồn rời rạc để theo dõi giá, báo cáo tài chính, dữ liệu vĩ mô và kiểm thử chiến lược. Phần lớn công cụ phổ thông mới dừng ở việc hiển thị thông tin hoặc đưa ra chỉ báo kỹ thuật; người dùng khó trả lời đồng thời bốn câu hỏi: thị trường đang ở trạng thái nào, rủi ro giảm giá trong từng kỳ hạn là bao nhiêu, yếu tố nào tạo ra rủi ro đó, và một chiến lược cụ thể sẽ tác động thế nào đến tài sản của mình. Việc thiếu khả năng giải thích và kiểm chứng dễ dẫn đến quyết định cảm tính, quá tin vào tín hiệu hoặc đánh giá thấp rủi ro đuôi.

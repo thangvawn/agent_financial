@@ -8,9 +8,9 @@ import {
   createSeriesMarkers,
 } from 'lightweight-charts'
 import {
-  Activity, AlertTriangle, ArrowLeft, BarChart3, Beaker, BookOpen,
-  Check, ChevronRight, CircleDot, Clock3, Database, FlaskConical,
-  GitCompareArrows, History, Layers3, Play, Plus, RefreshCw, Save,
+  Activity, AlertTriangle, BarChart3, Beaker, BookOpen,
+  Check, ChevronRight, CircleDot, Clock3, Database,
+  GitCompareArrows, History, Play, Plus, RefreshCw, Save,
   Settings2, ShieldCheck, SlidersHorizontal, Trash2,
 } from 'lucide-react'
 
@@ -22,9 +22,9 @@ import {
 import './simulation-lab-workspace.css'
 
 const NAV = [
-  ['builder', 'Strategy builder', SlidersHorizontal],
+  ['builder', 'Xây chiến lược', SlidersHorizontal],
   ['results', 'Kết quả', BarChart3],
-  ['compare', 'So sánh runs', GitCompareArrows],
+  ['compare', 'So sánh lần chạy', GitCompareArrows],
   ['history', 'Lịch sử', History],
 ]
 
@@ -47,7 +47,7 @@ const DEFAULT_EXECUTION = {
   settlement: 'T+2',
 }
 
-export default function SimulationLabWorkspace({ sessionId, onBack }) {
+export default function SimulationLabWorkspace({ sessionId }) {
   const [token, setToken] = useState(() => localStorage.getItem('pro_lab.access_token') || '')
   const [studio, setStudio] = useState(null)
   const [strategy, setStrategy] = useState(DEFAULT_STRATEGY)
@@ -57,7 +57,6 @@ export default function SimulationLabWorkspace({ sessionId, onBack }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
-  const [mobileNav, setMobileNav] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -117,21 +116,26 @@ export default function SimulationLabWorkspace({ sessionId, onBack }) {
     }))
   }
 
+  const tabContext = {
+    builder: ['Xây chiến lược', 'Thiết lập giả thuyết và giả định mô phỏng'],
+    results: ['Kết quả backtest', result ? 'Báo cáo từ lần chạy gần nhất' : 'Chạy backtest để mở báo cáo'],
+    compare: ['So sánh lần chạy', 'Đặt các cấu hình cạnh nhau để kiểm tra độ bền'],
+    history: ['Lịch sử thí nghiệm', 'Mở lại các lần chạy đã được lưu'],
+  }[active]
+
   return (
     <main className="simlab">
-      <aside className={`simlab__rail ${mobileNav ? 'is-open' : ''}`}>
-        <div className="simlab__brand"><FlaskConical size={18} /><span>Simulation Lab</span></div>
-        <button className="simlab__back" type="button" onClick={onBack}><ArrowLeft size={15} /> Terminal</button>
+      <div className="simlab__rail">
         <nav>
-          <p className="simlab__nav-label">WORKSPACE</p>
+          <p className="simlab__nav-label">KHÔNG GIAN LÀM VIỆC</p>
           {NAV.map(([id, label, Icon]) => (
-            <button key={id} type="button" className={active === id ? 'is-active' : ''} onClick={() => { setActive(id); setMobileNav(false) }}>
+            <button key={id} type="button" className={active === id ? 'is-active' : ''} onClick={() => setActive(id)}>
               {createElement(Icon, { size: 16 })}<span>{label}</span>{id === 'history' && runs.length ? <b>{runs.length}</b> : null}
             </button>
           ))}
         </nav>
         <div className="simlab__rail-section">
-          <p className="simlab__nav-label">MẪU CHIẾN LƯỢC</p>
+          <p className="simlab__nav-label">MẪU NHANH</p>
           {(studio?.templates || []).map((item) => (
             <button className="simlab__template" key={item.id} type="button" onClick={() => applyTemplate(item)}>
               <span>{item.name}</span><ChevronRight size={14} />
@@ -139,30 +143,30 @@ export default function SimulationLabWorkspace({ sessionId, onBack }) {
           ))}
         </div>
         <div className="simlab__data-pill">
-          <span><Database size={14} /> Historical feed</span>
+          <span><Database size={14} /> Dữ liệu lịch sử</span>
           <strong><i /> {studio?.data_status?.provider || 'checking'}</strong>
         </div>
-      </aside>
+      </div>
 
       <section className="simlab__main">
         <header className="simlab__topbar">
-          <button className="simlab__mobile-menu" type="button" onClick={() => setMobileNav(!mobileNav)}><Layers3 size={18} /></button>
-          <div className="simlab__title-block">
-            <input aria-label="Tên chiến lược" value={strategy.name} onChange={(e) => setStrategy({ ...strategy, name: e.target.value })} />
-            <span><CircleDot size={10} /> Bản nháp · tự động lưu cục bộ</span>
+          <div className={`simlab__title-block ${active === 'builder' ? 'is-builder' : ''}`}>
+            {active === 'builder'
+              ? <><input aria-label="Tên chiến lược" value={strategy.name} onChange={(e) => setStrategy({ ...strategy, name: e.target.value })} /><span><CircleDot size={10} /> Bản nháp · tự động lưu cục bộ</span></>
+              : <><strong>{tabContext[0]}</strong><span>{tabContext[1]}</span></>}
           </div>
-          <div className="simlab__actions">
+          {active === 'builder' ? <div className="simlab__actions">
             <button type="button" className="simlab__icon-btn" title="Lưu"><Save size={16} /></button>
             <button type="button" className="simlab__run" onClick={runBacktest} disabled={running || !studio}>
               {running ? <RefreshCw className="is-spinning" size={16} /> : <Play size={16} fill="currentColor" />}
               {running ? 'Đang chạy…' : 'Chạy backtest'}
             </button>
-          </div>
+          </div> : null}
         </header>
 
         {error ? <div className="simlab__error"><AlertTriangle size={16} />{error}</div> : null}
         {active === 'builder' ? (
-          <Builder strategy={strategy} setStrategy={setStrategy} execution={execution} setExecution={setExecution} period={period} setPeriod={setPeriod} studio={studio} />
+          <Builder strategy={strategy} setStrategy={setStrategy} execution={execution} setExecution={setExecution} period={period} setPeriod={setPeriod} studio={studio} onRun={runBacktest} running={running} />
         ) : null}
         {active === 'results' ? (running ? <RunProgress strategy={strategy} /> : <Results result={result} runs={runs} />) : null}
         {active === 'compare' ? <Compare runs={runs} /> : null}
@@ -172,12 +176,12 @@ export default function SimulationLabWorkspace({ sessionId, onBack }) {
   )
 }
 
-function Builder({ strategy, setStrategy, execution, setExecution, period, setPeriod, studio }) {
+function Builder({ strategy, setStrategy, execution, setExecution, period, setPeriod, studio, onRun, running }) {
   return (
     <div className="simlab__workspace">
       <section className="simlab__canvas">
         <div className="simlab__section-head">
-          <div><span className="simlab__kicker">LOGIC CANVAS</span><h1>Thiết kế giả thuyết có thể kiểm chứng</h1></div>
+          <div><span className="simlab__kicker">THIẾT KẾ CHIẾN LƯỢC</span><h1>Biến giả thuyết thành quy tắc kiểm chứng</h1><p className="simlab__section-copy">Khai báo phạm vi, điều kiện giao dịch và giả định thực thi trước khi chạy mô phỏng.</p></div>
           <span className="simlab__status"><Check size={13} /> Hợp lệ</span>
         </div>
         <div className="simlab__hypothesis">
@@ -194,9 +198,15 @@ function Builder({ strategy, setStrategy, execution, setExecution, period, setPe
         <StrategyBlock number="03" tone="red" title="Điều kiện thoát" subtitle="Đóng vị thế khi một điều kiện được kích hoạt">
           <RuleEditor rules={strategy.exit_rules} onChange={(exit_rules) => setStrategy({ ...strategy, exit_rules })} fields={studio?.supported_fields} />
         </StrategyBlock>
+        <section className="simlab__review-bar">
+          <div><span>Phạm vi</span><strong>{strategy.universe.length} mã · {strategy.benchmark}</strong></div>
+          <div><span>Khoảng kiểm thử</span><strong>{period.start_date} → {period.end_date}</strong></div>
+          <div><span>Chi phí giả định</span><strong>{execution.commission_pct}% phí · {execution.slippage_pct}% trượt giá</strong></div>
+          <button type="button" onClick={onRun} disabled={running || !studio}>{running ? <RefreshCw className="is-spinning" size={16} /> : <Play size={16} fill="currentColor" />}{running ? 'Đang chạy…' : 'Chạy backtest'}</button>
+        </section>
       </section>
       <aside className="simlab__config">
-        <div className="simlab__config-head"><Settings2 size={16} /><strong>Data & execution</strong></div>
+        <div className="simlab__config-head"><Settings2 size={16} /><strong>Dữ liệu & thực thi</strong></div>
         <ConfigGroup label="Khoảng kiểm thử">
           <div className="simlab__date-grid"><label><span>Từ ngày</span><input type="date" value={period.start_date} onChange={(e) => setPeriod({ ...period, start_date: e.target.value })} /></label><label><span>Đến ngày</span><input type="date" value={period.end_date} onChange={(e) => setPeriod({ ...period, end_date: e.target.value })} /></label></div>
         </ConfigGroup>
@@ -207,9 +217,9 @@ function Builder({ strategy, setStrategy, execution, setExecution, period, setPe
         <ConfigGroup label="Mô phỏng lệnh">
           <MoneyInput label="Vốn ban đầu" value={execution.initial_capital} onChange={(value) => setExecution({ ...execution, initial_capital: value })} suffix="₫" />
           <div className="simlab__split"><NumberInput label="Phí" value={execution.commission_pct} onChange={(value) => setExecution({ ...execution, commission_pct: value })} /><NumberInput label="Trượt giá" value={execution.slippage_pct} onChange={(value) => setExecution({ ...execution, slippage_pct: value })} /></div>
-          <div className="simlab__vn-rules"><ShieldCheck size={16} /><div><strong>Vietnam execution profile</strong><span>Lot 100 · T+2 · equal weight</span></div></div>
+          <div className="simlab__vn-rules"><ShieldCheck size={16} /><div><strong>Quy tắc thị trường Việt Nam</strong><span>Lô 100 · T+2 · phân bổ đều</span></div></div>
         </ConfigGroup>
-        <div className="simlab__fidelity"><AlertTriangle size={15} /><p><strong>Research fidelity</strong> Phí, trượt giá, lot và T+2 được lưu để audit, hiện chưa khấu trừ trực tiếp.</p></div>
+        <div className="simlab__fidelity"><AlertTriangle size={15} /><p><strong>Độ trung thực mô phỏng</strong> Phí, trượt giá, lô và T+2 được lưu để kiểm tra; engine hiện chưa khấu trừ trực tiếp.</p></div>
       </aside>
     </div>
   )
@@ -242,13 +252,13 @@ function Results({ result, runs }) {
   const snapshot = engine.portfolio_snapshot || null
   const finalValue = metrics.final_value ?? metrics.ending_value ?? portfolio.at(-1)?.value
   return <div className="simlab__results">
-    <div className="simlab__results-head"><div><span className="simlab__kicker">RUN REPORT</span><h1>{experiment.experiment_id}</h1><p>{engine.start_date} → {engine.end_date} · {engine.interval || '1d'} · {engine.source || 'unknown source'}</p></div><span className={`simlab__fidelity-badge ${result?.fidelity?.level === 'offline' ? 'is-offline' : ''}`}><Activity size={13} />{result?.fidelity?.level === 'offline' ? 'Offline fallback' : 'Research result'}</span></div>
+    <div className="simlab__results-head"><div><span className="simlab__kicker">BÁO CÁO BACKTEST</span><h1>{experiment.experiment_id}</h1><p>{engine.start_date} → {engine.end_date} · {engine.interval || '1d'} · {engine.source || 'không rõ nguồn'}</p></div><span className={`simlab__fidelity-badge ${result?.fidelity?.level === 'offline' ? 'is-offline' : ''}`}><Activity size={13} />{result?.fidelity?.level === 'offline' ? 'Dữ liệu dự phòng' : 'Kết quả nghiên cứu'}</span></div>
     <div className="simlab__metrics"><Metric label="Tổng lợi nhuận" value={pct(metrics.total_return_pct)} /><Metric label="Sharpe" value={num(metrics.sharpe ?? metrics.sharpe_ratio)} /><Metric label="Max drawdown" value={pct(metrics.max_drawdown_pct)} negative /><Metric label="Số giao dịch" value={Number.isFinite(Number(strategyMetrics.trade_count)) ? String(strategyMetrics.trade_count) : '—'} /></div>
     {activeTicker ? <InstrumentAnalysis ticker={activeTicker} tickers={tickers} onSelect={setSelectedTicker} points={instruments[activeTicker]} trades={trades.filter((trade) => trade.ticker === activeTicker)} openPosition={openPositions.find((item) => item.ticker === activeTicker)} /> : null}
     <PortfolioSnapshot snapshot={snapshot} fallbackValue={finalValue} />
     <section className="simlab__chart-panel simlab__portfolio-chart"><div className="simlab__panel-title"><div><h2>Dòng vốn danh mục</h2><p>Giá trị mark-to-market của toàn bộ danh mục theo từng phiên</p></div><div className="simlab__legend"><span><i className="portfolio" />Portfolio</span><span><i className="benchmark" />VN-Index</span></div></div><EquityChart primary={portfolio} secondary={benchmark} /></section>
     {trades.length ? <TradeLedger trades={trades} /> : <div className="simlab__no-trades"><AlertTriangle size={15} /><span>Rule không tạo giao dịch trong giai đoạn này. Hãy kiểm tra điều kiện và timeframe.</span></div>}
-    <div className="simlab__result-grid"><section className="simlab__report-card"><h3><ShieldCheck size={16} /> Data & execution audit</h3><dl><div><dt>Nguồn</dt><dd>{engine.source || 'Không xác định'}</dd></div><div><dt>Universe</dt><dd>{(engine.tickers || []).join(', ') || '—'}</dd></div><div><dt>Phí / trượt giá</dt><dd>Ghi nhận, chưa khấu trừ</dd></div><div><dt>Benchmark</dt><dd>{engine.benchmark_label || 'Không có'}</dd></div></dl></section><section className="simlab__report-card"><h3><AlertTriangle size={16} /> Cảnh báo engine</h3>{warnings.length ? <ul>{warnings.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="simlab__quiet">Không có cảnh báo do engine trả về.</p>}</section></div>
+    <div className="simlab__result-grid"><section className="simlab__report-card"><h3><ShieldCheck size={16} /> Kiểm tra dữ liệu & thực thi</h3><dl><div><dt>Nguồn</dt><dd>{engine.source || 'Không xác định'}</dd></div><div><dt>Phạm vi</dt><dd>{(engine.tickers || []).join(', ') || '—'}</dd></div><div><dt>Phí / trượt giá</dt><dd>Ghi nhận, chưa khấu trừ</dd></div><div><dt>Benchmark</dt><dd>{engine.benchmark_label || 'Không có'}</dd></div></dl></section><section className="simlab__report-card"><h3><AlertTriangle size={16} /> Cảnh báo mô phỏng</h3>{warnings.length ? <ul>{warnings.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="simlab__quiet">Engine không trả về cảnh báo.</p>}</section></div>
   </div>
 }
 
@@ -329,7 +339,7 @@ function EquityChart({ primary, secondary, trades = [] }) {
 }
 
 function TradeLedger({ trades }) {
-  return <section className="simlab__trades"><div className="simlab__panel-title"><div><h2>Trade ledger</h2><p>Điểm vào/thoát do backend sinh từ rule, thực thi ở phiên kế tiếp</p></div><span>{trades.length} giao dịch</span></div><div className="simlab__trade-table"><div className="head">Mã</div><div className="head">BUY</div><div className="head">SELL</div><div className="head">Nắm giữ</div><div className="head">P/L</div>{trades.slice().reverse().slice(0, 30).flatMap((trade, index) => [<div key={`${index}-ticker`}><strong>{trade.ticker}</strong></div>, <div key={`${index}-entry`}><b className="buy">{trade.entry_date}</b><small>{num(trade.entry_price)}</small></div>, <div key={`${index}-exit`}><b className="sell">{trade.exit_date}</b><small>{num(trade.exit_price)}</small></div>, <div key={`${index}-hold`}>{trade.holding_days} ngày</div>, <div className={Number(trade.return_pct) >= 0 ? 'positive' : 'negative'} key={`${index}-return`}>{pct(trade.return_pct)}</div>])}</div></section>
+  return <section className="simlab__trades"><div className="simlab__panel-title"><div><h2>Sổ lệnh mô phỏng</h2><p>Điểm vào/thoát do engine sinh từ quy tắc, thực thi ở phiên kế tiếp</p></div><span>{trades.length} giao dịch</span></div><div className="simlab__trade-table"><div className="head">Mã</div><div className="head">Mua</div><div className="head">Bán</div><div className="head">Nắm giữ</div><div className="head">Lãi/lỗ</div>{trades.slice().reverse().slice(0, 30).flatMap((trade, index) => [<div key={`${index}-ticker`}><strong>{trade.ticker}</strong></div>, <div key={`${index}-entry`}><b className="buy">{trade.entry_date}</b><small>{num(trade.entry_price)}</small></div>, <div key={`${index}-exit`}><b className="sell">{trade.exit_date}</b><small>{num(trade.exit_price)}</small></div>, <div key={`${index}-hold`}>{trade.holding_days} ngày</div>, <div className={Number(trade.return_pct) >= 0 ? 'positive' : 'negative'} key={`${index}-return`}>{pct(trade.return_pct)}</div>])}</div></section>
 }
 
 function ConfigGroup({ label, children }) { return <section className="simlab__config-group"><h3>{label}</h3>{children}</section> }

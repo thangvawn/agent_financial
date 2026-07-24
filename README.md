@@ -176,9 +176,20 @@ Copy từ [`.env.example`](.env.example). **Không commit** file `.env` lên Git
 | `ELEVENLABS_*` | Không | Giọng ElevenLabs; để trống vẫn dùng voice local |
 | `API_SECRET_KEY` | Không | Nếu đặt, gửi header `X-API-Key` cho API (trừ một số route công khai) |
 | `FINNHUB_API_KEY` | Không | Lịch vĩ mô / quote (xem comment trong `.env.example`) |
+| `TELEGRAM_BOT_TOKEN` | Có nếu gửi News qua Telegram | Token do BotFather cấp; không commit vào Git |
+| `TELEGRAM_CHAT_ID` | Có nếu gửi News qua Telegram | ID người nhận, group hoặc channel |
+| `TELEGRAM_TRANSLATION_MODEL` | Không | Model dịch/tóm tắt tiếng Việt; mặc định `gpt-4o-mini` |
+| `ENABLE_TELEGRAM_NEWS_SCHEDULER` | Không | `1` bật lịch gửi ngày/tuần/tháng |
 | `LOG_LEVEL` | Không | `INFO`, `DEBUG`, … |
 
 Chi tiết thêm: xem comment trong `.env.example`.
+
+Kiểm tra Telegram sau khi cấu hình:
+
+```bash
+risk-telegram-news test
+risk-telegram-news day --force
+```
 
 ---
 

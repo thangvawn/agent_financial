@@ -6,14 +6,14 @@ import {
 
 import { fetchCompanyFinancialWorkspace } from '../services/financialsApi'
 import {
-  AnalysisView, DocumentsView, FinancialChartsView, GovernanceView,
+  AnalysisView, DocumentsView, EvaluationView, FinancialChartsView, GovernanceView,
   TechnicalView,
 } from './CompanyInsightTabs'
 import { useCompanyMarketContext } from './useCompanyMarketContext'
 import './bctc-workspace.css'
 
 const COMPANY_TABS = [
-  ['charts', 'BIỂU ĐỒ'], ['financials', 'TÀI CHÍNH'], ['technical', 'KỸ THUẬT'],
+  ['charts', 'BIỂU ĐỒ'], ['evaluation', 'ĐÁNH GIÁ'], ['financials', 'TÀI CHÍNH'], ['technical', 'KỸ THUẬT'],
   ['analysis', 'PHÂN TÍCH'], ['governance', 'QUẢN TRỊ'], ['documents', 'TÀI LIỆU'],
 ]
 const REPORT_TABS = [
@@ -185,6 +185,7 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
 
     <section className="bctc-stage">
       {activeCompanyTab === 'charts' && status === 'ready' && <FinancialChartsView workspace={workspace} />}
+      {activeCompanyTab === 'evaluation' && status === 'ready' && <EvaluationView key={ticker} workspace={workspace} ticker={ticker} />}
       {activeCompanyTab === 'technical' && <TechnicalView marketContext={marketContext.data} loading={marketContext.loading} />}
       {activeCompanyTab === 'analysis' && status === 'ready' && <AnalysisView workspace={workspace} />}
       {activeCompanyTab === 'governance' && <GovernanceView marketContext={marketContext.data} loading={marketContext.loading} />}

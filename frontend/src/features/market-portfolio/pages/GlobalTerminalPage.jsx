@@ -1153,7 +1153,10 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
     return rawPoints.filter((p) => new Date(p.date).getTime() >= yearStart)
   }, [history?.points, isYtd])
 
-  const [chartMode, setChartMode] = useState('area')
+  const [chartMode, setChartMode] = useState('candle')
+  const [showVolume, setShowVolume] = useState(true)
+  const [scaleMode, setScaleMode] = useState('normal')
+  const [resetTrigger, setResetTrigger] = useState(0)
   const hasOhlc = points.length > 0 && points[0]?.open != null && points[0]?.high != null
   const effectiveMode = hasOhlc ? chartMode : 'area'
 
@@ -1170,18 +1173,41 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
       </div>
       <div className="gt-chart">
         <div className="gt-chart__controls">
-          {CHART_PRESETS.map((preset) => (
+          <div className="gt-chart__ranges" aria-label="Khoảng thời gian">
+            {CHART_PRESETS.map((preset) => (
+              <button
+                type="button"
+                key={preset.id}
+                className={`gt-chart__btn ${preset.id === presetId ? 'is-active' : ''}`}
+                aria-pressed={preset.id === presetId}
+                onClick={() => onPresetChange(preset.id)}
+                title={`${preset.period} · ${preset.interval}`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <div className="gt-chart__tools" aria-label="Tuỳ chỉnh biểu đồ">
             <button
               type="button"
-              key={preset.id}
-              className={`gt-chart__btn ${preset.id === presetId ? 'is-active' : ''}`}
-              aria-pressed={preset.id === presetId}
-              onClick={() => onPresetChange(preset.id)}
-              title={`${preset.period} · ${preset.interval}`}
+              className={`gt-chart__tool ${showVolume ? 'is-active' : ''}`}
+              aria-pressed={showVolume}
+              onClick={() => setShowVolume((value) => !value)}
             >
-              {preset.label}
+              Khối lượng
             </button>
-          ))}
+            <button
+              type="button"
+              className={`gt-chart__tool ${scaleMode === 'log' ? 'is-active' : ''}`}
+              aria-pressed={scaleMode === 'log'}
+              onClick={() => setScaleMode((value) => value === 'log' ? 'normal' : 'log')}
+            >
+              Log
+            </button>
+            <button type="button" className="gt-chart__tool" onClick={() => setResetTrigger((value) => value + 1)}>
+              Đặt lại
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="gt-chart__state" aria-live="polite">
@@ -1200,11 +1226,14 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
             <LightweightChartPanel
               points={points}
               mode={effectiveMode}
-              height={340}
+              height={460}
+              showVolume={showVolume}
+              scaleMode={scaleMode}
+              resetTrigger={resetTrigger}
               ariaLabel={`Biểu đồ giá ${history?.symbol || ''}, ${describeInterval(presetId, history?.source)}, ${points.length} điểm dữ liệu`}
             />
             <div className="gt-chart__hint">
-              Cuộn để zoom · kéo để pan · double-click trục để reset
+              Cuộn: zoom thời gian · kéo: pan · kéo đường phân cách: đổi chiều cao volume · kéo trục giá: scale
             </div>
           </>
         ) : (
