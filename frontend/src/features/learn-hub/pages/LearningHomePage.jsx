@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { useLearningAssets, useLearningCatalog } from '..'
+import { useLearningAssets } from '..'
 import { SearchIcon } from '../../../shared/Icons'
 import { COURSE_CATEGORIES, DEMO_COURSES, filterCourses } from '../content/courseCatalogData'
 import { BookReaderWorkspace } from './BookReaderWorkspace'
@@ -32,9 +32,19 @@ function getCourseProgress(courseId, totalLessons) {
   return { pct: totalLessons > 0 ? (done / totalLessons) * 100 : 0 }
 }
 
+import { BookOpen, Compass, Award, TrendingUp, BarChart3, FileText, Sparkles } from 'lucide-react'
+import '../../market-portfolio/pages/market-portfolio-panels.css'
+
+const LEARN_SUBTABS = [
+  { id: 'all', label: 'Khóa học & Bài giảng', icon: BookOpen },
+  { id: 'docs', label: 'Sách & Tài liệu', icon: FileText },
+  { id: 'ai_tutor', label: 'Hỏi AI Tutor', icon: Sparkles },
+]
+
 export default function LearningHomePage({ sessionId, onBack }) {
   const queryClient = useQueryClient()
   const [category, setCategory] = useState('all')
+  const [activeSubTab, setActiveSubTab] = useState('all')
   const [search, setSearch] = useState('')
   const [activeCourseId, setActiveCourseId] = useState(null)
   const [activeBook, setActiveBook] = useState(null)
@@ -89,52 +99,47 @@ export default function LearningHomePage({ sessionId, onBack }) {
 
   return (
     <section className="lh-shell" data-domain="learn_hub">
-      {/* Hero */}
-      <header className="lh-hero">
-        <div className="lh-hero__inner">
-          <div className="lh-hero__text">
-            <p className="lh-hero__kicker">Learn Hub</p>
-            <h1 className="lh-hero__title">Thư viện khóa học</h1>
-            <p className="lh-hero__subtitle">Học tài chính và đầu tư qua video — từ cơ bản đến nâng cao</p>
-          </div>
-          <div className="lh-hero__search">
-            <SearchIcon className="lh-hero__search-icon" aria-hidden="true" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm khóa học, chủ đề…"
-              className="lh-hero__search-input"
-            />
-          </div>
+      {/* Synchronized Sub-Tab Bar with Integrated Search Input */}
+      <div className="mp-desk__tabs justify-between items-center" role="tablist" aria-label="Learn Hub Sub Tabs">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {LEARN_SUBTABS.map((item) => {
+            const Icon = item.icon
+            const isActive = activeSubTab === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={isActive ? 'is-active' : ''}
+                onClick={() => {
+                  setActiveSubTab(item.id)
+                  if (['all', 'basics', 'ta', 'valuation'].includes(item.id)) {
+                    setCategory(item.id)
+                  }
+                }}
+              >
+                <Icon size={14} />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
         </div>
-      </header>
 
-      {/* Category chips */}
-      <div className="lh-chips-bar">
-        <div className="lh-chips" role="tablist" aria-label="Danh mục khóa học">
-          {COURSE_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              role="tab"
-              aria-selected={category === cat.id}
-              className={`lh-chip ${category === cat.id ? 'lh-chip--active' : ''}`}
-              onClick={() => setCategory(cat.id)}
-            >
-              {cat.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="lh-chip lh-chip--refresh"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['learning'] })}
-            title="Làm mới dữ liệu"
-          >
-            ↻ Làm mới
-          </button>
+        {/* Integrated Search Box */}
+        <div className="relative flex items-center ml-auto flex-shrink-0">
+          <SearchIcon className="absolute left-3 w-3.5 h-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm khóa học, chủ đề..."
+            className="pl-8 pr-3 py-1 text-xs text-zinc-200 bg-zinc-900/90 border border-zinc-800 focus:border-teal-500/50 rounded-lg outline-none transition-all w-44 focus:w-56"
+          />
         </div>
       </div>
+
+
 
       {/* Scrollable body */}
       <div className="lh-body">

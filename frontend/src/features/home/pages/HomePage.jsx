@@ -33,7 +33,6 @@ export default function HomePage({
   return (
     <section className="home-redesign sparkle-home" aria-label="Northstar Finance Lab">
       <SparkleHero actions={actions} />
-      <SparkleModuleStrip onOpen={actions} />
       <SparkleDemoFlow />
       <SparkleFeatureGrid />
       <SparkleAppCta actions={actions} />

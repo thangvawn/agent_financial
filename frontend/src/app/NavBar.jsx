@@ -1,4 +1,6 @@
 import React from 'react'
+import { motion } from 'framer-motion'
+import NorthstarLogo from '../shared/components/NorthstarLogo'
 
 const SURFACE_LABELS = {
   onboarding: 'Onboarding',
@@ -23,16 +25,18 @@ export default function NavBar({
 }) {
   return (
     <header className="app-shell__masthead">
-      <div>
-        <button
+      <div className="app-shell__masthead-brand-group">
+        <motion.button
           type="button"
-          className="app-shell__brand"
+          className="app-shell__brand border-none bg-transparent p-0 flex items-center cursor-pointer outline-none focus:outline-none"
           onClick={onNavigateHome}
           title="Về Trang Chủ"
           aria-label="Về Trang Chủ"
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
         >
-          Northstar Finance Lab
-        </button>
+          <NorthstarLogo size={28} />
+        </motion.button>
         <p className="app-shell__surface">{SURFACE_LABELS[renderedView] || 'Workspace'}</p>
       </div>
       <div className="app-shell__masthead-actions">
@@ -40,9 +44,15 @@ export default function NavBar({
           {tone === 'pro' ? 'Simulation' : 'Education'}
         </span>
         {sessionId && !['home', 'onboarding', 'global_terminal'].includes(renderedView) ? (
-          <button type="button" className="button-ghost" onClick={onOpenTerminal}>
+          <motion.button
+            type="button"
+            className="button-ghost"
+            onClick={onOpenTerminal}
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.95 }}
+          >
             Market
-          </button>
+          </motion.button>
         ) : null}
       </div>
     </header>

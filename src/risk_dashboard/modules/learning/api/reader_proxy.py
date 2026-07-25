@@ -18,9 +18,14 @@ _ALLOWED_HOST_SUFFIXES = (
     "wikipedia.org",
     "wikimedia.org",
     "cloudfront.net",
+    "gutenberg.net.au",
 )
 
 _MAX_BYTES = 40 * 1024 * 1024
+_BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
 
 
 def _host_allowed(hostname: str) -> bool:
@@ -72,7 +77,10 @@ def stream_reader_content(url: str = Query(..., min_length=8, max_length=2000)):
             client.build_request(
                 "GET",
                 target,
-                headers={"User-Agent": "NorthstarFinanceLabReader/1.0"},
+                headers={
+                    "User-Agent": _BROWSER_UA,
+                    "Accept": "application/pdf,application/octet-stream,*/*",
+                },
             ),
             stream=True,
         )
@@ -119,5 +127,27 @@ def stream_reader_content(url: str = Query(..., min_length=8, max_length=2000)):
         "Content-Disposition": "inline",
         "Cache-Control": "private, max-age=300",
         "X-Content-Type-Options": "nosniff",
+        "Accept-Ranges": "none",
     }
     return StreamingResponse(iter_bytes(), media_type=content_type or "application/pdf", headers=headers)
+
+
+@router.get("/reader/check")
+def check_reader_content(url: str = Query(..., min_length=8, max_length=2000)) -> dict:
+    """Lightweight probe so the UI can decide proxy vs fallback before embedding."""
+    target = _validate_remote_url(url.strip())
+    headers = {
+        "User-Agent": _BROWSER_UA,
+        "Accept": "application/pdf,application/octet-stream,*/*",
+    }
+    try:
+        with httpx.Client(timeout=25.0, follow_redirects=True) as client:
+            response = client.get(target, headers={**headers, "Range": "bytes=0-1023"})
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Không kiểm tra được nguồn sách.") from exc
+
+    content_type = (response.headers.get("content-type") or "").split(";")[0].strip().lower()
+    ok = response.status_code < 400 and "html" not in content_type
+    if not ok:
+        raise HTTPException(status_code=502, detail="File PDF không còn tồn tại ở nguồn.")
+    return {"ok": True, "content_type": content_type or "application/pdf", "status_code": response.status_code}

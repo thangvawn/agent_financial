@@ -196,10 +196,24 @@ body.br-resizing object {
 }
 
 .br-doc {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
   background: #111814;
+}
+
+.br-doc__actions {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.br-doc__actions .br-btn {
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .br-doc__frame {
@@ -224,6 +238,14 @@ body.br-resizing object {
   text-align: center;
   color: #d7e2dc;
   background: #18231f;
+}
+
+.br-doc--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(24, 35, 31, 0.88);
 }
 
 .br-doc--text {

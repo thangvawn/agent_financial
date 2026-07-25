@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database,
-  Download, FileSpreadsheet, FileText, Info, RefreshCw, Search, Star,
+  Activity, BarChart3, Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database,
+  DollarSign, Download, FileSpreadsheet, FileText, Info, PieChart, RefreshCw, Search, Star, TrendingUp,
 } from 'lucide-react'
+import '../../market-portfolio/pages/market-portfolio-panels.css'
 
 import { fetchCompanyFinancialWorkspace } from '../services/financialsApi'
 import {
@@ -11,6 +12,14 @@ import {
 } from './CompanyInsightTabs'
 import { useCompanyMarketContext } from './useCompanyMarketContext'
 import './bctc-workspace.css'
+
+const BCTC_SUBTABS = [
+  { id: 'income', label: 'Kết quả kinh doanh', icon: BarChart3, type: 'report' },
+  { id: 'balance', label: 'Bảng cân đối kế toán', icon: PieChart, type: 'report' },
+  { id: 'cash_flow', label: 'Lưu chuyển tiền tệ', icon: DollarSign, type: 'report' },
+  { id: 'ratios', label: 'Chỉ số tài chính', icon: Activity, type: 'report' },
+  { id: 'charts', label: 'Biểu đồ tổng quan', icon: TrendingUp, type: 'company' },
+]
 
 const COMPANY_TABS = [
   ['charts', 'BIỂU ĐỒ'], ['evaluation', 'ĐÁNH GIÁ'], ['financials', 'TÀI CHÍNH'], ['technical', 'KỸ THUẬT'],
@@ -161,8 +170,38 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
   function toggleReportGroups() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(reportGroups))
   }
+  const [activeSubTab, setActiveSubTab] = useState('income')
 
   return <main className="bctc-workspace">
+    {/* Synchronized Sub-Tab Bar */}
+    <div className="mp-desk__tabs" role="tablist" aria-label="BCTC Sub Tabs">
+      {BCTC_SUBTABS.map((item) => {
+        const Icon = item.icon
+        const isActive = activeSubTab === item.id || (activeCompanyTab === item.id) || (activeCompanyTab === 'financials' && activeReport === item.id)
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={isActive ? 'is-active' : ''}
+            onClick={() => {
+              setActiveSubTab(item.id)
+              if (item.type === 'company') {
+                setActiveCompanyTab(item.id)
+              } else {
+                setActiveCompanyTab('financials')
+                setActiveReport(item.id)
+              }
+            }}
+          >
+            <Icon size={14} />
+            <span>{item.label}</span>
+          </button>
+        )
+      })}
+    </div>
+
     <header className="bctc-company-bar">
       <div className="bctc-symbol-block">
         {onBack && <button type="button" className="bctc-back" onClick={onBack}>←</button>}

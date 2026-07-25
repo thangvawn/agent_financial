@@ -19,7 +19,8 @@
     "lightweight-charts": "^5.1.0",
     "lucide-react": "^1.22.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

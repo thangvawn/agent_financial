@@ -455,6 +455,7 @@
 
 .lhp-player-wrap {
   flex: 0 0 auto;
+  min-height: 280px;
   background: #000;
 }
 
@@ -464,6 +465,7 @@
   aspect-ratio: 16 / 9;
   max-height: 520px;
   background: #000;
+  border: 0;
 }
 
 .lhp-player--placeholder {

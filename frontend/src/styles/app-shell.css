@@ -61,7 +61,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 10px 16px;
   margin: 12px 0 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -69,18 +69,29 @@
   box-shadow: none;
 }
 
+.app-shell__masthead-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .app-shell__brand,
 .app-shell__surface {
   margin: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .app-shell__brand {
   font-size: 11px;
-  align-self: center;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-subtle);
   font-weight: 600;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
 .app-shell__surface {
@@ -93,9 +104,9 @@
 .app-shell__masthead-actions {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 10px;
-  width: 100%;
+  width: auto;
 }
 
 /* Badge — single neutral style, optional tonal variants */
@@ -254,7 +265,7 @@
 /* Tabs — Stripe-style underline, no pill */
 .connected-nav__tabs {
   display: inline-flex;
-  gap: 2px;
+  gap: 4px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -265,7 +276,7 @@
 .connected-nav__tab {
   width: auto;
   position: relative;
-  height: 32px;
+  height: 100%;
   min-height: 0;
   padding: 0 16px;
   border: 0;
@@ -274,8 +285,11 @@
   box-shadow: none;
   font-size: 13px;
   font-weight: 500;
-  border-radius: 999px;
+  border-radius: 0;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: color var(--t-base) var(--ease), background var(--t-base) var(--ease);
   white-space: nowrap;
   letter-spacing: -0.005em;
@@ -292,20 +306,34 @@
   font-weight: 600;
 }
 
-.connected-nav__tab--active::after {
-  content: "";
+/* Animated active indicator pill */
+.connected-nav__active-indicator {
   position: absolute;
-  left: 12px;
-  right: 12px;
+  left: 8px;
+  right: 8px;
   bottom: 0;
-  height: 2px;
-  border-radius: 1px 1px 0 0;
-  background: var(--ink);
-  opacity: 1;
+  height: 2.5px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, var(--accent) 0%, #6366f1 100%);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Animated hover background pill */
+.connected-nav__hover-bg {
+  position: absolute;
+  inset: 10px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  opacity: 0.7;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .connected-nav__pro {
   display: inline-flex;
+  align-items: center;
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: var(--radius-xs);
@@ -321,6 +349,8 @@
 .connected-nav__tab-wrapper {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 100%;
 }
 
@@ -328,11 +358,7 @@
   margin-left: 6px;
   font-size: 10px;
   opacity: 0.6;
-  transition: transform var(--t-fast) var(--ease);
-}
-
-.connected-nav__tab-wrapper:hover .connected-nav__dropdown-icon {
-  transform: rotate(180deg);
+  transition: opacity var(--t-fast) var(--ease);
 }
 
 /* Dropdown menu */
@@ -346,23 +372,10 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(8px);
-  transition:
-    opacity var(--t-fast) var(--ease),
-    transform var(--t-fast) var(--ease),
-    visibility var(--t-fast) var(--ease);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.connected-nav__tab-wrapper:hover .connected-nav__dropdown {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
 }
 
 .connected-nav__dropdown-item {
@@ -407,6 +420,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  height: 100%;
   flex-shrink: 0;
 }
 
@@ -422,6 +436,9 @@
   color: var(--accent-ink);
   font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: var(--shadow-xs);
   transition:
     background var(--t-base) var(--ease),
@@ -476,20 +493,24 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  height: 100%;
   flex-shrink: 0;
 }
 
 .connected-nav__logout {
   width: auto;
-  height: 30px;
+  height: 32px;
   min-height: 0;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink-muted);
   font-size: 12px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
   box-shadow: none;
   transition:
@@ -654,36 +675,40 @@
 /* ============================================================
    Brand button styles & Centering for router components
    ============================================================ */
-button.app-shell__brand {
-  background: transparent;
-  border: none;
-  padding: 0;
+button.app-shell__brand,
+.app-shell__brand,
+.connected-nav__brand-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
   margin: 0;
   cursor: pointer;
   font-family: inherit;
-  transition: color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
 }
 
-button.app-shell__brand:hover {
-  color: var(--accent) !important;
-  opacity: 0.9;
-}
-
-.connected-nav__brand-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0;
-  white-space: nowrap;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform var(--t-fast) var(--ease);
-}
-
-.connected-nav__brand-btn:hover {
-  transform: translateY(-0.5px);
+button.app-shell__brand:hover,
+button.app-shell__brand:focus,
+button.app-shell__brand:active,
+.app-shell__brand:hover,
+.app-shell__brand:focus,
+.app-shell__brand:active,
+.connected-nav__brand-btn:hover,
+.connected-nav__brand-btn:focus,
+.connected-nav__brand-btn:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
 }
 
 .connected-nav__brand-btn strong {

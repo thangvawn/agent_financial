@@ -10,11 +10,12 @@ export function resolveBookSource(book = {}) {
   const kind = detectKind(primary, fileHint)
   const isRemote = /^https?:\/\//i.test(primary)
   const isLocalAsset = primary.startsWith('/learning-assets/')
+  const needsProxy = isRemote && (kind === 'pdf' || kind === 'html' || kind === 'text')
 
   return {
     kind,
     sourceUrl: primary,
-    viewUrl: kind === 'pdf' && isRemote
+    viewUrl: needsProxy
       ? `/api/v1/public/learning/reader/stream?url=${encodeURIComponent(primary)}`
       : primary,
     openUrl: primary,

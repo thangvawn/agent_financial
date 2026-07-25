@@ -47,6 +47,8 @@ const DEFAULT_EXECUTION = {
   settlement: 'T+2',
 }
 
+import '../../market-portfolio/pages/market-portfolio-panels.css'
+
 export default function SimulationLabWorkspace({ sessionId }) {
   const [token, setToken] = useState(() => localStorage.getItem('pro_lab.access_token') || '')
   const [studio, setStudio] = useState(null)
@@ -124,7 +126,9 @@ export default function SimulationLabWorkspace({ sessionId }) {
   }[active]
 
   return (
-    <main className="simlab">
+    <main className="simlab flex-col">
+
+
       <div className="simlab__rail">
         <nav>
           <p className="simlab__nav-label">KHÔNG GIAN LÀM VIỆC</p>

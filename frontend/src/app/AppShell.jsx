@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, stagger } from 'animejs'
+import { AnimatePresence, motion } from 'framer-motion'
 
 import {
   AuthPage,
@@ -121,6 +122,15 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     else setInternalView('auth_login')
   }, [onNavigate, sessionId, view])
 
+  // Guarantee logged-in users NEVER see the public Home page (redirect to workspace)
+  useEffect(() => {
+    if (sessionId && view === 'home') {
+      const targetView = normalizeView(AUTHENTICATED_LANDING_VIEW)
+      if (onNavigate) onNavigate(targetView, { replace: true })
+      else setInternalView(targetView)
+    }
+  }, [onNavigate, sessionId, view])
+
   useEffect(() => {
     const previousView = previousViewRef.current
     trackAnalyticsEvent({
@@ -140,7 +150,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   function handleOnboardingCompleted(payload) {
     setSessionId(payload.session_id)
-    setView('home')
+    setView(AUTHENTICATED_LANDING_VIEW)
   }
 
   function setView(nextView, options) {
@@ -349,8 +359,15 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
 
   const tone = (renderedView === 'pro_lab' || renderedView === 'backtest_studio') ? 'pro' : 'public'
   const themeAttr = !isPublicView(renderedView) ? 'dark' : 'light'
+
   const connectedNavActions = {
-    openHome: () => setView('home'),
+    openHome: () => {
+      if (sessionId) {
+        setView(AUTHENTICATED_LANDING_VIEW)
+      } else {
+        setView('home')
+      }
+    },
     openLearning: () => openProtectedView('learning'),
     openSimulationLab: handleOpenSimulationLab,
     openGuidedInvesting: (payload) => {
@@ -380,9 +397,20 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
         />
         <main className="app-shell__content">
           <ConnectedWorkspaceNav currentView={renderedView} sessionId={sessionId} actions={connectedNavActions} showTabs={Boolean(sessionId)} />
-          <div ref={surfacePanelRef} className="surface-panel" key={renderedView} data-transition-phase={transitionPhase}>
-            {content}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={renderedView}
+              ref={surfacePanelRef}
+              className="surface-panel"
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              data-transition-phase={transitionPhase}
+            >
+              {content}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

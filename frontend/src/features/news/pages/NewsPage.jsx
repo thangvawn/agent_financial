@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CalendarDays, Flag, Globe, Newspaper, Sparkles } from 'lucide-react'
+import '../../market-portfolio/pages/market-portfolio-panels.css'
+
 import { fetchArticleDetail, fetchNewsFeed } from '../services'
 import FinancialLearningContext from '../../../shared/ui/FinancialLearningContext'
 import NewsHeader from './components/NewsHeader'
@@ -8,6 +11,12 @@ import NewsFeedList from './components/NewsFeedList'
 import NewsArticleReader from './components/NewsArticleReader'
 import useNewsHighlights from './hooks/useNewsHighlights'
 import './news.css'
+
+const NEWS_SUBTABS = [
+  { id: 'all', label: 'Tất cả tin tức', icon: Newspaper, lens: 'cross_impact' },
+  { id: 'vietnam', label: 'Thị trường VN', icon: Flag, lens: 'vietnam' },
+  { id: 'global', label: 'Vĩ mô Toàn cầu', icon: Globe, lens: 'global' },
+]
 
 const FEED_LIST_INITIAL = 12
 const FEED_LIST_STEP = 12
@@ -183,24 +192,10 @@ export default function NewsPage() {
     return () => observer.disconnect()
   }, [articles.length, feedVisible])
 
+  const [activeSubTab, setActiveSubTab] = useState('all')
+
   return (
     <section className="news-desk">
-      <NewsHeader
-        topHighlight={topHighlight}
-        onSelectTopHighlight={() => selectArticle(topHighlight?.article_id)}
-        onRefresh={handleRefresh}
-        loading={loading || highlightsLoading}
-        freshness={payload?.freshness || 'loading'}
-        sourceCount={payload?.source_count || 0}
-        successfulSourceCount={payload?.successful_source_count || 0}
-      />
-
-      <FinancialLearningContext
-        objective="Phân biệt sự kiện, nhận định và tác động có thể xảy ra thay vì phản ứng theo tiêu đề."
-        practice="Đọc nguồn, kiểm tra thời điểm, so sánh nhiều góc nhìn rồi ghi lại giả thuyết cần theo dõi."
-        riskNote="Sắc thái và mức tác động chỉ hỗ trợ sàng lọc. Tin tức không phải tín hiệu mua bán và có thể thay đổi nhanh."
-      />
-
       <NewsFilters
         marketLens={marketLens}
         onLensChange={setMarketLens}
