@@ -51,6 +51,7 @@ risk-fetch-financials = "risk_dashboard.cli.fetch_financials:main"
 risk-fetch-gdrive-folder = "risk_dashboard.data.google_drive:main"
 risk-learning-crawl = "risk_dashboard.cli.learning_crawl:main"
 risk-telegram-news = "risk_dashboard.cli.telegram_news:main"
+risk-market-telegram = "risk_dashboard.cli.market_telegram:main"
 
 [project.optional-dependencies]
 dev = [

@@ -18,6 +18,7 @@ dist/
 build/
 
 # ── Data & Models (runtime) ─────────
+var/
 data/*.db
 data/*.db.*
 data/db/*.db

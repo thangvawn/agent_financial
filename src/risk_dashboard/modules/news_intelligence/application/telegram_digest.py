@@ -14,6 +14,7 @@ import requests
 from risk_dashboard.modules.news_intelligence.application.services import NewsIntelligenceService
 from risk_dashboard.modules.news_intelligence.application.translation import NewsTranslator
 from risk_dashboard.platform.database import open_app_state_db
+from risk_dashboard.platform.telegram import TelegramClient, TelegramClientError
 
 TELEGRAM_MESSAGE_LIMIT = 4096
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -67,12 +68,14 @@ class TelegramDigestService:
         *,
         news_service: NewsIntelligenceService | None = None,
         translator: NewsTranslator | None = None,
-        post: Callable[..., Any] = requests.post,
+        telegram_client: TelegramClient | None = None,
+        post: Callable[..., Any] | None = None,
     ) -> None:
         self.config = config
         self.news_service = news_service or NewsIntelligenceService()
         self.translator = translator or NewsTranslator()
-        self.post = post
+        self.telegram_client = telegram_client or TelegramClient(token=config.token, chat_id=config.chat_id)
+        self._post_override = post
 
     def send_digest(self, period: str, *, force: bool = False) -> dict[str, Any]:
         if period not in {"day", "week", "month"}:
@@ -106,28 +109,32 @@ class TelegramDigestService:
         return {"status": "sent", "message_id": message_id}
 
     def _send_message(self, text: str) -> int | None:
-        try:
-            response = self.post(
-                f"https://api.telegram.org/bot{self.config.token}/sendMessage",
-                json={
-                    "chat_id": self.config.chat_id,
-                    "text": text,
-                    "parse_mode": "HTML",
-                    "disable_web_page_preview": True,
-                },
-                timeout=20,
-            )
-            payload = response.json()
-        except (requests.RequestException, ValueError):
-            raise RuntimeError("Telegram request failed; token was not logged") from None
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"Telegram API returned HTTP {response.status_code}: "
-                f"{payload.get('description', 'request rejected')}"
-            )
-        if not payload.get("ok"):
-            raise RuntimeError(payload.get("description") or "Telegram rejected the message")
-        return (payload.get("result") or {}).get("message_id")
+        if self._post_override is not None:
+            try:
+                response = self._post_override(
+                    f"https://api.telegram.org/bot{self.config.token}/sendMessage",
+                    json={
+                        "chat_id": self.config.chat_id,
+                        "text": text,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                    timeout=20,
+                )
+                payload = response.json()
+            except Exception as e:
+                raise RuntimeError("Telegram request failed") from e
+            if response.status_code >= 400 or not payload.get("ok"):
+                raise RuntimeError("Telegram rejected the message")
+            return (payload.get("result") or {}).get("message_id")
+
+        result = self.telegram_client.send_message(
+            chat_id=self.config.chat_id,
+            text=text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+        return result.message_id
 
     @staticmethod
     def _already_delivered(delivery_key: str) -> bool:

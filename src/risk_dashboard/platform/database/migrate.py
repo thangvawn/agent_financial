@@ -99,6 +99,41 @@ CREATE TABLE IF NOT EXISTS telegram_news_translations (
 );
 """
 
+TELEGRAM_MARKET_DELIVERIES_SQL = """
+CREATE TABLE IF NOT EXISTS telegram_market_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_date TEXT NOT NULL,
+    chat_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    attempt_no INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    locked_by TEXT,
+    lock_expires_at TEXT,
+    heartbeat_at TEXT,
+    payload_hash TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    sent_at TEXT,
+    last_error TEXT,
+    UNIQUE(report_date, chat_id, mode, attempt_no)
+);
+
+CREATE TABLE IF NOT EXISTS telegram_market_delivery_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    delivery_id INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    payload_hash TEXT,
+    status TEXT NOT NULL,
+    telegram_message_id INTEGER,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(delivery_id, chunk_index),
+    FOREIGN KEY(delivery_id) REFERENCES telegram_market_deliveries(id) ON DELETE CASCADE
+);
+"""
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
@@ -106,6 +141,7 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
     ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
     ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
+    ("007_telegram_market_deliveries", TELEGRAM_MARKET_DELIVERIES_SQL),
 ]
 
 
@@ -158,6 +194,7 @@ def apply_migrations(conn) -> list[str]:
         ("004_news_highlight_snapshots", NEWS_HIGHLIGHT_SNAPSHOTS_SQL),
         ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
         ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
+        ("007_telegram_market_deliveries", TELEGRAM_MARKET_DELIVERIES_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:
