@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, BarChart3, Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database,
-  DollarSign, Download, FileSpreadsheet, FileText, Info, PieChart, RefreshCw, Search, Star, TrendingUp,
+  DollarSign, Download, FileSpreadsheet, FileText, GraduationCap, Info, PieChart, RefreshCw, Search, Star, TrendingUp,
 } from 'lucide-react'
 import '../../market-portfolio/pages/market-portfolio-panels.css'
 
@@ -11,26 +11,26 @@ import {
   TechnicalView,
 } from './CompanyInsightTabs'
 import { useCompanyMarketContext } from './useCompanyMarketContext'
+import RatioPracticeLab from './RatioPracticeLab'
 import './bctc-workspace.css'
 
-const BCTC_SUBTABS = [
-  { id: 'income', label: 'Kết quả kinh doanh', icon: BarChart3, type: 'report' },
-  { id: 'balance', label: 'Bảng cân đối kế toán', icon: PieChart, type: 'report' },
-  { id: 'cash_flow', label: 'Lưu chuyển tiền tệ', icon: DollarSign, type: 'report' },
-  { id: 'ratios', label: 'Chỉ số tài chính', icon: Activity, type: 'report' },
-  { id: 'charts', label: 'Biểu đồ tổng quan', icon: TrendingUp, type: 'company' },
+const BCTC_NAV_TABS = [
+  { id: 'charts', label: 'Biểu đồ tổng quan', icon: TrendingUp },
+  { id: 'financials', label: 'Báo cáo tài chính', icon: FileSpreadsheet },
+  { id: 'practice', label: 'Thực hành chỉ số', icon: GraduationCap },
+  { id: 'evaluation', label: 'Đánh giá sức khỏe', icon: Activity },
+  { id: 'technical', label: 'Kỹ thuật', icon: BarChart3 },
+  { id: 'analysis', label: 'Phân tích chuyên sâu', icon: PieChart },
+  { id: 'governance', label: 'Quản trị', icon: Building2 },
+  { id: 'documents', label: 'Tài liệu & Bóc tách', icon: FileText },
 ]
 
-const COMPANY_TABS = [
-  ['charts', 'BIỂU ĐỒ'], ['evaluation', 'ĐÁNH GIÁ'], ['financials', 'TÀI CHÍNH'], ['technical', 'KỸ THUẬT'],
-  ['analysis', 'PHÂN TÍCH'], ['governance', 'QUẢN TRỊ'], ['documents', 'TÀI LIỆU'],
-]
 const REPORT_TABS = [
   ['balance', 'Cân đối kế toán'],
   ['income', 'Báo cáo thu nhập'],
   ['cash_flow', 'Lưu chuyển tiền tệ'],
-  ['notes', 'Thuyết minh'],
   ['ratios', 'Chỉ số tài chính'],
+  ['notes', 'Thuyết minh'],
   ['peers', 'So sánh cùng ngành'],
 ]
 
@@ -108,7 +108,6 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
   const [ticker, setTicker] = useState(initialTicker.toUpperCase())
   const [periodMode, setPeriodMode] = useState('quarter')
   const [periodLimit, setPeriodLimit] = useState(20)
-  const [activeCompanyTab, setActiveCompanyTab] = useState('charts')
   const [activeReport, setActiveReport] = useState('balance')
   const [unit, setUnit] = useState('billion')
   const [refreshToken, setRefreshToken] = useState(0)
@@ -170,38 +169,9 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
   function toggleReportGroups() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(reportGroups))
   }
-  const [activeSubTab, setActiveSubTab] = useState('income')
+  const [activeTab, setActiveTab] = useState('charts')
 
   return <main className="bctc-workspace">
-    {/* Synchronized Sub-Tab Bar */}
-    <div className="mp-desk__tabs" role="tablist" aria-label="BCTC Sub Tabs">
-      {BCTC_SUBTABS.map((item) => {
-        const Icon = item.icon
-        const isActive = activeSubTab === item.id || (activeCompanyTab === item.id) || (activeCompanyTab === 'financials' && activeReport === item.id)
-        return (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            className={isActive ? 'is-active' : ''}
-            onClick={() => {
-              setActiveSubTab(item.id)
-              if (item.type === 'company') {
-                setActiveCompanyTab(item.id)
-              } else {
-                setActiveCompanyTab('financials')
-                setActiveReport(item.id)
-              }
-            }}
-          >
-            <Icon size={14} />
-            <span>{item.label}</span>
-          </button>
-        )
-      })}
-    </div>
-
     <header className="bctc-company-bar">
       <div className="bctc-symbol-block">
         {onBack && <button type="button" className="bctc-back" onClick={onBack}>←</button>}
@@ -220,18 +190,38 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
       <div><span>Nợ vay / VCSH</span><strong>{formatHeadline(headline.debt_to_equity?.value, 'x')}</strong><small>Đòn bẩy tài chính</small></div>
     </section>
 
-    <nav className="bctc-company-tabs" aria-label="Phân tích doanh nghiệp" role="tablist">{COMPANY_TABS.map(([key, label]) => <button type="button" role="tab" aria-selected={activeCompanyTab === key} key={key} className={activeCompanyTab === key ? 'is-active' : ''} onClick={() => setActiveCompanyTab(key)}>{label}</button>)}</nav>
+    {/* Unified Single Navigation Tab Bar */}
+    <div className="mp-desk__tabs" role="tablist" aria-label="BCTC Nav Tabs">
+      {BCTC_NAV_TABS.map((item) => {
+        const Icon = item.icon
+        const isActive = activeTab === item.id
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={isActive ? 'is-active' : ''}
+            onClick={() => setActiveTab(item.id)}
+          >
+            <Icon size={14} />
+            <span>{item.label}</span>
+          </button>
+        )
+      })}
+    </div>
 
     <section className="bctc-stage">
-      {activeCompanyTab === 'charts' && status === 'ready' && <FinancialChartsView workspace={workspace} />}
-      {activeCompanyTab === 'evaluation' && status === 'ready' && <EvaluationView key={ticker} workspace={workspace} ticker={ticker} />}
-      {activeCompanyTab === 'technical' && <TechnicalView marketContext={marketContext.data} loading={marketContext.loading} />}
-      {activeCompanyTab === 'analysis' && status === 'ready' && <AnalysisView workspace={workspace} />}
-      {activeCompanyTab === 'governance' && <GovernanceView marketContext={marketContext.data} loading={marketContext.loading} />}
-      {activeCompanyTab === 'documents' && status === 'ready' && <DocumentsView ticker={ticker} workspace={workspace} onImported={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }} />}
-      {activeCompanyTab !== 'financials' && status === 'loading' && <LoadingState />}
-      {activeCompanyTab !== 'financials' && status === 'error' && <div className="bctc-error"><strong>Không tải được dữ liệu {ticker}</strong><span>{error}</span><button type="button" onClick={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }}>Thử lại nguồn</button></div>}
-      {activeCompanyTab === 'financials' && <div className="bctc-report-window">
+      {activeTab === 'practice' && status === 'ready' && <RatioPracticeLab workspace={workspace} />}
+      {activeTab === 'charts' && status === 'ready' && <FinancialChartsView workspace={workspace} />}
+      {activeTab === 'evaluation' && status === 'ready' && <EvaluationView key={ticker} workspace={workspace} ticker={ticker} />}
+      {activeTab === 'technical' && <TechnicalView marketContext={marketContext.data} loading={marketContext.loading} />}
+      {activeTab === 'analysis' && status === 'ready' && <AnalysisView workspace={workspace} />}
+      {activeTab === 'governance' && <GovernanceView marketContext={marketContext.data} loading={marketContext.loading} />}
+      {activeTab === 'documents' && status === 'ready' && <DocumentsView ticker={ticker} workspace={workspace} onImported={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }} />}
+      {activeTab !== 'financials' && status === 'loading' && <LoadingState />}
+      {activeTab !== 'financials' && status === 'error' && <div className="bctc-error"><strong>Không tải được dữ liệu {ticker}</strong><span>{error}</span><button type="button" onClick={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }}>Thử lại nguồn</button></div>}
+      {activeTab === 'financials' && <div className="bctc-report-window">
         <div className="bctc-report-heading">
           <div>
             <span className="bctc-report-kicker">BÁO CÁO TÀI CHÍNH</span>

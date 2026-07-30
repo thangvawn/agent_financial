@@ -904,42 +904,100 @@
   font-size: 9px;
 }
 
-.bctc-evaluation-models {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 16px;
-  border-top: 1px solid var(--line);
-  background: var(--bg);
+/* ── Executive Highlights Grid ────────────────────────────── */
+.bctc-highlights-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  padding: 16px; border-bottom: 1px solid var(--line); background: var(--bg);
 }
-.bctc-evaluation-models article {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 16px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+.bctc-highlight-card {
+  padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface);
 }
-.bctc-evaluation-models header {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.bctc-highlight-card h4 {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px; font-size: 13px; font-weight: 700;
 }
-.bctc-evaluation-models header svg { width: 18px; color: var(--blue); }
-.bctc-evaluation-models header div { display: grid; gap: 2px; }
-.bctc-evaluation-models header strong { font-size: 11px; }
-.bctc-evaluation-models header span,
-.bctc-evaluation-models p { color: var(--ink-subtle); font-size: 9px; }
-.bctc-evaluation-models article > b {
-  grid-row: 1 / 3;
-  grid-column: 2;
-  align-self: center;
-  color: var(--ink);
-  font: 700 26px var(--font-mono);
+.bctc-highlight-card h4 svg.is-pos { color: var(--pos); }
+.bctc-highlight-card h4 svg.is-neg { color: var(--neg); }
+.bctc-highlight-card ul { margin: 0; padding: 0 0 0 16px; font-size: 11px; color: var(--ink); }
+.bctc-highlight-card li { margin-bottom: 6px; line-height: 1.4; }
+.bctc-highlight-card li strong { color: var(--ink); }
+.bctc-highlight-card li span { font-weight: 700; color: var(--accent); }
+.bctc-highlight-card li small { color: var(--ink-muted); }
+
+/* ── Models Wrapper (Piotroski & Altman Z) ───────────────── */
+.bctc-models-wrapper {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  padding: 16px; border-top: 1px solid var(--line); background: var(--bg);
 }
-.bctc-evaluation-models p { margin: 0; }
+.bctc-piotroski-box, .bctc-altman-box {
+  padding: 16px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); display: flex; flex-direction: column; gap: 12px;
+}
+.bctc-model-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.bctc-model-header > div:first-child {
+  display: flex; align-items: center; gap: 10px;
+}
+.bctc-model-header strong { display: block; font-size: 14px; font-weight: 700; }
+.bctc-model-header span { display: block; font-size: 11px; color: var(--ink-muted); }
+.bctc-model-score { text-align: right; }
+.bctc-model-score strong { font-size: 22px; font-weight: 800; font-family: var(--font-mono); }
+
+.bctc-toggle-details {
+  border: 0; background: transparent; color: var(--accent); font-size: 11px;
+  font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;
+}
+.bctc-toggle-details svg { width: 14px; transition: transform 140ms ease; }
+.bctc-toggle-details svg.is-open { transform: rotate(180deg); }
+
+.bctc-piotroski-grid {
+  display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 6px;
+  max-height: 260px; overflow-y: auto; padding-right: 4px;
+}
+.bctc-piotroski-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px;
+  border-radius: 6px; background: var(--surface-alt); font-size: 11px;
+}
+.bctc-piotroski-item.is-pass { border-left: 3px solid var(--pos); }
+.bctc-piotroski-item.is-fail { border-left: 3px solid var(--neg); opacity: .7; }
+.bctc-piotroski-icon {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.bctc-piotroski-item.is-pass .bctc-piotroski-icon { background: var(--pos-soft); color: var(--pos); }
+.bctc-piotroski-item.is-fail .bctc-piotroski-icon { background: var(--neg-soft); color: var(--neg); }
+.bctc-piotroski-item strong { display: block; color: var(--ink); font-weight: 600; }
+.bctc-piotroski-item small { color: var(--ink-muted); font-size: 10px; }
+
+/* ── Altman Z Gauge Meter ────────────────────────────────── */
+.bctc-z-meter { position: relative; margin-top: 12px; padding-top: 20px; }
+.bctc-z-track {
+  display: flex; height: 24px; border-radius: 6px; overflow: hidden;
+  font-size: 10px; font-weight: 700; text-align: center; line-height: 24px;
+}
+.bctc-z-zone.is-distress { width: 36%; background: var(--neg-soft); color: var(--neg); }
+.bctc-z-zone.is-grey { width: 24%; background: var(--warn-soft); color: var(--warn); }
+.bctc-z-zone.is-safe { width: 40%; background: var(--pos-soft); color: var(--pos); }
+
+.bctc-z-pin {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 10px; font-weight: 800; font-family: var(--font-mono);
+  color: var(--accent); white-space: nowrap;
+}
+
+/* ── Peer Suggestions ────────────────────────────────────── */
+.bctc-peer-chips {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 11px; color: var(--ink-muted);
+}
+.bctc-chip {
+  padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 14px;
+  background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 120ms ease;
+}
+.bctc-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
 .bctc-company-compare {
   padding: 16px;

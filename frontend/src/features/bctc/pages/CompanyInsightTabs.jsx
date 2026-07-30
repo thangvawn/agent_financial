@@ -1,8 +1,8 @@
 import { Fragment, useRef, useState } from 'react'
 import {
-  AlertTriangle, BarChart3, BookOpen, Building2, CircleAlert, CircleCheck,
-  Database, FileUp, Gauge, GitCompareArrows, LineChart, Scale, ShieldCheck,
-  UsersRound,
+  AlertTriangle, BarChart3, BookOpen, Building2, Check, CheckCircle2, ChevronDown, CircleAlert, CircleCheck,
+  Database, FileUp, Gauge, GitCompareArrows, LineChart, Scale, ShieldCheck, Sparkles, TrendingUp,
+  UsersRound, X,
 } from 'lucide-react'
 
 import {
@@ -360,26 +360,191 @@ function ComparisonTable({ comparison, ticker, peerTicker }) {
   </div>
 }
 
+const PIOTROSKI_CRITERIA_MAP = [
+  { key: 'roa_positive', label: '1. ROA dương (> 0)', desc: 'Lợi nhuận sau thuế / Tổng tài sản mang dấu dương' },
+  { key: 'ocf_positive', label: '2. Dòng tiền HĐKD dương (CFO > 0)', desc: 'Dòng tiền từ hoạt động kinh doanh dương' },
+  { key: 'roa_improving', label: '3. ROA tăng trưởng', desc: 'ROA kỳ hiện tại cao hơn kỳ cùng kỳ năm trước' },
+  { key: 'accruals_quality', label: '4. Chất lượng dồn tích (CFO > LNST)', desc: 'LNST được hỗ trợ thực tế bằng dòng tiền mặt HĐKD' },
+  { key: 'leverage_decreasing', label: '5. Giảm đòn bẩy nợ', desc: 'Tỷ lệ Nợ vay/VCSH kỳ này giảm so với năm trước' },
+  { key: 'liquidity_improving', label: '6. Tăng thanh khoản ngắn hạn', desc: 'Hệ số thanh toán hiện hành (Current Ratio) cải thiện' },
+  { key: 'no_dilution', label: '7. Không pha loãng cổ phiếu', desc: 'Vốn chủ sở hữu & số lượng cổ phần bảo toàn' },
+  { key: 'margin_improving', label: '8. Biên lợi nhuận gộp cải thiện', desc: 'Biên LN gộp cao hơn kỳ cùng kỳ năm trước' },
+  { key: 'turnover_improving', label: '9. Vòng quay tài sản tăng', desc: 'Asset Turnover cao hơn cùng kỳ năm trước' },
+]
+
+const PEER_SUGGESTION_MAP = {
+  HPG: ['HSG', 'NKG', 'TLH', 'SMC'],
+  HSG: ['HPG', 'NKG', 'TLH'],
+  NKG: ['HPG', 'HSG', 'TLH'],
+  FPT: ['CMG', 'ELC', 'ITD', 'FOX'],
+  VNM: ['MSN', 'MCH', 'QNS', 'KDC'],
+  MWG: ['FRT', 'DGW', 'PET', 'PNJ'],
+  VIC: ['VHM', 'VRE', 'NVL'],
+  VHM: ['VIC', 'VRE', 'NVL', 'KDH'],
+  VCB: ['BID', 'CTG', 'TCB', 'MBB'],
+  TCB: ['VPB', 'MBB', 'ACB', 'VCB'],
+}
+
+function ExecutiveHighlights({ categories }) {
+  const strengths = []
+  const risks = []
+
+  for (const cat of categories || []) {
+    for (const m of cat.metrics || []) {
+      if (m.status === 'good') {
+        strengths.push({ label: m.label, value: evaluationNumber(m.value, m.unit), evidence: m.evidence?.[0] })
+      } else if (m.status === 'risk') {
+        risks.push({ label: m.label, value: evaluationNumber(m.value, m.unit), evidence: m.evidence?.[0] })
+      }
+    }
+  }
+
+  return (
+    <div className="bctc-highlights-grid">
+      <div className="bctc-highlight-card is-strengths">
+        <h4><CheckCircle2 size={16} className="is-pos" /> Điểm mạnh nổi bật ({strengths.length})</h4>
+        <ul>
+          {strengths.slice(0, 4).map((item, idx) => (
+            <li key={idx}>
+              <strong>{item.label}:</strong> <span>{item.value}</span>
+              {item.evidence && <small> — {item.evidence}</small>}
+            </li>
+          ))}
+          {strengths.length === 0 && <li>Chưa ghi nhận điểm mạnh nổi bật.</li>}
+        </ul>
+      </div>
+
+      <div className="bctc-highlight-card is-risks">
+        <h4><AlertTriangle size={16} className="is-neg" /> Cảnh báo & rủi ro trọng yếu ({risks.length})</h4>
+        <ul>
+          {risks.slice(0, 4).map((item, idx) => (
+            <li key={idx}>
+              <strong>{item.label}:</strong> <span>{item.value}</span>
+              {item.evidence && <small> — {item.evidence}</small>}
+            </li>
+          ))}
+          {risks.length === 0 && <li>Tất cả chỉ số nằm trong ngưỡng an toàn/theo dõi.</li>}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function PiotroskiBreakdown({ piotroski }) {
+  const [showDetails, setShowDetails] = useState(false)
+  const details = piotroski?.details || {}
+  const score = piotroski?.score ?? 0
+
+  return (
+    <div className="bctc-piotroski-box">
+      <div className="bctc-model-header">
+        <div>
+          <ShieldCheck size={20} style={{ color: 'var(--accent)' }} />
+          <div>
+            <strong>Piotroski F-Score</strong>
+            <span>Mô hình đánh giá 9 tiêu chí sức khỏe tài chính nền tảng</span>
+          </div>
+        </div>
+        <div className="bctc-model-score">
+          <strong>{score}<small>/9</small></strong>
+          <span className={`bctc-badge is-${score >= 7 ? 'good' : score <= 3 ? 'risk' : 'watch'}`}>
+            {score >= 7 ? 'Tốt (7-9)' : score <= 3 ? 'Cảnh báo (0-3)' : 'Trung bình (4-6)'}
+          </span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="bctc-toggle-details"
+        onClick={() => setShowDetails(!showDetails)}
+      >
+        {showDetails ? 'Thu gọn bóc tách 9 tiêu chí' : 'Xem bóc tách 9 tiêu chí Piotroski'} <ChevronDown className={showDetails ? 'is-open' : ''} />
+      </button>
+
+      {showDetails && (
+        <div className="bctc-piotroski-grid">
+          {PIOTROSKI_CRITERIA_MAP.map((item) => {
+            const passed = details[item.key] === true
+            return (
+              <div key={item.key} className={`bctc-piotroski-item ${passed ? 'is-pass' : 'is-fail'}`}>
+                <span className="bctc-piotroski-icon">{passed ? <Check size={12} /> : <X size={12} />}</span>
+                <div>
+                  <strong>{item.label}</strong>
+                  <small>{item.desc}</small>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AltmanGauge({ altman }) {
+  const zScore = number(altman?.score) ?? 0
+  const zone = altman?.zone || 'grey'
+
+  // Map zScore (0..5) to percentage (0..100)
+  const pct = Math.min(100, Math.max(0, (zScore / 5) * 100))
+
+  return (
+    <div className="bctc-altman-box">
+      <div className="bctc-model-header">
+        <div>
+          <AlertTriangle size={20} style={{ color: zone === 'safe' ? 'var(--pos)' : zone === 'distress' ? 'var(--neg)' : 'var(--warn)' }} />
+          <div>
+            <strong>Altman Z-Score</strong>
+            <span>Thước đo nguy cơ kiệt quệ tài chính (Corporate Bankruptcy)</span>
+          </div>
+        </div>
+        <div className="bctc-model-score">
+          <strong>{zScore ? zScore.toFixed(2) : '—'}</strong>
+          <span className={`bctc-badge is-${zone === 'safe' ? 'good' : zone === 'distress' ? 'risk' : 'watch'}`}>
+            {zone === 'safe' ? 'An toàn (>2.99)' : zone === 'distress' ? 'Nguy cơ cao (<1.81)' : 'Vùng xám (1.81-2.99)'}
+          </span>
+        </div>
+      </div>
+
+      <div className="bctc-z-meter">
+        <div className="bctc-z-track">
+          <div className="bctc-z-zone is-distress">Distress (&lt;1.81)</div>
+          <div className="bctc-z-zone is-grey">Vùng xám (1.81-2.99)</div>
+          <div className="bctc-z-zone is-safe">An toàn (&gt;2.99)</div>
+        </div>
+        {zScore > 0 && (
+          <div className="bctc-z-pin" style={{ left: `${pct}%` }}>
+            ▼ Z = {zScore.toFixed(2)}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function EvaluationView({ workspace, ticker }) {
   const evaluation = workspace?.evaluation || {}
   const overall = evaluation.overall || {}
+  const categories = evaluation.categories || []
   const defaultPeer = workspace?.peers?.peer_tickers?.[0] || ''
   const [peerInput, setPeerInput] = useState(defaultPeer)
   const [peerTicker, setPeerTicker] = useState(defaultPeer)
   const [comparison, setComparison] = useState(null)
   const [compareState, setCompareState] = useState({ status: 'idle', message: '' })
 
-  async function compare(event) {
-    event.preventDefault()
-    const symbol = peerInput.trim().toUpperCase()
-    if (!symbol || symbol === ticker) {
+  const suggestions = PEER_SUGGESTION_MAP[ticker] || workspace?.peers?.peer_tickers || []
+
+  async function runCompare(symbol) {
+    const targetSymbol = (symbol || peerInput).trim().toUpperCase()
+    if (!targetSymbol || targetSymbol === ticker) {
       setCompareState({ status: 'error', message: 'Nhập một mã khác doanh nghiệp hiện tại.' })
       return
     }
+    setPeerInput(targetSymbol)
     setCompareState({ status: 'loading', message: '' })
     try {
-      const payload = await fetchFinancialPeers(ticker, symbol)
-      setPeerTicker(symbol)
+      const payload = await fetchFinancialPeers(ticker, targetSymbol)
+      setPeerTicker(targetSymbol)
       setComparison(payload)
       setCompareState({ status: 'ready', message: '' })
     } catch (error) {
@@ -388,7 +553,13 @@ export function EvaluationView({ workspace, ticker }) {
     }
   }
 
+  function handleFormSubmit(event) {
+    event.preventDefault()
+    runCompare(peerInput)
+  }
+
   return <section className="bctc-insight-surface bctc-evaluation">
+    {/* Hero section */}
     <header className="bctc-evaluation-hero">
       <div className="bctc-evaluation-score">
         <span>Điểm sàng lọc BCTC</span>
@@ -396,28 +567,51 @@ export function EvaluationView({ workspace, ticker }) {
         <StatusBadge status={overall.status} />
       </div>
       <div className="bctc-evaluation-summary">
-        <span className="bctc-report-kicker">ĐÁNH GIÁ ĐA TIÊU CHÍ</span>
+        <span className="bctc-report-kicker">ĐÁNH GIÁ ĐA TIÊU CHÍ TOÀN DIỆN</span>
         <h2>{workspace?.company?.name || ticker}</h2>
         <p>Tổng hợp sức khỏe tài chính, xu hướng cùng kỳ và vị thế tương đối với doanh nghiệp so sánh. Độ phủ dữ liệu {overall.coverage_pct ?? 0}% · độ tin cậy {({ high: 'cao', medium: 'trung bình', low: 'thấp' })[overall.confidence] || 'chưa xác định'}.</p>
         <div className="bctc-evaluation-notice"><Scale />Đây là công cụ sàng lọc và học tập, không phải khuyến nghị mua hoặc bán.</div>
       </div>
     </header>
 
+    {/* Executive Highlights: Điểm mạnh vs Cảnh báo rủi ro */}
+    <ExecutiveHighlights categories={categories} />
+
+    {/* Guide & Detailed Multi-Criteria Report */}
     <EvaluationGuide />
     <EvaluationReport evaluation={evaluation} workspace={workspace} />
 
-    <div className="bctc-evaluation-models">
-      <article><header><ShieldCheck /><div><strong>Piotroski F‑Score</strong><span>9 tín hiệu chất lượng nền tảng</span></div></header><b>{evaluation.models?.piotroski_f?.score ?? '—'}<small>/9</small></b><p>{evaluation.models?.piotroski_f?.score >= 7 ? 'Nhiều tín hiệu nền tảng tích cực.' : evaluation.models?.piotroski_f?.score <= 3 ? 'Nhiều tín hiệu nền tảng cần thận trọng.' : 'Tín hiệu nền tảng ở vùng trung tính.'}</p></article>
-      <article><header><AlertTriangle /><div><strong>Altman Z‑Score</strong><span>Cảnh báo distress, không dùng cho tài chính</span></div></header><b>{evaluation.models?.altman_z?.score ?? '—'}</b><p>{evaluation.models?.altman_z?.zone === 'safe' ? 'Nằm trong vùng an toàn của mô hình.' : evaluation.models?.altman_z?.zone === 'grey' ? 'Nằm trong vùng xám của mô hình.' : evaluation.models?.altman_z?.zone === 'distress' ? 'Nằm trong vùng distress của mô hình.' : 'Không áp dụng hoặc thiếu dữ liệu.'}</p></article>
+    {/* Advanced Financial Models: Piotroski F-Score & Altman Z-Score */}
+    <div className="bctc-models-wrapper">
+      <PiotroskiBreakdown piotroski={evaluation.models?.piotroski_f} />
+      <AltmanGauge altman={evaluation.models?.altman_z} />
     </div>
 
+    {/* Company Comparison Section */}
     <section className="bctc-company-compare">
       <header><GitCompareArrows /><div><strong>So sánh hai doanh nghiệp</strong><span>Cùng bộ chỉ tiêu, ưu tiên doanh nghiệp cùng ngành</span></div></header>
-      <form onSubmit={compare}><label><span className="bctc-sr-only">Mã doanh nghiệp so sánh</span><input value={peerInput} onChange={(event) => setPeerInput(event.target.value.toUpperCase())} placeholder="Ví dụ: FPT" maxLength={20} /></label><button type="submit" disabled={compareState.status === 'loading'}>{compareState.status === 'loading' ? 'Đang so sánh…' : 'So sánh'}</button></form>
+      <form onSubmit={handleFormSubmit}>
+        <label><span className="bctc-sr-only">Mã doanh nghiệp so sánh</span><input value={peerInput} onChange={(event) => setPeerInput(event.target.value.toUpperCase())} placeholder="Ví dụ: FPT" maxLength={20} /></label>
+        <button type="submit" disabled={compareState.status === 'loading'}>{compareState.status === 'loading' ? 'Đang so sánh…' : 'So sánh'}</button>
+      </form>
+
+      {/* Peer suggestion chips */}
+      {suggestions.length > 0 && (
+        <div className="bctc-peer-chips">
+          <span>Gợi ý đối thủ cùng ngành:</span>
+          {suggestions.map((p) => (
+            <button key={p} type="button" className="bctc-chip" onClick={() => runCompare(p)}>
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+
       {compareState.status === 'error' && <p className="bctc-compare-error">{compareState.message}</p>}
       {comparison && <ComparisonTable comparison={comparison} ticker={ticker} peerTicker={peerTicker} />}
     </section>
 
+    {/* Methodology Details */}
     <details className="bctc-evaluation-method">
       <summary><BookOpen />Phương pháp, nguồn tham khảo và giới hạn</summary>
       <p>{evaluation.methodology?.description}</p>
