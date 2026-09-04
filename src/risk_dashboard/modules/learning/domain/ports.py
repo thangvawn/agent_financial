@@ -3,12 +3,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from risk_dashboard.modules.learning.domain.entities import (
+    CheckpointRecord,
     LearningCmsDocument,
     LearningCourse,
     LearningHomeState,
     LearningLesson,
     LearningPath,
     LearningProgress,
+    ProgressReceiptRecord,
+    VerifiedEventRecord,
 )
 
 
@@ -84,3 +87,30 @@ class LearningCmsRepository(ABC):
     @abstractmethod
     def save_document(self, document: LearningCmsDocument) -> LearningCmsDocument:
         raise NotImplementedError
+
+
+class LearningCheckpointRepository(ABC):
+    @abstractmethod
+    def save_checkpoint(self, checkpoint: CheckpointRecord) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_checkpoint(self, *, checkpoint_id: str) -> CheckpointRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_verified_event(self, event: VerifiedEventRecord) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_verified_event(self, *, event_id: str) -> VerifiedEventRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_receipt_by_idempotency_key(self, *, account_id: str, idempotency_key: str) -> ProgressReceiptRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_receipt(self, receipt: ProgressReceiptRecord) -> None:
+        raise NotImplementedError
+

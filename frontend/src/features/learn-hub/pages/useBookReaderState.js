@@ -167,9 +167,19 @@ export function useBookReaderState({ book, sessionId }) {
     setSavedAt(savedIso)
   }
 
+  function triggerUpload() {
+    uploadInputRef.current?.click()
+  }
+
+  function setPageElementRef(pageId, node) {
+    if (node) pageElementRefs.current.set(pageId, node)
+    else pageElementRefs.current.delete(pageId)
+  }
+
   return {
     uploadInputRef,
-    pageElementRefs,
+    setPageElementRef,
+    triggerUpload,
     pages,
     visiblePageBadgeId,
     savedAt,

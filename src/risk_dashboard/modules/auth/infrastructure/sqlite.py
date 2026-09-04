@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from risk_dashboard.modules.auth.application.security import Account, AccountSession
+from risk_dashboard.modules.auth.infrastructure.sqlite_consent import (
+    SqliteAccountConsentRepository,
+)
 from risk_dashboard.platform.database import open_app_state_db
 
 

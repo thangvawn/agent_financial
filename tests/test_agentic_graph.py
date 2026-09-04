@@ -1,0 +1,195 @@
+from __future__ import annotations
+
+import asyncio
+
+import pytest
+
+from risk_dashboard.modules.agentic_core.application import graph as graph_module
+from risk_dashboard.modules.agentic_core.application.graph import run_graph
+from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
+from risk_dashboard.modules.agentic_core.schemas.envelope import ExecutionBudget, TrustedExecutionEnvelope
+from risk_dashboard.modules.auth.schemas.principal import ConsentSnapshot
+from risk_dashboard.platform.ai_runtime.contracts import ModelError, ModelMessage, ModelResult, ModelTask
+from risk_dashboard.platform.ai_runtime.testing.fake_provider import FakeProvider
+
+
+class FakeReadTool:
+    def __init__(
+        self,
+        manifest: ToolManifest,
+        *,
+        delay_seconds: float = 0,
+        started: asyncio.Event | None = None,
+    ) -> None:
+        self.manifest = manifest
+        self.calls = 0
+        self.delay_seconds = delay_seconds
+        self.started = started
+
+    async def execute(self, grant: ToolGrant) -> dict[str, str]:
+        self.calls += 1
+        if self.started:
+            self.started.set()
+        if self.delay_seconds:
+            await asyncio.sleep(self.delay_seconds)
+        return {"source": "fixture", "value": "42"}
+
+
+def _envelope(**budget: int) -> TrustedExecutionEnvelope:
+    return TrustedExecutionEnvelope(
+        run_id="run-1",
+        correlation_id="correlation-1",
+        idempotency_key="idempotency-1",
+        account_id="account-a",
+        surface="pro_lab",
+        allowed_capabilities=("quant:read",),
+        budget=ExecutionBudget(**budget),
+        policy_version="v1",
+        model_policy_version="v1",
+        consent=ConsentSnapshot(policy_version="v1"),
+        created_at="2026-08-28T12:00:00+00:00",
+    )
+
+
+def _task(task_type: str = "agentic_read") -> ModelTask:
+    return ModelTask(
+        task_type=task_type,
+        system_instructions_ref="agentic.v1",
+        messages=(ModelMessage(role="user", content="read fixture"),),
+        correlation_id="correlation-1",
+    )
+
+
+def _tool(
+    risk_class: RiskClass = RiskClass.READ,
+    *,
+    delay_seconds: float = 0,
+    started: asyncio.Event | None = None,
+) -> FakeReadTool:
+    return FakeReadTool(
+        ToolManifest(
+            tool_id="quant-read",
+            name="Quant read",
+            module="quant",
+            risk_class=risk_class,
+            version="1.0.0",
+            description="Read fixture",
+            required_capabilities=("quant:read",),
+        ),
+        delay_seconds=delay_seconds,
+        started=started,
+    )
+
+
+def _result() -> ModelResult:
+    return ModelResult(
+        text="Reviewed fixture",
+        parsed={"answer": "42"},
+        provider="fake",
+        model="fake-model",
+        latency_ms=0,
+        finish_reason="stop",
+    )
+
+
+def test_graph_runs_offline_with_fake_provider_and_read_tool() -> None:
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "success"
+    assert result["code"] is None
+    assert result["text"] == "Reviewed fixture"
+    assert result["evidence"] == {"source": "fixture", "value": "42"}
+    assert result["trace"] == ("guard", "router", "specialist", "reviewer", "success")
+    assert result["steps_used"] == 5
+    assert result["tool_calls_used"] == 1
+    assert "tokens_used" in result and result["tokens_used"] > 0
+    assert "cost_used" in result and result["cost_used"] >= 0
+    assert tool.calls == 1
+
+
+def test_graph_rejects_forbidden_tool_before_provider_call() -> None:
+    tool = _tool(RiskClass.FORBIDDEN)
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "tool_not_granted"
+    assert result["text"] is None
+    assert tool.calls == 0
+
+
+def test_graph_recovers_unknown_task_without_side_effect() -> None:
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task("unknown"), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "unknown_task_type"
+    assert result["trace"] == ("guard", "recovery", "recovery")
+    assert tool.calls == 0
+
+
+def test_graph_recovers_provider_error() -> None:
+    tool = _tool()
+    provider = FakeProvider([ModelError("provider_unavailable", "Offline failure")])
+
+    result = asyncio.run(run_graph(_envelope(), _task(), provider, tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "provider_unavailable"
+    assert result["text"] is None
+    assert tool.calls == 1
+
+
+def test_graph_blocks_exhausted_tool_budget_before_side_effect() -> None:
+    tool = _tool()
+    result = asyncio.run(
+        run_graph(_envelope(max_tool_calls=0), _task(), FakeProvider([_result()]), tool)
+    )
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "tool_budget_exhausted"
+    assert result["trace"] == ("recovery", "recovery")
+    assert tool.calls == 0
+
+
+def test_graph_recovers_when_tool_exceeds_wall_budget() -> None:
+    tool = _tool(delay_seconds=0.02)
+    result = asyncio.run(
+        run_graph(
+            _envelope(max_wall_seconds=0.01),
+            _task(),
+            FakeProvider([_result()]),
+            tool,
+        )
+    )
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "wall_budget_exhausted"
+    assert result["tool_calls_used"] == 1
+    assert tool.calls == 1
+
+
+def test_graph_does_not_start_tool_when_wall_budget_is_exhausted(monkeypatch) -> None:
+    tool = _tool()
+    monkeypatch.setattr(graph_module, "_remaining_wall_seconds", lambda state: 0)
+
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "wall_budget_exhausted"
+    assert result["tool_calls_used"] == 0
+    assert tool.calls == 0
+
+
+def test_graph_propagates_cancellation_during_tool_execution() -> None:
+    async def cancel_run() -> None:
+        started = asyncio.Event()
+        task = asyncio.create_task(
+            run_graph(_envelope(), _task(), FakeProvider([_result()]), _tool(delay_seconds=1, started=started))
+        )
+        await started.wait()
+        task.cancel()
+        await task
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(cancel_run())

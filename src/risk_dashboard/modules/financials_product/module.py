@@ -5,8 +5,17 @@ module = ModuleDefinition(
     id="financials_product",
     slug="financials_product",
     enabled_by_default=True,
-    feature_flags=("module.financials_product.enabled",),
-    permission_scopes=("public:financials:read", "public:financials:write"),
+    feature_flags=(
+        "module.financials_product.enabled",
+        "module.financials_product.bctc_agent.enabled",
+    ),
+    permission_scopes=(
+        "public:financials:read",
+        "public:financials:write",
+        "bctc:report:read",
+        "bctc:formula:read",
+        "bctc:evidence:read",
+    ),
     public_router=public_router,
     public_mount_prefix="",
 )

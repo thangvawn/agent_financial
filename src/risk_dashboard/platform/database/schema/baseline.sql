@@ -648,10 +648,13 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
   rating INTEGER NOT NULL,
   reason_code TEXT NOT NULL,
   free_text TEXT,
-  created_at TEXT NOT NULL
+  idempotency_key TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE(message_id, idempotency_key)
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_feedback_conversation_id ON ai_feedback(conversation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_feedback_msg_idemp ON ai_feedback(message_id, idempotency_key);
 
 CREATE TABLE IF NOT EXISTS ai_event_logs (
   event_id TEXT PRIMARY KEY,

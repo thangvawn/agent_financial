@@ -9,10 +9,12 @@ from risk_dashboard.modules.auth.infrastructure.sqlite import (
     SqliteAccountRepository,
     SqliteAccountSessionRepository,
 )
+from risk_dashboard.platform.database import clear_db_path_cache
 
 
 def _repos(tmp_path, monkeypatch):
     monkeypatch.setenv("RISK_DASHBOARD_APP_STATE_DB", str(tmp_path / "app_state.db"))
+    clear_db_path_cache()
     return SqliteAccountRepository(), SqliteAccountSessionRepository()
 
 

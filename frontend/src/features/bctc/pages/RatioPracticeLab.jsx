@@ -227,21 +227,16 @@ export default function RatioPracticeLab({ workspace }) {
   const availablePeriods = useMemo(() => {
     if (!workspace?.statements) return []
     const incomePeriods = workspace.statements.income?.periods || []
-    const balancePeriods = workspace.statements.balance?.periods || []
+  const balancePeriods = workspace.statements.balance?.periods || []
     const set = new Set([...incomePeriods, ...balancePeriods])
     return Array.from(set)
   }, [workspace])
 
-  // Select initial period
-  useMemo(() => {
-    if (!selectedPeriod && availablePeriods.length > 0) {
-      setSelectedPeriod(availablePeriods[0])
-    }
-  }, [availablePeriods, selectedPeriod])
+  const periodToUse = selectedPeriod || availablePeriods[0] || ''
 
-  // Extract period data from workspace for selectedPeriod
+  // Extract period data from workspace for periodToUse
   const { periodData, yoyData, period } = useMemo(() => {
-    if (!workspace || !selectedPeriod) return { periodData: {}, yoyData: null, period: '' }
+    if (!workspace || !periodToUse) return { periodData: {}, yoyData: null, period: '' }
     const statements = workspace.statements || {}
     const latest = {}
 
@@ -250,28 +245,22 @@ export default function RatioPracticeLab({ workspace }) {
     const cashFlowRows = statements.cash_flow?.rows || []
 
     // 1. Try extracting from exact period
-    extractNormalizedValues(incomeRows, selectedPeriod, latest)
-    extractNormalizedValues(balanceRows, selectedPeriod, latest)
-    extractNormalizedValues(cashFlowRows, selectedPeriod, latest)
+    extractNormalizedValues(incomeRows, periodToUse, latest)
+    extractNormalizedValues(balanceRows, periodToUse, latest)
+    extractNormalizedValues(cashFlowRows, periodToUse, latest)
 
     // 2. Try fallback from other periods for missing items
     for (const stdKey of Object.keys(KEY_MAP)) {
       if (latest[stdKey] == null) {
         for (const pStr of availablePeriods) {
-          extractNormalizedValues(incomeRows, pStr, latest)
-          extractNormalizedValues(balanceRows, pStr, latest)
-          extractNormalizedValues(cashFlowRows, pStr, latest)
-          if (latest[stdKey] != null) break
-        }
-      }
-    }
-
-    // 3. Add derived fields from ratio_groups & headline_metrics
-    const ratioGroups = workspace.ratio_groups || []
-    for (const group of ratioGroups) {
-      for (const metric of group.metrics || []) {
-        if (metric.value != null && !(metric.key in latest)) {
-          latest[metric.key] = metric.value
+          const fallback = {}
+          extractNormalizedValues(incomeRows, pStr, fallback)
+          extractNormalizedValues(balanceRows, pStr, fallback)
+          extractNormalizedValues(cashFlowRows, pStr, fallback)
+          if (fallback[stdKey] != null) {
+            latest[stdKey] = fallback[stdKey]
+            break
+          }
         }
       }
     }
@@ -308,18 +297,18 @@ export default function RatioPracticeLab({ workspace }) {
     }
     if (latest.interest_expense == null) latest.interest_expense = Math.round(latest.debt * 0.065 / 4)
 
-    if (selectedPeriod && selectedPeriod.includes('-Q')) {
-      latest.quarter = parseInt(selectedPeriod.split('-Q')[1], 10)
+    if (periodToUse && periodToUse.includes('-Q')) {
+      latest.quarter = parseInt(periodToUse.split('-Q')[1], 10)
     }
 
     // YoY period lookup
     let yoy = null
     let yoyPeriodStr = null
-    if (!selectedPeriod.includes('-Q')) {
-      const yr = parseInt(selectedPeriod, 10)
+    if (!periodToUse.includes('-Q')) {
+      const yr = parseInt(periodToUse, 10)
       yoyPeriodStr = String(yr - 1)
     } else {
-      const [yr, q] = selectedPeriod.split('-Q')
+      const [yr, q] = periodToUse.split('-Q')
       yoyPeriodStr = `${parseInt(yr, 10) - 1}-Q${q}`
     }
     if (yoyPeriodStr) {
@@ -332,8 +321,8 @@ export default function RatioPracticeLab({ workspace }) {
       if (yoy.gross_profit == null) yoy.gross_profit = Math.round(latest.gross_profit * 0.88)
     }
 
-    return { periodData: latest, yoyData: yoy, period: selectedPeriod }
-  }, [workspace, selectedPeriod, availablePeriods])
+    return { periodData: latest, yoyData: yoy, period: periodToUse }
+  }, [workspace, periodToUse, availablePeriods])
 
   // Compute correct answers
   const correctAnswers = useMemo(() => computeAllRatios(periodData, yoyData), [periodData, yoyData])

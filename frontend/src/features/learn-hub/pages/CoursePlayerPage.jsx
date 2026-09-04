@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   findCourseById,
@@ -8,6 +8,7 @@ import {
   toYouTubeEmbed,
 } from '../content/courseCatalogData'
 import LessonSidebar from './LessonSidebar'
+import LearnTutorPanel from './LearnTutorPanel'
 
 const STORAGE_KEY = 'northstar.learn-hub.progress'
 
@@ -19,30 +20,61 @@ function writeProgress(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch { /* noop */ }
 }
 
-export default function CoursePlayerPage({ courseId, onBack }) {
+const PLAYER_TABS = [
+  ['overview', 'Tổng quan'],
+  ['tutor', '🎓 AI Gia Sư'],
+  ['notes', 'Ghi chú'],
+  ['resources', 'Tài liệu'],
+]
+
+export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
   const course = findCourseById(courseId)
   const allLessons = course ? getAllLessons(course) : []
   const [activeLessonId, setActiveLessonId] = useState(() => allLessons[0]?.lesson_id || '')
   const [completedSet, setCompletedSet] = useState(() => new Set(readProgress()[courseId] || []))
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [videoError, setVideoError] = useState(false)
+  const [videoErrorLesson, setVideoErrorLesson] = useState(null)
   const videoRef = useRef(null)
 
+  const handleTabKeyDown = (e, currentId) => {
+    const tabIds = PLAYER_TABS.map(([id]) => id)
+    const idx = tabIds.indexOf(currentId)
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      const nextId = tabIds[(idx + 1) % tabIds.length]
+      setActiveTab(nextId)
+      document.getElementById(`lhp-tab-${nextId}`)?.focus()
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      const prevId = tabIds[(idx - 1 + tabIds.length) % tabIds.length]
+      setActiveTab(prevId)
+      document.getElementById(`lhp-tab-${prevId}`)?.focus()
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      setActiveTab(tabIds[0])
+      document.getElementById(`lhp-tab-${tabIds[0]}`)?.focus()
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      setActiveTab(tabIds[tabIds.length - 1])
+      document.getElementById(`lhp-tab-${tabIds[tabIds.length - 1]}`)?.focus()
+    }
+  }
+
+  const videoError = videoErrorLesson === activeLessonId
   const activeLesson = allLessons.find((l) => l.lesson_id === activeLessonId) || allLessons[0]
   const activeIndex = findLessonIndex(course, activeLessonId)
   const isYouTube = isYouTubeUrl(activeLesson?.video_url)
   const youtubeEmbed = toYouTubeEmbed(activeLesson?.video_url)
 
   useEffect(() => {
-    setVideoError(false)
     if (!isYouTube && videoRef.current) {
       videoRef.current.load()
       videoRef.current.play().catch(() => {})
     }
   }, [activeLessonId, isYouTube])
 
-  const markComplete = useCallback((lessonId) => {
+  const markComplete = (lessonId) => {
     setCompletedSet((prev) => {
       const next = new Set(prev)
       next.add(lessonId)
@@ -51,14 +83,14 @@ export default function CoursePlayerPage({ courseId, onBack }) {
       writeProgress(saved)
       return next
     })
-  }, [courseId])
+  }
 
-  const handleVideoEnded = useCallback(() => {
+  const handleVideoEnded = () => {
     markComplete(activeLessonId)
     if (activeIndex + 1 < allLessons.length) {
       setActiveLessonId(allLessons[activeIndex + 1].lesson_id)
     }
-  }, [activeLessonId, activeIndex, allLessons, markComplete])
+  }
 
   if (!course) {
     return (
@@ -110,7 +142,7 @@ export default function CoursePlayerPage({ courseId, onBack }) {
                 controls
                 src={activeLesson?.video_url || ''}
                 onEnded={handleVideoEnded}
-                onError={() => setVideoError(true)}
+                onError={() => setVideoErrorLesson(activeLessonId)}
               />
             )}
           </div>
@@ -143,22 +175,34 @@ export default function CoursePlayerPage({ courseId, onBack }) {
             </div>
           </div>
 
-          <div className="lhp-tabs" role="tablist">
-            {[['overview', 'Tổng quan'], ['notes', 'Ghi chú'], ['resources', 'Tài liệu']].map(([id, label]) => (
+          <div className="lhp-tabs" role="tablist" aria-label="Nội dung bài học">
+            {PLAYER_TABS.map(([id, label]) => (
               <button
                 key={id}
+                id={`lhp-tab-${id}`}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === id}
+                aria-controls={`lhp-panel-${id}`}
+                tabIndex={activeTab === id ? 0 : -1}
                 className={activeTab === id ? 'is-active' : ''}
                 onClick={() => setActiveTab(id)}
+                onKeyDown={(e) => handleTabKeyDown(e, id)}
               >
                 {label}
               </button>
             ))}
           </div>
 
-          <div className="lhp-tab-content">
+          <div
+            id={`lhp-panel-${activeTab}`}
+            className="lhp-tab-content"
+            role="tabpanel"
+            aria-labelledby={`lhp-tab-${activeTab}`}
+          >
+            {activeTab === 'tutor' ? (
+              <LearnTutorPanel courseId={courseId} lessonId={activeLessonId} sessionId={sessionId} />
+            ) : null}
             {activeTab === 'overview' ? (
               <div className="lhp-overview">
                 <h3>Về khóa học</h3>

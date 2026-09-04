@@ -134,6 +134,249 @@ CREATE TABLE IF NOT EXISTS telegram_market_delivery_chunks (
 );
 """
 
+AI_TUTOR_SQL = """
+CREATE TABLE IF NOT EXISTS ai_conversation_sessions (
+  conversation_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  surface TEXT NOT NULL DEFAULT 'learn',
+  context_id TEXT,
+  context_json TEXT NOT NULL DEFAULT '{}',
+  prompt_version TEXT NOT NULL DEFAULT 'v1',
+  policy_version TEXT NOT NULL DEFAULT 'v1',
+  status TEXT NOT NULL DEFAULT 'active',
+  idempotency_key TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_conversation_sessions_user_id ON ai_conversation_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+  message_id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  content TEXT NOT NULL,
+  classified_intent TEXT,
+  risk_labels_json TEXT NOT NULL DEFAULT '[]',
+  structured_output_json TEXT NOT NULL DEFAULT '{}',
+  citations_json TEXT NOT NULL DEFAULT '[]',
+  numeric_claims_json TEXT NOT NULL DEFAULT '[]',
+  tool_calls_json TEXT NOT NULL DEFAULT '[]',
+  trace_id TEXT,
+  idempotency_key TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation_id ON ai_messages(conversation_id);
+
+CREATE TABLE IF NOT EXISTS ai_feedback (
+  feedback_id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  rating INTEGER NOT NULL,
+  reason_code TEXT NOT NULL,
+  free_text TEXT,
+  idempotency_key TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE(message_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_feedback_conversation_id ON ai_feedback(conversation_id);
+
+CREATE TABLE IF NOT EXISTS ai_event_logs (
+  event_id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  surface TEXT NOT NULL,
+  intent TEXT NOT NULL,
+  route_decision TEXT NOT NULL,
+  guardrail_triggered INTEGER NOT NULL DEFAULT 0,
+  tool_calls_json TEXT NOT NULL DEFAULT '[]',
+  latency_ms INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_event_logs_conversation_id ON ai_event_logs(conversation_id);
+"""
+
+LEARNING_AGENT_SQL = """
+CREATE TABLE IF NOT EXISTS learning_agent_checkpoints (
+  checkpoint_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  lesson_id TEXT NOT NULL,
+  question_id TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  options_json TEXT NOT NULL DEFAULT '[]',
+  correct_answer TEXT NOT NULL,
+  explanation TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_agent_checkpoints_account ON learning_agent_checkpoints(account_id);
+
+CREATE TABLE IF NOT EXISTS learning_verified_events (
+  event_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  checkpoint_id TEXT NOT NULL,
+  lesson_id TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  passed INTEGER NOT NULL,
+  rubric_evidence_json TEXT NOT NULL DEFAULT '[]',
+  misconceptions_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_verified_events_account ON learning_verified_events(account_id);
+
+CREATE TABLE IF NOT EXISTS learning_progress_receipts (
+  receipt_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  verified_event_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  confirmation_id TEXT NOT NULL,
+  lesson_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  quiz_score INTEGER,
+  created_at TEXT NOT NULL,
+  UNIQUE(account_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_progress_receipts_account ON learning_progress_receipts(account_id);
+CREATE INDEX IF NOT EXISTS idx_learning_progress_receipts_event ON learning_progress_receipts(verified_event_id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS learning_fts_index USING fts5(
+  lesson_id UNINDEXED,
+  section_id UNINDEXED,
+  source_id UNINDEXED,
+  content_version UNINDEXED,
+  title,
+  content
+);
+"""
+
+BCTC_EVIDENCE_MEMOS_SQL = """
+CREATE TABLE IF NOT EXISTS bctc_evidence_memos (
+    memo_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    report_refs_json TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    evidence_rows_json TEXT NOT NULL,
+    calculations_json TEXT NOT NULL,
+    interpretations_json TEXT NOT NULL,
+    unresolved_questions_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL,
+    reviewer_status TEXT NOT NULL DEFAULT 'pending',
+    is_stale INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bctc_memos_account ON bctc_evidence_memos(account_id);
+"""
+
+BCTC_UPLOAD_OWNERSHIP_SQL = """
+CREATE TABLE IF NOT EXISTS bctc_upload_ownership (
+    upload_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    upload_path TEXT NOT NULL,
+    expires_at TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bctc_upload_owner ON bctc_upload_ownership(account_id);
+"""
+
+SIMULATION_SPECS_SQL = """
+CREATE TABLE IF NOT EXISTS simulation_experiment_specs (
+    spec_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    schema_version TEXT NOT NULL DEFAULT '1.0.0',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sim_specs_account ON simulation_experiment_specs(account_id);
+"""
+
+SIMULATION_PROPOSALS_SQL = """
+CREATE TABLE IF NOT EXISTS simulation_action_proposals (
+    proposal_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    confirmation_token TEXT NOT NULL,
+    idempotency_key TEXT,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sim_proposals_account ON simulation_action_proposals(account_id);
+CREATE INDEX IF NOT EXISTS idx_sim_proposals_idempotency ON simulation_action_proposals(account_id, idempotency_key);
+"""
+
+SIMULATION_RECEIPTS_SQL = """
+CREATE TABLE IF NOT EXISTS simulation_action_receipts (
+    receipt_id TEXT PRIMARY KEY,
+    proposal_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    run_artifact_id TEXT,
+    error_code TEXT,
+    executed_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sim_receipts_account ON simulation_action_receipts(account_id);
+CREATE INDEX IF NOT EXISTS idx_sim_receipts_proposal ON simulation_action_receipts(proposal_id);
+"""
+
+HOME_JOURNEY_SQL = """
+CREATE TABLE IF NOT EXISTS home_journey_cards (
+    card_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    candidate_id TEXT NOT NULL,
+    schema_version TEXT NOT NULL DEFAULT '1.0.0',
+    source_refs_json TEXT NOT NULL DEFAULT '[]',
+    action_json TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    invalidated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hjc_account ON home_journey_cards(account_id);
+
+CREATE TABLE IF NOT EXISTS home_journey_feedback (
+    receipt_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    card_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    snooze_until TEXT,
+    idempotency_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(account_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_hjf_account ON home_journey_feedback(account_id);
+"""
+
+
+def _add_column_if_not_exists(conn, table: str, column_def: str) -> None:
+    col_name = column_def.strip().split()[0]
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    if col_name not in existing_cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")
+
+
+def _apply_ai_tutor_migration(conn) -> None:
+    conn.executescript(AI_TUTOR_SQL)
+    _add_column_if_not_exists(conn, "ai_conversation_sessions", "context_id TEXT")
+    _add_column_if_not_exists(conn, "ai_conversation_sessions", "idempotency_key TEXT")
+    _add_column_if_not_exists(conn, "ai_messages", "citations_json TEXT NOT NULL DEFAULT '[]'")
+    _add_column_if_not_exists(conn, "ai_messages", "numeric_claims_json TEXT NOT NULL DEFAULT '[]'")
+    _add_column_if_not_exists(conn, "ai_messages", "tool_calls_json TEXT NOT NULL DEFAULT '[]'")
+    _add_column_if_not_exists(conn, "ai_messages", "trace_id TEXT")
+    _add_column_if_not_exists(conn, "ai_messages", "idempotency_key TEXT")
+    _add_column_if_not_exists(conn, "ai_feedback", "idempotency_key TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_conversation_sessions_idempotency ON ai_conversation_sessions(idempotency_key)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_messages_conv_idemp ON ai_messages(conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_feedback_msg_idemp ON ai_feedback(message_id, idempotency_key)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_feedback_message_id ON ai_feedback(message_id)")
+
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
@@ -142,6 +385,14 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
     ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
     ("007_telegram_market_deliveries", TELEGRAM_MARKET_DELIVERIES_SQL),
+    ("008_ai_tutor_conversations", ""),  # applied by _apply_ai_tutor_migration
+    ("009_learning_agent_checkpoints", LEARNING_AGENT_SQL),
+    ("010_bctc_evidence_memos", BCTC_EVIDENCE_MEMOS_SQL),
+    ("011_bctc_upload_ownership", BCTC_UPLOAD_OWNERSHIP_SQL),
+    ("012_simulation_experiment_specs", SIMULATION_SPECS_SQL),
+    ("013_simulation_action_proposals", SIMULATION_PROPOSALS_SQL),
+    ("014_simulation_action_receipts", SIMULATION_RECEIPTS_SQL),
+    ("015_home_journey", HOME_JOURNEY_SQL),
 ]
 
 
@@ -195,11 +446,22 @@ def apply_migrations(conn) -> list[str]:
         ("005_telegram_news_deliveries", TELEGRAM_NEWS_DELIVERIES_SQL),
         ("006_telegram_news_translations", TELEGRAM_NEWS_TRANSLATIONS_SQL),
         ("007_telegram_market_deliveries", TELEGRAM_MARKET_DELIVERIES_SQL),
+        ("008_ai_tutor_conversations", ""),
+        ("009_learning_agent_checkpoints", LEARNING_AGENT_SQL),
+        ("010_bctc_evidence_memos", BCTC_EVIDENCE_MEMOS_SQL),
+        ("011_bctc_upload_ownership", BCTC_UPLOAD_OWNERSHIP_SQL),
+        ("012_simulation_experiment_specs", SIMULATION_SPECS_SQL),
+        ("013_simulation_action_proposals", SIMULATION_PROPOSALS_SQL),
+        ("014_simulation_action_receipts", SIMULATION_RECEIPTS_SQL),
+        ("015_home_journey", HOME_JOURNEY_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:
             continue
-        conn.executescript(sql)
+        if mid == "008_ai_tutor_conversations":
+            _apply_ai_tutor_migration(conn)
+        else:
+            conn.executescript(sql)
         conn.execute(
             "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
             (mid, _now()),
@@ -208,3 +470,4 @@ def apply_migrations(conn) -> list[str]:
         applied.add(mid)
     conn.commit()
     return newly
+

@@ -30,7 +30,7 @@ export default function LessonSidebar({ course, activeLessonId, completedSet, on
     })
   }
 
-  let globalIndex = 0
+  const allLessons = course.sections.flatMap((s) => s.lessons)
 
   return (
     <aside className="lhs-sidebar" aria-label="Danh sách bài học">
@@ -46,7 +46,6 @@ export default function LessonSidebar({ course, activeLessonId, completedSet, on
         {course.sections.map((section) => {
           const isCollapsed = collapsedSections.has(section.section_id)
           const sectionCompleted = section.lessons.every((l) => completedSet.has(l.lesson_id))
-          const sectionStartIndex = globalIndex
 
           return (
             <div key={section.section_id} className="lhs-section">
@@ -63,8 +62,7 @@ export default function LessonSidebar({ course, activeLessonId, completedSet, on
               {!isCollapsed ? (
                 <ul className="lhs-section__lessons">
                   {section.lessons.map((lesson) => {
-                    globalIndex += 1
-                    const idx = globalIndex
+                    const idx = allLessons.findIndex((l) => l.lesson_id === lesson.lesson_id) + 1
                     const isActive = lesson.lesson_id === activeLessonId
                     const isDone = completedSet.has(lesson.lesson_id)
 
@@ -76,7 +74,7 @@ export default function LessonSidebar({ course, activeLessonId, completedSet, on
                           onClick={() => onSelectLesson(lesson.lesson_id)}
                         >
                           <span className="lhs-lesson__index">
-                            {isDone ? <CheckIcon /> : <span>{sectionStartIndex + (idx - sectionStartIndex)}</span>}
+                            {isDone ? <CheckIcon /> : <span>{idx}</span>}
                           </span>
                           <span className="lhs-lesson__info">
                             <span className="lhs-lesson__title">{lesson.title}</span>

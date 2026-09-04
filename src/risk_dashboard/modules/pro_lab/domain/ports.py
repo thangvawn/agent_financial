@@ -8,6 +8,9 @@ from risk_dashboard.modules.pro_lab.domain.entities import (
     ProLabExperiment,
     ProLabExperimentRun,
     ProLabWorkspaceState,
+    SimulationActionProposalEntity,
+    SimulationActionReceiptEntity,
+    SimulationExperimentSpec,
 )
 
 
@@ -58,3 +61,30 @@ class ProLabWorkspaceStateRepository(Protocol):
     def save(self, state: ProLabWorkspaceState) -> ProLabWorkspaceState: ...
 
     def get(self, *, user_id: str) -> ProLabWorkspaceState | None: ...
+
+
+class SimulationExperimentSpecRepository(Protocol):
+    def save(self, spec: SimulationExperimentSpec) -> SimulationExperimentSpec: ...
+
+    def get(self, *, spec_id: str) -> SimulationExperimentSpec | None: ...
+
+    def list_by_account(self, *, account_id: str) -> list[SimulationExperimentSpec]: ...
+
+
+class SimulationActionProposalRepository(Protocol):
+    def save(self, proposal: SimulationActionProposalEntity) -> SimulationActionProposalEntity: ...
+
+    def get(self, *, proposal_id: str) -> SimulationActionProposalEntity | None: ...
+
+    def get_by_idempotency_key(self, *, account_id: str, idempotency_key: str) -> SimulationActionProposalEntity | None: ...
+
+    def update_status(self, *, proposal_id: str, status: str) -> bool: ...
+
+
+class SimulationActionReceiptRepository(Protocol):
+    def save(self, receipt: SimulationActionReceiptEntity) -> SimulationActionReceiptEntity: ...
+
+    def get(self, *, receipt_id: str) -> SimulationActionReceiptEntity | None: ...
+
+    def get_by_proposal_id(self, *, proposal_id: str) -> SimulationActionReceiptEntity | None: ...
+

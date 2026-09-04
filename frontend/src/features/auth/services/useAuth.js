@@ -3,10 +3,10 @@ import { useState, useCallback } from 'react'
 const SESSION_KEY = 'public-beta.session_id'
 const USER_KEY = 'public-beta.user_profile'
 
-async function postJson(path, body) {
+async function postJson(path, body, headers = {}) {
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   })
   const payload = await response.json().catch(() => null)
@@ -34,8 +34,8 @@ async function postJson(path, body) {
   return payload
 }
 
-async function getJson(path) {
-  const response = await fetch(path)
+async function getJson(path, headers = {}) {
+  const response = await fetch(path, { headers })
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     const message = (typeof payload?.detail === 'string' && payload.detail) || `Request failed: ${response.status}`
@@ -139,9 +139,11 @@ export function useAuth() {
     clearSession()
     if (!sessionId) return
     try {
-      await postJson('/api/v1/public/auth/logout', { session_id: sessionId })
+      await postJson('/api/v1/public/auth/logout', {}, {
+        Authorization: `Bearer ${sessionId}`,
+      })
     } catch {
-      /* best-effort; client state is already cleared */
+      /* Session may already be invalid; local cleanup remains idempotent. */
     }
   }, [])
 
@@ -165,7 +167,9 @@ export function useAuth() {
     const sessionId = (typeof window !== 'undefined' && window.localStorage.getItem(SESSION_KEY)) || ''
     if (!sessionId) return null
     try {
-      const payload = await getJson(`/api/v1/public/auth/me?session_id=${encodeURIComponent(sessionId)}`)
+      const payload = await getJson('/api/v1/public/auth/me', {
+        Authorization: `Bearer ${sessionId}`,
+      })
       persistSession(payload.session_id, payload.profile)
       return { session_id: payload.session_id, profile: payload.profile }
     } catch {

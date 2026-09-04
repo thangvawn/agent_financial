@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import {
   Activity,
   AlertCircle,
@@ -202,7 +202,6 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agreedTerms, setAgreedTerms] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   const [showcaseIndex, setShowcaseIndex] = useState(0)
 
   // Auto-advance showcase slides every 5s
@@ -282,12 +281,8 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   )
 
   function handleSwitchMode() {
-    setIsTransitioning(true)
     setError('')
-    setTimeout(() => {
-      onSwitchMode?.(isRegister ? 'login' : 'register')
-      setIsTransitioning(false)
-    }, 180)
+    onSwitchMode?.(isRegister ? 'login' : 'register')
   }
 
   return (

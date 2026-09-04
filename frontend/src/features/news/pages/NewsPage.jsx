@@ -135,29 +135,6 @@ export default function NewsPage() {
     setFeedVisible(FEED_LIST_INITIAL)
   }, [category, query, preset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
 
-  // Refresh handler
-  const handleRefresh = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await fetchNewsFeed({
-        category: category === 'all' ? '' : category,
-        q: query, limit: 80, timeRangeHours, region, sourceGroup,
-        preset, force: true, sentiment, impactLevel, importance,
-      })
-      setPayload(data)
-      setFeedVisible(FEED_LIST_INITIAL)
-      setActiveArticleId((current) => {
-        const hasCurrent = data.articles?.some((article) => article.article_id === current)
-        return hasCurrent ? current : data.articles?.[0]?.article_id || ''
-      })
-    } catch (err) { setError(err.message) }
-    finally {
-      await refreshHighlights({ force: false })
-      setLoading(false)
-    }
-  }
-
   const handleResetFilters = () => {
     setMarketLens(DEFAULT_MARKET_LENS)
     setCategory('all')
@@ -176,8 +153,6 @@ export default function NewsPage() {
     || articles.find((article) => article.article_id === activeArticleId)
     || highlightItems.find((article) => article.article_id === activeArticleId)
     || (!activeArticleId ? articles[0] : null)
-  const todayBrief = payload?.today_brief || []
-  const topHighlight = highlightItems[0] || todayBrief[0]
 
   // Infinite scroll intersection observer
   useEffect(() => {
@@ -191,8 +166,6 @@ export default function NewsPage() {
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [articles.length, feedVisible])
-
-  const [activeSubTab, setActiveSubTab] = useState('all')
 
   return (
     <section className="news-desk">

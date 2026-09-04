@@ -156,6 +156,12 @@ class SqliteLearningCatalog(LearningCatalogReader):
             self.content_ops_repo.list_published_content(content_type="course"),
             lambda item, payload: _course_from_content_ops(item=item, payload=payload),
         )
+        if not content_ops_published:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_published = _published_by_slug(
+                self.content_ops_repo.list_published_content(content_type="course"),
+                lambda item, payload: _course_from_content_ops(item=item, payload=payload),
+            )
         return list(content_ops_published.values())
 
     def list_paths(self) -> list[LearningPath]:
@@ -163,6 +169,12 @@ class SqliteLearningCatalog(LearningCatalogReader):
             self.content_ops_repo.list_published_content(content_type="path"),
             lambda item, payload: _path_from_content_ops(item=item, payload=payload),
         )
+        if not content_ops_published:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_published = _published_by_slug(
+                self.content_ops_repo.list_published_content(content_type="path"),
+                lambda item, payload: _path_from_content_ops(item=item, payload=payload),
+            )
         return list(content_ops_published.values())
 
     def list_lessons(self) -> list[LearningLesson]:
@@ -170,10 +182,19 @@ class SqliteLearningCatalog(LearningCatalogReader):
             self.content_ops_repo.list_published_content(content_type="lesson"),
             lambda item, payload: self._lesson_from_content_ops(item=item, payload=payload),
         )
+        if not content_ops_published:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_published = _published_by_slug(
+                self.content_ops_repo.list_published_content(content_type="lesson"),
+                lambda item, payload: self._lesson_from_content_ops(item=item, payload=payload),
+            )
         return list(content_ops_published.values())
 
     def _resolve_course(self, course_id: str) -> LearningCourse:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="course", slug=course_id)
+        if content_ops_document is None:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_document = self.content_ops_repo.find_published_content(content_type="course", slug=course_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return _course_from_content_ops(item=item, payload=version.payload)
@@ -181,6 +202,9 @@ class SqliteLearningCatalog(LearningCatalogReader):
 
     def _resolve_path(self, path_id: str) -> LearningPath:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="path", slug=path_id)
+        if content_ops_document is None:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_document = self.content_ops_repo.find_published_content(content_type="path", slug=path_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return _path_from_content_ops(item=item, payload=version.payload)
@@ -188,6 +212,9 @@ class SqliteLearningCatalog(LearningCatalogReader):
 
     def _resolve_lesson(self, lesson_id: str) -> LearningLesson:
         content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=lesson_id)
+        if content_ops_document is None:
+            ensure_learning_catalog_seeded(self.content_ops_repo)
+            content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=lesson_id)
         if content_ops_document is not None:
             item, version = content_ops_document
             return self._lesson_from_content_ops(item=item, payload=version.payload)

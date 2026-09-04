@@ -1,5 +1,3 @@
-import React from 'react'
-import { motion } from 'framer-motion'
 
 /**
  * Northstar Logo Component — Clean Minimalist 2D Flat Vector Brand Mark

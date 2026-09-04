@@ -109,3 +109,44 @@ class LearningCmsDocument:
     payload: dict[str, Any]
     updated_at: str
     published_at: str | None = None
+
+
+@dataclass(frozen=True)
+class CheckpointRecord:
+    checkpoint_id: str
+    account_id: str
+    lesson_id: str
+    question_id: str
+    prompt: str
+    options: tuple[str, ...]
+    correct_answer: str
+    explanation: str
+    expires_at: str
+    created_at: str
+
+
+@dataclass(frozen=True)
+class VerifiedEventRecord:
+    event_id: str
+    account_id: str
+    checkpoint_id: str
+    lesson_id: str
+    score: int
+    passed: bool
+    rubric_evidence: tuple[str, ...]
+    misconceptions: tuple[str, ...]
+    created_at: str
+
+
+@dataclass(frozen=True)
+class ProgressReceiptRecord:
+    receipt_id: str
+    account_id: str
+    verified_event_id: str
+    idempotency_key: str
+    confirmation_id: str
+    lesson_id: str
+    status: str
+    quiz_score: int | None
+    created_at: str
+

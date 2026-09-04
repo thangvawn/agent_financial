@@ -13,11 +13,6 @@ export function useLearningAssets(sessionId) {
         enabled,
       },
       {
-        queryKey: ['learning', 'assets', 'audios'],
-        queryFn: () => fetchLearningAssets('audios'),
-        enabled,
-      },
-      {
         queryKey: ['learning', 'assets', 'books'],
         queryFn: () => fetchLearningAssets('books'),
         enabled,
@@ -25,16 +20,14 @@ export function useLearningAssets(sessionId) {
     ],
   })
 
-  const [videoQ, audioQ, bookQ] = queries
+  const [videoQ, bookQ] = queries
   const isPending = enabled && queries.some((q) => q.isPending && q.fetchStatus !== 'idle')
-  const allFailed = videoQ.isError && audioQ.isError && bookQ.isError
+  const errorMsg = videoQ.error?.message || bookQ.error?.message || ''
 
   return {
     videoItems: videoQ.data?.items ?? [],
-    audioItems: audioQ.data?.items ?? null,
     bookItems: bookQ.data?.items ?? [],
     isLoading: isPending,
-    error: allFailed ? 'Không tải được danh sách media local.' : '',
-    audioFailed: audioQ.isError,
+    error: errorMsg,
   }
 }

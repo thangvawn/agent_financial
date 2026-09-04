@@ -64,7 +64,7 @@ export default function CommoditiesPanel() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
-  const items = data?.items || []
+  const items = useMemo(() => data?.items || [], [data?.items])
   const filtered = useMemo(() => {
     const rows = items.filter((row) => (group === 'all' || row.category === group) && `${row.symbol} ${row.name}`.toLowerCase().includes(query.toLowerCase()))
     return [...rows].sort((a, b) => sort === 'change' ? (b.change_pct ?? -Infinity) - (a.change_pct ?? -Infinity) : sort === 'price' ? (b.price ?? -Infinity) - (a.price ?? -Infinity) : (b.volume_24h ?? -Infinity) - (a.volume_24h ?? -Infinity))

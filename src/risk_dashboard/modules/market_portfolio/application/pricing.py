@@ -8,7 +8,10 @@ _vn = VnMarketFeedProducer()
 def quote_last_price(symbol: str) -> float | None:
     """Best-effort last price from VN market snapshot (educational mock fill)."""
     needle = symbol.strip().upper()
-    payload = _vn.snapshot()
+    try:
+        payload = _vn.snapshot()
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError):
+        return None
     for item in payload.get("items") or []:
         if (item.get("symbol") or "").upper() == needle:
             price = item.get("price")
@@ -26,7 +29,11 @@ def quote_map(symbols: list[str]) -> dict[str, float]:
     wanted = {s.strip().upper() for s in symbols if s}
     if not wanted:
         return {}
-    payload = _vn.snapshot()
+    try:
+        payload = _vn.snapshot()
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError):
+        return {}
+
     out: dict[str, float] = {}
     for item in payload.get("items") or []:
         sym = (item.get("symbol") or "").upper()
@@ -42,3 +49,4 @@ def quote_map(symbols: list[str]) -> dict[str, float]:
         if value > 0:
             out[sym] = value
     return out
+

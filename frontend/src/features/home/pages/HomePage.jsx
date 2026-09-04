@@ -2,8 +2,8 @@ import {
   SparkleAppCta,
   SparkleHighlights,
   SparklePlans,
-  useSparkleMotion,
 } from './HomeSparkleSections'
+import { useSparkleMotion } from '../hooks/useSparkleMotion'
 import './home.css'
 
 const KICKER = 'home-v2-kicker'

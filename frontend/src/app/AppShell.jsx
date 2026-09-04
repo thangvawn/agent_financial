@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, stagger } from 'animejs'
-import { AnimatePresence, motion } from 'framer-motion'
-
+import { AnimatePresence } from 'framer-motion'
 import {
   AuthPage,
   GuidedInvestingPage,

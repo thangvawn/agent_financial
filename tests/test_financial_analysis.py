@@ -280,8 +280,11 @@ def test_financial_cockpit_returns_page_ready_payload(tmp_path, monkeypatch):
 
 
 def test_bctc_income_statement_educational_apis(tmp_path, monkeypatch):
+    from risk_dashboard.platform.database import clear_db_path_cache, clear_migration_cache
     monkeypatch.setenv("RISK_DASHBOARD_FINANCIALS_DIR", str(tmp_path / "financials"))
     monkeypatch.setenv("RISK_DASHBOARD_APP_STATE_DB", str(tmp_path / "app_state.db"))
+    clear_db_path_cache()
+    clear_migration_cache()
     dataset = _load_sample_dataset()
     client = TestClient(app)
 

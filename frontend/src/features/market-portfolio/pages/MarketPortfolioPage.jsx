@@ -88,7 +88,6 @@ export default function MarketPortfolioPage({ sessionId, onOpenProLab, onOpenNew
   }, [tab, sessionId, sessionMissing, onOpenProLab, onOpenNews, onOpenLogin])
 
   const allTabs = TABS
-  const activeTab = allTabs.find((t) => t.id === tab) || allTabs[0]
 
   return (
     <section className="mp-desk" aria-labelledby="mp-desk-title">

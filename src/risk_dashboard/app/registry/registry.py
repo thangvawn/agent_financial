@@ -14,6 +14,7 @@ from risk_dashboard.app.registry.product_domains import (
 )
 from risk_dashboard.modules.analytics_monitoring.module import module as analytics_monitoring_module
 from risk_dashboard.modules.admin_cms.module import module as admin_cms_module
+from risk_dashboard.modules.ai_tutor.module import module as ai_tutor_module
 from risk_dashboard.modules.auth.module import module as auth_module
 from risk_dashboard.modules.data_hub.module import module as data_hub_module
 from risk_dashboard.modules.financials_product.module import module as financials_product_module
@@ -48,6 +49,7 @@ def get_registered_modules() -> tuple[ModuleDefinition, ...]:
         trust_safety_module,
         admin_cms_module,
         # Product domains
+        ai_tutor_module,
         news_intelligence_module,
         market_portfolio_module,
         data_hub_module,

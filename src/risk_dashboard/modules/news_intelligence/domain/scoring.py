@@ -3,9 +3,7 @@
 Computes a 0–100 importance score for each article/event based on:
   General = 0.35×MarketImpact + 0.20×SourceReliability + 0.15×Freshness
             + 0.10×Novelty + 0.10×Severity + 0.10×Breadth
-
-Score labels:
-  85–100 Critical | 70–84 High | 50–69 Medium | 30–49 Low | <30 Noise
+Score labels: 85–100 Critical | 70–84 High | 50–69 Medium | 30–49 Low | <30 Noise
 """
 
 from __future__ import annotations
@@ -51,7 +49,6 @@ class ImportanceResult:
 
 
 # ── Scoring weights (General user) ─────────────────────────────────────
-
 _W_MARKET_IMPACT = 0.35
 _W_SOURCE_RELIABILITY = 0.20
 _W_FRESHNESS = 0.15
@@ -60,7 +57,6 @@ _W_SEVERITY = 0.10
 _W_BREADTH = 0.10
 
 # ── High-impact keyword sets ───────────────────────────────────────────
-
 _HIGH_IMPACT_KEYWORDS = frozenset({
     "fed", "fomc", "rate", "rates", "inflation", "cpi", "gdp",
     "recession", "war", "sanctions", "tariff", "default", "crisis",
@@ -125,7 +121,6 @@ def calculate_importance(
 
 
 def _score_market_impact(text: str, impact: str, sentiment: str) -> int:
-    """0–100 based on keyword presence and impact/sentiment labels."""
     base = 30
     hit_count = sum(1 for kw in _HIGH_IMPACT_KEYWORDS if kw in text)
     base += min(hit_count * 8, 40)
@@ -139,7 +134,6 @@ def _score_market_impact(text: str, impact: str, sentiment: str) -> int:
 
 
 def _score_source_reliability(source_tier: int) -> int:
-    """0–100 based on source tier (1=official, 2=major media, 3+=specialist)."""
     if source_tier <= 1:
         return 95
     if source_tier == 2:
@@ -150,7 +144,6 @@ def _score_source_reliability(source_tier: int) -> int:
 
 
 def _score_freshness(age_minutes: float) -> int:
-    """0–100 based on article age. Newer = higher."""
     if age_minutes <= 30:
         return 100
     if age_minutes <= 120:
@@ -167,18 +160,16 @@ def _score_freshness(age_minutes: float) -> int:
 
 
 def _score_novelty(is_duplicate: bool, cluster_size: int) -> int:
-    """0–100 based on whether article adds new information."""
     if is_duplicate:
         return 10
     if cluster_size >= 5:
-        return 40  # Many sources → story is covered, less novel
+        return 40
     if cluster_size >= 2:
-        return 60  # Confirmed but still developing
-    return 85  # First/only source → potentially novel
+        return 60
+    return 85
 
 
 def _score_severity(text: str, threat_level: str) -> int:
-    """0–100 based on systemic risk language."""
     base = 20
     hits = sum(1 for kw in _SYSTEMIC_KEYWORDS if kw in text)
     base += min(hits * 15, 45)
@@ -192,7 +183,6 @@ def _score_severity(text: str, threat_level: str) -> int:
 
 
 def _score_breadth(text: str, cluster_size: int) -> int:
-    """0–100 based on how broadly the event affects markets."""
     base = 20
     hits = sum(1 for kw in _BROAD_KEYWORDS if kw in text)
     base += min(hits * 12, 36)

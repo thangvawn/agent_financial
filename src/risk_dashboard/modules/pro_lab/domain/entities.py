@@ -83,3 +83,38 @@ class ProLabWorkspaceState:
     notes: str | None
     version: int = 1
     updated_at: str = field(default_factory=utc_now_iso)
+
+
+@dataclass(frozen=True)
+class SimulationExperimentSpec:
+    spec_id: str
+    account_id: str
+    manifest_json: str
+    status: str = "active"
+    schema_version: str = "1.0.0"
+    created_at: str = field(default_factory=utc_now_iso)
+
+
+@dataclass(frozen=True)
+class SimulationActionProposalEntity:
+    proposal_id: str
+    account_id: str
+    run_id: str
+    manifest_json: str
+    status: str
+    confirmation_token: str
+    idempotency_key: str | None
+    expires_at: str
+    created_at: str = field(default_factory=utc_now_iso)
+
+
+@dataclass(frozen=True)
+class SimulationActionReceiptEntity:
+    receipt_id: str
+    proposal_id: str
+    account_id: str
+    status: str
+    run_artifact_id: str | None
+    error_code: str | None
+    executed_at: str = field(default_factory=utc_now_iso)
+

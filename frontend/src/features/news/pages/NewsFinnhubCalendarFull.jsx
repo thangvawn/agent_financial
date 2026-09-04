@@ -17,7 +17,9 @@ const FINNHUB_CAL_MAX = 60
  * @param {{ macroDesk: object | null }} props
  */
 export default function NewsFinnhubCalendarFull({ macroDesk }) {
-  const [finnhubCalVisible, setFinnhubCalVisible] = useState(FINNHUB_CAL_INITIAL)
+  const calKey = `${macroDesk?.calendar?.from || ''}-${macroDesk?.calendar?.to || ''}`
+  const [calVisibleMap, setCalVisibleMap] = useState({})
+  const finnhubCalVisible = calVisibleMap[calKey] || FINNHUB_CAL_INITIAL
   const finnhubScrollRef = useRef(null)
   const finnhubSentinelRef = useRef(null)
 
@@ -31,26 +33,23 @@ export default function NewsFinnhubCalendarFull({ macroDesk }) {
   const finnhubCalTotal = Math.min(finnhubCalEvents.length, FINNHUB_CAL_MAX)
 
   useEffect(() => {
-    const win = macroDesk?.calendar
-    if (!win?.from || !win?.to) return
-    setFinnhubCalVisible(FINNHUB_CAL_INITIAL)
-  }, [macroDesk?.calendar?.from, macroDesk?.calendar?.to])
-
-  useEffect(() => {
     const root = finnhubScrollRef.current
     const target = finnhubSentinelRef.current
     if (!root || !target || finnhubCalVisible >= finnhubCalTotal) return
     const io = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))
+          setCalVisibleMap((prev) => ({
+            ...prev,
+            [calKey]: Math.min((prev[calKey] || FINNHUB_CAL_INITIAL) + FINNHUB_CAL_STEP, finnhubCalTotal),
+          }))
         }
       },
       { root, rootMargin: '80px 0px', threshold: 0 },
     )
     io.observe(target)
     return () => io.disconnect()
-  }, [finnhubCalTotal, finnhubCalVisible])
+  }, [calKey, finnhubCalTotal, finnhubCalVisible])
 
   if (macroDesk == null) {
     return <p className="news-desk__state">Đang tải lịch kinh tế…</p>
@@ -132,9 +131,6 @@ export default function NewsFinnhubCalendarFull({ macroDesk }) {
                               {timeCell.vnLine ? (
                                 <span className="news-desk__finnhub-time-vn">{timeCell.vnLine}</span>
                               ) : null}
-                              {timeCell.sub ? (
-                                <span className="news-desk__finnhub-time-sub">{timeCell.sub}</span>
-                              ) : null}
                             </td>
                             <td className="news-desk__finnhub-td news-desk__finnhub-td--cc">{finnhubCell(ev.country)}</td>
                             <td className="news-desk__finnhub-td news-desk__finnhub-td--impact">
@@ -160,7 +156,10 @@ export default function NewsFinnhubCalendarFull({ macroDesk }) {
                     <button
                       type="button"
                       className="news-desk__button news-desk__button--ghost news-desk__load-more"
-                      onClick={() => setFinnhubCalVisible((n) => Math.min(n + FINNHUB_CAL_STEP, finnhubCalTotal))}>
+                      onClick={() => setCalVisibleMap((prev) => ({
+                        ...prev,
+                        [calKey]: Math.min((prev[calKey] || FINNHUB_CAL_INITIAL) + FINNHUB_CAL_STEP, finnhubCalTotal),
+                      }))}>
                       Xem thêm lịch ({finnhubCalTotal - finnhubCalSlice.length} sự kiện)
                     </button>
                   </div>

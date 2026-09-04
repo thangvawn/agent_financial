@@ -18,6 +18,7 @@ module = ModuleDefinition(
     feature_flags=(
         "module.simulation_lab.enabled",
         "module.pro_lab.enabled",  # backward-compatible flag
+        "module.simulation_lab.multi_agent.enabled",
     ),
     permission_scopes=(
         "public:simulation_lab:read",
@@ -26,6 +27,12 @@ module = ModuleDefinition(
         "public:pro_lab:read",
         "pro:pro_lab:use",
         "admin:pro_lab:manage",
+        "pro_lab:strategy:read",
+        "pro_lab:experiment:read",
+        "pro_lab:run:read",
+        "pro_lab:trade_detail:read",
+        "pro_lab:run:propose",
+        "pro_lab:run:execute",
     ),
     public_router=public_router,
     public_mount_prefix="/api/v1/public",
@@ -33,3 +40,4 @@ module = ModuleDefinition(
     admin_router=admin_router,
     admin_mount_prefix="/admin",
 )
+

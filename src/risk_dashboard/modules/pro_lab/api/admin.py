@@ -120,8 +120,10 @@ def pro_lab_review_experiment(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/pro-lab/audit", tags=["Trading Lab (Admin)"])
 @router.get("/pro-lab/audit-logs", tags=["Trading Lab (Admin)"])
 def pro_lab_audit_logs(_: AccessToken = Depends(require_pro_lab_admin)):
     return {
         "items": [item.model_dump() for item in ListAuditLogs(audit=SqliteProLabAuditRepository()).execute()],
     }
+

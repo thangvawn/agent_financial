@@ -9,6 +9,9 @@ from risk_dashboard.modules.pro_lab.domain.entities import (
     ProLabExperiment,
     ProLabExperimentRun,
     ProLabWorkspaceState,
+    SimulationActionProposalEntity,
+    SimulationActionReceiptEntity,
+    SimulationExperimentSpec,
 )
 from risk_dashboard.modules.pro_lab.domain.ports import (
     ProLabAuditRepository,
@@ -16,8 +19,12 @@ from risk_dashboard.modules.pro_lab.domain.ports import (
     ProLabExperimentRepository,
     ProLabExperimentRunRepository,
     ProLabWorkspaceStateRepository,
+    SimulationActionProposalRepository,
+    SimulationActionReceiptRepository,
+    SimulationExperimentSpecRepository,
 )
 from risk_dashboard.platform.database import open_app_state_db, reset_app_state_tables
+
 
 
 def new_pro_lab_blueprint_id() -> str:
@@ -422,5 +429,214 @@ class SqliteProLabWorkspaceStateRepository(ProLabWorkspaceStateRepository):
         )
 
 
+class SqliteSimulationExperimentSpecRepository(SimulationExperimentSpecRepository):
+    def save(self, spec: SimulationExperimentSpec) -> SimulationExperimentSpec:
+        with open_app_state_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO simulation_experiment_specs (
+                    spec_id, account_id, manifest_json, status, schema_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(spec_id) DO UPDATE SET
+                    manifest_json = excluded.manifest_json,
+                    status = excluded.status
+                """,
+                (
+                    spec.spec_id,
+                    spec.account_id,
+                    spec.manifest_json,
+                    spec.status,
+                    spec.schema_version,
+                    spec.created_at,
+                ),
+            )
+            conn.commit()
+        return spec
+
+    def get(self, *, spec_id: str) -> SimulationExperimentSpec | None:
+        with open_app_state_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM simulation_experiment_specs WHERE spec_id = ?",
+                (spec_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SimulationExperimentSpec(
+            spec_id=row["spec_id"],
+            account_id=row["account_id"],
+            manifest_json=row["manifest_json"],
+            status=row["status"],
+            schema_version=row["schema_version"],
+            created_at=row["created_at"],
+        )
+
+    def list_by_account(self, *, account_id: str) -> list[SimulationExperimentSpec]:
+        with open_app_state_db() as conn:
+            rows = conn.execute(
+                "SELECT * FROM simulation_experiment_specs WHERE account_id = ? ORDER BY created_at DESC",
+                (account_id,),
+            ).fetchall()
+        return [
+            SimulationExperimentSpec(
+                spec_id=r["spec_id"],
+                account_id=r["account_id"],
+                manifest_json=r["manifest_json"],
+                status=r["status"],
+                schema_version=r["schema_version"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+
+class SqliteSimulationActionProposalRepository(SimulationActionProposalRepository):
+    def save(self, proposal: SimulationActionProposalEntity) -> SimulationActionProposalEntity:
+        with open_app_state_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO simulation_action_proposals (
+                    proposal_id, account_id, run_id, manifest_json, status,
+                    confirmation_token, idempotency_key, expires_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(proposal_id) DO UPDATE SET
+                    status = excluded.status,
+                    idempotency_key = excluded.idempotency_key
+                """,
+                (
+                    proposal.proposal_id,
+                    proposal.account_id,
+                    proposal.run_id,
+                    proposal.manifest_json,
+                    proposal.status,
+                    proposal.confirmation_token,
+                    proposal.idempotency_key,
+                    proposal.expires_at,
+                    proposal.created_at,
+                ),
+            )
+            conn.commit()
+        return proposal
+
+    def get(self, *, proposal_id: str) -> SimulationActionProposalEntity | None:
+        with open_app_state_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM simulation_action_proposals WHERE proposal_id = ?",
+                (proposal_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SimulationActionProposalEntity(
+            proposal_id=row["proposal_id"],
+            account_id=row["account_id"],
+            run_id=row["run_id"],
+            manifest_json=row["manifest_json"],
+            status=row["status"],
+            confirmation_token=row["confirmation_token"],
+            idempotency_key=row["idempotency_key"],
+            expires_at=row["expires_at"],
+            created_at=row["created_at"],
+        )
+
+    def get_by_idempotency_key(self, *, account_id: str, idempotency_key: str) -> SimulationActionProposalEntity | None:
+        with open_app_state_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM simulation_action_proposals WHERE account_id = ? AND idempotency_key = ?",
+                (account_id, idempotency_key),
+            ).fetchone()
+        if row is None:
+            return None
+        return SimulationActionProposalEntity(
+            proposal_id=row["proposal_id"],
+            account_id=row["account_id"],
+            run_id=row["run_id"],
+            manifest_json=row["manifest_json"],
+            status=row["status"],
+            confirmation_token=row["confirmation_token"],
+            idempotency_key=row["idempotency_key"],
+            expires_at=row["expires_at"],
+            created_at=row["created_at"],
+        )
+
+    def update_status(self, *, proposal_id: str, status: str) -> bool:
+        with open_app_state_db() as conn:
+            cur = conn.execute(
+                "UPDATE simulation_action_proposals SET status = ? WHERE proposal_id = ?",
+                (status, proposal_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+
+class SqliteSimulationActionReceiptRepository(SimulationActionReceiptRepository):
+    def save(self, receipt: SimulationActionReceiptEntity) -> SimulationActionReceiptEntity:
+        with open_app_state_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO simulation_action_receipts (
+                    receipt_id, proposal_id, account_id, status,
+                    run_artifact_id, error_code, executed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(receipt_id) DO UPDATE SET
+                    status = excluded.status,
+                    run_artifact_id = excluded.run_artifact_id,
+                    error_code = excluded.error_code
+                """,
+                (
+                    receipt.receipt_id,
+                    receipt.proposal_id,
+                    receipt.account_id,
+                    receipt.status,
+                    receipt.run_artifact_id,
+                    receipt.error_code,
+                    receipt.executed_at,
+                ),
+            )
+            conn.commit()
+        return receipt
+
+    def get(self, *, receipt_id: str) -> SimulationActionReceiptEntity | None:
+        with open_app_state_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM simulation_action_receipts WHERE receipt_id = ?",
+                (receipt_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SimulationActionReceiptEntity(
+            receipt_id=row["receipt_id"],
+            proposal_id=row["proposal_id"],
+            account_id=row["account_id"],
+            status=row["status"],
+            run_artifact_id=row["run_artifact_id"],
+            error_code=row["error_code"],
+            executed_at=row["executed_at"],
+        )
+
+    def get_by_proposal_id(self, *, proposal_id: str) -> SimulationActionReceiptEntity | None:
+        with open_app_state_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM simulation_action_receipts WHERE proposal_id = ?",
+                (proposal_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SimulationActionReceiptEntity(
+            receipt_id=row["receipt_id"],
+            proposal_id=row["proposal_id"],
+            account_id=row["account_id"],
+            status=row["status"],
+            run_artifact_id=row["run_artifact_id"],
+            error_code=row["error_code"],
+            executed_at=row["executed_at"],
+        )
+
+
 def reset_pro_lab_state() -> None:
     reset_app_state_tables()
+    with open_app_state_db() as conn:
+        conn.execute("DELETE FROM simulation_experiment_specs")
+        conn.execute("DELETE FROM simulation_action_proposals")
+        conn.execute("DELETE FROM simulation_action_receipts")
+        conn.commit()
+
+

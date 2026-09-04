@@ -8,11 +8,38 @@ import { useBookReaderState } from './useBookReaderState'
 import './book-reader.css'
 
 export function BookReaderWorkspace({ book, sessionId, onClose }) {
-  const reader = useBookReaderState({ book, sessionId })
+  const {
+    pages,
+    resolvedActivePageId,
+    activePage,
+    visiblePageBadgeId,
+    savedAt,
+    editorMode,
+    setEditorMode,
+    drawColor,
+    setDrawColor,
+    drawSize,
+    setDrawSize,
+    eraserSize,
+    setEraserSize,
+    panel,
+    setPanel,
+    updatePageById,
+    pasteImagesFromClipboard,
+    handleImageUpload,
+    handleSelectPage,
+    handleAddPage,
+    saveReaderState,
+    setActivePageId,
+    setPageElementRef,
+    triggerUpload,
+    uploadInputRef,
+  } = useBookReaderState({ book, sessionId })
+
   const source = resolveBookSource(book)
 
   function closeAndPersist() {
-    reader.saveReaderState()
+    saveReaderState()
     onClose()
   }
 
@@ -20,79 +47,76 @@ export function BookReaderWorkspace({ book, sessionId, onClose }) {
     <div className="br-shell">
       <ReaderTopBar
         title={book.title}
-        savedAt={reader.savedAt}
+        savedAt={savedAt}
         onBack={closeAndPersist}
-        onSave={reader.saveReaderState}
+        onSave={saveReaderState}
         openUrl={source.openUrl}
       />
-      <ReaderPanelSwitch panel={reader.panel} onChange={reader.setPanel} />
+      <ReaderPanelSwitch panel={panel} onChange={setPanel} />
 
       <ReaderSplitPane
-        panel={reader.panel}
+        panel={panel}
         book={<BookDocumentPane book={book} />}
         notes={(
           <>
           <NoteToolbar
-            editorMode={reader.editorMode}
-            drawColor={reader.drawColor}
-            drawSize={reader.drawSize}
-            eraserSize={reader.eraserSize}
-            onMode={reader.setEditorMode}
-            onColor={reader.setDrawColor}
-            onDrawSize={reader.setDrawSize}
-            onEraserSize={reader.setEraserSize}
-            onAddPage={reader.handleAddPage}
-            onUpload={() => reader.uploadInputRef.current?.click()}
-            onClearDrawing={() => reader.updatePageById(reader.resolvedActivePageId, { drawingDataUrl: '' })}
+            editorMode={editorMode}
+            drawColor={drawColor}
+            drawSize={drawSize}
+            eraserSize={eraserSize}
+            onMode={setEditorMode}
+            onColor={setDrawColor}
+            onDrawSize={setDrawSize}
+            onEraserSize={setEraserSize}
+            onAddPage={handleAddPage}
+            onUpload={triggerUpload}
+            onClearDrawing={() => updatePageById(resolvedActivePageId, { drawingDataUrl: '' })}
           />
           <NotePageStrip
-            pages={reader.pages}
-            activePageId={reader.resolvedActivePageId}
-            activeTitle={reader.activePage?.title || ''}
-            onSelect={reader.handleSelectPage}
-            onTitleChange={(title) => reader.updatePageById(reader.resolvedActivePageId, { title })}
+            pages={pages}
+            activePageId={resolvedActivePageId}
+            activeTitle={activePage?.title || ''}
+            onSelect={handleSelectPage}
+            onTitleChange={(title) => updatePageById(resolvedActivePageId, { title })}
           />
           <input
-            ref={reader.uploadInputRef}
+            ref={uploadInputRef}
             type="file"
             accept="image/*"
             multiple
-            onChange={reader.handleImageUpload}
+            onChange={handleImageUpload}
             className="br-hidden"
           />
 
           <div className="br-notes__scroll">
-            {reader.pages.map((page, index) => (
+            {pages.map((page, index) => (
               <NotePaper
                 key={page.id}
                 page={page}
                 pageIndex={index}
-                isActive={page.id === reader.resolvedActivePageId}
-                showPageLabel={page.id === reader.visiblePageBadgeId}
-                editorMode={reader.editorMode}
-                drawColor={reader.drawColor}
-                drawSize={reader.drawSize}
-                eraserSize={reader.eraserSize}
-                setPageRef={(node) => {
-                  if (node) reader.pageElementRefs.current.set(page.id, node)
-                  else reader.pageElementRefs.current.delete(page.id)
-                }}
-                onActivate={() => reader.setActivePageId(page.id)}
-                onTextChange={(noteText) => reader.updatePageById(page.id, { noteText })}
-                onDrawingChange={(drawingDataUrl) => reader.updatePageById(page.id, { drawingDataUrl })}
-                onImageChange={(imageIndex, patch) => reader.updatePageById(page.id, (pageItem) => ({
+                isActive={page.id === resolvedActivePageId}
+                showPageLabel={page.id === visiblePageBadgeId}
+                editorMode={editorMode}
+                drawColor={drawColor}
+                drawSize={drawSize}
+                eraserSize={eraserSize}
+                setPageRef={(node) => setPageElementRef(page.id, node)}
+                onActivate={() => setActivePageId(page.id)}
+                onTextChange={(noteText) => updatePageById(page.id, { noteText })}
+                onDrawingChange={(drawingDataUrl) => updatePageById(page.id, { drawingDataUrl })}
+                onImageChange={(imageIndex, patch) => updatePageById(page.id, (pageItem) => ({
                   images: normalizeNoteImages(pageItem.images).map((image, idx) => (
                     idx === imageIndex ? { ...image, ...patch } : image
                   )),
                 }))}
-                onImageRemove={(imageIndex) => reader.updatePageById(page.id, (pageItem) => ({
+                onImageRemove={(imageIndex) => updatePageById(page.id, (pageItem) => ({
                   images: normalizeNoteImages(pageItem.images).filter((_, idx) => idx !== imageIndex),
                 }))}
-                onPaste={(event) => reader.pasteImagesFromClipboard(event, page.id)}
-                onTypeMode={() => reader.setEditorMode('type')}
+                onPaste={(event) => pasteImagesFromClipboard(event, page.id)}
+                onTypeMode={() => setEditorMode('type')}
               />
             ))}
-            <button type="button" className="br-notes__add" onClick={reader.handleAddPage}>
+            <button type="button" className="br-notes__add" onClick={handleAddPage}>
               + Thêm trang ghi chú
             </button>
           </div>

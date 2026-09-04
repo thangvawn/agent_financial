@@ -1145,14 +1145,17 @@ def _income_data_quality(periods: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _income_formulas() -> list[dict[str, Any]]:
+    from risk_dashboard.modules.financials_product.domain.formula_registry import list_approved_formulas
     return [
-        {"id": "gross_profit", "name": "Lợi nhuận gộp", "expression": "gross_profit = revenue - cogs", "inputs": ["revenue", "cogs"]},
-        {"id": "gross_margin", "name": "Biên lợi nhuận gộp", "expression": "gross_margin = gross_profit / revenue", "inputs": ["gross_profit", "revenue"]},
-        {"id": "operating_margin", "name": "Biên lợi nhuận hoạt động", "expression": "operating_margin = operating_profit / revenue", "inputs": ["operating_profit", "revenue"]},
-        {"id": "net_margin", "name": "Biên lợi nhuận ròng", "expression": "net_margin = net_profit / revenue", "inputs": ["net_profit", "revenue"]},
-        {"id": "yoy_growth", "name": "Tăng trưởng cùng kỳ", "expression": "yoy_growth = (current_period_value - same_period_last_year_value) / same_period_last_year_value", "inputs": ["current_period_value", "same_period_last_year_value"]},
-        {"id": "qoq_growth", "name": "Tăng trưởng so với quý trước", "expression": "qoq_growth = (current_period_value - previous_period_value) / previous_period_value", "inputs": ["current_period_value", "previous_period_value"]},
-        {"id": "cost_to_revenue_ratio", "name": "Tỷ lệ chi phí trên doanh thu", "expression": "cost_to_revenue_ratio = expense_item / revenue", "inputs": ["expense_item", "revenue"]},
+        {
+            "id": f.formula_id,
+            "name": f.display_name,
+            "expression": f.expression,
+            "inputs": list(f.inputs),
+            "unit": f.unit,
+            "version": f.version,
+        }
+        for f in list_approved_formulas()
     ]
 
 

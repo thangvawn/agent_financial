@@ -25,7 +25,7 @@ PRODUCT_DOMAINS: dict[str, dict[str, Any]] = {
     },
     "learn_hub": {
         "label": "Learn Hub",
-        "modules": ("learning",),
+        "modules": ("learning", "ai_tutor"),
         "status": "active",
         "fe_feature": "features/learn-hub",
     },

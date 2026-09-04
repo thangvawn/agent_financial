@@ -24,3 +24,4 @@ class CancelOrderRequest(BaseModel):
 
 class ResetPortfolioRequest(BaseModel):
     session_id: str = Field(..., min_length=8, max_length=120)
+

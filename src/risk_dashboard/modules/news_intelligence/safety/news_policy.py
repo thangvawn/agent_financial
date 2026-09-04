@@ -9,6 +9,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from risk_dashboard.modules.news_intelligence.safety.content_boundary import (
+    detect_injection_patterns,
+)
 
 # ── Safety block constant ───────────────────────────────────────────────
 
@@ -46,9 +49,26 @@ def is_unsafe_query(text: str) -> bool:
     return bool(_UNSAFE_RE.search(text))
 
 
+def is_injection_attempt(text: str) -> bool:
+    """Detect if text contains indirect prompt injection attempts."""
+    injections = detect_injection_patterns(text)
+    return len(injections) > 0
+
+
 def build_safety_block() -> dict[str, Any]:
     """Return the standard safety block for API responses."""
     return dict(SAFETY_BLOCK)
+
+
+def build_untrusted_content_block(reasons: list[str] | None = None) -> dict[str, Any]:
+    """Return safety block when injection or untrusted content violation is intercepted."""
+    return {
+        "status": "blocked",
+        "code": "NEWS_CONTENT_UNSAFE",
+        "message": "Nội dung chứa mẫu chỉ thị không an toàn hoặc có dấu hiệu indirect prompt injection.",
+        "detected_patterns": reasons or ["injection_detected"],
+        "disclaimer": SAFETY_BLOCK["disclaimer"],
+    }
 
 
 # ── Data quality block ──────────────────────────────────────────────────

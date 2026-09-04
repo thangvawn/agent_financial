@@ -1,23 +1,24 @@
 import { useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { BookOpen, FileText, Sparkles } from 'lucide-react'
 
 import { useLearningAssets } from '..'
 import { SearchIcon } from '../../../shared/Icons'
 import { COURSE_CATEGORIES, DEMO_COURSES, filterCourses } from '../content/courseCatalogData'
+import { filterAssetsByType, filterLocal } from '../utils/mediaUtils'
 import { BookReaderWorkspace } from './BookReaderWorkspace'
 import { toReadableBook } from './bookSource'
 import CourseCard from './CourseCard'
 import BookGrid from './BookGrid'
 import CoursePlayerPage from './CoursePlayerPage'
+import LearnTutorPanel from './LearnTutorPanel'
 import {
   LocalBookGrid,
   LocalVideoGrid,
   VideoPreview,
-  filterAssetsByType,
-  filterLocal,
 } from './LibraryMedia'
 import './learn-hub.css'
 import './learn-hub-catalog.css'
+import '../../market-portfolio/pages/market-portfolio-panels.css'
 
 const PROGRESS_KEY = 'northstar.learn-hub.progress'
 
@@ -32,9 +33,6 @@ function getCourseProgress(courseId, totalLessons) {
   return { pct: totalLessons > 0 ? (done / totalLessons) * 100 : 0 }
 }
 
-import { BookOpen, Compass, Award, TrendingUp, BarChart3, FileText, Sparkles } from 'lucide-react'
-import '../../market-portfolio/pages/market-portfolio-panels.css'
-
 const LEARN_SUBTABS = [
   { id: 'all', label: 'Khóa học & Bài giảng', icon: BookOpen },
   { id: 'docs', label: 'Sách & Tài liệu', icon: FileText },
@@ -42,7 +40,6 @@ const LEARN_SUBTABS = [
 ]
 
 export default function LearningHomePage({ sessionId, onBack }) {
-  const queryClient = useQueryClient()
   const [category, setCategory] = useState('all')
   const [activeSubTab, setActiveSubTab] = useState('all')
   const [search, setSearch] = useState('')
@@ -92,6 +89,7 @@ export default function LearningHomePage({ sessionId, onBack }) {
     return (
       <CoursePlayerPage
         courseId={activeCourseId}
+        sessionId={sessionId}
         onBack={() => setActiveCourseId(null)}
       />
     )
@@ -108,9 +106,11 @@ export default function LearningHomePage({ sessionId, onBack }) {
             return (
               <button
                 key={item.id}
+                id={`tab-${item.id}`}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                aria-controls={`panel-${item.id}`}
                 className={isActive ? 'is-active' : ''}
                 onClick={() => {
                   setActiveSubTab(item.id)
@@ -131,6 +131,8 @@ export default function LearningHomePage({ sessionId, onBack }) {
           <SearchIcon className="absolute left-3 w-3.5 h-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" />
           <input
             type="text"
+            id="lh-search-input"
+            aria-label="Tìm kiếm khóa học hoặc chủ đề"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm khóa học, chủ đề..."
@@ -139,70 +141,87 @@ export default function LearningHomePage({ sessionId, onBack }) {
         </div>
       </div>
 
+      {/* Conditional Sub-Tab Panels */}
+      {activeSubTab === 'ai_tutor' ? (
+        <div id="panel-ai_tutor" role="tabpanel" aria-labelledby="tab-ai_tutor" className="lh-body">
+          <LearnTutorPanel sessionId={sessionId} />
+        </div>
+      ) : (
+        <div id={`panel-${activeSubTab}`} role="tabpanel" aria-labelledby={`tab-${activeSubTab}`} className="lh-body">
+          {/* Course grid */}
+          <section className="lh-section" aria-labelledby="lh-courses-title">
+            <h2 id="lh-courses-title" className="lh-section__title">
+              Khóa học{category !== 'all' ? ` — ${COURSE_CATEGORIES.find((c) => c.id === category)?.label}` : ''}
+              <span className="lh-section__count">{filteredCourses.length}</span>
+            </h2>
+            {filteredCourses.length === 0 ? (
+              <p className="lh-empty">Không tìm thấy khóa học phù hợp.</p>
+            ) : (
+              <div className="lhc-grid">
+                {filteredCourses.map((course) => (
+                  <CourseCard
+                    key={course.course_id}
+                    course={course}
+                    progress={getCourseProgress(course.course_id, course.lesson_count)}
+                    onClick={setActiveCourseId}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
 
+          {/* Financial Books & Reading Shelf */}
+          <BookGrid onOpenBook={setActiveBook} />
 
-      {/* Scrollable body */}
-      <div className="lh-body">
-        {/* Course grid */}
-        <section className="lh-section" aria-labelledby="lh-courses-title">
-          <h2 id="lh-courses-title" className="lh-section__title">
-            Khóa học{category !== 'all' ? ` — ${COURSE_CATEGORIES.find((c) => c.id === category)?.label}` : ''}
-            <span className="lh-section__count">{filteredCourses.length}</span>
-          </h2>
-          {filteredCourses.length === 0 ? (
-            <p className="lh-empty">Không tìm thấy khóa học phù hợp.</p>
-          ) : (
-            <div className="lhc-grid">
-              {filteredCourses.map((course) => (
-                <CourseCard
-                  key={course.course_id}
-                  course={course}
-                  progress={getCourseProgress(course.course_id, course.lesson_count)}
-                  onClick={setActiveCourseId}
-                />
+          {/* Uploaded media section */}
+          <section className="lh-section lh-section--media" aria-labelledby="lh-media-title">
+            <h2 id="lh-media-title" className="lh-section__title">Thư viện media đã tải lên</h2>
+
+            <div className="lh-media-tabs" role="tablist">
+              {[['video', 'Video'], ['book', 'Sách & Tài liệu']].map(([id, label]) => (
+                <button
+                  key={id}
+                  id={`media-tab-${id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={mediaTab === id}
+                  aria-controls={`media-panel-${id}`}
+                  className={`lh-media-tab ${mediaTab === id ? 'lh-media-tab--active' : ''}`}
+                  onClick={() => { setMediaTab(id); setActiveVideo(null) }}
+                >
+                  {label}
+                </button>
               ))}
             </div>
-          )}
-        </section>
 
-        {/* Financial Books & Reading Shelf */}
-        <BookGrid onOpenBook={setActiveBook} />
+            {mediaTab === 'video' && activeVideo ? (
+              <VideoPreview video={activeVideo} onClose={() => setActiveVideo(null)} />
+            ) : null}
 
-        {/* Uploaded media section */}
-        <section className="lh-section lh-section--media" aria-labelledby="lh-media-title">
-          <h2 id="lh-media-title" className="lh-section__title">Thư viện media đã tải lên</h2>
+            {mediaTab === 'video' ? (
+              <div id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video">
+                <LocalVideoGrid
+                  items={filterLocal(videoAssets, search)}
+                  loading={assetLoading}
+                  error={assetError}
+                  onPlay={setActiveVideo}
+                />
+              </div>
+            ) : null}
 
-          <div className="lh-media-tabs" role="tablist">
-            {[['video', 'Video'], ['book', 'Sách & Tài liệu']].map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={mediaTab === id} className={`lh-media-tab ${mediaTab === id ? 'lh-media-tab--active' : ''}`} onClick={() => { setMediaTab(id); setActiveVideo(null) }}>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {mediaTab === 'video' && activeVideo ? (
-            <VideoPreview video={activeVideo} onClose={() => setActiveVideo(null)} />
-          ) : null}
-
-          {mediaTab === 'video' ? (
-            <LocalVideoGrid
-              items={filterLocal(videoAssets, search)}
-              loading={assetLoading}
-              error={assetError}
-              onPlay={setActiveVideo}
-            />
-          ) : null}
-
-          {mediaTab === 'book' ? (
-            <LocalBookGrid
-              items={filterLocal(bookAssets, search)}
-              loading={assetLoading}
-              error={assetError}
-              onRead={setActiveBook}
-            />
-          ) : null}
-        </section>
-      </div>
+            {mediaTab === 'book' ? (
+              <div id="media-panel-book" role="tabpanel" aria-labelledby="media-tab-book">
+                <LocalBookGrid
+                  items={filterLocal(bookAssets, search)}
+                  loading={assetLoading}
+                  error={assetError}
+                  onRead={setActiveBook}
+                />
+              </div>
+            ) : null}
+          </section>
+        </div>
+      )}
 
       <p className="lh-footer-note">Học liệu phục vụ giáo dục — không phải khuyến nghị đầu tư.</p>
     </section>
