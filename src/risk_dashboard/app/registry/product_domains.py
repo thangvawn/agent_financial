@@ -79,11 +79,13 @@ LEGACY_MODULES: tuple[str, ...] = (
 )
 
 PLATFORM_MODULES: tuple[str, ...] = (
+    "legacy_gate",
     "system_surface",
     "quant_risk",
     "analytics_monitoring",
     "trust_safety",
     "admin_cms",
+    "internal_ops",
 )
 
 

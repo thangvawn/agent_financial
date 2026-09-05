@@ -14,6 +14,7 @@ from risk_dashboard.app.registry.product_domains import (
 )
 from risk_dashboard.modules.analytics_monitoring.module import module as analytics_monitoring_module
 from risk_dashboard.modules.admin_cms.module import module as admin_cms_module
+from risk_dashboard.modules.internal_ops.module import module as internal_ops_module
 from risk_dashboard.modules.ai_tutor.module import module as ai_tutor_module
 from risk_dashboard.modules.auth.module import module as auth_module
 from risk_dashboard.modules.data_hub.module import module as data_hub_module
@@ -21,9 +22,11 @@ from risk_dashboard.modules.financials_product.module import module as financial
 from risk_dashboard.modules.guided_investing.module import module as guided_investing_module
 from risk_dashboard.modules.home.module import module as home_module
 from risk_dashboard.modules.learning.module import module as learning_module
+from risk_dashboard.modules.legacy_gate.module import module as legacy_gate_module
 from risk_dashboard.modules.market_portfolio.module import module as market_portfolio_module
 from risk_dashboard.modules.news_intelligence.module import module as news_intelligence_module
 from risk_dashboard.modules.portfolio_product.module import module as portfolio_product_module
+from risk_dashboard.modules.quant_research.module import module as quant_research_module
 from risk_dashboard.modules.quant_risk.module import module as quant_risk_module
 from risk_dashboard.modules.simulation_lab.module import module as simulation_lab_module
 from risk_dashboard.modules.system_surface.module import module as system_surface_module
@@ -43,11 +46,13 @@ def get_registered_modules() -> tuple[ModuleDefinition, ...]:
     return (
         # Platform
         system_surface_module,
+        legacy_gate_module,
         quant_risk_module,
         auth_module,
         analytics_monitoring_module,
         trust_safety_module,
         admin_cms_module,
+        internal_ops_module,
         # Product domains
         ai_tutor_module,
         news_intelligence_module,
@@ -59,6 +64,8 @@ def get_registered_modules() -> tuple[ModuleDefinition, ...]:
         simulation_lab_module,
         home_module,
         learning_module,
+        # Research lane (disabled by default)
+        quant_research_module,
         # Retired surface (enabled_by_default=False)
         guided_investing_module,
     )

@@ -85,3 +85,6 @@ notebooks/.ipynb_checkpoints/
 .codegraph_temp/
 .coverage
 **/.coverage
+
+# ── Agent runtime directories ─────────
+.claude/
