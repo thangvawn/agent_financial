@@ -182,7 +182,7 @@ def test_compare_sources_not_found_raises(test_envelope: TrustedExecutionEnvelop
 
 def test_get_market_context_tool(test_envelope: TrustedExecutionEnvelope):
     payload = GetMarketContextInput(
-        event_time="2026-09-02T12:00:00Z",
+        event_time=datetime.now(timezone.utc).isoformat(),
         markets=("VN Equity", "Rates"),
     )
     output = asyncio.run(get_market_context(payload, test_envelope))

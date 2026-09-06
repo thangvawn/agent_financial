@@ -5,6 +5,20 @@ import pandas as pd
 import pytest
 
 
+def legacy_module_held(slug: str) -> bool:
+    """True when a legacy module is currently held under the gate policy.
+
+    Mirrors app_factory.py:61 — a module is reachable (200) only when it appears
+    in get_enabled_modules(); otherwise its router is never mounted and every
+    route returns 404. Reactivation (re-registering + enabling the module) flips
+    this to False, so baseline regression tests resume asserting real behavior.
+    """
+    from risk_dashboard.app.registry.registry import get_enabled_modules
+    from risk_dashboard.platform.feature_flags.service import FeatureFlagService
+
+    return not any(m.slug == slug for m in get_enabled_modules(FeatureFlagService()))
+
+
 @pytest.fixture
 def synthetic_panel() -> pd.DataFrame:
     """Panel đủ dài để train XGBoost + VAR; tái lập được qua seed."""

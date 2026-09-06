@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import pytest
 from fastapi.testclient import TestClient
 
+from conftest import legacy_module_held
 from risk_dashboard.api.main import app
 from risk_dashboard.modules.admin_cms.infrastructure.repositories.sqlite import reset_admin_cms_state
 from risk_dashboard.modules.financial_health.infrastructure.repositories.sqlite import (
@@ -156,6 +160,14 @@ def test_onboarding_flow_routes_advanced_to_insights_and_pro():
     assert payload["pro_eligible"] is True
 
 
+# Baseline regression: depends on the financial_health module, currently held
+# under the legacy gate policy (router not mounted, routes return 404). Skipped
+# until the 14-gate + ADR reactivation flow completes; the skipif is dynamic, so
+# re-enabling financial_health resumes these assertions unchanged.
+@pytest.mark.skipif(
+    legacy_module_held("financial_health"),
+    reason="financial_health module is held under legacy gate policy; baseline preserved for reactivation",
+)
 def test_home_is_enriched_with_financial_health_snapshot_after_assessment():
     reset_home_onboarding_state()
     reset_financial_health_state()
@@ -208,6 +220,14 @@ def test_home_is_enriched_with_financial_health_snapshot_after_assessment():
     assert "Điểm hiện tại" in health_block["description"]
 
 
+# Baseline regression: depends on the goals module, currently held under the
+# legacy gate policy (router not mounted, routes return 404). Skipped until the
+# 14-gate + ADR reactivation flow completes; the skipif is dynamic, so re-enabling
+# goals resumes these assertions unchanged.
+@pytest.mark.skipif(
+    legacy_module_held("goals"),
+    reason="goals module is held under legacy gate policy; baseline preserved for reactivation",
+)
 def test_home_is_enriched_with_goal_snapshot_after_goal_creation():
     reset_home_onboarding_state()
     reset_financial_health_state()

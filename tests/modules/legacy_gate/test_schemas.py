@@ -23,7 +23,10 @@ from risk_dashboard.modules.legacy_gate.schemas.gates import (
 class TestLegacyGateSchemas:
     def test_gate_check_item_valid(self) -> None:
         item = GateCheckItem(
-            gate_id="goals-1", category="product", description="Owner defined", status="pending"
+            gate_id="goals-1",
+            category="product",
+            description="Product owner defined",
+            status="pending",
         )
         assert item.gate_id == "goals-1"
         assert item.category == "product"
@@ -33,19 +36,27 @@ class TestLegacyGateSchemas:
     def test_gate_check_item_extra_forbid(self) -> None:
         with pytest.raises(ValidationError):
             GateCheckItem(
-                gate_id="goals-1", category="product", description="d", unknown="x"
+                gate_id="goals-1",
+                category="product",
+                description="desc",
+                unknown_field="injected",
             )
 
     def test_gate_category_invalid_rejected(self) -> None:
         with pytest.raises(ValidationError):
             GateCheckItem(
-                gate_id="goals-1", category="invalid_cat", description="d"  # type: ignore
+                gate_id="goals-1",
+                category="invalid_category",  # type: ignore
+                description="desc",
             )
 
     def test_gate_item_status_invalid_rejected(self) -> None:
         with pytest.raises(ValidationError):
             GateCheckItem(
-                gate_id="goals-1", category="product", description="d", status="bad"  # type: ignore
+                gate_id="goals-1",
+                category="product",
+                description="desc",
+                status="not_a_valid_status",  # type: ignore
             )
 
     def test_reactivation_decision_record_defaults(self) -> None:
@@ -150,10 +161,18 @@ class TestLegacyGateSchemas:
     def test_baseline_report_extra_forbid(self) -> None:
         with pytest.raises(ValidationError):
             LegacyModuleBaselineReport(
-                module_slug="goals", entities_defined=(), policies_defined=(),
-                services_defined=(), schemas_defined=(), routes_defined=(),
-                tests_count=0, test_files=(), archived_reason="r",
-                archived_phase="p", identity_debt_notes=(), unknown="blocked",
+                module_slug="goals",
+                entities_defined=(),
+                policies_defined=(),
+                services_defined=(),
+                schemas_defined=(),
+                routes_defined=(),
+                tests_count=0,
+                test_files=(),
+                archived_reason="reason",
+                archived_phase="phase",
+                identity_debt_notes=(),
+                unknown="blocked",
             )
 
     def test_module_gate_status_serialization(self) -> None:
@@ -193,3 +212,4 @@ class TestLegacyGateSchemas:
         list_resp = ModuleGateListResponse(modules=[status_resp], total=1)
         assert list_resp.total == 1
         assert list_resp.modules[0].module_slug == "goals"
+

@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import pytest
+
+from conftest import legacy_module_held
 import json
 
 from fastapi.testclient import TestClient
@@ -17,6 +22,16 @@ from risk_dashboard.modules.home_onboarding.infrastructure.repositories.sqlite i
 from risk_dashboard.modules.learning.infrastructure.repositories.sqlite import reset_learning_state
 from risk_dashboard.schemas.financials import FinancialDataset
 
+
+
+# Baseline regression suite for the guided_investing module. The module is currently held
+# under the legacy gate policy (router not mounted, routes return 404), so these
+# tests are skipped until the 14-gate + ADR reactivation flow completes. The
+# skipif is dynamic: re-enabling the module resumes these assertions unchanged.
+pytestmark = pytest.mark.skipif(
+    legacy_module_held("guided_investing"),
+    reason="guided_investing module is held under legacy gate policy; baseline preserved for reactivation",
+)
 
 def _content_ops_headers(role: str) -> dict[str, str]:
     return {

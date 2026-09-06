@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -124,9 +126,10 @@ class LearningCheckpointService:
             raise ValueError(f"Checkpoint '{checkpoint_id}' has expired at {checkpoint.expires_at}.")
 
         # Grade evaluation
-        clean_response = response.strip()
-        clean_correct = checkpoint.correct_answer.strip()
-        passed = clean_response.lower() == clean_correct.lower() or clean_response == clean_correct
+        clean_response = _normalize_response(response)
+        clean_correct = _normalize_response(checkpoint.correct_answer)
+        resolved = _resolve_response(clean_response, options=checkpoint.options)
+        passed = resolved.lower() == clean_correct.lower() or resolved == clean_correct
 
         score = 100 if passed else 0
         if passed:
@@ -268,4 +271,34 @@ class LearningCheckpointService:
             quiz_score=event.score,
             updated_at=now_str,
         )
+
+
+def _normalize_response(value: str | None) -> str:
+    """Normalize unicode and collapse whitespace so cosmetic differences don't fail grading."""
+    if not value:
+        return ""
+    text = unicodedata.normalize("NFKC", value)
+    text = re.sub(r"[​‌‍﻿]", "", text)
+    return " ".join(text.split()).strip()
+
+
+def _resolve_response(response: str, *, options: tuple[str, ...]) -> str:
+    """Resolve shortcut answers ('Đáp án A', 'Option 2', bare 'B') to the option text when possible."""
+    match = re.match(r"(?:đáp án|option)\s*([a-e1-5])\b", response, re.IGNORECASE)
+    token = match.group(1) if match else None
+    if token is None and re.fullmatch(r"[a-e1-5]", response, re.IGNORECASE):
+        token = response
+
+    if token is None or not options:
+        return response
+
+    upper = token.upper()
+    if "A" <= upper <= "E":
+        idx = ord(upper) - ord("A")
+    else:
+        idx = int(upper) - 1
+
+    if 0 <= idx < len(options):
+        return options[idx]
+    return response
 

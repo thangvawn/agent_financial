@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import pytest
+
+from conftest import legacy_module_held
 from fastapi.testclient import TestClient
 
 from risk_dashboard.api.main import app
@@ -5,6 +10,16 @@ from risk_dashboard.modules.financial_health.infrastructure.repositories.sqlite 
     reset_financial_health_state,
 )
 
+
+
+# Baseline regression suite for the financial_health module. The module is currently held
+# under the legacy gate policy (router not mounted, routes return 404), so these
+# tests are skipped until the 14-gate + ADR reactivation flow completes. The
+# skipif is dynamic: re-enabling the module resumes these assertions unchanged.
+pytestmark = pytest.mark.skipif(
+    legacy_module_held("financial_health"),
+    reason="financial_health module is held under legacy gate policy; baseline preserved for reactivation",
+)
 
 def test_financial_health_assessment_returns_explainable_snapshot():
     reset_financial_health_state()
