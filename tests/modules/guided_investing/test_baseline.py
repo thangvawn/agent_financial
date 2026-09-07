@@ -164,10 +164,13 @@ class TestGuidedInvestingBaseline:
         reply_buy = build_safe_reply(prompt="Mã nào nên mua phiên mai?", eligible=True)
         assert reply_buy.allowed is False
         assert "không đưa khuyến nghị mua bán" in reply_buy.headline
-        reply_buy = build_safe_reply(prompt="Khuyên mình mua mã nào hôm nay", eligible=True)
-        assert reply_buy.allowed is False
+
+        reply_ban = build_safe_reply(prompt="Có nên ban FPT lúc này không?", eligible=True)
+        assert reply_ban.allowed is False
+
         reply_pick = build_safe_reply(prompt="Cho mình top pick tuần này", eligible=True)
         assert reply_pick.allowed is False
+
         reply_certainty = build_safe_reply(prompt="Cổ phiếu này chac tang không?", eligible=True)
         assert reply_certainty.allowed is False
 

@@ -358,7 +358,7 @@ def test_secret_redaction_raw_credentials():
         "ghp_123456789012345678901234567890123456",
         "AKIAIOSFODNN7EXAMPLE",
         "AIzaSyD1234567890123456789012345678901",
-        "xoxb-" + "1234567890-123456789012-abcdef1234567890abcdef12",
+        "xoxb-" + "DUMMY-TOKEN-FOR-REDACTION-TEST-ONLY-NOT-REAL",
         "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
     ]
     for sample in samples:

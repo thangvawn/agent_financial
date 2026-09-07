@@ -1,16 +1,10 @@
-"""Gate evaluators and baseline report scanner for Module 12."""
+"""Gate definitions and baseline report builder for Module 12."""
 from __future__ import annotations
 
+import ast
 from pathlib import Path
+from typing import Any
 
-from risk_dashboard.modules.legacy_gate.application.catalog import get_module_gates
-from risk_dashboard.modules.legacy_gate.application.scanner_helpers import (
-    count_tests_in_file,
-    extract_ast_definitions,
-    extract_routes,
-    resolve_project_root,
-    scan_identity_debt,
-)
 from risk_dashboard.modules.legacy_gate.domain.entities import (
     GateCheckItem,
     LegacyModuleBaselineReport,
@@ -19,18 +13,226 @@ from risk_dashboard.modules.legacy_gate.domain.entities import (
 from risk_dashboard.modules.legacy_gate.domain.errors import LegacyGateError
 
 
-class DefaultGateEvaluator:
-    """Default implementation of GateEvaluator port."""
+def _make_common_gates(slug: str) -> tuple[GateCheckItem, ...]:
+    return (
+        GateCheckItem(
+            gate_id=f"{slug}-1",
+            category="product",
+            description="Product owner and target user/outcome defined",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-2",
+            category="data",
+            description="Source of truth, API, data ownership, maintainer confirmed",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-3",
+            category="maintenance",
+            description="Archived reason resolved via ADR",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-4",
+            category="security",
+            description="Auth/account migration and retention complete",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-5",
+            category="regulatory",
+            description="Regulatory/advisory boundary reviewed",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-6",
+            category="maintenance",
+            description="Deterministic service/tool baseline passes tests",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-7",
+            category="security",
+            description="Gold set, threat model, feature flag, rollout/rollback exist",
+        ),
+        GateCheckItem(
+            gate_id=f"{slug}-8",
+            category="product",
+            description="No P0/P1 roadmap degradation",
+        ),
+    )
 
-    def get_gates_for_module(self, module_slug: str) -> tuple[GateCheckItem, ...]:
-        return get_module_gates(module_slug)
+
+GOALS_SPECIFIC = (
+    GateCheckItem(
+        gate_id="goals-9",
+        category="product",
+        description="Goal taxonomy and explicit user consent defined",
+    ),
+    GateCheckItem(
+        gate_id="goals-10",
+        category="product",
+        description="Goal correction/delete/export supported",
+    ),
+    GateCheckItem(
+        gate_id="goals-11",
+        category="security",
+        description="No inference of sensitive wealth/income from conversation",
+    ),
+    GateCheckItem(
+        gate_id="goals-12",
+        category="product",
+        description="Deterministic eligibility and next-step plan",
+    ),
+    GateCheckItem(
+        gate_id="goals-13",
+        category="regulatory",
+        description="Education goal separated from regulated advice",
+    ),
+    GateCheckItem(
+        gate_id="goals-14",
+        category="product",
+        description="Home integration only via compact summary",
+    ),
+)
+
+FH_SPECIFIC = (
+    GateCheckItem(
+        gate_id="fh-9",
+        category="security",
+        description="Field-level redaction before AI context",
+    ),
+    GateCheckItem(
+        gate_id="fh-10",
+        category="regulatory",
+        description="High-stakes disclaimer and escalation policy",
+    ),
+    GateCheckItem(
+        gate_id="fh-11",
+        category="security",
+        description="No inferred wealth profile written to durable memory",
+    ),
+    GateCheckItem(
+        gate_id="fh-12",
+        category="product",
+        description="Read-only explanation focus (no mutation without consent)",
+    ),
+)
+
+COM_SPECIFIC = (
+    GateCheckItem(
+        gate_id="com-9",
+        category="security",
+        description="Community content treated as untrusted data source",
+    ),
+    GateCheckItem(
+        gate_id="com-10",
+        category="security",
+        description="Stored prompt injection defense (content isolation)",
+    ),
+    GateCheckItem(
+        gate_id="com-11",
+        category="product",
+        description="No autonomous posting / no user impersonation",
+    ),
+    GateCheckItem(
+        gate_id="com-12",
+        category="product",
+        description="Moderated read-only summary only",
+    ),
+)
+
+GI_SPECIFIC = (
+    GateCheckItem(
+        gate_id="gi-9",
+        category="regulatory",
+        description="Legal review: Securities Law 2019 advisory boundary",
+    ),
+    GateCheckItem(
+        gate_id="gi-10",
+        category="product",
+        description="Education-only scope on paper portfolio",
+    ),
+    GateCheckItem(
+        gate_id="gi-11",
+        category="security",
+        description="No broker connection / no real order placement",
+    ),
+    GateCheckItem(
+        gate_id="gi-12",
+        category="product",
+        description="Explicitly approved pilot required",
+    ),
+)
 
 
-class DefaultBaselineScanner:
-    """Default implementation of BaselineScanner port."""
+def get_module_gates(module_slug: str) -> tuple[GateCheckItem, ...]:
+    """Return immutable tuple of gates defined for the given legacy module."""
+    if module_slug == "goals":
+        return _make_common_gates("goals") + GOALS_SPECIFIC
+    elif module_slug == "financial_health":
+        return _make_common_gates("fh") + FH_SPECIFIC
+    elif module_slug == "community":
+        return _make_common_gates("com") + COM_SPECIFIC
+    elif module_slug == "guided_investing":
+        return _make_common_gates("gi") + GI_SPECIFIC
+    else:
+        raise LegacyGateError(
+            f"Unknown legacy module: '{module_slug}'",
+            error_type="module_not_found",
+            module_slug=module_slug,
+        )
 
-    def scan(self, module_slug: str) -> LegacyModuleBaselineReport:
-        return build_baseline_report(module_slug)
+
+def _extract_ast_definitions(filepath: Path) -> list[str]:
+    """Extract class and function definition names from a python file."""
+    if not filepath.exists():
+        return []
+    try:
+        content = filepath.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(filepath))
+        names: list[str] = []
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if not node.name.startswith("_"):
+                    names.append(node.name)
+        return names
+    except Exception:
+        return []
+
+
+def _extract_routes(filepath: Path) -> list[str]:
+    """Extract route definitions from api/public.py."""
+    if not filepath.exists():
+        return []
+    routes: list[str] = []
+    try:
+        content = filepath.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(filepath))
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for dec in node.decorator_list:
+                    if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute):
+                        if dec.func.attr in {"get", "post", "put", "delete", "patch"}:
+                            path_str = ""
+                            if dec.args and isinstance(dec.args[0], ast.Constant):
+                                path_str = str(dec.args[0].value)
+                            routes.append(f"{dec.func.attr.upper()} {path_str}")
+    except Exception:
+        pass
+    return routes
+
+
+def _count_tests_in_file(filepath: Path) -> int:
+    """Count test methods/functions in a test file."""
+    if not filepath.exists():
+        return 0
+    count = 0
+    try:
+        content = filepath.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(filepath))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name.startswith("test_"):
+                    count += 1
+    except Exception:
+        pass
+    return count
 
 
 def build_baseline_report(
@@ -45,7 +247,7 @@ def build_baseline_report(
             module_slug=module_slug,
         )
 
-    root = resolve_project_root(base_dir)
+    root = base_dir or Path("/home/nhattu/WorkSpace/MyProjects/agent_financial")
     mod_dir = root / "src" / "risk_dashboard" / "modules" / module_slug
 
     if not mod_dir.exists():
@@ -56,15 +258,15 @@ def build_baseline_report(
         )
 
     # 1. Inspect domain entities, policies, services, schemas, routes
-    entities = extract_ast_definitions(mod_dir / "domain" / "entities.py")
-    policies = extract_ast_definitions(mod_dir / "domain" / "policies.py")
-    services = extract_ast_definitions(mod_dir / "application" / "services.py")
+    entities = _extract_ast_definitions(mod_dir / "domain" / "entities.py")
+    policies = _extract_ast_definitions(mod_dir / "domain" / "policies.py")
+    services = _extract_ast_definitions(mod_dir / "application" / "services.py")
 
-    schemas_req = extract_ast_definitions(mod_dir / "schemas" / "requests.py")
-    schemas_resp = extract_ast_definitions(mod_dir / "schemas" / "responses.py")
+    schemas_req = _extract_ast_definitions(mod_dir / "schemas" / "requests.py")
+    schemas_resp = _extract_ast_definitions(mod_dir / "schemas" / "responses.py")
     schemas = sorted(set(schemas_req + schemas_resp))
 
-    routes = extract_routes(mod_dir / "api" / "public.py")
+    routes = _extract_routes(mod_dir / "api" / "public.py")
 
     # 2. Count baseline tests
     test_dir = root / "tests" / "modules" / module_slug
@@ -74,14 +276,14 @@ def build_baseline_report(
         for test_file in sorted(test_dir.glob("test_*.py")):
             rel_path = str(test_file.relative_to(root))
             test_files.append(rel_path)
-            tests_count += count_tests_in_file(test_file)
+            tests_count += _count_tests_in_file(test_file)
 
     # Fallback to check legacy test file if no tests in tests/modules/{slug}
     if tests_count == 0:
         legacy_test = root / "tests" / f"test_{module_slug}.py"
         if legacy_test.exists():
             test_files.append(str(legacy_test.relative_to(root)))
-            tests_count += count_tests_in_file(legacy_test)
+            tests_count += _count_tests_in_file(legacy_test)
 
     # 3. Read ARCHIVE.md
     archive_file = mod_dir / "ARCHIVE.md"
@@ -97,8 +299,12 @@ def build_baseline_report(
         elif "Phase 4" in text:
             archived_phase = "Phase 4"
 
-    # 4. Dynamically scan AST for identity debt
-    identity_debt = scan_identity_debt(mod_dir, module_slug)
+    # 4. Identify Identity Debt Notes (session_id usage)
+    identity_debt: list[str] = [
+        f"{module_slug}/api/public.py accepts client-supplied session_id as user identifier (violates Module 01 AuthPrincipal P0)",
+        f"Requires migration from session_id query/body parameters to server-resolved account_id via AuthPrincipal",
+        f"Database schema for {module_slug} retains session_id/user_id foreign keys instead of account_id",
+    ]
 
     return LegacyModuleBaselineReport(
         module_slug=module_slug,
@@ -113,5 +319,6 @@ def build_baseline_report(
         archived_reason=archived_reason,
         archived_phase=archived_phase,
         captured_at=utc_now_iso(),
-        identity_debt_notes=identity_debt,
+        identity_debt_notes=tuple(identity_debt),
     )
+

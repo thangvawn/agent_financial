@@ -9,14 +9,12 @@ from typing import Any
 
 from risk_dashboard.modules.auth.domain.policies import has_scope
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
-from risk_dashboard.modules.quant_research.application.candidate_builder import (
-    build_candidate_from_llm,
-    build_deterministic_candidate,
-)
 from risk_dashboard.modules.quant_research.application.reviewer import QuantNumericReviewer
-from risk_dashboard.modules.quant_research.domain.errors import QuantAdapterError
 from risk_dashboard.modules.quant_research.domain.ports import QuantEnginePort
-from risk_dashboard.modules.quant_research.infrastructure.engine_adapter import QuantEngineAdapter
+from risk_dashboard.modules.quant_research.infrastructure.engine_adapter import (
+    QuantAdapterError,
+    QuantEngineAdapter,
+)
 from risk_dashboard.modules.quant_research.schemas.artifacts import QuantResearchArtifactV1
 from risk_dashboard.modules.quant_research.schemas.requests import QuantResearchRequestV1
 from risk_dashboard.modules.quant_research.schemas.tools import QuantToolResultV1
@@ -107,6 +105,7 @@ class QuantResearchService:
         now = datetime.now(timezone.utc)
         payload = tool_result.payload
 
+        # Attempt structured narrative generation via provider
         try:
             provider = self._get_provider()
             task = ModelTask(
@@ -147,8 +146,90 @@ class QuantResearchService:
                     parsed = None
 
             if parsed and isinstance(parsed, dict):
-                return build_candidate_from_llm(parsed, request, tool_result, run_id, now)
+                return QuantResearchArtifactV1(
+                    schema_version="1.0.0",
+                    artifact_type="quant_research",
+                    run_id=run_id,
+                    operation=request.operation,
+                    headline=str(parsed.get("headline", "Kết quả phân tích định lượng")),
+                    findings=tuple(parsed.get("findings", ())),
+                    metrics=dict(parsed.get("metrics", {})),
+                    source_refs=tool_result.source_refs,
+                    assumptions=tuple(parsed.get("assumptions", ())),
+                    limitations=tuple(parsed.get("limitations", ("Mô hình định lượng tham khảo",))),
+                    review_status="verified",
+                    generated_at=now,
+                )
         except Exception as exc:
             logger.warning("AI Runtime narrative generation fallback: %s", exc)
 
-        return build_deterministic_candidate(request, tool_result, run_id, now)
+        # Deterministic safe fallback directly from payload
+        return self._build_deterministic_candidate(request, tool_result, run_id, now)
+
+    def _build_deterministic_candidate(
+        self,
+        request: QuantResearchRequestV1,
+        tool_result: QuantToolResultV1,
+        run_id: str,
+        now: datetime,
+    ) -> QuantResearchArtifactV1:
+        payload = tool_result.payload
+        if request.operation == "eod_analysis":
+            score = payload.get("decision_score")
+            regime = payload.get("risk_regime", "neutral")
+            metrics = {
+                "decision_score": score,
+                "risk_regime": regime,
+            }
+            if "horizons" in payload:
+                horizons = payload["horizons"]
+                metrics["p_decline_1w"] = horizons.get("p_decline_1w")
+                metrics["p_decline_2w"] = horizons.get("p_decline_2w")
+                metrics["p_decline_1m"] = horizons.get("p_decline_1m")
+
+            findings = (
+                f"Điểm quyết định rủi ro thị trường đạt {score}, trạng thái ghi nhận: {regime}.",
+                f"Yếu tố chi phối chính trong kỳ phân tích: {payload.get('dominant_feature', 'n/a')}.",
+            )
+            headline = f"Báo cáo rủi ro thị trường EOD ngày {request.as_of}"
+        elif request.operation == "scenario_compare":
+            score = payload.get("decision_score")
+            regime = payload.get("risk_regime", "neutral")
+            metrics = {
+                "decision_score": score,
+                "risk_regime": regime,
+            }
+            findings = (
+                f"Kịch bản vĩ mô giả định điều chỉnh tỷ giá/lãi suất: điểm rủi ro dự kiến {score}.",
+                f"Trạng thái thị trường ứng với kịch bản: {regime}.",
+            )
+            headline = f"Phân tích kịch bản sốc vĩ mô ngày {request.as_of}"
+        else:
+            summary = payload.get("summary", {})
+            metrics = {
+                "model_version": summary.get("model_version"),
+            }
+            findings = (
+                f"Phiên bản mô hình benchmark hiện hành: {summary.get('model_version')}.",
+                f"Thời điểm huấn luyện gần nhất: {summary.get('train_as_of')}.",
+            )
+            headline = "Báo cáo năng lực và kiểm định mô hình định lượng"
+
+        return QuantResearchArtifactV1(
+            schema_version="1.0.0",
+            artifact_type="quant_research",
+            run_id=run_id,
+            operation=request.operation,
+            headline=headline,
+            findings=findings,
+            metrics=metrics,
+            source_refs=tool_result.source_refs,
+            assumptions=("Dữ liệu đầu vào phản ánh snapshot thị trường đã chốt sổ",),
+            limitations=(
+                "Mô hình nghiên cứu định lượng thuần túy, không cấu thành khuyến nghị đầu tư.",
+                "Kết quả phụ thuộc vào tính toàn vẹn của dữ liệu vĩ mô và panel lịch sử.",
+            ),
+            review_status="verified",
+            generated_at=now,
+        )
+
