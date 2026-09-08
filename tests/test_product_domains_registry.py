@@ -70,3 +70,13 @@ def test_describe_domains_has_six_product_surfaces():
     bctc = next(row for row in describe_domains() if row["domain"] == "bctc")
     assert bctc["modules"] == ["financials_product"]
     assert "guided_investing" in bctc["retired_modules"]
+
+
+def test_registry_mounts_agentic_core():
+    registered = {module.slug for module in get_registered_modules()}
+    assert "agentic_core" in registered
+    module = get_module_by_slug("agentic_core")
+    assert module is not None
+    assert module.public_mount_prefix == "/api/v1/public/agentic"
+    assert module.public_router is not None
+
