@@ -13,7 +13,6 @@ import React, { useState } from 'react';
  */
 export default function SimulationResearchPanel({
   manifest,
-  runArtifact,
   comparisonData,
   critiqueData,
   onProposeRun,

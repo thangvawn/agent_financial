@@ -4,11 +4,17 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import contextlib
 import json
+import logging
+import os
 from pathlib import Path
+
 from typing import Any
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
+
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
@@ -69,6 +75,18 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
     FeedInstrument("XRP", "Ripple", "XRP-USD", "crypto", "Cross-border payment"),
     FeedInstrument("DOGE", "Dogecoin", "DOGE-USD", "crypto", "Meme speculation pulse"),
 )
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
+        tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp_path, path)
+        return True
+    except (PermissionError, OSError) as exc:
+        logger.warning("Failed to write JSON cache to %s: %s", path, exc)
+        return False
 
 
 class GlobalMarketFeedProducer:
@@ -384,14 +402,14 @@ class GlobalMarketFeedProducer:
             return {}
 
     def _write_cache(self, payload: dict[str, Any]) -> None:
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
         path = self.cache_dir / "global_market_snapshot.json"
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        _atomic_write_json(path, payload)
 
     def _write_history_cache(self, symbol: str, period: str, interval: str, payload: dict[str, Any]) -> None:
         path = self.cache_dir / "history" / f"{symbol}_{period}_{interval}.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        _atomic_write_json(path, payload)
+
+
 
     def _is_cache_fresh(self, payload: dict[str, Any] | None) -> bool:
         if not payload or not payload.get("as_of"):

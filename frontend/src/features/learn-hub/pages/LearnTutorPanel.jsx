@@ -144,8 +144,6 @@ export default function LearnTutorPanel({ courseId, lessonId, sessionId }) {
       initPromisesRef.current[targetKey] = promise
       return promise
     },
-    // conversationsByContext intentionally excluded — read via convByCtxRef
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [courseId, lessonId, sessionId, contextKey]
   )
 

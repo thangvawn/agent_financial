@@ -1,4 +1,5 @@
 import NorthstarLogo from '../shared/components/NorthstarLogo'
+import { motion } from 'framer-motion'
 
 const SURFACE_LABELS = {
   onboarding: 'Onboarding',

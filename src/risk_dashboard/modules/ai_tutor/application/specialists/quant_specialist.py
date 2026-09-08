@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -16,6 +18,11 @@ from risk_dashboard.modules.ai_tutor.schemas.conversation import (
     NumericClaimRef,
     ToolCallRef,
 )
+from risk_dashboard.platform.ai_runtime.contracts import ModelMessage, ModelSettings, ModelTask
+from risk_dashboard.platform.ai_runtime.factory import get_default_provider
+from risk_dashboard.platform.ai_runtime.provider import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class QuantSpecialist:
@@ -24,10 +31,21 @@ class QuantSpecialist:
         risk_tool: QuantRiskMetricsTool | None = None,
         var_tool: QuantVarSummaryTool | None = None,
         model_tool: QuantModelReportTool | None = None,
+        provider: LLMProvider | None = None,
     ) -> None:
         self.risk_tool = risk_tool or QuantRiskMetricsTool()
         self.var_tool = var_tool or QuantVarSummaryTool()
         self.model_tool = model_tool or QuantModelReportTool()
+        self.provider = provider
+
+    def _get_provider(self) -> LLMProvider | None:
+        if self.provider is not None:
+            return self.provider
+        try:
+            return get_default_provider()
+        except Exception:
+            return None
+
 
     async def handle(
         self,
@@ -100,12 +118,45 @@ class QuantSpecialist:
                 )
             )
 
-            answer = (
-                "Chào anh, em xin gửi thông tin từ báo cáo kiểm định mô hình dự báo định lượng:\n\n"
-                f"- **Validation AUC:** **{auc}** (độ phân biệt xác suất phân loại).\n"
-                f"- **Sharpe Ratio kỳ vọng:** **{sharpe}** (lợi nhuận điều chỉnh theo rủi ro).\n\n"
-                "Mô hình được huấn luyện trên chuỗi dữ liệu lịch sử với kỹ thuật Conformal Prediction nhằm kiểm soát độ không chắc chắn."
-            )
+            # Attempt LLM generation if provider is available
+            provider = self._get_provider()
+            answer = None
+            if provider is not None:
+                try:
+                    task = ModelTask(
+                        task_type="ai_tutor_quant_model_explanation",
+                        system_instructions_ref="ai_tutor_quant_model_v1",
+                        messages=(
+                            ModelMessage(
+                                role="system",
+                                content=(
+                                    "Bạn là AI Chuyên gia Định lượng của Northstar Finance Lab. "
+                                    "Xưng 'em', gọi người dùng là 'anh'. Giải thích báo cáo kiểm định mô hình định lượng "
+                                    "dựa chính xác vào các chỉ số trong ngữ cảnh. Không bịa số liệu, không khuyến nghị mua bán."
+                                ),
+                            ),
+                            ModelMessage(
+                                role="user",
+                                content=json.dumps({"question": user_query, "model_metrics": rep_ev}, ensure_ascii=False),
+                            ),
+                        ),
+                        settings=ModelSettings(temperature=0.2, response_format="text"),
+                        correlation_id=envelope.run_id if envelope else f"quant_{uuid4().hex[:8]}",
+                        deadline_seconds=15.0,
+                    )
+                    res = await provider.generate(task)
+                    if res and res.text:
+                        answer = res.text
+                except Exception as exc:
+                    logger.warning("Quant model LLM generation failed, using deterministic template: %s", exc)
+
+            if not answer:
+                answer = (
+                    "Chào anh, em xin gửi thông tin từ báo cáo kiểm định mô hình dự báo định lượng:\n\n"
+                    f"- **Validation AUC:** **{auc}** (độ phân biệt xác suất phân loại).\n"
+                    f"- **Sharpe Ratio kỳ vọng:** **{sharpe}** (lợi nhuận điều chỉnh theo rủi ro).\n\n"
+                    "Mô hình được huấn luyện trên chuỗi dữ liệu lịch sử với kỹ thuật Conformal Prediction nhằm kiểm soát độ không chắc chắn."
+                )
             return {
                 "answer": answer,
                 "citations": tuple(citations),
@@ -152,13 +203,46 @@ class QuantSpecialist:
             )
         )
 
-        answer = (
-            "Chào anh, em xin trình bày kết quả phân tích rủi ro danh mục định lượng:\n\n"
-            f"1. **Value at Risk (VaR 95%, 1-day):** **{var_val}**.\n"
-            f"2. **Conditional VaR (CVaR 95%, 1-day):** **{cvar_val}**.\n"
-            f"3. **Monte Carlo VaR (1,000 simulations):** **{mc_var_val}**.\n\n"
-            "Chỉ số CVaR luôn cao hơn VaR nhằm phản ánh chính xác rủi ro đuôi (tail risk) của danh mục."
-        )
+        # Attempt LLM generation for VaR if provider is available
+        provider = self._get_provider()
+        answer = None
+        if provider is not None:
+            try:
+                task = ModelTask(
+                    task_type="ai_tutor_quant_risk_explanation",
+                    system_instructions_ref="ai_tutor_quant_risk_v1",
+                    messages=(
+                        ModelMessage(
+                            role="system",
+                            content=(
+                                "Bạn là AI Chuyên gia Quản trị Rủi ro Định lượng của Northstar Finance Lab. "
+                                "Xưng 'em', gọi người dùng là 'anh'. Trình bày các chỉ số rủi ro VaR, CVaR và Monte Carlo "
+                                "dựa đúng số liệu được cung cấp. Phân tích ý nghĩa rủi ro đuôi (tail risk) một cách khách quan."
+                            ),
+                        ),
+                        ModelMessage(
+                            role="user",
+                            content=json.dumps({"question": user_query, "risk_metrics": risk_ev}, ensure_ascii=False),
+                        ),
+                    ),
+                    settings=ModelSettings(temperature=0.2, response_format="text"),
+                    correlation_id=envelope.run_id if envelope else f"quant_{uuid4().hex[:8]}",
+                    deadline_seconds=15.0,
+                )
+                res = await provider.generate(task)
+                if res and res.text:
+                    answer = res.text
+            except Exception as exc:
+                logger.warning("Quant risk LLM generation failed, using deterministic template: %s", exc)
+
+        if not answer:
+            answer = (
+                "Chào anh, em xin trình bày kết quả phân tích rủi ro danh mục định lượng:\n\n"
+                f"1. **Value at Risk (VaR 95%, 1-day):** **{var_val}**.\n"
+                f"2. **Conditional VaR (CVaR 95%, 1-day):** **{cvar_val}**.\n"
+                f"3. **Monte Carlo VaR (1,000 simulations):** **{mc_var_val}**.\n\n"
+                "Chỉ số CVaR luôn cao hơn VaR nhằm phản ánh chính xác rủi ro đuôi (tail risk) của danh mục."
+            )
 
         return {
             "answer": answer,

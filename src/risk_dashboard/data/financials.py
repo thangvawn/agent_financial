@@ -402,12 +402,24 @@ def _attempt_vnstock_fetch(ticker: str) -> FinancialDataset:
     )
 
 
-def get_financial_dataset(ticker: str, *, refresh: bool = False) -> FinancialDataset:
+def get_financial_dataset(ticker: str, *, refresh: bool = False, max_cache_age_seconds: int = 86400) -> FinancialDataset:
     ticker = ticker.upper().strip()
     if not refresh:
         cached = load_cached_financial_dataset(ticker)
         if cached is not None:
-            return cached
+            is_fresh = True
+            if max_cache_age_seconds > 0 and getattr(cached, "fetched_at", None):
+                if cached.source not in ("fixture-import", "manual_import", "test"):
+                    fetched_at = cached.fetched_at
+                    if fetched_at.tzinfo is None:
+                        fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+                    age = (datetime.now(timezone.utc) - fetched_at).total_seconds()
+                    if age > max_cache_age_seconds:
+                        is_fresh = False
+
+            if is_fresh:
+                return cached
+
 
     provider_errors: list[str] = []
 

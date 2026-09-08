@@ -1,6 +1,7 @@
-from __future__ import annotations
-
+import json
+import logging
 from typing import Any
+from uuid import uuid4
 
 from risk_dashboard.modules.agentic_core.application.tool_grants import resolve_grant
 from risk_dashboard.modules.agentic_core.domain.tools import ToolGrant
@@ -15,6 +16,11 @@ from risk_dashboard.modules.ai_tutor.schemas.conversation import (
     NumericClaimRef,
     ToolCallRef,
 )
+from risk_dashboard.platform.ai_runtime.contracts import ModelMessage, ModelSettings, ModelTask
+from risk_dashboard.platform.ai_runtime.factory import get_default_provider
+from risk_dashboard.platform.ai_runtime.provider import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class LearningSpecialist:
@@ -23,10 +29,21 @@ class LearningSpecialist:
         lesson_tool: LearningLessonContextTool | None = None,
         quiz_tool: LearningQuizContextTool | None = None,
         progress_tool: LearningProgressTool | None = None,
+        provider: LLMProvider | None = None,
     ) -> None:
         self.lesson_tool = lesson_tool or LearningLessonContextTool()
         self.quiz_tool = quiz_tool or LearningQuizContextTool()
         self.progress_tool = progress_tool or LearningProgressTool()
+        self.provider = provider
+
+    def _get_provider(self) -> LLMProvider | None:
+        if self.provider is not None:
+            return self.provider
+        try:
+            return get_default_provider()
+        except Exception:
+            return None
+
 
     async def handle(
         self,
@@ -72,7 +89,7 @@ class LearningSpecialist:
 
         if is_quiz:
             # Socratic hint flow
-            quiz_ev = await self.quiz_tool.execute(active_grant)
+            quiz_ev = await self.quiz_tool.execute(active_grant, quiz_id=resource_id)
             tool_calls.append(
                 ToolCallRef(tool_name=self.quiz_tool.manifest.tool_id, status="success", summary="Đã lấy ngữ cảnh quiz")
             )
@@ -80,13 +97,45 @@ class LearningSpecialist:
                 CitationRef(source_type="lesson", source_id="quiz_bank", label="Ngân hàng câu hỏi trắc nghiệm")
             )
 
-            answer = (
-                "Chào anh, với câu hỏi này em xin gợi ý hướng tư duy theo các bước sau:\n\n"
-                "1. **Bản chất chỉ số:** ROE đo lường khả năng sinh lời trên mỗi đồng vốn cổ đông tự có (ROE = LNST / Vốn chủ sở hữu).\n"
-                "2. **So sánh tương đối:** Một mức ROE được coi là tốt khi vượt trội hơn chi phí sử dụng vốn (thường > 15% liên tục nhiều năm).\n"
-                "3. **Lưu ý cấu trúc tài chính:** Hãy xem xét liệu ROE cao có đến từ việc dùng đòn bẩy nợ quá mức hay từ biên lợi nhuận thuần thực chất.\n\n"
-                "Anh hãy thử đối chiếu các đáp án xem phương án nào nêu đúng nguyên lý này nhé!"
-            )
+            # Attempt Socratic generation via LLMProvider
+            provider = self._get_provider()
+            answer = None
+            if provider is not None:
+                try:
+                    task = ModelTask(
+                        task_type="ai_tutor_socratic_hint",
+                        system_instructions_ref="ai_tutor_socratic_v1",
+                        messages=(
+                            ModelMessage(
+                                role="system",
+                                content=(
+                                    "Bạn là AI Tutor tài chính của Northstar Finance Lab, hướng dẫn theo phương pháp Socratic. "
+                                    "Xưng 'em', gọi người dùng là 'anh'. Hướng dẫn phương pháp tư duy và công thức, tuyệt đối không đưa ra đáp án trực tiếp."
+                                ),
+                            ),
+                            ModelMessage(
+                                role="user",
+                                content=json.dumps({"question": user_query, "quiz_context": quiz_ev}, ensure_ascii=False),
+                            ),
+                        ),
+                        settings=ModelSettings(temperature=0.3, response_format="text"),
+                        correlation_id=envelope.run_id if envelope else f"tutor_{uuid4().hex[:8]}",
+                        deadline_seconds=15.0,
+                    )
+                    res = await provider.generate(task)
+                    if res and res.text:
+                        answer = res.text
+                except Exception as exc:
+                    logger.warning("LLM Socratic hint generation failed, using deterministic template: %s", exc)
+
+            if not answer:
+                answer = (
+                    "Chào anh, với câu hỏi này em xin gợi ý hướng tư duy theo các bước sau:\n\n"
+                    "1. **Bản chất chỉ số:** ROE đo lường khả năng sinh lời trên mỗi đồng vốn cổ đông tự có (ROE = LNST / Vốn chủ sở hữu).\n"
+                    "2. **So sánh tương đối:** Một mức ROE được coi là tốt khi vượt trội hơn chi phí sử dụng vốn (thường > 15% liên tục nhiều năm).\n"
+                    "3. **Lưu ý cấu trúc tài chính:** Hãy xem xét liệu ROE cao có đến từ việc dùng đòn bẩy nợ quá mức hay từ biên lợi nhuận thuần thực chất.\n\n"
+                    "Anh hãy thử đối chiếu các đáp án xem phương án nào nêu đúng nguyên lý này nhé!"
+                )
             return {
                 "answer": answer,
                 "citations": tuple(citations),
@@ -100,7 +149,7 @@ class LearningSpecialist:
             }
 
         # Standard lesson explanation flow
-        lesson_ev = await self.lesson_tool.execute(active_grant)
+        lesson_ev = await self.lesson_tool.execute(active_grant, lesson_id=resource_id)
         tool_calls.append(
             ToolCallRef(
                 tool_name=self.lesson_tool.manifest.tool_id, status="success", summary="Đã lấy ngữ cảnh giáo trình"
@@ -114,12 +163,45 @@ class LearningSpecialist:
             )
         )
 
-        answer = (
-            f"Chào anh, em xin giải thích nội dung bài học **{lesson_ev.get('lesson_title', 'Chỉ số ROE')}**:\n\n"
-            f"- **Tóm tắt:** {lesson_ev.get('summary', '')}\n"
-            f"- **Ý nghĩa cốt lõi:** {lesson_ev.get('key_takeaway', '')}\n\n"
-            "Chỉ số này giúp anh đánh giá xem doanh nghiệp sử dụng đồng vốn của cổ đông hiệu quả như thế nào qua các năm."
-        )
+        # Attempt lesson explanation via LLMProvider
+        provider = self._get_provider()
+        answer = None
+        if provider is not None:
+            try:
+                task = ModelTask(
+                    task_type="ai_tutor_lesson_explanation",
+                    system_instructions_ref="ai_tutor_learning_v1",
+                    messages=(
+                        ModelMessage(
+                            role="system",
+                            content=(
+                                "Bạn là AI Tutor tài chính của Northstar Finance Lab. "
+                                "Xưng 'em', gọi người dùng là 'anh'. Dựa vào ngữ cảnh bài học được cung cấp, hãy giải thích khái niệm, "
+                                "ý nghĩa kinh tế và ví dụ thực tiễn một cách dễ hiểu, sư phạm. Không đưa ra khuyến nghị mua bán cổ phiếu."
+                            ),
+                        ),
+                        ModelMessage(
+                            role="user",
+                            content=json.dumps({"question": user_query, "lesson_context": lesson_ev}, ensure_ascii=False),
+                        ),
+                    ),
+                    settings=ModelSettings(temperature=0.3, response_format="text"),
+                    correlation_id=envelope.run_id if envelope else f"tutor_{uuid4().hex[:8]}",
+                    deadline_seconds=15.0,
+                )
+                res = await provider.generate(task)
+                if res and res.text:
+                    answer = res.text
+            except Exception as exc:
+                logger.warning("LLM Lesson explanation generation failed, using deterministic template: %s", exc)
+
+        if not answer:
+            answer = (
+                f"Chào anh, em xin giải thích nội dung bài học **{lesson_ev.get('lesson_title', 'Chỉ số ROE')}**:\n\n"
+                f"- **Tóm tắt:** {lesson_ev.get('summary', '')}\n"
+                f"- **Ý nghĩa cốt lõi:** {lesson_ev.get('key_takeaway', '')}\n\n"
+                "Chỉ số này giúp anh đánh giá xem doanh nghiệp sử dụng đồng vốn của cổ đông hiệu quả như thế nào qua các năm."
+            )
 
         return {
             "answer": answer,

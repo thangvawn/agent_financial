@@ -25,8 +25,53 @@ class LearningLessonContextTool:
     def __init__(self, catalog: SqliteLearningCatalog | None = None) -> None:
         self.catalog = catalog or SqliteLearningCatalog()
 
-    async def execute(self, grant: ToolGrant) -> dict[str, str]:
-        # Contextual read: find first card or default lesson
+    async def execute(self, grant: ToolGrant, lesson_id: str | None = None) -> dict[str, str]:
+        # Resolve target lesson from explicit parameter, grant resources, or default
+        target_id = lesson_id
+        if not target_id and grant and getattr(grant, "resources", None):
+            for r in grant.resources:
+                if isinstance(r, str) and (r.startswith("card_") or r.startswith("lesson_")):
+                    target_id = r
+                    break
+
+        card = None
+        if target_id:
+            card = next(
+                (c for c in DEFAULT_LEARNING_CARDS if c.card_id == target_id or target_id.lower() in c.card_id.lower() or target_id.lower() in c.title.lower()),
+                None,
+            )
+
+        if card:
+            return {
+                "source": "learning_catalog",
+                "lesson_id": card.card_id,
+                "lesson_title": card.title,
+                "lesson_topic": card.topic,
+                "difficulty": card.difficulty,
+                "summary": card.summary,
+                "key_takeaway": card.key_takeaway,
+                "example": card.example or "",
+                "freshness": "latest",
+            }
+
+        if target_id and self.catalog:
+            try:
+                lesson = self.catalog.get_lesson(lesson_id=target_id)
+                if lesson:
+                    return {
+                        "source": "learning_catalog",
+                        "lesson_id": lesson.lesson_id,
+                        "lesson_title": lesson.title,
+                        "lesson_topic": getattr(lesson, "content_type", "general") or "general",
+                        "difficulty": getattr(lesson, "tier", "Cơ bản") or "Cơ bản",
+                        "summary": lesson.summary,
+                        "key_takeaway": " ".join(lesson.body[:2]) if lesson.body else lesson.summary,
+                        "example": "",
+                        "freshness": "latest",
+                    }
+            except Exception:
+                pass
+
         card = DEFAULT_LEARNING_CARDS[0]
         return {
             "source": "learning_catalog",
@@ -55,7 +100,23 @@ class LearningQuizContextTool:
     def __init__(self, catalog: SqliteLearningCatalog | None = None) -> None:
         self.catalog = catalog or SqliteLearningCatalog()
 
-    async def execute(self, grant: ToolGrant) -> dict[str, str]:
+    async def execute(self, grant: ToolGrant, quiz_id: str | None = None) -> dict[str, str]:
+        # Dynamically resolve quiz from catalog when quiz_id / lesson_id is specified
+        if quiz_id and self.catalog:
+            try:
+                lesson = self.catalog.get_lesson(lesson_id=quiz_id)
+                if lesson and lesson.quiz_questions:
+                    q = lesson.quiz_questions[0]
+                    return {
+                        "source": "quiz_bank",
+                        "quiz_topic": getattr(lesson, "content_type", "dinh_gia") or "dinh_gia",
+                        "question_prompt": q.prompt,
+                        "hint_guidance": q.explanation or f"Gợi ý xem lại nội dung bài học {lesson.title}.",
+                        "freshness": "latest",
+                    }
+            except Exception:
+                pass
+
         # Provides question context only - strictly zero answer keys to prevent leak
         return {
             "source": "quiz_bank",
