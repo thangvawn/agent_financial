@@ -11,6 +11,7 @@ import CourseCard from './CourseCard'
 import BookGrid from './BookGrid'
 import CoursePlayerPage from './CoursePlayerPage'
 import LearnTutorPanel from './LearnTutorPanel'
+import { AgentRunPanel } from '../../../shared/agentic/AgentRunPanel'
 import {
   LocalBookGrid,
   LocalVideoGrid,
@@ -47,6 +48,8 @@ export default function LearningHomePage({ sessionId, onBack }) {
   const [activeBook, setActiveBook] = useState(null)
   const [activeVideo, setActiveVideo] = useState(null)
   const [mediaTab, setMediaTab] = useState('video')
+  const [activeRunId, setActiveRunId] = useState(null)
+  const [activeRunStatus, setActiveRunStatus] = useState(null)
 
   const {
     videoItems: rawVideos,
@@ -140,6 +143,20 @@ export default function LearningHomePage({ sessionId, onBack }) {
           />
         </div>
       </div>
+
+      {activeRunId && (
+        <div style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
+          <AgentRunPanel
+            runId={activeRunId}
+            status={activeRunStatus}
+            onCancel={() => {
+              setActiveRunId(null)
+              setActiveRunStatus(null)
+            }}
+            onArtifactClick={(art) => console.log('Artifact clicked:', art)}
+          />
+        </div>
+      )}
 
       {/* Conditional Sub-Tab Panels */}
       {activeSubTab === 'ai_tutor' ? (

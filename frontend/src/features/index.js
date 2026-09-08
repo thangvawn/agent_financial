@@ -6,6 +6,9 @@ export { default as MarketPortfolioPage } from './market-portfolio/pages/MarketP
 export { default as NewsPage } from './news/pages/NewsPage.jsx'
 export { default as NewsEconCalendarPage } from './news/pages/NewsEconCalendarPage.jsx'
 export { default as GuidedInvestingPage } from './bctc/pages/GuidedInvestingPage.jsx'
+export { default as FinancialRatioPage } from './bctc/pages/FinancialRatioPage.jsx'
 export { default as LearningHomePage } from './learn-hub/pages/LearningHomePage.jsx'
+export { default as LearnHubPage } from './learn-hub/pages/LearnHubPage.jsx'
 export { default as ProLabPage } from './simulation-lab/pages/ProLabPage.jsx'
 export { default as ProLabBacktestStudioPage } from './simulation-lab/pages/ProLabBacktestStudioPage.jsx'
+

@@ -12,6 +12,7 @@ import {
 } from './CompanyInsightTabs'
 import { useCompanyMarketContext } from './useCompanyMarketContext'
 import RatioPracticeLab from './RatioPracticeLab'
+import { AgentRunPanel } from '../../../shared/agentic/AgentRunPanel'
 import './bctc-workspace.css'
 
 const BCTC_NAV_TABS = [
@@ -103,7 +104,14 @@ function ReportTable({ statement, unit, collapsedGroups, onToggleGroup }) {
   </div>
 }
 
-export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack }) {
+export default function BctcAnalysisWorkspace({
+  initialTicker = 'HPG',
+  onBack,
+  runId,
+  status: statusProp,
+  onCancel,
+  onArtifactClick,
+}) {
   const [tickerInput, setTickerInput] = useState(initialTicker)
   const [ticker, setTicker] = useState(initialTicker.toUpperCase())
   const [periodMode, setPeriodMode] = useState('quarter')
@@ -115,6 +123,16 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
+  const [activeRunId, setActiveRunId] = useState(runId || null)
+  const [activeRunStatus, setActiveRunStatus] = useState(statusProp || null)
+
+  useEffect(() => {
+    if (runId !== undefined) setActiveRunId(runId)
+  }, [runId])
+
+  useEffect(() => {
+    if (statusProp !== undefined) setActiveRunStatus(statusProp)
+  }, [statusProp])
 
   useEffect(() => {
     let cancelled = false
@@ -180,6 +198,17 @@ export default function BctcAnalysisWorkspace({ initialTicker = 'HPG', onBack })
       </div>
       <form className="bctc-symbol-search" onSubmit={submitTicker}><Search /><input aria-label="Mã chứng khoán" value={tickerInput} onChange={(event) => setTickerInput(event.target.value.toUpperCase())} /><button type="submit">Tra cứu</button></form>
     </header>
+
+    {(runId || activeRunId) && (
+      <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #2a2e39' }}>
+        <AgentRunPanel
+          runId={runId || activeRunId}
+          status={statusProp || activeRunStatus}
+          onCancel={onCancel || (() => { setActiveRunId(null); setActiveRunStatus(null) })}
+          onArtifactClick={onArtifactClick}
+        />
+      </div>
+    )}
 
     <section className="bctc-company-facts">
       <div><span>Kỳ báo cáo mới nhất</span><strong>{company.latest_period || '—'}</strong><small>Báo cáo hợp nhất</small></div>
