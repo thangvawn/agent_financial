@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ClaimKind(StrEnum):
@@ -17,6 +17,8 @@ class ClaimStatus(StrEnum):
 
 
 class Claim(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     claim_id: str = Field(min_length=1)
     kind: ClaimKind
@@ -25,16 +27,22 @@ class Claim(BaseModel):
 
 
 class ReviewedClaim(Claim):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     status: ClaimStatus
     block_reason: str | None = None
 
 
 class ClaimLedger(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     claims: tuple[ReviewedClaim, ...]
 
 
 class ReviewedArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     status: ClaimStatus
     text: str

@@ -6,9 +6,11 @@ from typing import Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from risk_dashboard.modules.agentic_core.application.review import review_claims
 from risk_dashboard.modules.agentic_core.application.tool_grants import resolve_grant
 from risk_dashboard.modules.agentic_core.domain.ports import ReadOnlyTool
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant
+from risk_dashboard.modules.agentic_core.schemas.claim import Claim, ReviewedArtifact
 from risk_dashboard.modules.agentic_core.schemas.envelope import TrustedExecutionEnvelope
 from risk_dashboard.platform.ai_runtime.contracts import ModelError, ModelTask
 from risk_dashboard.platform.ai_runtime.provider import LLMProvider
@@ -27,6 +29,7 @@ class GraphResult(TypedDict):
     tool_calls_used: int
     tokens_used: int
     cost_used: float
+    reviewed_artifact: ReviewedArtifact | None
 
 
 class _GraphState(TypedDict):
@@ -44,6 +47,7 @@ class _GraphState(TypedDict):
     evidence: dict[str, str] | None
     text: str | None
     code: str | None
+    reviewed_artifact: ReviewedArtifact | None
 
 
 def _advance(state: _GraphState, node: str) -> dict[str, object]:
@@ -95,7 +99,7 @@ def _route_after_guard(state: _GraphState) -> Literal["router", "recovery"]:
 
 
 def _router(state: _GraphState) -> dict[str, object]:
-    if state["task"].task_type != "agentic_read":
+    if state["task"].task_type not in ("agentic_read", "agentic"):
         return _recovery(state, "unknown_task_type")
     return _advance(state, "router")
 
@@ -250,10 +254,20 @@ async def _reviewer(state: _GraphState) -> dict[str, object]:
     if result is None:
         return _recovery(state, last_error_code)
 
+    reviewed_artifact = None
+    if result.parsed and isinstance(result.parsed, dict) and "claims" in result.parsed:
+        try:
+            raw_claims = result.parsed["claims"]
+            claims = tuple(Claim(**c) if isinstance(c, dict) else c for c in raw_claims)
+            reviewed_artifact = review_claims(claims, state.get("evidence"))
+        except Exception:
+            reviewed_artifact = None
+
     update = _advance(state, "reviewer")
     update["text"] = result.text
     update["tokens_used"] = cumulative_tokens
     update["cost_used"] = cumulative_cost
+    update["reviewed_artifact"] = reviewed_artifact
     return update
 
 
@@ -305,6 +319,7 @@ async def run_graph(
         "evidence": None,
         "text": None,
         "code": None,
+        "reviewed_artifact": None,
     }
     state = await compiled.ainvoke(initial_state)
     status: GraphStatus = "recovery" if state.get("code") else "success"
@@ -318,4 +333,5 @@ async def run_graph(
         "tool_calls_used": state.get("tool_calls_used", 0),
         "tokens_used": state.get("tokens_used", 0),
         "cost_used": state.get("cost_used", 0.0),
+        "reviewed_artifact": state.get("reviewed_artifact"),
     }

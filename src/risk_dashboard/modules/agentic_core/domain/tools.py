@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class RiskClass(StrEnum):
@@ -13,6 +13,8 @@ class RiskClass(StrEnum):
 
 
 class ToolManifest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     tool_id: str
     name: str
     module: str
@@ -23,9 +25,15 @@ class ToolManifest(BaseModel):
 
 
 class ToolGrant(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     grant_id: str
     run_id: str
     tool_id: str
     scopes: tuple[str, ...] = ()
+    operation: str | None = None
+    resource_id: str | None = None
+    max_calls: int = 1
     expires_at: str
+

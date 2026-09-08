@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from risk_dashboard.modules.agentic_core.schemas.envelope import ResourceRef
 
 
 class AgentArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     artifact_id: str
     artifact_type: str
@@ -24,6 +26,8 @@ class AgentArtifact(BaseModel):
 
 
 class ActionProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     proposal_id: str
     run_id: str
@@ -39,6 +43,8 @@ class ActionProposal(BaseModel):
 
 
 class ActionReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     receipt_id: str
     proposal_id: str

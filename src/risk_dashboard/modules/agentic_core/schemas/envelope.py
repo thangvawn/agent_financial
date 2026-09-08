@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from risk_dashboard.modules.auth.schemas.principal import ConsentSnapshot
 
 
 class ResourceRef(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     kind: str
     resource_id: str
     module: str
 
 
 class ExecutionBudget(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     max_steps: int = Field(default=8, ge=1)
     max_tool_calls: int = Field(default=16, ge=0)
     max_tokens: int = Field(default=120_000, ge=0)
@@ -20,6 +24,8 @@ class ExecutionBudget(BaseModel):
 
 
 class TrustedExecutionEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     run_id: str
     correlation_id: str

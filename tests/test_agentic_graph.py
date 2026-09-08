@@ -7,6 +7,8 @@ import pytest
 from risk_dashboard.modules.agentic_core.application import graph as graph_module
 from risk_dashboard.modules.agentic_core.application.graph import run_graph
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
+from risk_dashboard.modules.agentic_core.infrastructure.quant_tool import QuantRiskReadOnlyTool
+from risk_dashboard.modules.agentic_core.schemas.claim import Claim, ClaimKind, ClaimStatus
 from risk_dashboard.modules.agentic_core.schemas.envelope import ExecutionBudget, TrustedExecutionEnvelope
 from risk_dashboard.modules.auth.schemas.principal import ConsentSnapshot
 from risk_dashboard.platform.ai_runtime.contracts import ModelError, ModelMessage, ModelResult, ModelTask
@@ -193,3 +195,141 @@ def test_graph_propagates_cancellation_during_tool_execution() -> None:
 
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(cancel_run())
+
+
+def test_graph_deterministic_replay() -> None:
+    tool_1 = _tool()
+    tool_2 = _tool()
+    provider_1 = FakeProvider([_result()])
+    provider_2 = FakeProvider([_result()])
+
+    res_1 = asyncio.run(run_graph(_envelope(), _task(), provider_1, tool_1))
+    res_2 = asyncio.run(run_graph(_envelope(), _task(), provider_2, tool_2))
+
+    assert res_1["status"] == res_2["status"] == "success"
+    assert res_1["code"] == res_2["code"] is None
+    assert res_1["text"] == res_2["text"] == "Reviewed fixture"
+    assert res_1["evidence"] == res_2["evidence"] == {"source": "fixture", "value": "42"}
+    assert res_1["trace"] == res_2["trace"] == ("guard", "router", "specialist", "reviewer", "success")
+    assert res_1["steps_used"] == res_2["steps_used"] == 5
+    assert res_1["tool_calls_used"] == res_2["tool_calls_used"] == 1
+    assert res_1["tokens_used"] == res_2["tokens_used"]
+    assert res_1["cost_used"] == res_2["cost_used"]
+
+
+def test_graph_blocks_step_budget_at_guard() -> None:
+    tool = _tool()
+    envelope = _envelope(max_steps=1)
+    state: graph_module._GraphState = {
+        "envelope": envelope,
+        "task": _task(),
+        "provider": FakeProvider([_result()]),
+        "tool": tool,
+        "started_at": 0.0,
+        "trace": ("previous_step",),
+        "steps_used": 1,
+        "tool_calls_used": 0,
+        "tokens_used": 0,
+        "cost_used": 0.0,
+        "grant": None,
+        "evidence": None,
+        "text": None,
+        "code": None,
+        "reviewed_artifact": None,
+    }
+    result = graph_module._guard(state)
+
+    assert result["code"] == "step_budget_exhausted"
+    assert "recovery" in result["trace"]
+
+
+def test_graph_blocks_token_budget_at_guard() -> None:
+    tool = _tool()
+    # Prompt estimation is > 1 token, setting max_tokens=1 exhausts budget pre-flight
+    result = asyncio.run(
+        run_graph(_envelope(max_tokens=1), _task(), FakeProvider([_result()]), tool)
+    )
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "token_budget_exhausted"
+    assert tool.calls == 0
+
+
+def test_graph_blocks_cost_budget_at_guard() -> None:
+    tool = _tool()
+    # Setting max_cost_usd <= 0 exhausts cost budget pre-flight
+    result = asyncio.run(
+        run_graph(_envelope(max_cost_usd=0.0), _task(), FakeProvider([_result()]), tool)
+    )
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "cost_budget_exhausted"
+    assert tool.calls == 0
+
+
+def test_graph_reviewer_verifies_claims_against_evidence() -> None:
+    valid_claim = Claim(
+        claim_id="c1",
+        kind=ClaimKind.NUMERIC,
+        statement="Giá trị là 42.",
+        evidence_refs=("value",),
+    )
+    result_with_claims = ModelResult(
+        text="Giá trị là 42.",
+        parsed={"claims": [valid_claim.model_dump()]},
+        provider="fake",
+        model="fake-model",
+        latency_ms=0,
+        finish_reason="stop",
+    )
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([result_with_claims]), tool))
+
+    assert result["status"] == "success"
+    assert result["reviewed_artifact"] is not None
+    assert result["reviewed_artifact"].status is ClaimStatus.ACCEPTED
+    assert result["reviewed_artifact"].ledger.claims[0].status is ClaimStatus.ACCEPTED
+
+
+def test_graph_reviewer_blocks_unsupported_claim() -> None:
+    invalid_claim = Claim(
+        claim_id="c2",
+        kind=ClaimKind.NUMERIC,
+        statement="Giá trị là 99.",
+        evidence_refs=("value",),
+    )
+    result_with_claims = ModelResult(
+        text="Giá trị là 99.",
+        parsed={"claims": [invalid_claim.model_dump()]},
+        provider="fake",
+        model="fake-model",
+        latency_ms=0,
+        finish_reason="stop",
+    )
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([result_with_claims]), tool))
+
+    assert result["status"] == "success"
+    assert result["reviewed_artifact"] is not None
+    assert result["reviewed_artifact"].status is ClaimStatus.BLOCKED
+    assert result["reviewed_artifact"].ledger.claims[0].status is ClaimStatus.BLOCKED
+    assert result["reviewed_artifact"].ledger.claims[0].block_reason == "numeric_evidence_mismatch"
+
+
+def test_graph_runs_with_real_quant_risk_tool() -> None:
+    tool = QuantRiskReadOnlyTool()
+    envelope = _envelope()
+    task = _task()
+    provider = FakeProvider([_result()])
+
+    result = asyncio.run(run_graph(envelope, task, provider, tool))
+
+    assert result["status"] == "success"
+    assert result["code"] is None
+    assert result["evidence"] is not None
+    assert result["evidence"]["tool_id"] == "quant.explain_risk"
+    assert result["evidence"]["fitted"] == "True"
+    assert "VAR đa biến" in result["evidence"]["note"]
+    assert result["trace"] == ("guard", "router", "specialist", "reviewer", "success")
+
+

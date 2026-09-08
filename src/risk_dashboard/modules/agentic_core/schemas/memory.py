@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MemoryProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     schema_version: str = "1.0.0"
     proposal_id: str
     run_id: str
