@@ -83,3 +83,34 @@ def test_instruction_in_evidence_remains_untrusted_data() -> None:
 def test_agentic_core_has_no_google_provider_sdk_import() -> None:
     root = Path(__file__).parents[1] / "src" / "risk_dashboard" / "modules" / "agentic_core"
     assert "google.genai" not in "\n".join(path.read_text() for path in root.rglob("*.py"))
+
+
+def test_numeric_claim_accepts_within_tolerance() -> None:
+    # 12.3456 vs 12.34564: diff is 0.00004 <= 1e-4 (0.0001)
+    artifact = review_claims(
+        (_claim("Tỷ lệ là 12.34564%.", kind=ClaimKind.NUMERIC),),
+        {"value": "12.3456%"},
+    )
+    assert artifact.status is ClaimStatus.ACCEPTED
+    assert artifact.ledger.claims[0].status is ClaimStatus.ACCEPTED
+
+
+def test_numeric_claim_blocks_outside_tolerance() -> None:
+    # 12.3456 vs 12.3460: diff is 0.0004 > 1e-4
+    artifact = review_claims(
+        (_claim("Tỷ lệ là 12.3460%.", kind=ClaimKind.NUMERIC),),
+        {"value": "12.3456%"},
+    )
+    assert artifact.status is ClaimStatus.BLOCKED
+    assert artifact.ledger.claims[0].block_reason == "numeric_evidence_mismatch"
+
+
+def test_numeric_claim_blocks_nan_inf_injection() -> None:
+    for bad_val in ("NaN", "Infinity", "-Infinity", "inf", "nan"):
+        artifact = review_claims(
+            (_claim(f"Giá trị là {bad_val}.", kind=ClaimKind.NUMERIC),),
+            {"value": bad_val},
+        )
+        assert artifact.status is ClaimStatus.BLOCKED
+        assert artifact.ledger.claims[0].block_reason == "numeric_evidence_mismatch"
+

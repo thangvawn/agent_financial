@@ -51,8 +51,20 @@ def _extract_statement_numeric_tokens(statement: str) -> list[tuple[Decimal, str
     return tokens
 
 
-def _match_single_numeric_evidence(statement: str, ev_val: str) -> bool:
-    """Matches an evidence numeric value against isolated numeric tokens in statement with 100% exact equality and unit parity."""
+_DEFAULT_ABS_TOL = Decimal("0.0001")
+
+
+def _match_single_numeric_evidence(
+    statement: str,
+    ev_val: str,
+    abs_tol: Decimal = _DEFAULT_ABS_TOL,
+) -> bool:
+    """Matches an evidence numeric value against isolated numeric tokens in statement with tolerance and unit parity."""
+    # Guard against NaN / Inf injection in evidence string
+    ev_lower = ev_val.strip().lower()
+    if any(pattern in ev_lower for pattern in ("nan", "inf", "infinity")):
+        return False
+
     ev_clean = ev_val.strip()
     ev_parsed = _parse_canonical_numeric(ev_clean)
     if ev_parsed is None:
@@ -61,13 +73,20 @@ def _match_single_numeric_evidence(statement: str, ev_val: str) -> bool:
         return any(t.strip(".,;:?!") == ev_clean for t in tokens)
 
     ev_dec, ev_unit = ev_parsed
+    if ev_dec.is_nan() or ev_dec.is_infinite():
+        return False
+
     extracted_tokens = _extract_statement_numeric_tokens(statement)
     if not extracted_tokens:
         return False
 
     for tok_dec, tok_unit in extracted_tokens:
-        if ev_unit == tok_unit and ev_dec == tok_dec:
-            return True
+        if tok_dec.is_nan() or tok_dec.is_infinite():
+            continue
+        if ev_unit == tok_unit:
+            # Check exact equality or within tolerance abs_tol (1e-4)
+            if ev_dec == tok_dec or abs(ev_dec - tok_dec) <= abs_tol:
+                return True
 
     return False
 
