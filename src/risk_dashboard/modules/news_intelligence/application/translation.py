@@ -9,23 +9,22 @@ import json
 import os
 from typing import Any
 
-from risk_dashboard.platform.ai_runtime.contracts import (
-    ModelMessage,
-    ModelSettings,
-    ModelTask,
-)
+from risk_dashboard.platform.ai_runtime.contracts import ModelMessage, ModelSettings, ModelTask
 from risk_dashboard.platform.ai_runtime.factory import get_default_provider
 from risk_dashboard.platform.ai_runtime.provider import LLMProvider
+from risk_dashboard.platform.ai_runtime.structured import parse_structured
 from risk_dashboard.platform.database import open_app_state_db
+
+_SYNC_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="news-trans")
 
 
 def _run_sync(coro):
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
+    return _SYNC_EXECUTOR.submit(asyncio.run, coro).result()
+
 
 
 class NewsTranslator:
@@ -43,7 +42,7 @@ class NewsTranslator:
                 self.provider = get_default_provider()
             except Exception:
                 self.provider = None
-        self.api_key = (api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        self.api_key = (api_key or "").strip()
         self.model = (model or getattr(self.provider, "default_model", "gemini-3.5-flash")).strip()
 
     @property
@@ -60,6 +59,11 @@ class NewsTranslator:
         if cached:
             return cached
         try:
+            out_schema = {
+                "type": "object",
+                "properties": {"headline_vi": {"type": "string"}, "summary_vi": {"type": "string"}},
+                "required": ["headline_vi", "summary_vi"],
+            }
             task = ModelTask(
                 task_type="news_translation",
                 system_instructions_ref="news.translation.v1",
@@ -74,23 +78,18 @@ class NewsTranslator:
                     ),
                     ModelMessage(
                         role="user",
-                        content=json.dumps(
-                            {"headline": headline, "summary": summary},
-                            ensure_ascii=False,
-                        ),
+                        content=json.dumps({"headline": headline, "summary": summary}, ensure_ascii=False),
                     ),
                 ),
-                settings=ModelSettings(
-                    temperature=0.1,
-                    response_format="json_object",
-                ),
+                output_schema=out_schema,
+                settings=ModelSettings(temperature=0.1, response_format="json_object"),
                 correlation_id=f"news-trans-{fingerprint[:12]}",
             )
             model_result = _run_sync(self.provider.generate(task))
             translated = model_result.parsed or {}
             if not translated and model_result.text:
                 try:
-                    translated = json.loads(model_result.text)
+                    translated = parse_structured(model_result.text, out_schema)
                 except Exception:
                     translated = {}
             result = {
@@ -101,6 +100,7 @@ class NewsTranslator:
             return result
         except Exception:
             return {"headline_vi": headline, "summary_vi": summary}
+
 
     @staticmethod
     def _get_cached(fingerprint: str) -> dict[str, str] | None:

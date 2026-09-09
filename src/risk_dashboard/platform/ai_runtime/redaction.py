@@ -28,12 +28,14 @@ _SECRET_PATTERNS = (
 
 _PII_PATTERNS = (
     # Email addresses
-    re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
-    # Vietnamese mobile phone numbers
-    re.compile(r"(?:\+84|0)[3|5|7|8|9][0-9]{8}\b"),
+    re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+    # Vietnamese mobile phone numbers (supports +84/0 with optional spaces, dots, dashes)
+    re.compile(r"(?:(?<!\w)(?:\+84[\s.-]?|0))[35789](?:[\s.-]?[0-9]){8}\b"),
     # Vietnamese Citizen ID (CCCD 12-digit)
-    re.compile(r"\b0[0-9]{11}\b"),
+    re.compile(r"(?<!\w)0[0-9]{2}(?:[\s.-]?[0-9]{3}){3}\b|(?<!\w)0[0-9]{11}\b"),
 )
+
+
 
 
 def contains_secrets(value: str) -> bool:

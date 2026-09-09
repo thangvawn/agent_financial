@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import Any
 
 from risk_dashboard.platform.ai_runtime.contracts import ModelError, ModelResult, ModelTask
 from risk_dashboard.platform.ai_runtime.provider import LLMProvider
@@ -9,6 +10,7 @@ from risk_dashboard.platform.ai_runtime.telemetry import record_call
 
 MAX_PROMPT_CHARS: int = 100_000
 CIRCUIT_BREAKER_THRESHOLD: int = 5
+CIRCUIT_BREAKER_RECOVERY_SECONDS: float = 30.0
 
 _circuit_states: dict[str, dict[str, Any]] = {}
 
@@ -22,13 +24,15 @@ def reset_circuit_breaker(provider_name: str | None = None) -> None:
 
 def _get_breaker(name: str) -> dict[str, Any]:
     if name not in _circuit_states:
-        _circuit_states[name] = {"failures": 0, "open": False}
+        _circuit_states[name] = {"failures": 0, "open": False, "last_failure": 0.0, "half_open": False}
     return _circuit_states[name]
 
 
 def _record_failure(name: str) -> None:
     b = _get_breaker(name)
     b["failures"] += 1
+    b["last_failure"] = time.monotonic()
+    b["half_open"] = False
     if b["failures"] >= CIRCUIT_BREAKER_THRESHOLD:
         b["open"] = True
 
@@ -37,6 +41,7 @@ def _record_success(name: str) -> None:
     b = _get_breaker(name)
     b["failures"] = 0
     b["open"] = False
+    b["half_open"] = False
 
 
 async def with_retry(
@@ -54,11 +59,15 @@ async def with_retry(
 
     b = _get_breaker(provider.name)
     if b["open"]:
-        raise ModelError(
-            "provider_unavailable",
-            "Circuit breaker is OPEN due to consecutive failures.",
-            retryable=False,
-        )
+        if (time.monotonic() - b.get("last_failure", 0.0)) >= CIRCUIT_BREAKER_RECOVERY_SECONDS:
+            b["open"] = False
+            b["half_open"] = True
+        else:
+            raise ModelError(
+                "provider_unavailable",
+                "Circuit breaker is OPEN due to consecutive failures.",
+                retryable=False,
+            )
 
     started = time.monotonic()
     for attempt in range(max_retries + 1):
@@ -75,6 +84,7 @@ async def with_retry(
             if attempt == max_retries:
                 _record_failure(provider.name)
                 raise ModelError("deadline_exceeded", "Model request exceeded deadline.") from exc
+            await asyncio.sleep(min(0.25 * (2**attempt), remaining))
         except ModelError as exc:
             if not exc.retryable or attempt == max_retries:
                 _record_failure(provider.name)
@@ -84,5 +94,7 @@ async def with_retry(
             if attempt == max_retries:
                 _record_failure(provider.name)
                 raise
+            await asyncio.sleep(min(0.25 * (2**attempt), remaining))
     _record_failure(provider.name)
     raise AssertionError("retry loop must return or raise")
+

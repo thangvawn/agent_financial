@@ -6,13 +6,8 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from risk_dashboard.platform.ai_runtime.contracts import (
-    ModelError,
-    ModelResult,
-    ModelTask,
-    StreamEvent,
-    TokenUsage,
-)
+from risk_dashboard.platform.ai_runtime.contracts import ModelError, ModelResult, ModelTask, StreamEvent, TokenUsage
+
 from risk_dashboard.platform.ai_runtime.redaction import redact_for_provider
 from risk_dashboard.platform.ai_runtime.structured import parse_structured
 from risk_dashboard.platform.ai_runtime.telemetry import calculate_cost_usd
@@ -27,15 +22,19 @@ def create_gemini_provider(api_key: str | None = None) -> GeminiAdapter:
     return GeminiAdapter(api_key=key)
 
 
+def _fc_dict(fc: Any) -> dict[str, Any]:
+    raw = getattr(fc, "args", None)
+    args = dict(raw) if isinstance(raw, dict) else (dict(raw) if raw is not None else {})
+    return {"name": getattr(fc, "name", ""), "args": args}
+
+
 def _extract_tool_calls(response: Any) -> tuple[dict[str, Any], ...]:
-    calls: list[dict[str, Any]] = []
-    for fc in getattr(response, "function_calls", None) or []:
-        calls.append({"name": getattr(fc, "name", ""), "args": dict(getattr(fc, "args", {}))})
+    calls = [_fc_dict(fc) for fc in getattr(response, "function_calls", None) or []]
     if not calls and getattr(response, "candidates", None):
-        for p in getattr(getattr(response.candidates[0], "content", None), "parts", []) or []:
-            if getattr(p, "function_call", None):
-                calls.append({"name": getattr(p.function_call, "name", ""), "args": dict(getattr(p.function_call, "args", {}))})
+        parts = getattr(getattr(response.candidates[0], "content", None), "parts", []) or []
+        calls = [_fc_dict(p.function_call) for p in parts if getattr(p, "function_call", None)]
     return tuple(calls)
+
 
 
 class GeminiAdapter:
@@ -82,12 +81,10 @@ class GeminiAdapter:
 
     @staticmethod
     def _provider_error(exc: Exception) -> ModelError:
-        status = getattr(exc, "code", None)
-        if status in {401, 403}:
+        s = getattr(exc, "code", None)
+        if s in {401, 403}:
             return ModelError("provider_auth_error", "Gemini authentication failed.")
-        if status == 429:
-            return ModelError("rate_limited", "Gemini rate limit exceeded.", retryable=True)
-        return ModelError("provider_unavailable", "Gemini request failed.", retryable=True)
+        return ModelError("rate_limited" if s == 429 else "provider_unavailable", "Gemini request failed.", retryable=True)
 
     async def generate(self, task: ModelTask) -> ModelResult:
         started = time.monotonic()
@@ -110,16 +107,22 @@ class GeminiAdapter:
 
         cand = (getattr(response, "candidates", None) or [None])[0]
         fr = getattr(cand, "finish_reason", "STOP") if cand else "STOP"
-        fr_str = (fr if isinstance(fr, str) else getattr(fr, "name", "STOP")).upper()
-        if fr_str == "SAFETY":
+        fr_str = (fr if isinstance(fr, str) else (fr.name if hasattr(fr, "name") and isinstance(fr.name, str) else "STOP")).upper()
+        pb = getattr(getattr(response, "prompt_feedback", None), "block_reason", None)
+        pb_str = (pb if isinstance(pb, str) else (pb.name if hasattr(pb, "name") and isinstance(pb.name, str) else "")).upper()
+        if fr_str in {"SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALICIOUS"} or pb_str in {"SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALICIOUS"}:
             raise ModelError("safety_blocked", "Gemini generation blocked by safety filters.")
+
 
         usage = self._usage(response)
         cost = calculate_cost_usd(MODEL_NAME, usage.prompt, usage.completion)
         if task.max_cost_usd is not None and cost > task.max_cost_usd:
             raise ModelError("budget_exceeded", f"Gemini cost ${cost:.6f} exceeded max budget ${task.max_cost_usd:.6f}.")
 
-        text = getattr(response, "text", "") or ""
+        try:
+            text = getattr(response, "text", "") or ""
+        except Exception:
+            text = ""
         parsed = parse_structured(text, task.output_schema) if task.output_schema and text else None
         return ModelResult(
             parsed=parsed,
