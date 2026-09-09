@@ -466,6 +466,26 @@ CREATE VIEW IF NOT EXISTS agentic_core_artifacts AS SELECT * FROM agentic_artifa
 CREATE VIEW IF NOT EXISTS agentic_core_action_proposals AS SELECT * FROM agentic_action_proposals;
 """
 
+AGENTIC_MEMORY_RETENTION_SQL = """
+CREATE TABLE IF NOT EXISTS agentic_memory_items (
+  memory_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  run_id TEXT,
+  memory_type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  provenance TEXT NOT NULL,
+  confidence REAL NOT NULL DEFAULT 1.0,
+  sensitivity TEXT NOT NULL DEFAULT 'normal',
+  ttl_days INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agentic_memory_items_account
+  ON agentic_memory_items(account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agentic_memory_items_type
+  ON agentic_memory_items(account_id, memory_type);
+"""
+
 
 def _add_column_if_not_exists(conn, table: str, column_def: str) -> None:
     col_name = column_def.strip().split()[0]
@@ -473,6 +493,14 @@ def _add_column_if_not_exists(conn, table: str, column_def: str) -> None:
     existing_cols = {row[1] for row in cursor.fetchall()}
     if col_name not in existing_cols:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")
+
+
+def _apply_retention_migration(conn) -> None:
+    conn.executescript(AGENTIC_MEMORY_RETENTION_SQL)
+    _add_column_if_not_exists(conn, "agentic_memory_proposals", "expires_at TEXT")
+    _add_column_if_not_exists(conn, "agentic_memory_items", "expires_at TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agentic_mem_prop_expires ON agentic_memory_proposals(expires_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agentic_mem_items_expires ON agentic_memory_items(expires_at)")
 
 
 def _apply_ai_tutor_migration(conn) -> None:
@@ -508,6 +536,7 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("014_simulation_action_receipts", SIMULATION_RECEIPTS_SQL),
     ("015_home_journey", HOME_JOURNEY_SQL),
     ("016_agentic_core", AGENTIC_CORE_SQL),
+    ("017_agentic_memory_retention", ""),
 ]
 
 
@@ -570,12 +599,15 @@ def apply_migrations(conn) -> list[str]:
         ("014_simulation_action_receipts", SIMULATION_RECEIPTS_SQL),
         ("015_home_journey", HOME_JOURNEY_SQL),
         ("016_agentic_core", AGENTIC_CORE_SQL),
+        ("017_agentic_memory_retention", ""),
     ]
     for mid, sql in migrations:
         if mid in applied:
             continue
         if mid == "008_ai_tutor_conversations":
             _apply_ai_tutor_migration(conn)
+        elif mid == "017_agentic_memory_retention":
+            _apply_retention_migration(conn)
         else:
             conn.executescript(sql)
         conn.execute(

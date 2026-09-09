@@ -174,3 +174,23 @@ def test_agentic_memory_repository_ownership_scoping(tmp_path) -> None:
         assert len(props_alpha) == 1
         assert len(props_beta) == 0
 
+
+def test_migration_017_applies(tmp_path) -> None:
+    db_path = tmp_path / "mig_017_test.db"
+    with open_app_state_db(db_path) as conn:
+        applied = [r[0] for r in conn.execute("SELECT id FROM schema_migrations").fetchall()]
+        assert "017_agentic_memory_retention" in applied
+
+        # Verify idempotency: run again, newly applied is empty
+        applied_second = apply_migrations(conn)
+        assert "017_agentic_memory_retention" not in applied_second
+
+        # Verify columns exist
+        cols_prop = {r[1] for r in conn.execute("PRAGMA table_info(agentic_memory_proposals)").fetchall()}
+        assert "expires_at" in cols_prop
+
+        cols_item = {r[1] for r in conn.execute("PRAGMA table_info(agentic_memory_items)").fetchall()}
+        assert "expires_at" in cols_item
+
+
+

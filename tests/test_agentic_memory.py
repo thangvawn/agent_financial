@@ -250,3 +250,86 @@ def test_poisoning_memory_treated_as_untrusted_data(memory_service):
     # Context must clearly delimit and isolate untrusted data
     assert "<untrusted_context>" in ctx.formatted_prompt or "UNTRUSTED" in ctx.formatted_prompt
     assert "sk-secret" not in ctx.formatted_prompt  # Secret stripped by sanitize
+
+
+def test_retention_policy_per_memory_type(monkeypatch):
+    from risk_dashboard.modules.agentic_core.application.retention import get_retention_ttl_days
+
+    # Default is None
+    monkeypatch.delenv("RISK_AGENTIC__RETENTION__PREFERENCE", raising=False)
+    assert get_retention_ttl_days("preference") is None
+
+    # Configured via env
+    monkeypatch.setenv("RISK_AGENTIC__RETENTION__PREFERENCE", "30")
+    monkeypatch.setenv("RISK_AGENTIC__RETENTION__MASTERY", "90")
+    assert get_retention_ttl_days("preference") == 30
+    assert get_retention_ttl_days("mastery") == 90
+
+
+def test_retention_purge_expired(tmp_path):
+    from risk_dashboard.modules.agentic_core.application.retention import purge_expired
+    from risk_dashboard.platform.database.migrate import apply_migrations
+
+    db_path = tmp_path / "purge_test.db"
+    with open_app_state_db(db_path) as conn:
+        apply_migrations(conn)
+        # Insert expired and valid items
+        conn.execute(
+            """
+            INSERT INTO agentic_memory_items (
+              memory_id, account_id, memory_type, content, provenance, confidence, sensitivity,
+              ttl_days, expires_at, created_at, updated_at
+            ) VALUES
+            ('m-exp', 'acc-1', 'preference', 'Old', 'user_stated', 1.0, 'normal', 30, '2020-01-01T00:00:00Z', '2019-12-01T00:00:00Z', '2019-12-01T00:00:00Z'),
+            ('m-val', 'acc-1', 'preference', 'Fresh', 'user_stated', 1.0, 'normal', 30, '2099-01-01T00:00:00Z', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z')
+            """
+        )
+        conn.commit()
+
+        purged = purge_expired(conn, account_id="acc-1")
+        assert purged >= 1
+
+        remaining = [r[0] for r in conn.execute("SELECT memory_id FROM agentic_memory_items WHERE account_id = 'acc-1'").fetchall()]
+        assert "m-val" in remaining
+        assert "m-exp" not in remaining
+
+
+def test_cascade_delete_account_data(tmp_path):
+    from risk_dashboard.modules.agentic_core.application.retention import delete_account_data
+    from risk_dashboard.platform.database.migrate import apply_migrations
+
+    db_path = tmp_path / "cascade_test.db"
+    with open_app_state_db(db_path) as conn:
+        apply_migrations(conn)
+        conn.execute(
+            """
+            INSERT INTO agentic_memory_items (
+              memory_id, account_id, memory_type, content, provenance, confidence, sensitivity,
+              created_at, updated_at
+            ) VALUES
+            ('m-acc1', 'acc-target', 'goal', 'Content 1', 'user_stated', 1.0, 'normal', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z'),
+            ('m-acc2', 'acc-other', 'goal', 'Content 2', 'user_stated', 1.0, 'normal', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z')
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO agentic_memory_proposals (
+              proposal_id, run_id, account_id, memory_type, content, provenance, created_at
+            ) VALUES
+            ('prop-acc1', 'run-1', 'acc-target', 'goal', 'Content 1', 'user_stated', '2026-09-09T00:00:00Z'),
+            ('prop-acc2', 'run-2', 'acc-other', 'goal', 'Content 2', 'user_stated', '2026-09-09T00:00:00Z')
+            """
+        )
+        conn.commit()
+
+        deleted = delete_account_data(conn, account_id="acc-target")
+        assert deleted >= 2
+
+        # Verify acc-target wiped
+        assert conn.execute("SELECT COUNT(*) FROM agentic_memory_items WHERE account_id = 'acc-target'").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM agentic_memory_proposals WHERE account_id = 'acc-target'").fetchone()[0] == 0
+
+        # Verify acc-other intact
+        assert conn.execute("SELECT COUNT(*) FROM agentic_memory_items WHERE account_id = 'acc-other'").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM agentic_memory_proposals WHERE account_id = 'acc-other'").fetchone()[0] == 1
+

@@ -1023,13 +1023,38 @@ CREATE TABLE IF NOT EXISTS agentic_memory_proposals (
   sensitivity TEXT NOT NULL DEFAULT 'normal',
   ttl_days INTEGER,
   status TEXT NOT NULL DEFAULT 'proposed',
+  expires_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_agentic_memory_proposals_account
   ON agentic_memory_proposals(account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agentic_mem_prop_expires
+  ON agentic_memory_proposals(expires_at);
+
+CREATE TABLE IF NOT EXISTS agentic_memory_items (
+  memory_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  run_id TEXT,
+  memory_type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  provenance TEXT NOT NULL,
+  confidence REAL NOT NULL DEFAULT 1.0,
+  sensitivity TEXT NOT NULL DEFAULT 'normal',
+  ttl_days INTEGER,
+  expires_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agentic_memory_items_account
+  ON agentic_memory_items(account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agentic_memory_items_type
+  ON agentic_memory_items(account_id, memory_type);
+CREATE INDEX IF NOT EXISTS idx_agentic_mem_items_expires
+  ON agentic_memory_items(expires_at);
 
 CREATE VIEW IF NOT EXISTS agentic_core_runs AS SELECT * FROM agentic_runs;
 CREATE VIEW IF NOT EXISTS agentic_core_artifacts AS SELECT * FROM agentic_artifacts;
 CREATE VIEW IF NOT EXISTS agentic_core_action_proposals AS SELECT * FROM agentic_action_proposals;
+
 
 
