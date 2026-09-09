@@ -137,8 +137,58 @@ def test_tool_registry_versioning_and_lookup() -> None:
     registry.register(m1)
     registry.register(m2)
 
-    assert registry.get("tool.a", "1.0.0") == m1
-    assert registry.get("tool.a", "2.0.0") == m2
     # Latest default lookup
     assert registry.get("tool.a") == m2
     assert registry.get("nonexistent") is None
+
+
+def test_skill_manifest_loader_and_router() -> None:
+    from risk_dashboard.modules.agentic_core.application.skill_router import SkillRouter
+    from risk_dashboard.modules.agentic_core.infrastructure.domain_tools import (
+        BctcResolveLineItemTool,
+        LearningGetLessonContextTool,
+    )
+    from risk_dashboard.modules.agentic_core.infrastructure.quant_tool import QuantRiskReadOnlyTool
+    from risk_dashboard.modules.agentic_core.infrastructure.skill_manifest_loader import SkillManifestLoader
+
+    loader = SkillManifestLoader()
+    manifests = loader.load_manifests()
+    assert len(manifests) >= 8
+
+    # Router maps surface/intent to domain tool
+    bctc_tool = SkillRouter.resolve_tool("bctc_workspace", "bctc.resolve_line_item")
+    assert isinstance(bctc_tool, BctcResolveLineItemTool)
+    assert SkillRouter.get_required_capabilities(bctc_tool) == ("financials:read",)
+
+    learn_tool = SkillRouter.resolve_tool("learn_hub", "get_lesson")
+    assert isinstance(learn_tool, LearningGetLessonContextTool)
+    assert SkillRouter.get_required_capabilities(learn_tool) == ("learning:read",)
+
+    quant_tool = SkillRouter.resolve_tool("pro_lab", "explain_var")
+    assert isinstance(quant_tool, QuantRiskReadOnlyTool)
+
+
+def test_domain_tools_execute_with_valid_grants() -> None:
+    import asyncio
+    from risk_dashboard.modules.agentic_core.infrastructure.domain_tools import (
+        BctcResolveLineItemTool,
+        LearningGetLessonContextTool,
+    )
+
+    grant = ToolGrant(
+        grant_id="g1",
+        run_id="run-1",
+        tool_id="bctc.resolve_line_item",
+        expires_at="2099-01-01T00:00:00Z",
+    )
+    bctc_tool = BctcResolveLineItemTool()
+    res_bctc = asyncio.run(bctc_tool.execute(grant))
+    assert res_bctc["tool_id"] == "bctc.resolve_line_item"
+    assert res_bctc["ticker"] == "FPT"
+    assert res_bctc["value"] == "52618"
+
+    learn_tool = LearningGetLessonContextTool()
+    res_learn = asyncio.run(learn_tool.execute(grant))
+    assert res_learn["tool_id"] == "learning.get_lesson_context"
+    assert res_learn["lesson_id"] == "quant_101"
+

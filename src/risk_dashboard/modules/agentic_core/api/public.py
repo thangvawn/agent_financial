@@ -18,6 +18,7 @@ from risk_dashboard.modules.agentic_core.application.kill_switch import (
     is_kill_switch_active,
 )
 from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
+from risk_dashboard.modules.agentic_core.application.skill_router import SkillRouter
 from risk_dashboard.modules.agentic_core.domain.ports import ReadOnlyTool
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
 from risk_dashboard.modules.agentic_core.infrastructure.quant_tool import QuantRiskReadOnlyTool
@@ -78,6 +79,10 @@ async def create_agentic_run(
     run_id = f"run_{uuid.uuid4().hex}"
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    tool = SkillRouter.resolve_tool(surface=request.surface, operation=request.operation)
+    required_caps = SkillRouter.get_required_capabilities(tool)
+    allowed_caps = tuple(set(("quant:read", *required_caps)))
+
     envelope = TrustedExecutionEnvelope(
         run_id=run_id,
         correlation_id=run_id,
@@ -87,7 +92,7 @@ async def create_agentic_run(
         surface=request.surface,
         resource_refs=tuple(request.resource_refs),
         locale=request.locale,
-        allowed_capabilities=("quant:read",),
+        allowed_capabilities=allowed_caps,
         policy_version="1.0.0",
         model_policy_version="1.0.0",
         consent=ConsentSnapshot(memory=True, analytics=True, consented_at=now_iso, policy_version="1.0"),
@@ -103,7 +108,6 @@ async def create_agentic_run(
     )
 
     provider = get_default_provider()
-    tool = QuantRiskReadOnlyTool()
 
     # Persist running state to SQLite (Iron Rule #1)
     with open_app_state_db() as conn:

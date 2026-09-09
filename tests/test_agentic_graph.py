@@ -343,4 +343,36 @@ def test_graph_recovers_when_kill_switch_active(monkeypatch) -> None:
     assert tool.calls == 0
 
 
+def test_graph_runs_with_bctc_domain_tool() -> None:
+    from risk_dashboard.modules.agentic_core.infrastructure.domain_tools import BctcResolveLineItemTool
+
+    tool = BctcResolveLineItemTool()
+    envelope = TrustedExecutionEnvelope(
+        run_id="run-bctc-1",
+        correlation_id="corr-1",
+        idempotency_key="idemp-1",
+        account_id="account-a",
+        surface="bctc_workspace",
+        allowed_capabilities=("financials:read",),
+        budget=ExecutionBudget(),
+        policy_version="v1",
+        model_policy_version="v1",
+        consent=ConsentSnapshot(policy_version="v1"),
+        created_at="2026-08-28T12:00:00+00:00",
+    )
+    task = _task()
+    provider = FakeProvider([_result()])
+
+    result = asyncio.run(run_graph(envelope, task, provider, tool))
+
+    assert result["status"] == "success"
+    assert result["code"] is None
+    assert result["evidence"] is not None
+    assert result["evidence"]["tool_id"] == "bctc.resolve_line_item"
+    assert result["evidence"]["ticker"] == "FPT"
+    assert result["trace"] == ("guard", "router", "specialist", "reviewer", "success")
+
+
+
+
 
