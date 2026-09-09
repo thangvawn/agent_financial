@@ -4,19 +4,19 @@ from pydantic import BaseModel, Field
 
 
 class LearningQuizSubmitRequest(BaseModel):
-    session_id: str = Field(..., min_length=8, max_length=100)
+    session_id: str | None = Field(default=None, max_length=100)
     answers: dict[str, str]
 
 
 class LearningTutorRequest(BaseModel):
-    session_id: str = Field(..., min_length=8, max_length=100)
+    session_id: str | None = Field(default=None, max_length=100)
     lesson_id: str = Field(..., min_length=3, max_length=100)
     question: str = Field(..., min_length=2, max_length=500)
     knowledge_level: str = Field(default="beginner", min_length=3, max_length=20)
 
 
 class LearningCoachRequest(BaseModel):
-    session_id: str = Field(..., min_length=8, max_length=100)
+    session_id: str | None = Field(default=None, max_length=100)
     trigger: str = Field(default="continue_path", min_length=3, max_length=100)
 
 

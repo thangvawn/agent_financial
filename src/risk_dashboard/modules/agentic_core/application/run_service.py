@@ -42,32 +42,27 @@ class RunService:
         self._artifact_repo = artifact_repo or AgenticArtifactRepository()
 
     def build_envelope(
-        self,
-        request: AgentRunRequestV1,
-        principal: AuthPrincipal,
-        run_id: str | None = None,
-        now_iso: str | None = None,
+        self, request: AgentRunRequestV1, principal: AuthPrincipal, run_id: str | None = None, now_iso: str | None = None
     ) -> TrustedExecutionEnvelope:
         run_id = run_id or f"run_{uuid.uuid4().hex}"
         now_iso = now_iso or datetime.now(timezone.utc).isoformat()
         tool = SkillRouter.resolve_tool(surface=request.surface, operation=request.operation)
         required_caps = SkillRouter.get_required_capabilities(tool)
-        allowed_caps = tuple(sorted(set(cap for cap in required_caps if cap in principal.scopes or "*" in principal.scopes)))
+        allowed_caps = tuple(sorted(set(c for c in required_caps if c in principal.scopes or "*" in principal.scopes)))
+
+        if principal.is_anonymous or principal.consent is None:
+            consent = ConsentSnapshot(memory=False, analytics=False, consented_at=now_iso, policy_version="1.0.0")
+        else:
+            consent = ConsentSnapshot(
+                memory=principal.consent.memory, analytics=principal.consent.analytics,
+                consented_at=principal.consent.consented_at or now_iso, policy_version=principal.consent.policy_version,
+            )
 
         return TrustedExecutionEnvelope(
-            run_id=run_id,
-            correlation_id=run_id,
-            idempotency_key=run_id,
-            account_id=principal.account_id,
-            scopes=tuple(principal.scopes),
-            surface=request.surface,
-            resource_refs=tuple(request.resource_refs),
-            locale=request.locale,
-            allowed_capabilities=allowed_caps,
-            policy_version="1.0.0",
-            model_policy_version="1.0.0",
-            consent=ConsentSnapshot(memory=True, analytics=True, consented_at=now_iso, policy_version="1.0"),
-            created_at=now_iso,
+            run_id=run_id, correlation_id=run_id, idempotency_key=run_id, account_id=principal.account_id,
+            scopes=tuple(principal.scopes), surface=request.surface, resource_refs=tuple(request.resource_refs),
+            locale=request.locale, allowed_capabilities=allowed_caps, policy_version="1.0.0",
+            model_policy_version="1.0.0", consent=consent, created_at=now_iso,
         )
 
     @feature_flag("agentic.runs", default=True)
@@ -152,23 +147,17 @@ class RunService:
         except Exception as exc:
             failed_iso = datetime.now(timezone.utc).isoformat()
             with open_app_state_db() as conn:
-                self._run_repo.save(
-                    conn,
-                    AgentRun(
-                        run_id=run_id, account_id=principal.account_id, surface=request.surface, status="failed",
-                        correlation_id=run_id, idempotency_key=run_id, created_at=now_iso, updated_at=failed_iso,
-                    ),
-                )
-                self._run_repo.save_step(
-                    conn,
-                    AgentStep(
-                        schema_version="1.0.0", step_id=f"step_{run_id}_failed", run_id=run_id, step_index=0,
-                        agent_id="supervisor", node_name="failure", status="failed",
-                        input_payload={"operation": request.operation, "surface": request.surface},
-                        output_payload={"error": str(exc), "error_type": type(exc).__name__},
-                        started_at=now_iso, completed_at=failed_iso,
-                    ),
-                )
+                self._run_repo.save(conn, AgentRun(
+                    run_id=run_id, account_id=principal.account_id, surface=request.surface, status="failed",
+                    correlation_id=run_id, idempotency_key=run_id, created_at=now_iso, updated_at=failed_iso,
+                ))
+                self._run_repo.save_step(conn, AgentStep(
+                    schema_version="1.0.0", step_id=f"step_{run_id}_failed", run_id=run_id, step_index=0,
+                    agent_id="supervisor", node_name="failure", status="failed",
+                    input_payload={"operation": request.operation, "surface": request.surface},
+                    output_payload={"error": str(exc), "error_type": type(exc).__name__},
+                    started_at=now_iso, completed_at=failed_iso,
+                ))
             raise
 
     def get_run(self, *, run_id: str, account_id: str) -> AgentRunResponseV1 | None:
@@ -186,15 +175,11 @@ class RunService:
             if run is None:
                 return None
             if run.status in ["running", "accepted"]:
-                now_iso = datetime.now(timezone.utc).isoformat()
-                self._run_repo.save(
-                    conn,
-                    AgentRun(
-                        run_id=run.run_id, account_id=run.account_id, surface=run.surface, status="canceled",
-                        correlation_id=run.correlation_id, idempotency_key=run.idempotency_key,
-                        created_at=run.created_at, updated_at=now_iso,
-                    ),
-                )
+                self._run_repo.save(conn, AgentRun(
+                    run_id=run.run_id, account_id=run.account_id, surface=run.surface, status="canceled",
+                    correlation_id=run.correlation_id, idempotency_key=run.idempotency_key,
+                    created_at=run.created_at, updated_at=datetime.now(timezone.utc).isoformat(),
+                ))
         return {"status": "canceled"}
 
     def get_run_trace(self, *, run_id: str, account_id: str) -> dict[str, Any] | None:

@@ -16,6 +16,7 @@ from risk_dashboard.modules.auth.application.services import (
     LoginWithGoogle,
     LogoutAccount,
     RegisterAccount,
+    RotateSession,
 )
 from risk_dashboard.modules.auth.infrastructure.sqlite import (
     SqliteAccountConsentRepository,
@@ -116,3 +117,15 @@ def set_consent(
     return SqliteAccountConsentRepository().save(
         account_id=principal.account_id, consent=req
     )
+
+
+@router.post("/rotate-session", response_model=AuthSessionResponse)
+def rotate_session(
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> AuthSessionResponse:
+    account = _accounts().get_by_id(account_id=principal.account_id)
+    if account is None:
+        raise HTTPException(status_code=401, detail="Tài khoản không tồn tại.")
+    new_session = RotateSession(sessions=_sessions()).execute(session_id=principal.session_id)
+    return AuthSessionResponse(session_id=new_session.session_id, profile=_to_profile(account))
+

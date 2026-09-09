@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 from risk_dashboard.modules.financial_health.application.services import (
     GetFinancialHealthSnapshot,
     SubmitFinancialHealthAssessment,
@@ -33,8 +35,11 @@ def submit_assessment(req: FinancialHealthAssessmentRequest) -> FinancialHealthR
 
 
 @router.get("", response_model=FinancialHealthResponse)
-def get_financial_health(session_id: str = Query(..., min_length=8)) -> FinancialHealthResponse:
+def get_financial_health(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> FinancialHealthResponse:
     try:
-        return GetFinancialHealthSnapshot(_snapshot_repo()).execute(session_id=session_id)
+        return GetFinancialHealthSnapshot(_snapshot_repo()).execute(session_id=principal.session_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+

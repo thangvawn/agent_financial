@@ -162,3 +162,7 @@ class MemoryService:
             "total": len(items),
             "memories": [item.model_dump(mode="json") for item in items],
         }
+
+    def purge_account(self, *, account_id: str) -> int:
+        return self._repo.purge_account(account_id=account_id)
+

@@ -21,20 +21,10 @@ from risk_dashboard.modules.auth.infrastructure.sqlite import (
 )
 
 
-class AuthError(Exception):
-    """Auth domain error."""
-
-
-class EmailAlreadyRegistered(AuthError):
-    pass
-
-
-class InvalidCredentials(AuthError):
-    pass
-
-
-class SessionInvalid(AuthError):
-    pass
+class AuthError(Exception): """Auth domain error."""
+class EmailAlreadyRegistered(AuthError): pass
+class InvalidCredentials(AuthError): pass
+class SessionInvalid(AuthError): pass
 
 
 class RegisterAccount:
@@ -185,3 +175,25 @@ class ResolveSession:
             raise SessionInvalid("Tài khoản đã bị xoá.")
         self.sessions.touch(session_id=session_id, last_seen_at=utc_now_iso())
         return account, session
+
+
+class RotateSession:
+    def __init__(self, sessions: SqliteAccountSessionRepository) -> None:
+        self.sessions = sessions
+
+    def execute(self, *, session_id: str) -> AccountSession:
+        old_session = self.sessions.get(session_id=session_id)
+        if old_session is None or old_session.status != "active":
+            raise SessionInvalid("Phiên không hợp lệ hoặc đã hết hạn.")
+        self.sessions.revoke(session_id=session_id)
+        new_session = AccountSession(
+            session_id=new_session_id(),
+            account_id=old_session.account_id,
+            status="active",
+            created_at=utc_now_iso(),
+            last_seen_at=utc_now_iso(),
+            expires_at=session_expiry_iso(),
+        )
+        self.sessions.save(new_session)
+        return new_session
+

@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from risk_dashboard.app.config.settings import get_settings
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 from risk_dashboard.modules.learning.application.services import (
     CompleteLearningLesson,
     GetContextRecommendation,
@@ -120,35 +122,39 @@ def list_learning_assets(kind: Literal["videos", "books", "audios"] = Query(defa
 
 
 @router.get("/home", response_model=LearningHomeResponse, tags=["Learning"])
-def get_learning_home(session_id: str = Query(..., min_length=8)) -> LearningHomeResponse:
+def get_learning_home(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> LearningHomeResponse:
+    user_id = principal.account_id
     try:
         repo = _repo()
         service = GetLearningHome(reader=repo, catalog=_catalog(), progress=repo)
-        return service.execute(user_id=session_id)
-    except KeyError as exc:
-        # Saved home state references a deleted path/lesson — fall through to reseed.
+        return service.execute(user_id=user_id)
+    except KeyError:
         pass
     except ValueError as exc:
-        # Graceful bootstrap for local/public sessions that skipped onboarding seeding.
         if str(exc) != "Learning home state not found.":
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
         SeedLearningHome(writer=_repo(), catalog=_catalog()).execute(
-            user_id=session_id,
+            user_id=user_id,
             persona_segment="starter",
             primary_route="learn",
         )
         repo = _repo()
-        return GetLearningHome(reader=repo, catalog=_catalog(), progress=repo).execute(user_id=session_id)
-    except Exception as seed_exc:  # pragma: no cover - defensive fallback
+        return GetLearningHome(reader=repo, catalog=_catalog(), progress=repo).execute(user_id=user_id)
+    except Exception as seed_exc:
         raise HTTPException(status_code=404, detail=str(seed_exc)) from seed_exc
 
 
 @router.get("/lessons/{lesson_id}", response_model=LearningLessonResponse, tags=["Learning"])
-def get_learning_lesson(lesson_id: str, session_id: str = Query(..., min_length=8)) -> LearningLessonResponse:
+def get_learning_lesson(
+    lesson_id: str,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> LearningLessonResponse:
     try:
         return GetLearningLesson(catalog=_catalog(), progress=_repo()).execute(
-            user_id=session_id,
+            user_id=principal.account_id,
             lesson_id=lesson_id,
         )
     except KeyError as exc:
@@ -156,14 +162,19 @@ def get_learning_lesson(lesson_id: str, session_id: str = Query(..., min_length=
 
 
 @router.post("/lessons/{lesson_id}/quiz", response_model=LearningQuizSubmitResponse, tags=["Learning"])
-def submit_learning_quiz(lesson_id: str, req: LearningQuizSubmitRequest) -> LearningQuizSubmitResponse:
+def submit_learning_quiz(
+    lesson_id: str,
+    req: LearningQuizSubmitRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> LearningQuizSubmitResponse:
+    user_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
     try:
         return SubmitLearningQuiz(
             catalog=_catalog(),
             progress=_repo(),
             home_reader=_repo(),
             home_writer=_repo(),
-        ).execute(user_id=req.session_id, lesson_id=lesson_id, answers=req.answers)
+        ).execute(user_id=user_id, lesson_id=lesson_id, answers=req.answers)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Lesson not found.") from exc
     except ValueError as exc:
@@ -171,14 +182,17 @@ def submit_learning_quiz(lesson_id: str, req: LearningQuizSubmitRequest) -> Lear
 
 
 @router.post("/lessons/{lesson_id}/complete", response_model=LearningLessonResponse, tags=["Learning"])
-def complete_learning_lesson(lesson_id: str, session_id: str = Query(..., min_length=8)) -> LearningLessonResponse:
+def complete_learning_lesson(
+    lesson_id: str,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> LearningLessonResponse:
     try:
         return CompleteLearningLesson(
             catalog=_catalog(),
             progress=_repo(),
             home_reader=_repo(),
             home_writer=_repo(),
-        ).execute(user_id=session_id, lesson_id=lesson_id)
+        ).execute(user_id=principal.account_id, lesson_id=lesson_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Lesson not found.") from exc
     except ValueError as exc:

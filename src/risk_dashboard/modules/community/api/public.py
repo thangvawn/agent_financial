@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException
+
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 
 from risk_dashboard.modules.community.application.services import (
     CreateCommunityComment,
@@ -72,13 +75,15 @@ def _require_moderator_key(key: str | None) -> None:
 
 
 @router.get("/home", response_model=CommunityHomeResponse)
-def community_home(session_id: str = Query(..., min_length=8)) -> CommunityHomeResponse:
+def community_home(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> CommunityHomeResponse:
     return GetCommunityHome(
         memberships=_memberships(),
         posts=_posts(),
         challenges=_challenges(),
         notifications=_notifications(),
-    ).execute(user_id=session_id)
+    ).execute(user_id=principal.account_id)
 
 
 @router.post("/spaces/join", response_model=CommunityMembershipResponse)

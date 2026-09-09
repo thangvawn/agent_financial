@@ -9,5 +9,5 @@ class OnboardingAnswerItem(BaseModel):
 
 
 class OnboardingAnswerRequest(BaseModel):
-    session_id: str = Field(..., min_length=8, max_length=100)
+    session_id: str | None = Field(default=None, max_length=100)
     answers: list[OnboardingAnswerItem] = Field(default_factory=list, max_length=10)

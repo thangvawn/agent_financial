@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 from risk_dashboard.modules.data_hub.application.services import DataHubService
 from risk_dashboard.modules.data_hub.api.public import get_vn_snapshot
 from risk_dashboard.modules.market_portfolio.application.services import MarketPortfolioService
@@ -333,33 +335,46 @@ def get_commodities_snapshot() -> dict:
 
 
 @router.get("/watchlist")
-def get_watchlist(session_id: str = Query(..., min_length=8)) -> dict:
-    return {"items": _service.list_watchlist(session_id)}
+def get_watchlist(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
+    return {"items": _service.list_watchlist(principal.account_id)}
 
 
+@router.post("/watchlist")
 @router.post("/watchlist/items")
-def add_watchlist_item(req: WatchlistAddRequest) -> dict:
-    return _service.add_watchlist(req.session_id, req.symbol, req.label)
+def add_watchlist_item(
+    req: WatchlistAddRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> dict:
+    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    return _service.add_watchlist(account_id, req.symbol, req.label)
 
 
+@router.delete("/watchlist/{symbol}")
 @router.delete("/watchlist/items/{symbol}")
-def remove_watchlist_item(symbol: str, session_id: str = Query(..., min_length=8)) -> dict:
-    return _service.remove_watchlist(session_id, symbol)
+def remove_watchlist_item(
+    symbol: str,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> dict:
+    return _service.remove_watchlist(principal.account_id, symbol)
 
 
 # ── Mock orders ──────────────────────────────────────────────────────────────
 
 
 @router.get("/orders")
-def list_orders(session_id: str = Query(..., min_length=8)) -> dict:
-    return {"orders": _service.list_orders(session_id)}
+def list_orders(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
+    return {"orders": _service.list_orders(principal.account_id)}
 
 
 @router.post("/orders")
-def place_order(req: PlaceOrderRequest) -> dict:
+def place_order(
+    req: PlaceOrderRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> dict:
+    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
     try:
         return _service.place_order(
-            session_id=req.session_id,
+            session_id=account_id,
             symbol=req.symbol,
             side=req.side,
             order_type=req.order_type,
@@ -371,9 +386,14 @@ def place_order(req: PlaceOrderRequest) -> dict:
 
 
 @router.post("/orders/{order_id}/cancel")
-def cancel_order(order_id: str, req: CancelOrderRequest) -> dict:
+def cancel_order(
+    order_id: str,
+    req: CancelOrderRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> dict:
+    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
     try:
-        return _service.cancel_order(req.session_id, order_id)
+        return _service.cancel_order(account_id, order_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -384,10 +404,14 @@ def cancel_order(order_id: str, req: CancelOrderRequest) -> dict:
 
 
 @router.get("/portfolio")
-def get_portfolio(session_id: str = Query(..., min_length=8)) -> dict:
-    return _service.portfolio_summary(session_id)
+def get_portfolio(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
+    return _service.portfolio_summary(principal.account_id)
 
 
 @router.post("/portfolio/reset")
-def reset_portfolio(req: ResetPortfolioRequest) -> dict:
-    return _service.reset_portfolio(req.session_id)
+def reset_portfolio(
+    req: ResetPortfolioRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> dict:
+    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    return _service.reset_portfolio(account_id)

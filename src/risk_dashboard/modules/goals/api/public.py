@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 
 from risk_dashboard.modules.goals.application.services import (
     CreateGoal,
@@ -56,12 +59,14 @@ def create_goal(req: GoalCreateRequest) -> GoalResponse:
 
 
 @router.get("", response_model=list[GoalSummaryResponse])
-def list_goals(session_id: str = Query(..., min_length=8)) -> list[GoalSummaryResponse]:
+def list_goals(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> list[GoalSummaryResponse]:
     return ListGoals(
         goals=_goal_repo(),
         snapshots=_snapshot_repo(),
         reminders=_reminder_repo(),
-    ).execute(user_id=session_id)
+    ).execute(user_id=principal.account_id)
 
 
 @router.get("/{goal_id}", response_model=GoalResponse)

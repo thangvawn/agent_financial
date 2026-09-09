@@ -71,5 +71,9 @@ def create_app() -> FastAPI:
         if module.admin_router is not None:
             app.include_router(module.admin_router, prefix=module.admin_mount_prefix)
 
+    from risk_dashboard.modules.auth.api.user_rights import router as user_rights_router
+    app.include_router(user_rights_router, prefix="/api/me")
+    app.include_router(user_rights_router, prefix="/api/v1/public/me")
+
     app.router.on_startup.append(on_startup)
     return app

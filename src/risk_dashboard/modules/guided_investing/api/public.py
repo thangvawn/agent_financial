@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+
+from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 
 from risk_dashboard.modules.guided_investing.application.services import (
     CreateGuidedJournalEntry,
@@ -57,21 +60,25 @@ def _portfolios() -> SqliteGuidedPortfolioRepository:
 
 
 @router.get("/eligibility", response_model=GuidedEligibilityResponse)
-def guided_investing_eligibility(session_id: str = Query(..., min_length=8)) -> GuidedEligibilityResponse:
+def guided_investing_eligibility(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GuidedEligibilityResponse:
     try:
-        return GetGuidedEligibility().execute(user_id=session_id)
+        return GetGuidedEligibility().execute(user_id=principal.account_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/home", response_model=GuidedInvestingHomeResponse)
-def guided_investing_home(session_id: str = Query(..., min_length=8)) -> GuidedInvestingHomeResponse:
+def guided_investing_home(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GuidedInvestingHomeResponse:
     try:
         return GetGuidedInvestingHome(
             watchlists=_watchlists(),
             journals=_journals(),
             portfolios=_portfolios(),
-        ).execute(user_id=session_id)
+        ).execute(user_id=principal.account_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -88,8 +95,10 @@ def guided_market_context(
 
 
 @router.get("/watchlist", response_model=list[GuidedWatchlistItemResponse])
-def guided_watchlist(session_id: str = Query(..., min_length=8)) -> list[GuidedWatchlistItemResponse]:
-    return GetGuidedWatchlist(watchlists=_watchlists()).execute(user_id=session_id)
+def guided_watchlist(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> list[GuidedWatchlistItemResponse]:
+    return GetGuidedWatchlist(watchlists=_watchlists()).execute(user_id=principal.account_id)
 
 
 @router.post("/watchlist/items", response_model=GuidedWatchlistItemResponse)
@@ -104,8 +113,10 @@ def guided_watchlist_add(req: GuidedWatchlistItemCreateRequest) -> GuidedWatchli
 
 
 @router.post("/watchlist/review", response_model=GuidedWatchlistReviewResponse)
-def guided_watchlist_review(session_id: str = Query(..., min_length=8)) -> GuidedWatchlistReviewResponse:
-    return ReviewGuidedWatchlist(watchlists=_watchlists()).execute(user_id=session_id)
+def guided_watchlist_review(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GuidedWatchlistReviewResponse:
+    return ReviewGuidedWatchlist(watchlists=_watchlists()).execute(user_id=principal.account_id)
 
 
 @router.get("/company/{ticker}", response_model=GuidedCompanyHealthResponse)
@@ -126,8 +137,10 @@ def guided_portfolio_review(req: GuidedPortfolioReviewRequest) -> GuidedPortfoli
 
 
 @router.get("/portfolio", response_model=GuidedSavedPortfolioResponse | None)
-def guided_saved_portfolio(session_id: str = Query(..., min_length=8)) -> GuidedSavedPortfolioResponse | None:
-    return GetSavedGuidedPortfolio(portfolios=_portfolios()).execute(user_id=session_id)
+def guided_saved_portfolio(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GuidedSavedPortfolioResponse | None:
+    return GetSavedGuidedPortfolio(portfolios=_portfolios()).execute(user_id=principal.account_id)
 
 
 @router.post("/portfolio/save", response_model=GuidedSavedPortfolioResponse)
@@ -140,13 +153,17 @@ def guided_save_portfolio(req: GuidedSavePortfolioRequest) -> GuidedSavedPortfol
 
 
 @router.get("/portfolio/history", response_model=list[GuidedPortfolioReviewHistoryResponse])
-def guided_portfolio_history(session_id: str = Query(..., min_length=8)) -> list[GuidedPortfolioReviewHistoryResponse]:
-    return ListGuidedPortfolioReviewHistory(portfolios=_portfolios()).execute(user_id=session_id)
+def guided_portfolio_history(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> list[GuidedPortfolioReviewHistoryResponse]:
+    return ListGuidedPortfolioReviewHistory(portfolios=_portfolios()).execute(user_id=principal.account_id)
 
 
 @router.get("/journal", response_model=list[GuidedJournalEntryResponse])
-def guided_journal(session_id: str = Query(..., min_length=8)) -> list[GuidedJournalEntryResponse]:
-    return ListGuidedJournalEntries(journals=_journals()).execute(user_id=session_id)
+def guided_journal(
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> list[GuidedJournalEntryResponse]:
+    return ListGuidedJournalEntries(journals=_journals()).execute(user_id=principal.account_id)
 
 
 @router.post("/journal", response_model=GuidedJournalEntryResponse)

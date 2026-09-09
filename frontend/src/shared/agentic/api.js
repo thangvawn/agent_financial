@@ -8,12 +8,20 @@
 const BASE_URL = '/api/v1/public/agentic';
 
 async function fetchJson(url, options = {}) {
+  const token = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem('session_id') || localStorage.getItem('auth.session_id') || localStorage.getItem('public-beta.session_id'))
+    : null;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${BASE_URL}${url}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+    headers,
   });
   
   if (!res.ok) {
