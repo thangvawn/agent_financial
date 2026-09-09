@@ -88,3 +88,5 @@ notebooks/.ipynb_checkpoints/
 
 # ── Agent runtime directories ─────────
 .claude/
+.ai/
+
