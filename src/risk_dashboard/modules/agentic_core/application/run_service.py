@@ -52,7 +52,7 @@ class RunService:
         now_iso = now_iso or datetime.now(timezone.utc).isoformat()
         tool = SkillRouter.resolve_tool(surface=request.surface, operation=request.operation)
         required_caps = SkillRouter.get_required_capabilities(tool)
-        allowed_caps = tuple(sorted(set(cap for cap in required_caps if cap in principal.scopes)))
+        allowed_caps = tuple(sorted(set(cap for cap in required_caps if cap in principal.scopes or "*" in principal.scopes)))
 
         return TrustedExecutionEnvelope(
             run_id=run_id,

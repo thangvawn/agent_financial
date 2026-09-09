@@ -547,6 +547,15 @@ async def test_envelope_respects_principal_scopes(test_db):
     envelope = run_service.build_envelope(request, principal)
     assert "quant:read" not in envelope.allowed_capabilities
 
+    admin_principal = AuthPrincipal(
+        account_id="acc-admin",
+        session_id="sess-admin",
+        scopes=("*",),
+        resolved_at=datetime.now(timezone.utc).isoformat(),
+    )
+    admin_envelope = run_service.build_envelope(request, admin_principal)
+    assert "learning:read" in admin_envelope.allowed_capabilities
+
 
 # ---------------------------------------------------------------------------
 # BUG-14: Public API Lines <= 150
