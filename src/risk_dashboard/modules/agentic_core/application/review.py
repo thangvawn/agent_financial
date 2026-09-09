@@ -84,8 +84,8 @@ def _match_single_numeric_evidence(
         if tok_dec.is_nan() or tok_dec.is_infinite():
             continue
         if ev_unit == tok_unit:
-            # Check exact equality or within tolerance abs_tol (1e-4)
-            if ev_dec == tok_dec or abs(ev_dec - tok_dec) <= abs_tol:
+            # Check exact equality or within tolerance abs_tol (< 1e-4)
+            if ev_dec == tok_dec or abs(ev_dec - tok_dec) < abs_tol:
                 return True
 
     return False
