@@ -174,3 +174,100 @@ def test_models_are_frozen_immutable() -> None:
     )
     with pytest.raises(ValidationError):
         artifact.review_status = "accepted"  # type: ignore
+
+
+def test_ten_canonical_domain_artifacts_round_trip() -> None:
+    from risk_dashboard.modules.agentic_core.schemas import (
+        NextBestActionCardV1,
+        FormulaWalkthrough,
+        SocraticHint,
+        CheckpointReview,
+        LineItemExplanation,
+        EarningsQualityMemo,
+        PreflightChecklist,
+        BacktestCritiqueArtifact,
+        NewsEvidenceBrief,
+        PortfolioReviewArtifactV1,
+    )
+
+    models = [
+        NextBestActionCardV1(
+            task_title="Thực hành độ biến động",
+            evidence_rationale="Hoàn thành bài Tỷ suất sinh lời",
+            deeplink="/simulation/volatility",
+        ),
+        FormulaWalkthrough(
+            formula_latex=r"VaR_{\alpha} = -\inf \{ l \in \mathbb{R} : P(L > l) \le 1 - \alpha \}",
+            economic_intuition="Tổn thất tối đa tại mức tin cậy",
+        ),
+        SocraticHint(
+            hint_level=1,
+            guiding_question="Doanh thu tăng nhưng dòng tiền CFO âm có bình thường không?",
+            cause_effect_clue="Xem xét khoản phải thu khách hàng",
+        ),
+        CheckpointReview(
+            checkpoint_id="chk_01",
+            mastered_concepts=("Tỷ suất lợi nhuận ròng", "Vòng quay tài sản"),
+            misconceptions=("Nhầm lẫn giữa lợi nhuận kế toán và dòng tiền",),
+            recommended_action="Đọc lại bài Báo cáo lưu chuyển tiền tệ",
+        ),
+        LineItemExplanation(
+            line_item_code="CFO",
+            definition="Dòng tiền thuần từ hoạt động kinh doanh",
+            calculation_formula="EBIT + Khấu hao - Thuế - Thay đổi Vốn lưu động",
+        ),
+        EarningsQualityMemo(
+            ticker="VNM",
+            period="2026Q2",
+            cfo_to_net_income_ratio=1.15,
+            accruals_metric=0.04,
+            red_flags=(),
+            conclusion_summary="Chất lượng lợi nhuận cao, được bảo chứng bởi dòng tiền thực.",
+        ),
+        PreflightChecklist(
+            strategy_id="strat_mean_reversion",
+            statistical_assumption_checks=("Chuỗi giá dừng sau lấy sai phân bậc 1",),
+            data_sufficiency=True,
+            lookahead_bias_detected=False,
+            overfitting_risk_rating="low",
+        ),
+        BacktestCritiqueArtifact(
+            backtest_id="bt_101",
+            max_drawdown_pct=-14.2,
+            sharpe_ratio_net_fees=1.85,
+            slippage_assumptions={"model": "linear", "basis_points": 5},
+            critique_notes=("Chiến lược kiểm soát drawdown tốt.",),
+        ),
+        NewsEvidenceBrief(
+            cluster_id="cluster_rates_sbv",
+            verified_facts=("NHNN giảm lãi suất điều hành 0.25%",),
+            party_claims=("Doanh nghiệp kỳ vọng chi phí vốn giảm",),
+            hypotheses=("Biên lãi ròng NIM ngân hàng có thể co hẹp",),
+            importance_score=0.92,
+        ),
+        PortfolioReviewArtifactV1(
+            portfolio_id="port_paper_alpha",
+            cash_allocation_pct=25.0,
+            equity_allocation_pct=75.0,
+            portfolio_beta=1.05,
+            shock_scenarios={"vn_index_drop_10pct": -10.5},
+            concentration_warnings=("Tỷ trọng ngành ngân hàng đạt 30%",),
+        ),
+    ]
+
+    for model in models:
+        json_data = model.model_dump_json()
+        restored = type(model).model_validate_json(json_data)
+        assert restored == model
+        assert restored.schema_version == "1.0.0"
+
+        # Verify frozen
+        with pytest.raises(ValidationError):
+            setattr(model, "schema_version", "2.0.0")  # type: ignore
+
+        # Verify extra="forbid"
+        raw_dict = model.model_dump()
+        raw_dict["unauthorized_injected_key"] = "exploit"
+        with pytest.raises(ValidationError):
+            type(model).model_validate(raw_dict)
+
