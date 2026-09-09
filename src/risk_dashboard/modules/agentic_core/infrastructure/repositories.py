@@ -413,7 +413,7 @@ class AgenticMemoryRepository:
             WHERE account_id = ?
             ORDER BY created_at DESC
             """,
-            (account_id),
+            (account_id,),
         ).fetchall()
         return [
             MemoryProposal(

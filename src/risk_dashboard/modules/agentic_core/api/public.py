@@ -7,8 +7,10 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 
 from risk_dashboard.modules.agentic_core.application.graph import GraphResult, run_graph
+from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
 from risk_dashboard.modules.agentic_core.domain.ports import ReadOnlyTool
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
 from risk_dashboard.modules.agentic_core.infrastructure.quant_tool import QuantRiskReadOnlyTool
@@ -303,6 +305,64 @@ def reject_action_proposal(
     return {"status": "rejected"}
 
 
+class EditMemoryRequest(BaseModel):
+    content: str = Field(min_length=1)
+
+
+_memory_service = MemoryService()
+
+
+@router.get("/memories")
+def list_user_memories(
+    memory_type: str | None = None,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> list[dict[str, Any]]:
+    """List memory items for current user."""
+    _check_auth(principal)
+    memories = _memory_service.list_memories(account_id=principal.account_id, memory_type=memory_type)
+    return [m.model_dump(mode="json") for m in memories]
+
+
+@router.patch("/memories/{memory_id}")
+def edit_user_memory(
+    memory_id: str,
+    payload: EditMemoryRequest,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> dict[str, Any]:
+    """Edit memory item content."""
+    _check_auth(principal)
+    updated = _memory_service.edit_memory(
+        account_id=principal.account_id,
+        memory_id=memory_id,
+        new_content=payload.content,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found or edit rejected.")
+    return updated.model_dump(mode="json")
+
+
+@router.delete("/memories/{memory_id}")
+def delete_user_memory(
+    memory_id: str,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> dict[str, bool]:
+    """Delete a memory item for current user."""
+    _check_auth(principal)
+    deleted = _memory_service.forget_memory(account_id=principal.account_id, memory_id=memory_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found.")
+    return {"deleted": True}
+
+
+@router.get("/memories:export")
+def export_user_memories(
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> dict[str, Any]:
+    """Export all memory items for current user."""
+    _check_auth(principal)
+    return _memory_service.export_memories(account_id=principal.account_id)
+
+
 def clear_run_store() -> None:
     """Test utility to clear agentic state."""
     with open_app_state_db() as conn:
@@ -311,3 +371,7 @@ def clear_run_store() -> None:
         conn.execute("DELETE FROM agentic_action_proposals")
         conn.execute("DELETE FROM agentic_action_receipts")
         conn.execute("DELETE FROM agentic_memory_proposals")
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='agentic_memory_items'")
+        if cursor.fetchone() is not None:
+            conn.execute("DELETE FROM agentic_memory_items")
+

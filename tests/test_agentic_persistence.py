@@ -140,3 +140,37 @@ def test_action_and_memory_persistence(tmp_path) -> None:
 
         assert memories.get_proposal(conn, proposal_id="mem-1", account_id="account-a") is not None
         assert memories.get_proposal(conn, proposal_id="mem-1", account_id="account-b") is None
+
+
+def test_agentic_memory_repository_ownership_scoping(tmp_path) -> None:
+    db_path = tmp_path / "memory_scope.db"
+    memories = AgenticMemoryRepository()
+
+    prop_a = MemoryProposal(
+        proposal_id="mem-scope-1",
+        run_id="run-1",
+        account_id="account-alpha",
+        memory_type="preference",
+        content="Prefer technical analysis",
+        provenance="user_stated",
+        created_at=NOW,
+    )
+
+    with open_app_state_db(db_path) as conn:
+        ensure_agentic_tables(conn)
+        memories.save_proposal(conn, prop_a)
+
+        # Scoped retrieval by account
+        assert memories.get_proposal(conn, proposal_id="mem-scope-1", account_id="account-alpha") is not None
+        assert memories.get_proposal(conn, proposal_id="mem-scope-1", account_id="account-beta") is None
+
+        # Cross-account overwrite must fail
+        with pytest.raises(ValueError, match="another account"):
+            memories.save_proposal(conn, prop_a.model_copy(update={"account_id": "account-beta"}))
+
+        # list_proposals isolation
+        props_alpha = memories.list_proposals(conn, account_id="account-alpha")
+        props_beta = memories.list_proposals(conn, account_id="account-beta")
+        assert len(props_alpha) == 1
+        assert len(props_beta) == 0
+
