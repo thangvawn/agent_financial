@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from fastapi import FastAPI, HTTPException
 from risk_dashboard.modules.agentic_core.api.public import router, clear_run_store
 from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticActionRepository
-from risk_dashboard.modules.agentic_core.schemas.artifact import ActionProposal
+from risk_dashboard.modules.agentic_core.schemas.artifact import ActionProposal, AgentArtifact
 from risk_dashboard.modules.agentic_core.schemas.envelope import ResourceRef
 from risk_dashboard.modules.auth.application.dependencies import resolve_principal
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
@@ -171,5 +171,152 @@ def test_confirm_action_proposal_cross_account():
     # Current principal is acct_123, cannot access acct_other's proposal
     resp = client.post("/action-proposals/prop_other_account:confirm")
     assert resp.status_code == 404
+
+
+def test_artifact_lifecycle_transitions():
+    from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticArtifactRepository
+
+    artifact = AgentArtifact(
+        artifact_id="art_lifecycle_1",
+        artifact_type="socratic_hint",
+        domain="learning",
+        account_id="acct_123",
+        authoring_run_id="run_123",
+        review_status="draft",
+        version=1,
+        created_at="2026-09-08T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticArtifactRepository().save(conn, artifact)
+
+    # Cannot export unreviewed draft artifact
+    resp_exp_draft = client.post("/artifacts/art_lifecycle_1:export")
+    assert resp_exp_draft.status_code == 409
+
+    # Submit for review
+    resp_rev = client.post("/artifacts/art_lifecycle_1:review")
+    assert resp_rev.status_code == 200
+    assert resp_rev.json()["review_status"] == "reviewed"
+
+    # Accept
+    resp_acc = client.post("/artifacts/art_lifecycle_1:accept")
+    assert resp_acc.status_code == 200
+    assert resp_acc.json()["review_status"] == "accepted"
+
+    # Idempotent accept
+    resp_acc2 = client.post("/artifacts/art_lifecycle_1:accept")
+    assert resp_acc2.status_code == 200
+
+    # Export accepted artifact
+    resp_exp = client.post("/artifacts/art_lifecycle_1:export")
+    assert resp_exp.status_code == 200
+    assert resp_exp.json()["status"] == "exported"
+
+
+def test_artifact_lifecycle_expired():
+    from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticArtifactRepository
+
+    artifact = AgentArtifact(
+        artifact_id="art_expired_1",
+        artifact_type="socratic_hint",
+        domain="learning",
+        account_id="acct_123",
+        authoring_run_id="run_123",
+        review_status="draft",
+        version=1,
+        created_at="2020-01-01T00:00:00Z",
+        expires_at="2020-01-02T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticArtifactRepository().save(conn, artifact)
+
+    # Review or accept or export on expired artifact fails
+    resp_rev = client.post("/artifacts/art_expired_1:review")
+    assert resp_rev.status_code == 409
+
+    resp_acc = client.post("/artifacts/art_expired_1:accept")
+    assert resp_acc.status_code == 409
+
+    resp_exp = client.post("/artifacts/art_expired_1:export")
+    assert resp_exp.status_code == 409
+
+
+def test_action_service_blocks_forbidden():
+    proposal = ActionProposal(
+        proposal_id="prop_forbidden_1",
+        run_id="run_123",
+        account_id="acct_123",
+        operation="direct_db_drop",
+        target=ResourceRef(kind="database", resource_id="app_state", module="platform"),
+        payload_preview={"sql": "DROP TABLE users"},
+        risk_class="forbidden",
+        policy_version="1.0.0",
+        created_at="2026-09-08T00:00:00Z",
+        expires_at="2099-01-01T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticActionRepository().save_proposal(conn, proposal)
+
+    resp = client.post("/action-proposals/prop_forbidden_1:confirm")
+    assert resp.status_code == 403
+    assert "forbidden" in resp.json()["detail"].lower()
+
+    with open_app_state_db() as conn:
+        receipt = AgenticActionRepository().get_receipt(conn, proposal_id="prop_forbidden_1", account_id="acct_123")
+        assert receipt is not None
+        assert receipt.status == "failed"
+        assert receipt.error_code == "FORBIDDEN_ACTION_BLOCKED"
+
+
+def test_action_service_rejection_conflict():
+    proposal = ActionProposal(
+        proposal_id="prop_reject_conflict",
+        run_id="run_123",
+        account_id="acct_123",
+        operation="sample_action",
+        target=ResourceRef(kind="report", resource_id="r1", module="pro_lab"),
+        payload_preview={},
+        risk_class="proposal",
+        policy_version="1.0.0",
+        created_at="2026-09-08T00:00:00Z",
+        expires_at="2099-01-01T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticActionRepository().save_proposal(conn, proposal)
+
+    resp_rej = client.post("/action-proposals/prop_reject_conflict:reject")
+    assert resp_rej.status_code == 200
+
+    # Trying to confirm rejected proposal causes 409 Conflict
+    resp_conf = client.post("/action-proposals/prop_reject_conflict:confirm")
+    assert resp_conf.status_code == 409
+
+
+def test_action_service_executes_real_preference():
+    proposal = ActionProposal(
+        proposal_id="prop_pref_real",
+        run_id="run_123",
+        account_id="acct_123",
+        operation="save_preference",
+        target=ResourceRef(kind="user_preference", resource_id="pref_theme", module="agentic_core"),
+        payload_preview={"content": "VN30 index tracking preference"},
+        risk_class="proposal",
+        policy_version="1.0.0",
+        created_at="2026-09-08T00:00:00Z",
+        expires_at="2099-01-01T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticActionRepository().save_proposal(conn, proposal)
+
+    resp = client.post("/action-proposals/prop_pref_real:confirm")
+    assert resp.status_code == 200
+
+    with open_app_state_db() as conn:
+        row = conn.execute(
+            "SELECT content, memory_type FROM agentic_memory_items WHERE account_id = 'acct_123' AND content = 'VN30 index tracking preference'"
+        ).fetchone()
+        assert row is not None
+        assert row["memory_type"] == "preference"
+
 
 

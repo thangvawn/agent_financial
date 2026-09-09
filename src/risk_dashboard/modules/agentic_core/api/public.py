@@ -9,6 +9,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from risk_dashboard.modules.agentic_core.application.action_service import ActionExecutionError, ActionService
+from risk_dashboard.modules.agentic_core.application.artifact_service import ArtifactService, ArtifactTransitionError
 from risk_dashboard.modules.agentic_core.application.graph import GraphResult, run_graph
 from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
 from risk_dashboard.modules.agentic_core.domain.ports import ReadOnlyTool
@@ -220,6 +222,10 @@ def cancel_agentic_run(
     return {"status": "canceled"}
 
 
+_artifact_service = ArtifactService()
+_action_service = ActionService()
+
+
 @router.get("/artifacts/{artifact_id}", response_model=AgentArtifact)
 def get_artifact(
     artifact_id: str,
@@ -235,46 +241,57 @@ def get_artifact(
         return artifact
 
 
+@router.post("/artifacts/{artifact_id}:review", response_model=AgentArtifact)
+def review_artifact(
+    artifact_id: str,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> AgentArtifact:
+    """Submit artifact for review (moves from draft to reviewed)."""
+    _check_auth(principal)
+    try:
+        return _artifact_service.submit_for_review(artifact_id=artifact_id, account_id=principal.account_id)
+    except ArtifactTransitionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/artifacts/{artifact_id}:accept", response_model=AgentArtifact)
+def accept_artifact(
+    artifact_id: str,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> AgentArtifact:
+    """Accept reviewed artifact."""
+    _check_auth(principal)
+    try:
+        return _artifact_service.accept(artifact_id=artifact_id, account_id=principal.account_id)
+    except ArtifactTransitionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/artifacts/{artifact_id}:export")
+def export_artifact(
+    artifact_id: str,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> dict[str, Any]:
+    """Export reviewed/accepted artifact."""
+    _check_auth(principal)
+    try:
+        return _artifact_service.export(artifact_id=artifact_id, account_id=principal.account_id)
+    except ArtifactTransitionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
 @router.post("/action-proposals/{proposal_id}:confirm")
 def confirm_action_proposal(
     proposal_id: str,
     principal: AuthPrincipal = Depends(resolve_principal),
 ) -> dict[str, str]:
-    """Confirm write action with idempotency and expiry checks."""
+    """Confirm write action with idempotency, expiry, and forbidden checks."""
     _check_auth(principal)
-
-    with open_app_state_db() as conn:
-        proposal = _action_repo.get_proposal(conn, proposal_id=proposal_id, account_id=principal.account_id)
-        if proposal is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Action proposal not found.")
-
-        # Idempotency check: if receipt already exists, return existing receipt
-        existing_receipt = _action_repo.get_receipt(conn, proposal_id=proposal_id, account_id=principal.account_id)
-        if existing_receipt is not None:
-            return {"status": "confirmed", "receipt_id": existing_receipt.receipt_id}
-
-        # Check proposal expiry
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if proposal.expires_at < now_iso:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Action proposal has expired.",
-            )
-
-        # Create immutable ActionReceipt
-        receipt_id = f"rcpt_{uuid.uuid4().hex}"
-        receipt = ActionReceipt(
-            schema_version="1.0.0",
-            receipt_id=receipt_id,
-            proposal_id=proposal_id,
-            account_id=principal.account_id,
-            status="executed",
-            executed_at=now_iso,
-        )
-        _action_repo.update_proposal_status(conn, proposal_id=proposal_id, account_id=principal.account_id, status="confirmed")
-        _action_repo.save_receipt(conn, receipt)
-
-    return {"status": "confirmed", "receipt_id": receipt_id}
+    try:
+        receipt = _action_service.confirm(proposal_id=proposal_id, account_id=principal.account_id)
+        return {"status": "confirmed", "receipt_id": receipt.receipt_id}
+    except ActionExecutionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.post("/action-proposals/{proposal_id}:reject")
@@ -284,25 +301,12 @@ def reject_action_proposal(
 ) -> dict[str, str]:
     """Reject write action."""
     _check_auth(principal)
+    try:
+        receipt = _action_service.reject(proposal_id=proposal_id, account_id=principal.account_id)
+        return {"status": "rejected", "receipt_id": receipt.receipt_id}
+    except ActionExecutionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
-    with open_app_state_db() as conn:
-        proposal = _action_repo.get_proposal(conn, proposal_id=proposal_id, account_id=principal.account_id)
-        if proposal is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Action proposal not found.")
-
-        now_iso = datetime.now(timezone.utc).isoformat()
-        _action_repo.update_proposal_status(conn, proposal_id=proposal_id, account_id=principal.account_id, status="rejected")
-        receipt = ActionReceipt(
-            schema_version="1.0.0",
-            receipt_id=f"rcpt_{uuid.uuid4().hex}",
-            proposal_id=proposal_id,
-            account_id=principal.account_id,
-            status="rejected",
-            executed_at=now_iso,
-        )
-        _action_repo.save_receipt(conn, receipt)
-
-    return {"status": "rejected"}
 
 
 class EditMemoryRequest(BaseModel):
