@@ -176,6 +176,59 @@ class AgenticRunRepository:
             ),
         )
 
+    def list_steps(self, conn, *, run_id: str) -> list[AgentStep]:
+        ensure_agentic_tables(conn)
+        rows = conn.execute(
+            """
+            SELECT * FROM agentic_steps
+            WHERE run_id = ?
+            ORDER BY step_index ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [
+            AgentStep(
+                schema_version="1.0.0",
+                step_id=r["step_id"],
+                run_id=r["run_id"],
+                step_index=r["step_index"],
+                agent_id=r["agent_id"],
+                node_name=r["node_name"],
+                status=r["status"],
+                input_payload=json.loads(r["input_payload_json"]) if r["input_payload_json"] else {},
+                output_payload=json.loads(r["output_payload_json"]) if r["output_payload_json"] else {},
+                started_at=r["started_at"],
+                completed_at=r["completed_at"],
+            )
+            for r in rows
+        ]
+
+    def list_tool_calls(self, conn, *, run_id: str, account_id: str) -> list[ToolCallRecord]:
+        ensure_agentic_tables(conn)
+        rows = conn.execute(
+            """
+            SELECT * FROM agentic_tool_calls
+            WHERE run_id = ? AND account_id = ?
+            ORDER BY created_at ASC
+            """,
+            (run_id, account_id),
+        ).fetchall()
+        return [
+            ToolCallRecord(
+                schema_version="1.0.0",
+                tool_call_id=r["tool_call_id"],
+                run_id=r["run_id"],
+                account_id=r["account_id"],
+                tool_name=r["tool_name"],
+                input_hash=r["input_hash"],
+                status=r["status"],
+                evidence=json.loads(r["evidence_json"]) if r["evidence_json"] else {},
+                latency_ms=r["latency_ms"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
 
 class AgenticArtifactRepository:
     def save(self, conn, artifact: AgentArtifact) -> None:

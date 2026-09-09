@@ -333,3 +333,14 @@ def test_graph_runs_with_real_quant_risk_tool() -> None:
     assert result["trace"] == ("guard", "router", "specialist", "reviewer", "success")
 
 
+def test_graph_recovers_when_kill_switch_active(monkeypatch) -> None:
+    monkeypatch.setenv("AGENTIC_KILL_SWITCH", "true")
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "kill_switch_active"
+    assert tool.calls == 0
+
+
+

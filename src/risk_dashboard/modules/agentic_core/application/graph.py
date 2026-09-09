@@ -69,6 +69,11 @@ def _estimate_prompt_tokens(task: ModelTask) -> int:
 
 
 def _guard(state: _GraphState) -> dict[str, object]:
+    from risk_dashboard.modules.agentic_core.application.kill_switch import is_kill_switch_active
+
+    if is_kill_switch_active():
+        return _recovery(state, "kill_switch_active")
+
     envelope = state["envelope"]
     if state["steps_used"] >= envelope.budget.max_steps:
         return _recovery(state, "step_budget_exhausted")

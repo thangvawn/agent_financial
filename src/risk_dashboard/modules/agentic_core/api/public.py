@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field
 from risk_dashboard.modules.agentic_core.application.action_service import ActionExecutionError, ActionService
 from risk_dashboard.modules.agentic_core.application.artifact_service import ArtifactService, ArtifactTransitionError
 from risk_dashboard.modules.agentic_core.application.graph import GraphResult, run_graph
+from risk_dashboard.modules.agentic_core.application.kill_switch import (
+    KillSwitchActiveError,
+    assert_agentic_available,
+    is_kill_switch_active,
+)
 from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
 from risk_dashboard.modules.agentic_core.domain.ports import ReadOnlyTool
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
@@ -24,7 +29,7 @@ from risk_dashboard.modules.agentic_core.infrastructure.repositories import (
 from risk_dashboard.modules.agentic_core.schemas.artifact import ActionProposal, ActionReceipt, AgentArtifact
 from risk_dashboard.modules.agentic_core.schemas.envelope import ExecutionBudget, ResourceRef, TrustedExecutionEnvelope
 from risk_dashboard.modules.agentic_core.schemas.requests import AgentRunRequestV1, AgentRunResponseV1
-from risk_dashboard.modules.agentic_core.schemas.runs import AgentRun
+from risk_dashboard.modules.agentic_core.schemas.runs import AgentRun, AgentStep, ToolCallRecord
 from risk_dashboard.modules.auth.application.dependencies import resolve_principal
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal, ConsentSnapshot
 from risk_dashboard.platform.ai_runtime.contracts import ModelTask
@@ -65,6 +70,10 @@ async def create_agentic_run(
 ) -> AgentRunResponseV1:
     """Create and execute agent run persisted in SQLite."""
     _check_auth(principal)
+    try:
+        assert_agentic_available()
+    except KillSwitchActiveError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
 
     run_id = f"run_{uuid.uuid4().hex}"
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -143,6 +152,44 @@ async def create_agentic_run(
                 ),
             )
 
+            # Persist step-level trace
+            trace_nodes = result.get("trace", ())
+            for idx, node_name in enumerate(trace_nodes):
+                step_record = AgentStep(
+                    schema_version="1.0.0",
+                    step_id=f"step_{run_id}_{idx}",
+                    run_id=run_id,
+                    step_index=idx,
+                    agent_id="supervisor",
+                    node_name=node_name,
+                    status="completed",
+                    input_payload={},
+                    output_payload={"code": result.get("code")} if node_name == "recovery" else {},
+                    started_at=now_iso,
+                    completed_at=completed_iso,
+                )
+                _run_repo.save_step(conn, step_record)
+
+            if result.get("tool_calls_used", 0) > 0:
+                tool_name = (
+                    tool.manifest.tool_id
+                    if hasattr(tool, "manifest") and tool.manifest is not None
+                    else getattr(tool, "name", "unknown_tool")
+                )
+                tool_call = ToolCallRecord(
+                    schema_version="1.0.0",
+                    tool_call_id=f"tc_{run_id}_0",
+                    run_id=run_id,
+                    account_id=principal.account_id,
+                    tool_name=tool_name,
+                    input_hash="hash_placeholder",
+                    status="success" if result.get("evidence") else "failed",
+                    evidence=result.get("evidence") or {},
+                    latency_ms=10,
+                    created_at=completed_iso,
+                )
+                _run_repo.save_tool_call(conn, tool_call)
+
         return AgentRunResponseV1(run_id=run_id, status=status_code, artifact=artifact)
     except Exception as exc:
         failed_iso = datetime.now(timezone.utc).isoformat()
@@ -220,6 +267,34 @@ def cancel_agentic_run(
             )
 
     return {"status": "canceled"}
+
+
+@router.get("/runs/{run_id}/trace")
+def get_run_trace(
+    run_id: str,
+    principal: AuthPrincipal = Depends(resolve_principal),
+) -> dict[str, Any]:
+    """Get step-by-step trace and execution timeline for a run."""
+    _check_auth(principal)
+
+    with open_app_state_db() as conn:
+        run = _run_repo.get(conn, run_id=run_id, account_id=principal.account_id)
+        if run is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
+
+        steps = _run_repo.list_steps(conn, run_id=run_id)
+        tool_calls = _run_repo.list_tool_calls(conn, run_id=run_id, account_id=principal.account_id)
+
+    return {
+        "run_id": run.run_id,
+        "status": run.status,
+        "surface": run.surface,
+        "created_at": run.created_at,
+        "updated_at": run.updated_at,
+        "steps": [s.model_dump(mode="json") for s in steps],
+        "tool_calls": [tc.model_dump(mode="json") for tc in tool_calls],
+        "timeline": [s.node_name for s in steps],
+    }
 
 
 _artifact_service = ArtifactService()

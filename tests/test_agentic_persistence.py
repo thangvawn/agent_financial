@@ -193,4 +193,68 @@ def test_migration_017_applies(tmp_path) -> None:
         assert "expires_at" in cols_item
 
 
+def test_step_and_tool_call_trace_persistence(tmp_path) -> None:
+    from risk_dashboard.modules.agentic_core.schemas.runs import AgentStep, ToolCallRecord
+
+    db_path = tmp_path / "trace_repo_test.db"
+    with open_app_state_db(db_path) as conn:
+        repo = AgenticRunRepository()
+
+        step1 = AgentStep(
+            schema_version="1.0.0",
+            step_id="step_test_0",
+            run_id="run_trace_1",
+            step_index=0,
+            agent_id="supervisor",
+            node_name="guard",
+            status="completed",
+            started_at="2026-09-08T00:00:00Z",
+            completed_at="2026-09-08T00:00:01Z",
+        )
+        step2 = AgentStep(
+            schema_version="1.0.0",
+            step_id="step_test_1",
+            run_id="run_trace_1",
+            step_index=1,
+            agent_id="supervisor",
+            node_name="router",
+            status="completed",
+            started_at="2026-09-08T00:00:01Z",
+            completed_at="2026-09-08T00:00:02Z",
+        )
+        repo.save_step(conn, step1)
+        repo.save_step(conn, step2)
+
+        tc = ToolCallRecord(
+            schema_version="1.0.0",
+            tool_call_id="tc_test_0",
+            run_id="run_trace_1",
+            account_id="acc_owner",
+            tool_name="quant_risk_read_only",
+            input_hash="hash123",
+            status="success",
+            evidence={"result": "ok"},
+            latency_ms=45,
+            created_at="2026-09-08T00:00:02Z",
+        )
+        repo.save_tool_call(conn, tc)
+
+        # Query steps
+        steps = repo.list_steps(conn, run_id="run_trace_1")
+        assert len(steps) == 2
+        assert steps[0].node_name == "guard"
+        assert steps[1].node_name == "router"
+
+        # Query tool calls with account scoping
+        tcs_owner = repo.list_tool_calls(conn, run_id="run_trace_1", account_id="acc_owner")
+        assert len(tcs_owner) == 1
+        assert tcs_owner[0].tool_name == "quant_risk_read_only"
+        assert tcs_owner[0].latency_ms == 45
+
+        # Query tool calls with other account -> isolated
+        tcs_other = repo.list_tool_calls(conn, run_id="run_trace_1", account_id="acc_other")
+        assert len(tcs_other) == 0
+
+
+
 

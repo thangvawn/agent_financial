@@ -319,4 +319,62 @@ def test_action_service_executes_real_preference():
         assert row["memory_type"] == "preference"
 
 
+def test_kill_switch_blocks_new_runs(monkeypatch):
+    monkeypatch.setenv("AGENTIC_KILL_SWITCH", "true")
+
+    resp = client.post(
+        "/runs",
+        json={
+            "operation": "analyze_risk",
+            "surface": "chat",
+            "resource_refs": [{"kind": "portfolio", "resource_id": "p1", "module": "risk"}],
+        },
+    )
+    assert resp.status_code == 503
+    assert "kill switch" in resp.json()["detail"].lower()
+
+
+def test_run_inspector_trace_timeline(monkeypatch):
+    monkeypatch.delenv("AGENTIC_KILL_SWITCH", raising=False)
+
+    fake_result = {
+        "status": "success",
+        "code": None,
+        "text": "Analysis complete",
+        "evidence": {"metric": "var_95"},
+        "trace": ("guard", "router", "specialist", "reviewer", "success"),
+        "steps_used": 5,
+        "tool_calls_used": 1,
+        "tokens_used": 100,
+        "cost_used": 0.001,
+        "reviewed_artifact": None,
+    }
+
+    with patch("risk_dashboard.modules.agentic_core.api.public.run_graph", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = fake_result
+        resp_run = client.post(
+            "/runs",
+            json={
+                "operation": "analyze_risk",
+                "surface": "chat",
+                "resource_refs": [{"kind": "portfolio", "resource_id": "p1", "module": "risk"}],
+            },
+        )
+        assert resp_run.status_code == 200
+        run_id = resp_run.json()["run_id"]
+
+    # Now inspect trace
+    resp_trace = client.get(f"/runs/{run_id}/trace")
+    assert resp_trace.status_code == 200
+    trace_data = resp_trace.json()
+    assert trace_data["run_id"] == run_id
+    assert trace_data["status"] == "completed"
+    assert len(trace_data["steps"]) == 5
+    assert trace_data["timeline"] == ["guard", "router", "specialist", "reviewer", "success"]
+    assert len(trace_data["tool_calls"]) == 1
+    assert trace_data["tool_calls"][0]["tool_name"] in ("quant.explain_risk", "quant_risk_read_only")
+
+
+
+
 
