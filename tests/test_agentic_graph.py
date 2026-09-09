@@ -126,7 +126,7 @@ def test_graph_recovers_unknown_task_without_side_effect() -> None:
 
     assert result["status"] == "recovery"
     assert result["code"] == "unknown_task_type"
-    assert result["trace"] == ("guard", "recovery", "recovery")
+    assert result["trace"] == ("guard", "recovery")
     assert tool.calls == 0
 
 
@@ -150,7 +150,7 @@ def test_graph_blocks_exhausted_tool_budget_before_side_effect() -> None:
 
     assert result["status"] == "recovery"
     assert result["code"] == "tool_budget_exhausted"
-    assert result["trace"] == ("recovery", "recovery")
+    assert result["trace"] == ("recovery",)
     assert tool.calls == 0
 
 
@@ -373,6 +373,24 @@ def test_graph_runs_with_bctc_domain_tool() -> None:
     assert result["trace"] == ("guard", "router", "specialist", "reviewer", "success")
 
 
+def test_graph_kill_switch_blocks_at_specialist(monkeypatch) -> None:
+    """SEC-02: Kill switch activated after guard passes must still block at specialist."""
+    call_count = 0
+    original_guard = graph_module._guard
 
+    def _guard_then_activate(state):
+        nonlocal call_count
+        res = original_guard(state)
+        call_count += 1
+        if call_count == 1:
+            monkeypatch.setenv("AGENTIC_KILL_SWITCH", "true")
+        return res
 
+    monkeypatch.setattr(graph_module, "_guard", _guard_then_activate)
+    tool = _tool()
+    result = asyncio.run(run_graph(_envelope(), _task(), FakeProvider([_result()]), tool))
+
+    assert result["status"] == "recovery"
+    assert result["code"] == "kill_switch_active"
+    assert tool.calls == 0
 

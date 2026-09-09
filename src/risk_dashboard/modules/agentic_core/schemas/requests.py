@@ -10,6 +10,7 @@ from risk_dashboard.modules.agentic_core.schemas.envelope import ResourceRef
 class AgentRunRequestV1(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    schema_version: str = "1.0.0"
     operation: str
     surface: str
     resource_refs: tuple[ResourceRef, ...] = ()
@@ -20,6 +21,7 @@ class AgentRunRequestV1(BaseModel):
 class AgentRunResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    schema_version: str = "1.0.0"
     run_id: str
     status: str
     artifact: AgentArtifact | None = None

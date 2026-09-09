@@ -43,6 +43,7 @@ class ActionService:
 
     def confirm(self, *, proposal_id: str, account_id: str) -> ActionReceipt:
         with open_app_state_db() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             proposal = self._action_repo.get_proposal(conn, proposal_id=proposal_id, account_id=account_id)
             if proposal is None:
                 raise ActionExecutionError("Action proposal not found.", status_code=404)
@@ -82,8 +83,8 @@ class ActionService:
             if proposal.expires_at < now_iso:
                 raise ActionExecutionError("Action proposal has expired.", status_code=400)
 
-            # Execute the actual operation side-effect
-            self._execute_side_effect(proposal)
+            # Execute the actual operation side-effect within same transaction
+            self._execute_side_effect(proposal, conn=conn)
 
             # Record success receipt
             receipt = ActionReceipt(
@@ -97,10 +98,12 @@ class ActionService:
             )
             self._action_repo.update_proposal_status(conn, proposal_id=proposal_id, account_id=account_id, status="confirmed")
             self._action_repo.save_receipt(conn, receipt)
+            conn.commit()
             return receipt
 
     def reject(self, *, proposal_id: str, account_id: str) -> ActionReceipt:
         with open_app_state_db() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             proposal = self._action_repo.get_proposal(conn, proposal_id=proposal_id, account_id=account_id)
             if proposal is None:
                 raise ActionExecutionError("Action proposal not found.", status_code=404)
@@ -122,10 +125,16 @@ class ActionService:
                 executed_at=now_iso,
             )
             self._action_repo.save_receipt(conn, receipt)
+            conn.commit()
             return receipt
 
-    def _execute_side_effect(self, proposal: ActionProposal) -> None:
-        """Execute real side-effects based on operation type."""
+    def _execute_side_effect(self, proposal: ActionProposal, conn: Any | None = None) -> None:
+        """Execute real side-effects based on operation type.
+
+        Known operations without side-effects (e.g. export_report) are no-ops.
+        Truly unknown operations raise ActionExecutionError.
+        """
+        _NO_SIDE_EFFECT_OPS = frozenset({"export_report", "delete_chart", "update_preference_view"})
         op = proposal.operation.lower()
         if op == "save_preference":
             content = proposal.payload_preview.get("content") or proposal.payload_preview.get("preference") or "Saved preference"
@@ -141,8 +150,12 @@ class ActionService:
                 created_at=self._now_iso(),
                 updated_at=self._now_iso(),
             )
-            self._memory_repo.save(item)
+            self._memory_repo.save(item, conn=conn)
         elif op == "forget_memory":
             target_mem_id = proposal.payload_preview.get("memory_id") or proposal.target.resource_id
             if target_mem_id:
-                self._memory_repo.delete(memory_id=target_mem_id, account_id=proposal.account_id)
+                self._memory_repo.delete(memory_id=target_mem_id, account_id=proposal.account_id, conn=conn)
+        elif op in _NO_SIDE_EFFECT_OPS:
+            pass  # Known operation, no side-effect needed
+        else:
+            raise ActionExecutionError(f"Unsupported operation: {op}", status_code=400)

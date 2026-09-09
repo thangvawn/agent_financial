@@ -375,6 +375,61 @@ def test_run_inspector_trace_timeline(monkeypatch):
     assert trace_data["tool_calls"][0]["tool_name"] in ("quant.explain_risk", "quant_risk_read_only")
 
 
+def test_run_trace_persists_even_on_unhandled_failure(monkeypatch):
+    """BUG-05: Ensure trace records failure/init steps when graph raises unhandled exception."""
+    monkeypatch.delenv("AGENTIC_KILL_SWITCH", raising=False)
+
+    with patch("risk_dashboard.modules.agentic_core.api.public.run_graph", new_callable=AsyncMock) as mock_run:
+        mock_run.side_effect = RuntimeError("Simulated unhandled runtime crash in graph")
+        resp_run = client.post(
+            "/runs",
+            json={
+                "operation": "analyze_risk",
+                "surface": "chat",
+                "resource_refs": [{"kind": "portfolio", "resource_id": "p1", "module": "risk"}],
+            },
+        )
+        assert resp_run.status_code == 500
+
+    # Retrieve the run_id that was persisted in SQLite
+    with open_app_state_db() as conn:
+        row = conn.execute(
+            "SELECT run_id, status FROM agentic_runs WHERE account_id = 'acct_123' ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        assert row is not None
+        run_id = row["run_id"]
+        assert row["status"] == "failed"
+
+    # Query GET /runs/{run_id}/trace
+    resp_trace = client.get(f"/runs/{run_id}/trace")
+    assert resp_trace.status_code == 200
+    trace_data = resp_trace.json()
+    assert trace_data["run_id"] == run_id
+    assert trace_data["status"] == "failed"
+
+    # Breaking assertion: trace steps and timeline must NOT be empty
+    assert len(trace_data["steps"]) > 0, "Trace steps must not be empty even on unhandled failure"
+    assert len(trace_data["timeline"]) > 0, "Timeline must not be empty even on unhandled failure"
+    assert any(step["status"] == "failed" for step in trace_data["steps"]), "At least one step must record failure"
 
 
+def test_confirm_action_proposal_unsupported_operation():
+    """BUG-11: Confirming a proposal with truly unknown operation must return 400, not silently succeed."""
+    proposal = ActionProposal(
+        proposal_id="prop_unsupported",
+        run_id="run_unsupported",
+        account_id="acct_123",
+        operation="totally_unknown_operation",
+        target=ResourceRef(kind="report", resource_id="r1", module="pro_lab"),
+        payload_preview={},
+        risk_class="proposal",
+        policy_version="1.0.0",
+        created_at="2026-09-07T00:00:00Z",
+        expires_at="2099-01-01T00:00:00Z",
+    )
+    with open_app_state_db() as conn:
+        AgenticActionRepository().save_proposal(conn, proposal)
 
+    resp = client.post("/action-proposals/prop_unsupported:confirm")
+    assert resp.status_code == 400
+    assert "Unsupported operation" in resp.json()["detail"]

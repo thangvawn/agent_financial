@@ -102,8 +102,19 @@ def test_agentic_schemas_round_trip() -> None:
         status="success",
         created_at=NOW,
     )
+    request = AgentRunRequestV1(
+        operation="analyze_risk",
+        surface="pro_lab",
+        resource_refs=(resource,),
+    )
+    response = AgentRunResponseV1(
+        run_id="run-1",
+        status="completed",
+        artifact=artifact,
+        action_proposal=proposal,
+    )
 
-    for model in (envelope, artifact, proposal, receipt, memory, run, step, tool_call):
+    for model in (envelope, artifact, proposal, receipt, memory, run, step, tool_call, request, response):
         assert type(model).model_validate_json(model.model_dump_json()) == model
         assert getattr(model, "schema_version") == "1.0.0"
 
@@ -270,4 +281,30 @@ def test_ten_canonical_domain_artifacts_round_trip() -> None:
         raw_dict["unauthorized_injected_key"] = "exploit"
         with pytest.raises(ValidationError):
             type(model).model_validate(raw_dict)
+
+
+def test_agentic_requests_must_have_schema_version() -> None:
+    """BUG-16: AgentRunRequestV1 và AgentRunResponseV1 phải có schema_version == '1.0.0' theo ADR-002."""
+    req = AgentRunRequestV1(
+        operation="analyze_risk",
+        surface="pro_lab",
+    )
+    res = AgentRunResponseV1(
+        run_id="run-test-1",
+        status="succeeded",
+    )
+
+    assert hasattr(req, "schema_version"), "AgentRunRequestV1 thiếu trường schema_version"
+    assert req.schema_version == "1.0.0"
+
+    assert hasattr(res, "schema_version"), "AgentRunResponseV1 thiếu trường schema_version"
+    assert res.schema_version == "1.0.0"
+
+    # Đồng thời xác minh round-trip serialize/deserialize
+    req_json = req.model_dump_json()
+    assert AgentRunRequestV1.model_validate_json(req_json) == req
+
+    res_json = res.model_dump_json()
+    assert AgentRunResponseV1.model_validate_json(res_json) == res
+
 

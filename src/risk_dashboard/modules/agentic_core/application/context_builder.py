@@ -8,7 +8,18 @@ from risk_dashboard.modules.agentic_core.application.memory_service import Memor
 from risk_dashboard.modules.agentic_core.domain.memory import MemoryItem
 from risk_dashboard.modules.agentic_core.schemas.envelope import ResourceRef, TrustedExecutionEnvelope
 
-SECRET_STRIP_REGEX = re.compile(r"(?:api_key|api_secret|sk-[a-zA-Z0-9_\-]+)[^\s,;]*", re.IGNORECASE)
+SECRET_STRIP_REGEX = re.compile(
+    r"(?:api_key|api_secret)(?:\s*[:=]\s*\S+|\S*)|sk-[a-zA-Z0-9_\-]+[^\s,;]*",
+    re.IGNORECASE,
+)
+UNTRUSTED_DELIMITER_REGEX = re.compile(r"<\s*(/?)\s*untrusted_context\s*>", re.IGNORECASE)
+
+
+def _sanitize_untrusted_text(text: str) -> str:
+    """Sanitize secrets and escape boundary delimiters from untrusted context."""
+    text = SECRET_STRIP_REGEX.sub("[REDACTED_SECRET]", text)
+    text = UNTRUSTED_DELIMITER_REGEX.sub(lambda m: f"&lt;{m.group(1)}untrusted_context&gt;", text)
+    return text
 
 
 @dataclass(frozen=True)
@@ -47,7 +58,10 @@ def build_execution_context(
     included_refs: list[ResourceRef] = []
     ref_lines: list[str] = []
     for ref in envelope.resource_refs:
-        line = f"- [{ref.kind}] {ref.module}:{ref.resource_id}"
+        sanitized_kind = _sanitize_untrusted_text(ref.kind)
+        sanitized_module = _sanitize_untrusted_text(ref.module)
+        sanitized_res_id = _sanitize_untrusted_text(ref.resource_id)
+        line = f"- [{sanitized_kind}] {sanitized_module}:{sanitized_res_id}"
         cost = _estimate_tokens(line)
         if accumulated_tokens + cost <= budget_tokens:
             included_refs.append(ref)
@@ -59,8 +73,9 @@ def build_execution_context(
     included_memories: list[MemoryItem] = []
     mem_lines: list[str] = []
     for mem in memories:
-        sanitized_content = SECRET_STRIP_REGEX.sub("[REDACTED_SECRET]", mem.content)
-        line = f"- ({mem.memory_type}): {sanitized_content}"
+        sanitized_content = _sanitize_untrusted_text(mem.content)
+        sanitized_type = _sanitize_untrusted_text(mem.memory_type)
+        line = f"- ({sanitized_type}): {sanitized_content}"
         cost = _estimate_tokens(line)
         if accumulated_tokens + cost <= budget_tokens:
             included_memories.append(mem)

@@ -114,3 +114,35 @@ def test_numeric_claim_blocks_nan_inf_injection() -> None:
         assert artifact.status is ClaimStatus.BLOCKED
         assert artifact.ledger.claims[0].block_reason == "numeric_evidence_mismatch"
 
+
+def test_numeric_claim_allows_financial_terms_containing_inf_or_nan() -> None:
+    artifact_inf = review_claims(
+        (_claim("Tỷ lệ lạm phát là 4.5% inflation.", kind=ClaimKind.NUMERIC),),
+        {"value": "4.5% inflation"},
+    )
+    assert artifact_inf.status is ClaimStatus.ACCEPTED
+    assert artifact_inf.ledger.claims[0].status is ClaimStatus.ACCEPTED
+
+    artifact_nan = review_claims(
+        (_claim("Gói hỗ trợ trị giá 50 tỷ VND tài trợ finance.", kind=ClaimKind.NUMERIC),),
+        {"value": "50 tỷ VND tài trợ finance"},
+    )
+    assert artifact_nan.status is ClaimStatus.ACCEPTED
+    assert artifact_nan.ledger.claims[0].status is ClaimStatus.ACCEPTED
+
+
+def test_numeric_claim_supports_negative_and_scientific_notation() -> None:
+    artifact_neg = review_claims(
+        (_claim("Tăng trưởng ghi nhận -15%.", kind=ClaimKind.NUMERIC),),
+        {"value": "-15%"},
+    )
+    assert artifact_neg.status is ClaimStatus.ACCEPTED
+    assert artifact_neg.ledger.claims[0].status is ClaimStatus.ACCEPTED
+
+    artifact_sci = review_claims(
+        (_claim("Xác suất sai số là 1e-5.", kind=ClaimKind.NUMERIC),),
+        {"value": "1e-5"},
+    )
+    assert artifact_sci.status is ClaimStatus.ACCEPTED
+    assert artifact_sci.ledger.claims[0].status is ClaimStatus.ACCEPTED
+

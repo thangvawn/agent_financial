@@ -26,12 +26,12 @@ Các chỉ số then chốt:
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | **AC0** | Contracts Freeze & ADR | ĐẠT | `9c444ea` | `docs/adr/ADR-002-agentic-core-contracts.md`<br>8 schemas core: `ConfigDict(extra="forbid", frozen=True)` | `tests/test_agentic_core_schemas.py`<br>4 passed |
 | **AC1** | Persistence Layer | ĐẠT | `df30773`<br>`b16320c` | Migration 016, 017; `infrastructure/repositories.py`<br>Scoped by owner/tenant, Idempotency key | `tests/test_agentic_persistence.py`<br>6 passed |
-| **AC2** | Tool Registry & Grants | ĐẠT | `df30773`<br>`2b9754d`<br>`fdfb5cf` | `domain/tool_grants.py`, `QuantRiskReadOnlyTool`<br>Domain read-only tools: BCTC & Learning context | `tests/test_tool_grants.py`<br>6 passed |
-| **AC3** | Execution Graph | ĐẠT | `df30773`<br>`336e645` | `application/graph.py`<br>Nodes: setup, reason, tool_exec, review, reflect, finalize | `tests/test_agentic_graph.py`<br>12 passed |
-| **AC4** | Bounded Context & Memory | ĐẠT | `bd14f59` | `application/context_builder.py`, `MemoryGovernor`<br>`domain/memory_denylist.py`, 4 API user memory | `tests/test_agentic_memory.py`<br>7 passed |
-| **AC5** | Artifact Review & Action Service | ĐẠT | `296d5cf`<br>`91f5856`<br>`3528194` | `application/artifact_service.py` (Vòng đời artifact)<br>`application/action_service.py` (Immutable ActionReceipt) | `tests/test_agentic_review.py`<br>10 passed |
+| **AC2** | Tool Registry & Grants | ĐẠT | `df30773`<br>`2b9754d`<br>`fdfb5cf` | `src/risk_dashboard/modules/agentic_core/application/tool_grants.py`, `QuantRiskReadOnlyTool`<br>Domain read-only tools: BCTC & Learning context | `tests/test_tool_grants.py`<br>6 passed |
+| **AC3** | Execution Graph | ĐẠT | `df30773`<br>`336e645` | `application/graph.py`<br>Nodes: guard, router, specialist, reviewer, success, recovery | `tests/test_agentic_graph.py`<br>12 passed |
+| **AC4** | Bounded Context & Memory | ĐẠT | `bd14f59` | `application/context_builder.py`, `MemoryGovernor`<br>`src/risk_dashboard/modules/agentic_core/domain/memory.py (hằng số PROHIBITED_PATTERNS)`, 4 API user memory | `tests/test_agentic_memory.py`<br>7 passed |
+| **AC5** | Artifact Review & Action Service | ĐẠT | `296d5cf`<br>`91f5856`<br>`3528194` | `application/artifact_service.py` (Vòng đời artifact)<br>`application/action_service.py` (Immutable ActionReceipt) | `tests/modules/agentic_core/test_public_api.py` |
 | **AC6** | Ops Trace & Kill Switch | ĐẠT | `336e645` | `application/kill_switch.py` (`AGENTIC_KILL_SWITCH`)<br>Persist step/tool calls, `GET /runs/{id}/trace` | `tests/test_agentic_graph.py`<br>`tests/modules/agentic_core/test_public_api.py` |
-| **AC7** | Feature Flag Infrastructure | ĐẠT | `5e91da3` | `platform/feature_flags.py`<br>`@feature_flag()` sync/async decorator, Ring buffer audit | `tests/test_feature_flag_decorator.py`<br>6 passed |
+| **AC7** | Feature Flag Infrastructure | ĐẠT | `5e91da3` | `src/risk_dashboard/platform/feature_flags/decorator.py`<br>`@feature_flag()` sync/async decorator, Ring buffer audit | `tests/test_feature_flag_decorator.py`<br>6 passed |
 | **AC8** | Memory Retention & GDPR Cascade | ĐẠT | `b16320c` | Migration 017 (`agentic_memory_items.expires_at`)<br>`application/retention.py` (`purge_expired`, cascade) | `tests/test_agentic_memory.py`<br>(Tích hợp trong suite memory) |
 | **AC9** | Threat Model Decomposition | ĐẠT | `0bfeb8b` | `docs/project/agentic-quantum/13_AGENTIC_CORE_THREAT_MODEL.md`<br>17 Attack Vectors (AV-01 → AV-17) theo STRIDE | Bằng chứng test tương ứng tại 11 test suite |
 
@@ -67,7 +67,7 @@ Các chỉ số then chốt:
 | **Cross-user data leakage** | = 0 | **0** (Tất cả repository lọc tuyệt đối theo `user_id`, xác thực quyền sở hữu trước khi đọc/ghi run, artifact, memory, proposal) | ĐẠT |
 | **Duplicate side-effect under idempotency** | = 0 | **0** (Idempotency key bảo vệ ở cả cấp độ run và hành động thực thi qua `ActionExecutionService` tạo `ActionReceipt` duy nhất) | ĐẠT |
 | **Forbidden action execution** | = 0 | **0** (`FORBIDDEN_OPERATIONS` chặn đứng `drop_database`, `execute_arbitrary_code`, `delete_all_users`, trả về `403 Forbidden`) | ĐẠT |
-| **Offline full graph execution** | 100% | **100%** (Chạy hoàn chỉnh qua `FakeAIProvider`, vượt qua toàn bộ các node setup, reason, tool_exec, review, reflect, finalize không cần mạng) | ĐẠT |
+| **Offline full graph execution** | 100% | **100%** (Chạy hoàn chỉnh qua `FakeAIProvider`, vượt qua toàn bộ các node guard, router, specialist, reviewer, success, recovery không cần mạng) | ĐẠT |
 | **Domain tools E2E integration** | ≥1 read-only & ≥1 confirmed write | **2 read-only tools** (`bctc.resolve_line_item`, `learning.get_lesson_context`) và **1 confirmed write action** (`save_preference` kèm rollback snapshot và audit) | ĐẠT |
 | **Run observability & controls** | Đầy đủ trace, cancel, budget, replay | **Đầy đủ** (Lưu step/tool calls vào SQLite, kiểm tra cờ cancel và kill switch mỗi bước, cắt tỉa token context theo ngân sách, tái lập trạng thái) | ĐẠT |
 | **User memory management** | View, edit, forget, export đầy đủ | **Đầy đủ 4 endpoint** (`GET /memories`, `PATCH /memories/{id}`, `DELETE /memories/{id}`, `GET /memories:export` kèm retention purge & GDPR cascade) | ĐẠT |

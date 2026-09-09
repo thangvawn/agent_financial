@@ -74,6 +74,31 @@ class ArtifactService:
             self._artifact_repo.save(conn, updated)
             return updated
 
+    def reject(self, *, artifact_id: str, account_id: str) -> AgentArtifact:
+        with open_app_state_db() as conn:
+            artifact = self._artifact_repo.get(conn, artifact_id=artifact_id, account_id=account_id)
+            if artifact is None:
+                raise ArtifactTransitionError("Artifact not found.", status_code=404)
+
+            if self._check_expired(artifact) or artifact.review_status == "expired":
+                if artifact.review_status != "expired":
+                    self._artifact_repo.save(conn, artifact.model_copy(update={"review_status": "expired"}))
+                raise ArtifactTransitionError("Cannot reject expired artifact.", status_code=409)
+
+            if artifact.review_status == "rejected":
+                return artifact  # Idempotent
+
+            if artifact.review_status != "reviewed":
+                raise ArtifactTransitionError(
+                    f"Cannot reject unreviewed artifact in status '{artifact.review_status}'.",
+                    status_code=409,
+                )
+
+            updated = artifact.model_copy(update={"review_status": "rejected"})
+            self._artifact_repo.save(conn, updated)
+            return updated
+
+
     def export(self, *, artifact_id: str, account_id: str) -> dict[str, Any]:
         with open_app_state_db() as conn:
             artifact = self._artifact_repo.get(conn, artifact_id=artifact_id, account_id=account_id)

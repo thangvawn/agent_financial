@@ -32,7 +32,7 @@ def calculate_expires_at(created_at: str | datetime, ttl_days: int | None) -> st
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     expires = dt + timedelta(days=ttl_days)
-    return expires.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return expires.astimezone(timezone.utc).isoformat()
 
 
 @feature_flag("agentic.retention", default=True, fallback=0)
@@ -40,7 +40,7 @@ def purge_expired(conn: Any, account_id: str | None = None) -> int:
     """Purge expired records from agentic memory tables.
     Returns total count of deleted rows.
     """
-    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    now_iso = datetime.now(timezone.utc).isoformat()
     total_deleted = 0
     tables = ["agentic_memory_items", "agentic_memory_proposals"]
 
@@ -63,21 +63,34 @@ def purge_expired(conn: Any, account_id: str | None = None) -> int:
 
 @feature_flag("agentic.retention", default=True, fallback=0)
 def delete_account_data(conn: Any, account_id: str) -> int:
-    """Delete all agentic memory data associated with an account (GDPR/right-to-be-forgotten cascade).
-    Returns total count of deleted rows.
+    """Delete all agentic data associated with an account (GDPR/right-to-be-forgotten cascade).
+    Returns total count of deleted rows. Caller manages transaction.
     """
     total_deleted = 0
-    tables = [
+
+    # 1. agentic_steps (cascade via run_ids belonging to account)
+    cursor = conn.execute(
+        "DELETE FROM agentic_steps WHERE run_id IN (SELECT run_id FROM agentic_runs WHERE account_id = ?)",
+        (account_id,),
+    )
+    total_deleted += cursor.rowcount
+
+    # 2. Direct account tables
+    account_tables = [
+        "agentic_tool_calls",
+        "agentic_artifacts",
+        "agentic_action_receipts",
+        "agentic_action_proposals",
+        "agentic_runs",
         "agentic_memory_items",
         "agentic_memory_proposals",
     ]
-
-    for table in tables:
+    for table in account_tables:
         cursor = conn.execute(
             f"DELETE FROM {table} WHERE account_id = ?",
             (account_id,),
         )
         total_deleted += cursor.rowcount
 
-    conn.commit()
     return total_deleted
+

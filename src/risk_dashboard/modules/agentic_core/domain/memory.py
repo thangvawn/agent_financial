@@ -30,5 +30,6 @@ class MemoryItem(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     sensitivity: str = "normal"
     ttl_days: int | None = None
+    expires_at: str | None = None
     created_at: str
     updated_at: str

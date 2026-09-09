@@ -122,6 +122,10 @@ def _remaining_wall_seconds(state: _GraphState) -> float:
 
 
 async def _specialist(state: _GraphState) -> dict[str, object]:
+    from risk_dashboard.modules.agentic_core.application.kill_switch import is_kill_switch_active
+
+    if is_kill_switch_active():
+        return _recovery(state, "kill_switch_active")
     tool = state["tool"]
     if tool.manifest.risk_class is not RiskClass.READ:
         return _recovery(state, "tool_not_granted")
@@ -154,6 +158,10 @@ async def _specialist(state: _GraphState) -> dict[str, object]:
 
 
 async def _reviewer(state: _GraphState) -> dict[str, object]:
+    from risk_dashboard.modules.agentic_core.application.kill_switch import is_kill_switch_active
+
+    if is_kill_switch_active():
+        return _recovery(state, "kill_switch_active")
     envelope = state["envelope"]
     task = state["task"]
     provider = state["provider"]
@@ -284,6 +292,12 @@ def _success(state: _GraphState) -> dict[str, object]:
     return _advance(state, "success")
 
 
+def _recovery_node(state: _GraphState) -> dict[str, object]:
+    if state.get("trace") and state["trace"][-1] == "recovery":
+        return {}
+    return _advance(state, "recovery")
+
+
 def _build_graph():
     graph = StateGraph(_GraphState)
     graph.add_node("guard", _guard)
@@ -291,7 +305,7 @@ def _build_graph():
     graph.add_node("specialist", _specialist)
     graph.add_node("reviewer", _reviewer)
     graph.add_node("success", _success)
-    graph.add_node("recovery", lambda state: _advance(state, "recovery"))
+    graph.add_node("recovery", _recovery_node)
     graph.add_edge(START, "guard")
     graph.add_conditional_edges("guard", _route_after_guard)
     graph.add_conditional_edges("router", _route_after_router)

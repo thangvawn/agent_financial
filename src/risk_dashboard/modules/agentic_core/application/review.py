@@ -16,29 +16,24 @@ from risk_dashboard.modules.agentic_core.schemas.claim import (
 _NO_REVIEWED_CLAIMS = "Không có nhận định nào đủ bằng chứng để phát hành."
 
 
+_NUMERIC_TOKEN_PATTERN = re.compile(
+    r'(?:\b|^|(?<=[^\w.,]))([+-]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?)(?:\s*(%|[a-zA-ZđĐ]+))?(?=\s|[.,;:?!)]|$)'
+)
+_NAN_INF_PATTERN = re.compile(r'(?i)(?:\b|^)[+-]?(?:nan|infinity|inf)(?:\b|$)')
+
+
 def _parse_canonical_numeric(text: str) -> tuple[Decimal, str | None] | None:
     """Parses a numeric string into canonical (Decimal, unit)."""
     clean = text.strip(".,;:?!")
-    unit = None
-    if clean.endswith("%"):
-        unit = "%"
-        clean = clean[:-1].strip()
-    elif " " in clean:
-        parts = clean.rsplit(" ", 1)
-        if not parts[1].replace(".", "").isdigit():
-            clean = parts[0].strip()
-            unit = parts[1].strip()
-    clean = clean.replace(",", "").strip()
-    try:
-        return Decimal(clean), unit
-    except (InvalidOperation, ValueError):
-        return None
+    tokens = _extract_statement_numeric_tokens(clean)
+    if tokens:
+        return tokens[0]
+    return None
 
 
 def _extract_statement_numeric_tokens(statement: str) -> list[tuple[Decimal, str | None]]:
-    """Extracts numeric tokens with optional units (e.g. '42%', '42 VND', '0.045', '142')."""
-    pattern = r'(?:\b|^)(\d+(?:[.,]\d+)?)(?:\s*(%|[a-zA-ZđĐ]+))?(?=\s|[.,;:?!)]|$)'
-    matches = re.finditer(pattern, statement)
+    """Extracts numeric tokens with optional units (e.g. '42%', '42 VND', '0.045', '142', '-15%', '1e-5')."""
+    matches = _NUMERIC_TOKEN_PATTERN.finditer(statement)
     tokens: list[tuple[Decimal, str | None]] = []
     for m in matches:
         num_str = m.group(1).replace(",", "")
@@ -61,8 +56,7 @@ def _match_single_numeric_evidence(
 ) -> bool:
     """Matches an evidence numeric value against isolated numeric tokens in statement with tolerance and unit parity."""
     # Guard against NaN / Inf injection in evidence string
-    ev_lower = ev_val.strip().lower()
-    if any(pattern in ev_lower for pattern in ("nan", "inf", "infinity")):
+    if _NAN_INF_PATTERN.search(ev_val.strip()):
         return False
 
     ev_clean = ev_val.strip()
