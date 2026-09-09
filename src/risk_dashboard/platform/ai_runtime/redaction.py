@@ -68,3 +68,21 @@ def redact_for_provider(task: ModelTask) -> ModelTask:
             )
         }
     )
+
+
+def isolate_untrusted_content(
+    text: str,
+    *,
+    tag: str = "untrusted_content",
+    redact_sensitive: bool = True,
+) -> str:
+    """Escape boundary delimiters and wrap untrusted external text in an isolated data block.
+
+    Prevents indirect prompt injection breakout by escaping delimiter tags with HTML entities
+    and optionally masking secrets/PII (§4.4 USER_INTERACTION_GUIDE).
+    """
+    cleaned = redact_text(text) if redact_sensitive else text
+    tag_pattern = re.compile(rf"<\s*(/?)\s*{re.escape(tag)}\s*>", re.IGNORECASE)
+    escaped = tag_pattern.sub(rf"&lt;\1{tag}&gt;", cleaned)
+    return f"<{tag}>\n{escaped}\n</{tag}>"
+
