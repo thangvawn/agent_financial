@@ -15,16 +15,27 @@ from risk_dashboard.platform.ai_runtime.contracts import (
 )
 from risk_dashboard.platform.ai_runtime.redaction import redact_for_provider
 from risk_dashboard.platform.ai_runtime.structured import parse_structured
+from risk_dashboard.platform.ai_runtime.telemetry import calculate_cost_usd
 
 MODEL_NAME = "gemini-3.5-flash"
 
 
 def create_gemini_provider(api_key: str | None = None) -> GeminiAdapter:
-    """Factory creating a GeminiAdapter using environment or explicit key."""
     key = api_key or os.getenv("GEMINI_API_KEY")
     if not key:
         raise ModelError("configuration_error", "GEMINI_API_KEY is not configured on the server.")
     return GeminiAdapter(api_key=key)
+
+
+def _extract_tool_calls(response: Any) -> tuple[dict[str, Any], ...]:
+    calls: list[dict[str, Any]] = []
+    for fc in getattr(response, "function_calls", None) or []:
+        calls.append({"name": getattr(fc, "name", ""), "args": dict(getattr(fc, "args", {}))})
+    if not calls and getattr(response, "candidates", None):
+        for p in getattr(getattr(response.candidates[0], "content", None), "parts", []) or []:
+            if getattr(p, "function_call", None):
+                calls.append({"name": getattr(p.function_call, "name", ""), "args": dict(getattr(p.function_call, "args", {}))})
+    return tuple(calls)
 
 
 class GeminiAdapter:
@@ -45,36 +56,29 @@ class GeminiAdapter:
 
     @staticmethod
     def _request(task: ModelTask) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        system_parts = [m.content for m in task.messages if m.role == "system"]
-        system_instruction = "\n\n".join(system_parts) if system_parts else None
-
-        contents: list[dict[str, Any]] = []
-        for m in task.messages:
-            if m.role == "system":
-                continue
-            gemini_role = "model" if m.role == "assistant" else "user"
-            contents.append({"role": gemini_role, "parts": [{"text": m.content}]})
-
-        if not contents:
-            contents = [{"role": "user", "parts": [{"text": "Execute task"}]}]
-
+        sys_parts = [m.content for m in task.messages if m.role == "system"]
+        contents = [
+            {"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.content}]}
+            for m in task.messages if m.role != "system"
+        ] or [{"role": "user", "parts": [{"text": "Execute task"}]}]
         config: dict[str, Any] = {
             "temperature": task.settings.temperature,
             "max_output_tokens": task.settings.max_output_tokens,
         }
-        if system_instruction:
-            config["system_instruction"] = system_instruction
+        if sys_parts:
+            config["system_instruction"] = "\n\n".join(sys_parts)
         if task.settings.response_format == "json_object":
             config["response_mime_type"] = "application/json"
+        if task.tool_schemas:
+            config["tools"] = list(task.tool_schemas)
         return contents, config
 
     @staticmethod
     def _usage(response: Any) -> TokenUsage:
-        metadata = getattr(response, "usage_metadata", None)
-        prompt = int(getattr(metadata, "prompt_token_count", 0) or 0)
-        completion = int(getattr(metadata, "candidates_token_count", 0) or 0)
-        total = int(getattr(metadata, "total_token_count", prompt + completion) or 0)
-        return TokenUsage(prompt=prompt, completion=completion, total=total)
+        meta = getattr(response, "usage_metadata", None)
+        p = int(getattr(meta, "prompt_token_count", 0) or 0)
+        c = int(getattr(meta, "candidates_token_count", 0) or 0)
+        return TokenUsage(prompt=p, completion=c, total=int(getattr(meta, "total_token_count", p + c) or 0))
 
     @staticmethod
     def _provider_error(exc: Exception) -> ModelError:
@@ -91,28 +95,41 @@ class GeminiAdapter:
         try:
             response = await asyncio.wait_for(
                 self._client().aio.models.generate_content(
-                    model=MODEL_NAME,
-                    contents=contents,
-                    config=config,
+                    model=MODEL_NAME, contents=contents, config=config,
                 ),
                 timeout=task.deadline_seconds,
             )
         except asyncio.TimeoutError as exc:
             raise ModelError("deadline_exceeded", "Gemini request exceeded deadline.") from exc
+        except asyncio.CancelledError as exc:
+            raise ModelError("cancelled", "Gemini request was cancelled.") from exc
         except ModelError:
             raise
         except Exception as exc:
             raise self._provider_error(exc) from exc
+
+        cand = (getattr(response, "candidates", None) or [None])[0]
+        fr = getattr(cand, "finish_reason", "STOP") if cand else "STOP"
+        fr_str = (fr if isinstance(fr, str) else getattr(fr, "name", "STOP")).upper()
+        if fr_str == "SAFETY":
+            raise ModelError("safety_blocked", "Gemini generation blocked by safety filters.")
+
+        usage = self._usage(response)
+        cost = calculate_cost_usd(MODEL_NAME, usage.prompt, usage.completion)
+        if task.max_cost_usd is not None and cost > task.max_cost_usd:
+            raise ModelError("budget_exceeded", f"Gemini cost ${cost:.6f} exceeded max budget ${task.max_cost_usd:.6f}.")
+
         text = getattr(response, "text", "") or ""
-        parsed = parse_structured(text, task.output_schema) if task.output_schema else None
+        parsed = parse_structured(text, task.output_schema) if task.output_schema and text else None
         return ModelResult(
             parsed=parsed,
             text=text,
-            usage=self._usage(response),
+            tool_calls=_extract_tool_calls(response),
+            usage=usage,
             provider=self.name,
             model=MODEL_NAME,
             latency_ms=round((time.monotonic() - started) * 1000),
-            finish_reason="stop",
+            finish_reason=fr_str.lower(),
         )
 
     async def stream(self, task: ModelTask) -> AsyncIterator[StreamEvent]:
@@ -127,11 +144,7 @@ class GeminiAdapter:
         stream_iter = None
         try:
             stream_iter = await asyncio.wait_for(
-                self._client().aio.models.generate_content_stream(
-                    model=MODEL_NAME,
-                    contents=contents,
-                    config=config,
-                ),
+                self._client().aio.models.generate_content_stream(model=MODEL_NAME, contents=contents, config=config),
                 timeout=task.deadline_seconds,
             )
             while True:
@@ -148,14 +161,11 @@ class GeminiAdapter:
                 chunk_text = getattr(chunk, "text", "") or ""
                 if chunk_text:
                     accumulated_text.append(chunk_text)
-                    yield StreamEvent(
-                        sequence=seq,
-                        event="token",
-                        correlation_id=task.correlation_id,
-                        delta=chunk_text,
-                    )
+                    yield StreamEvent(sequence=seq, event="token", correlation_id=task.correlation_id, delta=chunk_text)
                     seq += 1
-        except (ModelError, asyncio.CancelledError):
+        except asyncio.CancelledError as exc:
+            raise ModelError("cancelled", "Gemini stream was cancelled.") from exc
+        except ModelError:
             raise
         except Exception as exc:
             raise self._provider_error(exc) from exc
@@ -172,17 +182,12 @@ class GeminiAdapter:
             except Exception:
                 pass
         yield StreamEvent(
-            sequence=seq,
-            event="completed",
-            correlation_id=task.correlation_id,
-            parsed=parsed,
-            usage=usage,
-            finish_reason="stop",
+            sequence=seq, event="completed", correlation_id=task.correlation_id,
+            parsed=parsed, usage=usage, finish_reason="stop",
         )
 
     async def health(self) -> bool:
         try:
-            self._client()
+            return bool(self._client())
         except Exception:
             return False
-        return True

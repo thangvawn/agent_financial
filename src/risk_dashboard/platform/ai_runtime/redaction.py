@@ -26,17 +26,33 @@ _SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z0-9_ -]+-----[\s\S]*?-----END [A-Z0-9_ -]+-----"),
 )
 
+_PII_PATTERNS = (
+    # Email addresses
+    re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
+    # Vietnamese mobile phone numbers
+    re.compile(r"(?:\+84|0)[3|5|7|8|9][0-9]{8}\b"),
+    # Vietnamese Citizen ID (CCCD 12-digit)
+    re.compile(r"\b0[0-9]{11}\b"),
+)
+
 
 def contains_secrets(value: str) -> bool:
     """Check whether a text string contains known raw secrets or credentials."""
     return any(pattern.search(value) is not None for pattern in _SECRET_PATTERNS)
 
 
+def contains_pii(value: str) -> bool:
+    """Check whether a text string contains personally identifiable information."""
+    return any(pattern.search(value) is not None for pattern in _PII_PATTERNS)
+
+
 def redact_text(value: str) -> str:
-    """Redact all detected secrets and credentials from a text string."""
+    """Redact all detected secrets and credentials, and mask PII as [REDACTED_PII]."""
     redacted = value
     for pattern in _SECRET_PATTERNS:
         redacted = pattern.sub("[REDACTED]", redacted)
+    for pattern in _PII_PATTERNS:
+        redacted = pattern.sub("[REDACTED_PII]", redacted)
     return redacted
 
 

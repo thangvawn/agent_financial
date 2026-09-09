@@ -7,11 +7,15 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import FileResponse
 
+from dotenv import load_dotenv
+
 from risk_dashboard.api.middleware import APIKeyMiddleware, RequestLoggingMiddleware
 from risk_dashboard.app.bootstrap.lifecycle import on_startup
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.app.registry.registry import get_enabled_modules
 from risk_dashboard.platform.feature_flags.service import FeatureFlagService
+
+load_dotenv()
 
 
 class SPAStaticFiles(StaticFiles):
@@ -39,6 +43,7 @@ class SPAStaticFiles(StaticFiles):
 
 
 def create_app() -> FastAPI:
+    load_dotenv()
     settings = get_settings()
     feature_flags = FeatureFlagService()
 

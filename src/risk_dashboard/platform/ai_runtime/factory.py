@@ -47,4 +47,9 @@ def reset_provider_factories() -> None:
     global _DEFAULT_PROVIDER_NAME
     _PROVIDER_FACTORIES.clear()
     _DEFAULT_PROVIDER_NAME = "gemini"
+    try:
+        from risk_dashboard.platform.ai_runtime.retry import reset_circuit_breaker
+        reset_circuit_breaker()
+    except Exception:
+        pass
 
