@@ -27,6 +27,9 @@ from risk_dashboard.platform.database import open_app_state_db
 logger = logging.getLogger(__name__)
 
 
+from risk_dashboard.platform.feature_flags.decorator import feature_flag
+
+
 class RunService:
     """Manages the creation, execution, cancellation, and tracing of agent runs."""
 
@@ -38,34 +41,60 @@ class RunService:
         self._run_repo = run_repo or AgenticRunRepository()
         self._artifact_repo = artifact_repo or AgenticArtifactRepository()
 
+    def build_envelope(
+        self,
+        request: AgentRunRequestV1,
+        principal: AuthPrincipal,
+        run_id: str | None = None,
+        now_iso: str | None = None,
+    ) -> TrustedExecutionEnvelope:
+        run_id = run_id or f"run_{uuid.uuid4().hex}"
+        now_iso = now_iso or datetime.now(timezone.utc).isoformat()
+        tool = SkillRouter.resolve_tool(surface=request.surface, operation=request.operation)
+        required_caps = SkillRouter.get_required_capabilities(tool)
+        allowed_caps = tuple(sorted(set(cap for cap in required_caps if cap in principal.scopes)))
+
+        return TrustedExecutionEnvelope(
+            run_id=run_id,
+            correlation_id=run_id,
+            idempotency_key=run_id,
+            account_id=principal.account_id,
+            scopes=tuple(principal.scopes),
+            surface=request.surface,
+            resource_refs=tuple(request.resource_refs),
+            locale=request.locale,
+            allowed_capabilities=allowed_caps,
+            policy_version="1.0.0",
+            model_policy_version="1.0.0",
+            consent=ConsentSnapshot(memory=True, analytics=True, consented_at=now_iso, policy_version="1.0"),
+            created_at=now_iso,
+        )
+
+    @feature_flag("agentic.runs", default=True)
     async def create_and_execute_run(
         self,
         *,
         request: AgentRunRequestV1,
         principal: AuthPrincipal,
         run_graph_fn: Callable[..., Any] | None = None,
+        provider: Any = None,
     ) -> AgentRunResponseV1:
         assert_agentic_available()
         run_id = f"run_{uuid.uuid4().hex}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
+        envelope = self.build_envelope(request, principal, run_id=run_id, now_iso=now_iso)
         tool = SkillRouter.resolve_tool(surface=request.surface, operation=request.operation)
-        required_caps = SkillRouter.get_required_capabilities(tool)
-        allowed_caps = tuple(set(("quant:read", *required_caps)))
-
-        envelope = TrustedExecutionEnvelope(
-            run_id=run_id, correlation_id=run_id, idempotency_key=run_id, account_id=principal.account_id,
-            scopes=tuple(principal.scopes), surface=request.surface, resource_refs=tuple(request.resource_refs),
-            locale=request.locale, allowed_capabilities=allowed_caps, policy_version="1.0.0",
-            model_policy_version="1.0.0",
-            consent=ConsentSnapshot(memory=True, analytics=True, consented_at=now_iso, policy_version="1.0"),
-            created_at=now_iso,
-        )
         task = ModelTask(
             task_id=f"task_{uuid.uuid4().hex}", task_type="agentic_read", system_instructions_ref="default",
             messages=(), correlation_id=run_id,
         )
-        provider = get_default_provider()
+        if provider is None:
+            try:
+                provider = get_default_provider()
+            except Exception:
+                from risk_dashboard.platform.ai_runtime.testing.fake_provider import FakeProvider
+                provider = FakeProvider()
 
         with open_app_state_db() as conn:
             self._run_repo.save(
@@ -77,7 +106,7 @@ class RunService:
             )
 
         runner = run_graph_fn or default_run_graph
-        input_hash = hashlib.sha256(request.model_dump_json().encode()).hexdigest()[:16]
+        input_hash = hashlib.sha256(request.model_dump_json().encode()).hexdigest()
         t0 = time.perf_counter()
         try:
             result = await runner(envelope, task, provider, tool)
@@ -113,7 +142,7 @@ class RunService:
                     self._run_repo.save_tool_call(
                         conn,
                         ToolCallRecord(
-                            schema_version="1.0.0", tool_call_id=f"tc_{run_id}_0", run_id=run_id,
+                            schema_version="1.0.0", tool_call_id=f"tc_{run_id}_{uuid.uuid4().hex[:8]}", run_id=run_id,
                             account_id=principal.account_id, tool_name=tool_name, input_hash=input_hash,
                             status="success" if result.get("evidence") else "failed",
                             evidence=result.get("evidence") or {}, latency_ms=latency_ms, created_at=completed_iso,

@@ -25,7 +25,7 @@ Các chỉ số then chốt:
 | Mã WP | Tên hạng mục | Trạng thái | Commit | Artifact & Thành phần chính | Test Suite & Kết quả |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | **AC0** | Contracts Freeze & ADR | ĐẠT | `9c444ea` | `docs/adr/ADR-002-agentic-core-contracts.md`<br>8 schemas core: `ConfigDict(extra="forbid", frozen=True)` | `tests/test_agentic_core_schemas.py`<br>4 passed |
-| **AC1** | Persistence Layer | ĐẠT | `df30773`<br>`b16320c` | Migration 016, 017; `infrastructure/repositories.py`<br>Scoped by owner/tenant, Idempotency key | `tests/test_agentic_persistence.py`<br>6 passed |
+| **AC1** | Persistence Layer | ĐẠT | `cb9a854`<br>`b16320c` | Migration 016, 017; `infrastructure/repositories.py`<br>Scoped by owner/tenant, Idempotency key | `tests/test_agentic_persistence.py`<br>6 passed |
 | **AC2** | Tool Registry & Grants | ĐẠT | `df30773`<br>`2b9754d`<br>`fdfb5cf` | `src/risk_dashboard/modules/agentic_core/application/tool_grants.py`, `QuantRiskReadOnlyTool`<br>Domain read-only tools: BCTC & Learning context | `tests/test_tool_grants.py`<br>6 passed |
 | **AC3** | Execution Graph | ĐẠT | `df30773`<br>`336e645` | `application/graph.py`<br>Nodes: guard, router, specialist, reviewer, success, recovery | `tests/test_agentic_graph.py`<br>12 passed |
 | **AC4** | Bounded Context & Memory | ĐẠT | `bd14f59` | `application/context_builder.py`, `MemoryGovernor`<br>`src/risk_dashboard/modules/agentic_core/domain/memory.py (hằng số PROHIBITED_PATTERNS)`, 4 API user memory | `tests/test_agentic_memory.py`<br>7 passed |

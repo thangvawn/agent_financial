@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import sqlite3
 from typing import Any
 import uuid
 
@@ -9,6 +10,7 @@ from risk_dashboard.modules.agentic_core.infrastructure.repositories import Agen
 from risk_dashboard.modules.agentic_core.infrastructure.sqlite_memory import SqliteMemoryRepository
 from risk_dashboard.modules.agentic_core.schemas.artifact import ActionProposal, ActionReceipt
 from risk_dashboard.platform.database import open_app_state_db
+from risk_dashboard.platform.feature_flags.decorator import feature_flag
 
 
 class ActionExecutionError(Exception):
@@ -39,8 +41,9 @@ class ActionService:
         self._memory_repo = memory_repo or SqliteMemoryRepository()
 
     def _now_iso(self) -> str:
-        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return datetime.now(timezone.utc).isoformat()
 
+    @feature_flag("agentic.actions", default=True)
     def confirm(self, *, proposal_id: str, account_id: str) -> ActionReceipt:
         with open_app_state_db() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -97,8 +100,15 @@ class ActionService:
                 result_ref=proposal.target,
             )
             self._action_repo.update_proposal_status(conn, proposal_id=proposal_id, account_id=account_id, status="confirmed")
-            self._action_repo.save_receipt(conn, receipt)
-            conn.commit()
+            try:
+                self._action_repo.save_receipt(conn, receipt)
+                conn.commit()
+            except sqlite3.IntegrityError:
+                conn.rollback()
+                existing = self._action_repo.get_receipt(conn, proposal_id=proposal_id, account_id=account_id)
+                if existing is not None:
+                    return existing
+                raise
             return receipt
 
     def reject(self, *, proposal_id: str, account_id: str) -> ActionReceipt:

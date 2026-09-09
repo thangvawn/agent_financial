@@ -9,6 +9,7 @@ PROHIBITED_PATTERNS = [
     re.compile(r"thought:\s", re.IGNORECASE),
     re.compile(r"api_key|api_secret|sk-[a-zA-Z0-9_\-]+", re.IGNORECASE),
     re.compile(r"raw tool payload", re.IGNORECASE),
+    re.compile(r"<\s*/?\s*untrusted_context\s*>", re.IGNORECASE),
     re.compile(r"\b(buy|sell)\b.*\b(stock|shares|immediately|market price|portfolio)\b", re.IGNORECASE),
     re.compile(r"bank balance|account balance|private report", re.IGNORECASE),
 ]

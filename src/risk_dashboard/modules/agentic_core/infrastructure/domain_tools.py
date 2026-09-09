@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from risk_dashboard.modules.agentic_core.application.tool_registry import get_default_tool_registry
@@ -9,7 +10,11 @@ from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGran
 class BctcResolveLineItemTool:
     """Read-only domain tool wrapping financial reporting engine."""
 
-    def __init__(self, manifest: ToolManifest | None = None) -> None:
+    def __init__(
+        self,
+        manifest: ToolManifest | None = None,
+        service: Any = None,
+    ) -> None:
         if manifest is None:
             manifest = get_default_tool_registry().get("bctc.resolve_line_item")
             if manifest is None:
@@ -23,22 +28,54 @@ class BctcResolveLineItemTool:
                     required_capabilities=("financials:read",),
                 )
         self.manifest = manifest
+        self.service = service
 
     async def execute(self, grant: ToolGrant) -> dict[str, str]:
+        ticker = "FPT"
+        line_item = "revenue"
+        res_id = getattr(grant, "resource_id", None)
+        if res_id:
+            parts = res_id.split(":")
+            if len(parts) >= 3 and parts[0] == "ticker":
+                ticker = parts[1]
+                line_item = parts[2]
+            elif len(parts) == 2:
+                ticker = parts[0]
+                line_item = parts[1]
+            elif len(parts) == 1:
+                ticker = parts[0]
+
+        res_data: dict[str, str] = {}
+        if self.service is not None:
+            if inspect.iscoroutinefunction(self.service):
+                out = await self.service(ticker, line_item)
+            else:
+                out = self.service(ticker, line_item)
+            if isinstance(out, dict):
+                res_data = {str(k): str(v) for k, v in out.items()}
+        else:
+            res_data = {
+                "value": "52618",
+                "currency": "VND",
+            }
+
         return {
             "tool_id": self.manifest.tool_id,
             "status": "resolved",
-            "ticker": "FPT",
-            "line_item": "revenue",
-            "value": "52618",
-            "currency": "VND",
+            "ticker": ticker,
+            "line_item": line_item,
+            **res_data,
         }
 
 
 class LearningGetLessonContextTool:
     """Read-only domain tool wrapping learning engine."""
 
-    def __init__(self, manifest: ToolManifest | None = None) -> None:
+    def __init__(
+        self,
+        manifest: ToolManifest | None = None,
+        service: Any = None,
+    ) -> None:
         if manifest is None:
             manifest = get_default_tool_registry().get("learning.get_lesson_context")
             if manifest is None:
@@ -52,12 +89,34 @@ class LearningGetLessonContextTool:
                     required_capabilities=("learning:read",),
                 )
         self.manifest = manifest
+        self.service = service
 
     async def execute(self, grant: ToolGrant) -> dict[str, str]:
+        lesson_id = "quant_101"
+        res_id = getattr(grant, "resource_id", None)
+        if res_id:
+            if ":" in res_id:
+                lesson_id = res_id.split(":")[-1]
+            else:
+                lesson_id = res_id
+
+        res_data: dict[str, str] = {}
+        if self.service is not None:
+            if inspect.iscoroutinefunction(self.service):
+                out = await self.service(lesson_id)
+            else:
+                out = self.service(lesson_id)
+            if isinstance(out, dict):
+                res_data = {str(k): str(v) for k, v in out.items()}
+        else:
+            res_data = {
+                "topic": "Value at Risk",
+                "concept": "Market risk modeling",
+            }
+
         return {
             "tool_id": self.manifest.tool_id,
             "status": "active",
-            "lesson_id": "quant_101",
-            "topic": "Value at Risk",
-            "concept": "Market risk modeling",
+            "lesson_id": lesson_id,
+            **res_data,
         }

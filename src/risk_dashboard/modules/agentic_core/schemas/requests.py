@@ -26,3 +26,8 @@ class AgentRunResponseV1(BaseModel):
     status: str
     artifact: AgentArtifact | None = None
     action_proposal: ActionProposal | None = None
+
+
+class EditMemoryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content: str = Field(min_length=1)

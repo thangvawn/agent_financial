@@ -32,13 +32,24 @@ def _parse_canonical_numeric(text: str) -> tuple[Decimal, str | None] | None:
 
 
 def _extract_statement_numeric_tokens(statement: str) -> list[tuple[Decimal, str | None]]:
-    """Extracts numeric tokens with optional units (e.g. '42%', '42 VND', '0.045', '142', '-15%', '1e-5')."""
+    """Extracts numeric tokens with optional units (e.g. '42%', '42 VND', '0.045', '142', '-15%', '1e-5', '12,5%')."""
     matches = _NUMERIC_TOKEN_PATTERN.finditer(statement)
     tokens: list[tuple[Decimal, str | None]] = []
     for m in matches:
-        num_str = m.group(1).replace(",", "")
+        raw_num = m.group(1)
         raw_unit = m.group(2)
         unit = raw_unit.strip() if raw_unit and raw_unit.strip() else None
+
+        # Handle Vietnamese decimal comma (e.g., "12,5" -> "12.5") vs thousands separator ("1,000")
+        if "," in raw_num and "." not in raw_num:
+            parts = raw_num.split(",")
+            if len(parts) == 2 and (unit == "%" or len(parts[1]) != 3):
+                num_str = f"{parts[0]}.{parts[1]}"
+            else:
+                num_str = raw_num.replace(",", "")
+        else:
+            num_str = raw_num.replace(",", "")
+
         try:
             tokens.append((Decimal(num_str), unit))
         except (InvalidOperation, ValueError):
@@ -78,7 +89,7 @@ def _match_single_numeric_evidence(
         if tok_dec.is_nan() or tok_dec.is_infinite():
             continue
         if ev_unit == tok_unit:
-            # Check exact equality or within tolerance abs_tol (< 1e-4)
+            # Check exact equality or strictly within tolerance abs_tol (< 1e-4)
             if ev_dec == tok_dec or abs(ev_dec - tok_dec) < abs_tol:
                 return True
 

@@ -47,8 +47,17 @@ def feature_flag(flag_name: str, *, default: bool = False, fallback: Any = None)
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                enabled = _flag_service.is_enabled(flag_name, default=default)
-                FlagRegistry.record(flag_name, enabled, caller_name)
+                try:
+                    enabled = _flag_service.is_enabled(flag_name, default=default)
+                except Exception as e:
+                    logger.warning("Error evaluating flag '%s': %s; falling back to %s", flag_name, e, default)
+                    enabled = default
+
+                try:
+                    FlagRegistry.record(flag_name, enabled, caller_name)
+                except Exception as e:
+                    logger.warning("Error recording flag audit for '%s': %s", flag_name, e)
+
                 if not enabled:
                     logger.info("Feature flag '%s' disabled for %s; returning fallback", flag_name, caller_name)
                     return fallback
@@ -57,8 +66,17 @@ def feature_flag(flag_name: str, *, default: bool = False, fallback: Any = None)
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            enabled = _flag_service.is_enabled(flag_name, default=default)
-            FlagRegistry.record(flag_name, enabled, caller_name)
+            try:
+                enabled = _flag_service.is_enabled(flag_name, default=default)
+            except Exception as e:
+                logger.warning("Error evaluating flag '%s': %s; falling back to %s", flag_name, e, default)
+                enabled = default
+
+            try:
+                FlagRegistry.record(flag_name, enabled, caller_name)
+            except Exception as e:
+                logger.warning("Error recording flag audit for '%s': %s", flag_name, e)
+
             if not enabled:
                 logger.info("Feature flag '%s' disabled for %s; returning fallback", flag_name, caller_name)
                 return fallback

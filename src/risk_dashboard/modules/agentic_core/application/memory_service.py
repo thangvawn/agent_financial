@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from uuid import uuid4
 from typing import Any
@@ -102,7 +102,13 @@ class MemoryService:
         if proposal is None:
             return None
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+        expires_at_iso = (
+            (now + timedelta(days=proposal.ttl_days)).isoformat()
+            if proposal.ttl_days is not None
+            else None
+        )
         item = MemoryItem(
             schema_version="1.0.0",
             memory_id=proposal.proposal_id,
@@ -114,6 +120,7 @@ class MemoryService:
             confidence=proposal.confidence,
             sensitivity=proposal.sensitivity,
             ttl_days=proposal.ttl_days,
+            expires_at=expires_at_iso,
             created_at=now_iso,
             updated_at=now_iso,
         )
