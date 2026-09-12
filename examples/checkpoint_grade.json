@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "checkpoint_id": "cp_socratic_001",
+  "lesson_id": "lesson_sharpe_ratio",
+  "submission": {
+    "response": "Độ lệch chuẩn tổng thể đo lường toàn bộ biến động giá"
+  },
+  "passed": true,
+  "score": 100,
+  "rubric_evidence": [
+    "Học viên xác định chính xác mẫu số tỷ số Sharpe là độ lệch chuẩn sigma đại diện cho rủi ro toàn phần."
+  ],
+  "misconceptions": [],
+  "verified_event_id": "ev_chk_9f8e7d6c5b4a3120"
+}

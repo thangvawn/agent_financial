@@ -213,6 +213,7 @@ def get_learning_checkpoint(
     difficulty: str | None = Query(default=None),
     principal: AuthPrincipal = Depends(resolve_surface_principal),
 ) -> GetQuizItemOutput:
+    """Retrieve an active Socratic learning checkpoint for a lesson without leaking answer keys."""
     try:
         service = LearningCheckpointService()
         return service.create_checkpoint(
@@ -231,6 +232,7 @@ def grade_learning_checkpoint(
     req: GradeCheckpointInput,
     principal: AuthPrincipal = Depends(resolve_surface_principal),
 ) -> GradeCheckpointOutput:
+    """Evaluate and grade the learner's response against the rubric, returning score and verified event ID."""
     try:
         service = LearningCheckpointService()
         account_id = principal.account_id
@@ -254,6 +256,7 @@ def complete_learning_checkpoint(
     req: UpdateProgressInput,
     principal: AuthPrincipal = Depends(resolve_surface_principal),
 ) -> UpdateProgressOutput:
+    """Confirm and commit checkpoint progress with human-in-the-loop confirmation token and idempotency key."""
     try:
         service = LearningCheckpointService()
         account_id = principal.account_id

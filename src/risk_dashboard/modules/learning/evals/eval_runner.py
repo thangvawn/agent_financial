@@ -177,15 +177,13 @@ class LearningAgentEvalRunner:
         )
 
 
-class LearningMultiAgentEvalRunner:
-    """E2E Multi-Agent benchmark runner orchestrating the 100 gold test cases."""
+def __getattr__(name: str):
+    if name == "LearningMultiAgentEvalRunner":
+        from risk_dashboard.modules.learning.evals.multi_agent_runner import (
+            LearningMultiAgentEvalRunner,
+        )
 
-    def __init__(self, runner: LearningAgentEvalRunner | None = None) -> None:
-        self.runner = runner or LearningAgentEvalRunner()
+        return LearningMultiAgentEvalRunner
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-    def run_case(self, case: GoldTestCase) -> EvalRunResult:
-        return self.runner.run_case(case)
-
-    def run_suite(self, suite: Sequence[GoldTestCase] | None = None) -> EvalRunSummary:
-        return self.runner.run_suite(suite or GOLD_SET_SUITE)
 

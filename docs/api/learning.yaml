@@ -1,0 +1,258 @@
+openapi: 3.1.0
+info:
+  title: Learning Checkpoint & Socratic Tutor API
+  version: 1.0.0
+  description: REST API contracts for the Northstar Finance Lab Learning Subsystem (Checkpoints, Socratic Evaluation, and Verified Progress).
+servers:
+  - url: /api/v1/public
+    description: Public API Gateway
+tags:
+  - name: Learning
+    description: Interactive learning journeys, Socratic checkpoint evaluation, and progress verification.
+paths:
+  /api/v1/public/learning/checkpoint:
+    get:
+      tags:
+        - Learning
+      summary: Retrieve Socratic learning checkpoint
+      description: Fetches an active quiz/checkpoint item for a lesson without leaking the answer key.
+      operationId: get_learning_checkpoint
+      parameters:
+        - name: lesson_id
+          in: query
+          required: true
+          description: Unique identifier of the lesson.
+          schema:
+            type: string
+            minLength: 1
+        - name: difficulty
+          in: query
+          required: false
+          description: Optional difficulty tier ('beginner', 'intermediate', 'advanced').
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          required: false
+          description: Optional session token for anonymous learners.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Socratic checkpoint item loaded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetQuizItemOutput"
+        "400":
+          description: Invalid request parameters.
+        "404":
+          description: Lesson not found.
+  /api/v1/public/learning/checkpoint/grade:
+    post:
+      tags:
+        - Learning
+      summary: Evaluate and grade checkpoint response
+      description: Grades the learner's response against the rubric, returning score, feedback, and a signed verified event token if passed.
+      operationId: grade_learning_checkpoint
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          description: Optional session token for anonymous learners.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Learner checkpoint response submission.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GradeCheckpointInput"
+      responses:
+        "200":
+          description: Evaluation result and verification event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GradeCheckpointOutput"
+        "400":
+          description: Invalid or malformed submission payload.
+        "403":
+          description: Checkpoint does not belong to user or is expired.
+  /api/v1/public/learning/checkpoint/complete:
+    post:
+      tags:
+        - Learning
+      summary: Confirm and commit checkpoint completion
+      description: Commits progress with human-in-the-loop confirmation token, idempotency key, and verified event ID.
+      operationId: complete_learning_checkpoint
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          description: Optional session token for anonymous learners.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Two-phase commit progress confirmation.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgressInput"
+      responses:
+        "200":
+          description: Progress committed with deterministic receipt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateProgressOutput"
+        "400":
+          description: Invalid confirmation parameters.
+        "403":
+          description: Unauthorized or token mismatch.
+components:
+  schemas:
+    GetQuizItemOutput:
+      type: object
+      required:
+        - schema_version
+        - checkpoint_id
+        - lesson_id
+        - prompt
+        - options
+        - expires_at
+      properties:
+        schema_version:
+          type: string
+          example: "1.0.0"
+        checkpoint_id:
+          type: string
+          example: "cp_7a8b9c0d"
+        lesson_id:
+          type: string
+          example: "lesson_sharpe_ratio"
+        prompt:
+          type: string
+          example: "Công thức tỷ số Sharpe đo lường tỷ suất sinh lời vượt trội trên mỗi đơn vị rủi ro nào?"
+        options:
+          type: array
+          items:
+            type: string
+          example:
+            - "Tổng độ lệch chuẩn (Total Standard Deviation)"
+            - "Độ lệch bán phần dưới (Downside Semi-deviation)"
+            - "Hệ số Beta thị trường (Market Beta)"
+            - "Tỷ lệ đòn bẩy tài chính (Debt-to-Equity Ratio)"
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-09-12T18:45:00Z"
+    GradeCheckpointInput:
+      type: object
+      required:
+        - checkpoint_id
+        - response
+      properties:
+        schema_version:
+          type: string
+          default: "1.0.0"
+          example: "1.0.0"
+        checkpoint_id:
+          type: string
+          example: "cp_7a8b9c0d"
+        response:
+          type: string
+          example: "Tổng độ lệch chuẩn (Total Standard Deviation)"
+    GradeCheckpointOutput:
+      type: object
+      required:
+        - schema_version
+        - checkpoint_id
+        - lesson_id
+        - passed
+        - score
+        - rubric_evidence
+        - verified_event_id
+      properties:
+        schema_version:
+          type: string
+          example: "1.0.0"
+        checkpoint_id:
+          type: string
+          example: "cp_7a8b9c0d"
+        lesson_id:
+          type: string
+          example: "lesson_sharpe_ratio"
+        passed:
+          type: boolean
+          example: true
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 100
+        rubric_evidence:
+          type: array
+          items:
+            type: string
+          example:
+            - "Định nghĩa chuẩn xác: Sharpe Ratio = (E[R] - Rf) / sigma."
+        misconceptions:
+          type: array
+          items:
+            type: string
+          example: []
+        verified_event_id:
+          type: string
+          example: "ev_chk_550e8400_e29b_41d4_a716"
+    UpdateProgressInput:
+      type: object
+      required:
+        - verified_event_id
+        - idempotency_key
+        - confirmation_id
+      properties:
+        schema_version:
+          type: string
+          default: "1.0.0"
+          example: "1.0.0"
+        verified_event_id:
+          type: string
+          example: "ev_chk_550e8400_e29b_41d4_a716"
+        idempotency_key:
+          type: string
+          example: "idemp_d41d8cd98f00b204e9800998ecf8427e"
+        confirmation_id:
+          type: string
+          example: "conf_a1b2c3d4e5f6"
+    UpdateProgressOutput:
+      type: object
+      required:
+        - schema_version
+        - receipt_id
+        - lesson_id
+        - status
+        - updated_at
+      properties:
+        schema_version:
+          type: string
+          example: "1.0.0"
+        receipt_id:
+          type: string
+          example: "rcpt_9876543210"
+        lesson_id:
+          type: string
+          example: "lesson_sharpe_ratio"
+        status:
+          type: string
+          example: "completed"
+        quiz_score:
+          type: integer
+          nullable: true
+          example: 100
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-09-12T18:30:00Z"

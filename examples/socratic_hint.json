@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "checkpoint_id": "cp_socratic_001",
+  "lesson_id": "lesson_sharpe_ratio",
+  "prompt": "Xét danh mục có tỷ suất sinh lời kỳ vọng 15%, lãi suất phi rủi ro 5%, và độ lệch chuẩn 10%. Theo phương pháp Socratic: yếu tố mẫu số phản ánh điều gì về rủi ro toàn phần?",
+  "options": [
+    "Độ lệch chuẩn tổng thể đo lường toàn bộ biến động giá",
+    "Hệ số Beta chỉ đo lường rủi ro hệ thống",
+    "Tỷ lệ sụt giảm tối đa trong quá khứ",
+    "Chi phí vốn bình quân gia quyền (WACC)"
+  ],
+  "expires_at": "2026-09-12T19:00:00Z",
+  "socratic_coaching": {
+    "focus_concept": "Total Risk vs Systematic Risk",
+    "hint": "Hãy nhớ lại công thức gốc của William Sharpe: Mẫu số sử dụng độ lệch chuẩn sigma, đại diện cho rủi ro phân tán hay rủi ro toàn phần?"
+  }
+}

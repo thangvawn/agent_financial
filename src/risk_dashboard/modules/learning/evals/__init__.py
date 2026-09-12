@@ -9,6 +9,13 @@ from risk_dashboard.modules.learning.evals.gold_set import (
     GoldTestCase,
     build_gold_set,
 )
+from risk_dashboard.modules.learning.evals.telemetry import (
+    MultiAgentTelemetryCollector,
+    get_multi_agent_collector,
+    get_multi_agent_telemetry,
+    record_multi_agent_run,
+    reset_multi_agent_telemetry,
+)
 
 __all__ = [
     "GOLD_SET_SUITE",
@@ -18,6 +25,12 @@ __all__ = [
     "LearningMultiAgentEvalRunner",
     "EvalRunResult",
     "EvalRunSummary",
+    "MultiAgentTelemetryCollector",
+    "get_multi_agent_collector",
+    "get_multi_agent_telemetry",
+    "record_multi_agent_run",
+    "reset_multi_agent_telemetry",
 ]
+
 
 

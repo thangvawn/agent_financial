@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -69,7 +70,12 @@ class LearningCheckpointService:
             raise ValueError(f"Lesson '{lesson_id}' has no quiz questions available.")
 
         # Question selection (can filter by difficulty if matching questions exist)
-        question = lesson.quiz_questions[0]
+        candidates = lesson.quiz_questions
+        if difficulty:
+            matching = [q for q in candidates if getattr(q, "difficulty", None) == difficulty]
+            if matching:
+                candidates = matching
+        question = random.choice(candidates)
         checkpoint_id = f"cp_{uuid4().hex}"
         now = datetime.now(timezone.utc)
         expires_at = (now + timedelta(seconds=ttl_seconds)).isoformat()

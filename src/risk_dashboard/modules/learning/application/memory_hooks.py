@@ -31,6 +31,17 @@ class TeachingPreferenceMemoryProposal:
     created_at: str
 
 
+def resolve_mastery_threshold(*, tier: str = "community", role: str | None = None) -> int:
+    normalized_tier = (tier or "").lower().strip()
+    normalized_role = (role or "").lower().strip() if role else None
+
+    if normalized_tier in ("community", "free", "starter") or normalized_role == "retail":
+        return 75
+    if normalized_tier in ("pro", "enterprise") or normalized_role in ("institutional", "pro"):
+        return 85
+    return 80
+
+
 class LearningMemoryGovernor:
     """Deterministic Memory Governor for Learning.
 
@@ -46,13 +57,19 @@ class LearningMemoryGovernor:
         *,
         verified_event: VerifiedEventRecord,
         memory_enabled: bool = True,
+        tier: str = "community",
+        role: str | None = None,
     ) -> MasteryMemoryProposal | None:
         if not memory_enabled:
             logger.info("Memory is disabled for account; skipping mastery proposal.")
             return None
 
-        if not verified_event.passed or verified_event.score < 80:
-            logger.info(f"Checkpoint did not pass with mastery threshold (score={verified_event.score}); skipping.")
+        threshold = resolve_mastery_threshold(tier=tier, role=role)
+        if not verified_event.passed or verified_event.score < threshold:
+            logger.info(
+                f"Checkpoint did not pass with mastery threshold {threshold} "
+                f"(score={verified_event.score}, tier={tier}, role={role}); skipping."
+            )
             return None
 
         from uuid import uuid4
@@ -73,8 +90,11 @@ class LearningMemoryGovernor:
         verified_event: VerifiedEventRecord,
         memory_service: Any,
         memory_enabled: bool = True,
+        tier: str = "community",
+        role: str | None = None,
     ) -> Any | None:
-        if not memory_enabled or not verified_event.passed or verified_event.score < 80:
+        threshold = resolve_mastery_threshold(tier=tier, role=role)
+        if not memory_enabled or not verified_event.passed or verified_event.score < threshold:
             return None
 
         content = f"Mastered lesson '{verified_event.lesson_id}' with score {verified_event.score}"
