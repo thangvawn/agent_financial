@@ -2,6 +2,7 @@ from risk_dashboard.modules.learning.evals.eval_runner import (
     EvalRunResult,
     EvalRunSummary,
     LearningAgentEvalRunner,
+    LearningMultiAgentEvalRunner,
 )
 from risk_dashboard.modules.learning.evals.gold_set import (
     GOLD_SET_SUITE,
@@ -14,7 +15,9 @@ __all__ = [
     "GoldTestCase",
     "build_gold_set",
     "LearningAgentEvalRunner",
+    "LearningMultiAgentEvalRunner",
     "EvalRunResult",
     "EvalRunSummary",
 ]
+
 

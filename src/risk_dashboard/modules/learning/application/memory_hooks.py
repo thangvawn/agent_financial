@@ -68,6 +68,29 @@ class LearningMemoryGovernor:
         )
 
     @staticmethod
+    def record_mastery_proposal(
+        *,
+        verified_event: VerifiedEventRecord,
+        memory_service: Any,
+        memory_enabled: bool = True,
+    ) -> Any | None:
+        if not memory_enabled or not verified_event.passed or verified_event.score < 80:
+            return None
+
+        content = f"Mastered lesson '{verified_event.lesson_id}' with score {verified_event.score}"
+        return memory_service.record_memory(
+            account_id=verified_event.account_id,
+            run_id=f"run_mastery_{verified_event.event_id}",
+            memory_type="mastery",
+            content=content,
+            provenance="deterministic_checkpoint",
+            confidence=1.0,
+            sensitivity="normal",
+            consent_memory=True,
+            memory_mode="on",
+        )
+
+    @staticmethod
     def propose_preference(
         *,
         account_id: str,
@@ -96,11 +119,17 @@ class LearningMemoryGovernor:
         """Purge all durable learning memory proposals for an account upon forget request."""
         deleted_count = 0
         with open_app_state_db() as conn:
-            # Check if user memory table exists and purge account scoped records
+            # Check if durable agentic_memory_items table exists and purge account scoped records
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='agentic_memory_items'")
+            if cursor.fetchone():
+                cur = conn.execute("DELETE FROM agentic_memory_items WHERE account_id = ?", (account_id,))
+                deleted_count += cur.rowcount
+            # Check legacy agentic_user_memory table if present
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='agentic_user_memory'")
             if cursor.fetchone():
                 cur = conn.execute("DELETE FROM agentic_user_memory WHERE user_id = ?", (account_id,))
                 deleted_count += cur.rowcount
-                conn.commit()
+            conn.commit()
         return deleted_count
+
 

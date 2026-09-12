@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal

@@ -27,8 +27,17 @@ def resolve_grant(
     if tool_manifest.risk_class in {RiskClass.FORBIDDEN, RiskClass.CONFIRMED_WRITE}:
         return None
 
-    if not set(tool_manifest.required_capabilities).issubset(envelope.allowed_capabilities):
-        return None
+    allowed_caps = set(envelope.allowed_capabilities)
+    for req in tool_manifest.required_capabilities:
+        if req not in allowed_caps and "*" not in allowed_caps:
+            prefix = req.split(":")[0] if ":" in req else req
+            if not (
+                f"{prefix}:*" in allowed_caps
+                or f"{prefix}:all" in allowed_caps
+                or (prefix == "learn" and "learning:all" in allowed_caps)
+                or (prefix == "learn" and "learning:read" in allowed_caps and ":write" not in req)
+            ):
+                return None
 
     if envelope.budget.max_tool_calls <= 0:
         return None

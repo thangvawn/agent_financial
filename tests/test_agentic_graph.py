@@ -394,3 +394,101 @@ def test_graph_kill_switch_blocks_at_specialist(monkeypatch) -> None:
     assert result["code"] == "kill_switch_active"
     assert tool.calls == 0
 
+
+# ---------------------------------------------------------------------------
+# Module 4: Learning Skills & Memory Breaking Tests (Pha 2)
+# ---------------------------------------------------------------------------
+from risk_dashboard.modules.agentic_core.application.skill_router import SkillRouter
+
+
+class TestLearningSkillRouting:
+    def test_skill_router_resolves_learning_skills(self) -> None:
+        """SkillRouter must resolve the 6 Module 4 learning skills to their expected domain tools."""
+        expected_skills = {
+            "learn.explain.v1": "learning.get_context",
+            "learn.socratic_hint.v1": "learning.get_quiz_item",
+            "learn.formula_walkthrough.v1": "learning.get_context",
+            "learn.check_misconception.v1": "learning.get_context",
+            "learn.run_checkpoint.v1": "learning.grade_checkpoint",
+            "learn.next_step.v1": "learning.recommend_next",
+        }
+        for skill_id, expected_tool_id in expected_skills.items():
+            tool = SkillRouter.resolve_tool(surface="learn", operation=skill_id)
+            assert tool.manifest.tool_id == expected_tool_id, (
+                f"Expected skill '{skill_id}' to resolve to tool '{expected_tool_id}', "
+                f"but got '{tool.manifest.tool_id}'"
+            )
+
+    def test_run_checkpoint_skill_coordination(self) -> None:
+        """Checkpoint skill coordination via SkillRouter and graph execution."""
+        tool = SkillRouter.resolve_tool(surface="learn", operation="learn.run_checkpoint.v1")
+        envelope = TrustedExecutionEnvelope(
+            run_id="run-learn-cp-1",
+            correlation_id="corr-learn-cp-1",
+            idempotency_key="idemp-learn-cp-1",
+            account_id="account-learner-1",
+            surface="learn",
+            allowed_capabilities=("learn:checkpoint:grade", "learning:read"),
+            budget=ExecutionBudget(),
+            policy_version="v1",
+            model_policy_version="v1",
+            consent=ConsentSnapshot(policy_version="v1"),
+            created_at="2026-08-28T12:00:00+00:00",
+        )
+        task = ModelTask(
+            task_id="task-learn-cp-1",
+            task_type="agentic_read",
+            system_instructions_ref="learn.run_checkpoint.v1",
+            messages=(ModelMessage(role="user", content="grade checkpoint cp_123"),),
+            correlation_id="corr-learn-cp-1",
+        )
+        provider = FakeProvider([_result()])
+
+        result = asyncio.run(run_graph(envelope, task, provider, tool))
+
+        assert result["status"] == "success"
+        assert result["code"] is None
+        assert result["evidence"] is not None
+        assert result["evidence"]["tool_id"] in ("learning.grade_checkpoint", "learning.run_checkpoint")
+        assert "verified_event_id" in result["evidence"]
+
+    def test_mastery_proposal_persists_in_agentic_core(self, tmp_path) -> None:
+        """When a checkpoint passes with mastery threshold, proposal must persist in agentic_core memory."""
+        from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
+        from risk_dashboard.modules.agentic_core.infrastructure.sqlite_memory import SqliteMemoryRepository
+        from risk_dashboard.modules.learning.application.memory_hooks import LearningMemoryGovernor
+        from risk_dashboard.modules.learning.domain.entities import VerifiedEventRecord
+
+        db_path = tmp_path / "test_memory.db"
+        repo = SqliteMemoryRepository(db_path=db_path)
+        memory_service = MemoryService(repository=repo)
+
+        passed_event = VerifiedEventRecord(
+            event_id="ev_pass_mastery_99",
+            account_id="user_mastery_1",
+            checkpoint_id="cp_mastery_1",
+            lesson_id="quant_101",
+            score=100,
+            passed=True,
+            rubric_evidence=("Passed all criteria",),
+            misconceptions=(),
+            created_at="2026-09-12T10:00:00Z",
+        )
+
+        if hasattr(LearningMemoryGovernor, "record_mastery_proposal"):
+            item = LearningMemoryGovernor.record_mastery_proposal(
+                verified_event=passed_event,
+                memory_service=memory_service,
+            )
+        else:
+            item = getattr(LearningMemoryGovernor, "record_mastery_proposal", None)
+
+        assert item is not None, "Mastery proposal was not recorded into agentic memory service"
+        memories = memory_service.list_memories(account_id="user_mastery_1", memory_type="mastery")
+        assert len(memories) == 1
+        assert memories[0].memory_type == "mastery"
+        assert memories[0].provenance == "deterministic_checkpoint"
+        assert "quant_101" in memories[0].content
+
+
+

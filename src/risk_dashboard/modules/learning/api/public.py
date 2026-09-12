@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
+from risk_dashboard.modules.learning.application.checkpoint_service import LearningCheckpointService
 from risk_dashboard.modules.learning.application.services import (
     CompleteLearningLesson,
     GetContextRecommendation,
@@ -20,6 +21,13 @@ from risk_dashboard.modules.learning.application.services import (
 )
 from risk_dashboard.modules.learning.infrastructure.catalog_reader import SqliteLearningCatalog
 from risk_dashboard.modules.learning.infrastructure.repositories.sqlite import SqliteLearningHomeRepository
+from risk_dashboard.modules.learning.schemas.agent_tools import (
+    GetQuizItemOutput,
+    GradeCheckpointInput,
+    GradeCheckpointOutput,
+    UpdateProgressInput,
+    UpdateProgressOutput,
+)
 from risk_dashboard.modules.learning.schemas.requests import (
     LearningQuizSubmitRequest,
 )
@@ -195,6 +203,72 @@ def complete_learning_lesson(
         ).execute(user_id=principal.account_id, lesson_id=lesson_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/checkpoint", response_model=GetQuizItemOutput, tags=["Learning"])
+def get_learning_checkpoint(
+    lesson_id: str = Query(..., min_length=1),
+    difficulty: str | None = Query(default=None),
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GetQuizItemOutput:
+    try:
+        service = LearningCheckpointService()
+        return service.create_checkpoint(
+            account_id=principal.account_id,
+            lesson_id=lesson_id,
+            difficulty=difficulty,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/checkpoint/grade", response_model=GradeCheckpointOutput, tags=["Learning"])
+def grade_learning_checkpoint(
+    req: GradeCheckpointInput,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> GradeCheckpointOutput:
+    try:
+        service = LearningCheckpointService()
+        account_id = principal.account_id
+        if principal.is_anonymous:
+            checkpoint = service.checkpoint_repo.get_checkpoint(checkpoint_id=req.checkpoint_id)
+            if checkpoint and checkpoint.account_id.startswith("anon_"):
+                account_id = checkpoint.account_id
+        return service.grade_checkpoint(
+            account_id=account_id,
+            checkpoint_id=req.checkpoint_id,
+            response=req.response,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/checkpoint/complete", response_model=UpdateProgressOutput, tags=["Learning"])
+def complete_learning_checkpoint(
+    req: UpdateProgressInput,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> UpdateProgressOutput:
+    try:
+        service = LearningCheckpointService()
+        account_id = principal.account_id
+        if principal.is_anonymous:
+            event = service.checkpoint_repo.get_verified_event(event_id=req.verified_event_id)
+            if event and event.account_id.startswith("anon_"):
+                account_id = event.account_id
+        return service.update_progress_confirmed(
+            account_id=account_id,
+            verified_event_id=req.verified_event_id,
+            idempotency_key=req.idempotency_key,
+            confirmation_id=req.confirmation_id,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

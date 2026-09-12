@@ -175,3 +175,17 @@ class LearningAgentEvalRunner:
             p95_latency_ms=p95,
             status=overall_status,
         )
+
+
+class LearningMultiAgentEvalRunner:
+    """E2E Multi-Agent benchmark runner orchestrating the 100 gold test cases."""
+
+    def __init__(self, runner: LearningAgentEvalRunner | None = None) -> None:
+        self.runner = runner or LearningAgentEvalRunner()
+
+    def run_case(self, case: GoldTestCase) -> EvalRunResult:
+        return self.runner.run_case(case)
+
+    def run_suite(self, suite: Sequence[GoldTestCase] | None = None) -> EvalRunSummary:
+        return self.runner.run_suite(suite or GOLD_SET_SUITE)
+

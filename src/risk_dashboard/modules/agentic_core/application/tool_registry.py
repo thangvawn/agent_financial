@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Iterable
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolManifest
+from risk_dashboard.modules.learning.agent_tools import (
+    GET_CONTEXT_MANIFEST,
+    GET_PROGRESS_MANIFEST,
+    GET_QUIZ_ITEM_MANIFEST,
+    GRADE_CHECKPOINT_MANIFEST,
+    RECOMMEND_NEXT_MANIFEST,
+    UPDATE_PROGRESS_MANIFEST,
+)
 
 
 class ToolRegistry:
@@ -75,6 +83,13 @@ _CANONICAL_MANIFESTS: tuple[ToolManifest, ...] = (
         description="Fetch exact line item from verified financial reports.",
         required_capabilities=("financials:read",),
     ),
+    # Canonical Learning Engine Tools (Module 4 - LEA0, LEA1, LEA4)
+    GET_CONTEXT_MANIFEST,
+    GET_PROGRESS_MANIFEST,
+    GET_QUIZ_ITEM_MANIFEST,
+    GRADE_CHECKPOINT_MANIFEST,
+    UPDATE_PROGRESS_MANIFEST,
+    RECOMMEND_NEXT_MANIFEST,
     # Strictly FORBIDDEN tools (Master Plan §7.8 & §10.2)
     ToolManifest(
         tool_id="broker.place_order",
@@ -133,3 +148,8 @@ def get_default_tool_registry() -> ToolRegistry:
         reg.register_many(_CANONICAL_MANIFESTS)
         _DEFAULT_REGISTRY = reg
     return _DEFAULT_REGISTRY
+
+
+def reset_default_tool_registry() -> None:
+    global _DEFAULT_REGISTRY
+    _DEFAULT_REGISTRY = None

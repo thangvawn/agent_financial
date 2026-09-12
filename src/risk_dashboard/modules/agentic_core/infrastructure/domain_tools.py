@@ -5,6 +5,21 @@ from typing import Any
 
 from risk_dashboard.modules.agentic_core.application.tool_registry import get_default_tool_registry
 from risk_dashboard.modules.agentic_core.domain.tools import RiskClass, ToolGrant, ToolManifest
+from risk_dashboard.modules.learning.agent_tools import (
+    LearningGetContextTool,
+    LearningGetProgressTool,
+    LearningGetQuizItemTool,
+    LearningGradeCheckpointTool,
+    LearningRecommendNextTool,
+    LearningUpdateProgressTool,
+)
+from risk_dashboard.modules.agentic_core.infrastructure.learning_domain_tools import (
+    LearningGetContextDomainTool,
+    LearningGetQuizItemDomainTool,
+    LearningGradeCheckpointDomainTool,
+    LearningRecommendNextDomainTool,
+)
+
 
 
 class BctcResolveLineItemTool:
@@ -109,13 +124,28 @@ class LearningGetLessonContextTool:
             if isinstance(out, dict):
                 res_data = {str(k): str(v) for k, v in out.items()}
         else:
-            res_data = {
-                "topic": "Value at Risk",
-                "concept": "Market risk modeling",
-            }
+            try:
+                from risk_dashboard.modules.learning.infrastructure.catalog_reader import SqliteLearningCatalog
+                catalog = SqliteLearningCatalog()
+                lesson = catalog.get_lesson(lesson_id=lesson_id)
+                res_data = {
+                    "title": str(lesson.title),
+                    "canonical_content": "\n".join(str(b) for b in lesson.body),
+                    "summary": str(lesson.summary),
+                    "status": str(lesson.status),
+                    "topic": str(lesson.title),
+                    "concept": str(lesson.summary),
+                }
+            except Exception:
+                res_data = {
+                    "topic": "Quantitative Foundations",
+                    "concept": "Quantitative Risk & Return",
+                }
+
+        tool_id = "learning.get_context" if getattr(grant, "tool_id", None) == "learning.get_context" else self.manifest.tool_id
 
         return {
-            "tool_id": self.manifest.tool_id,
+            "tool_id": tool_id,
             "status": "active",
             "lesson_id": lesson_id,
             **res_data,
