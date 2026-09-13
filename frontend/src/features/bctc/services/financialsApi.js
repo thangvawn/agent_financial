@@ -166,3 +166,95 @@ export async function fetchLineItemExplanation(itemKey, companyId, period = '', 
   const query = params.toString()
   return fetchWithCache(`explain_${itemKey}_${studentLevel}`, `/api/bctc/income-statement/explain-line-item?${query}`)
 }
+
+// =============================================================================
+// BCTC AGENT MULTI-AGENT SYSTEM SURFACE
+// =============================================================================
+const BCTC_AGENT_BASE = '/api/v1/public/bctc/agent'
+
+function getAuthHeaders(customHeaders = {}) {
+  const token = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem('session_id') || localStorage.getItem('auth.session_id') || localStorage.getItem('public-beta.session_id'))
+    : null
+  const headers = {
+    'Content-Type': 'application/json',
+    ...customHeaders,
+  }
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
+}
+
+export async function fetchBctcAgentHealth() {
+  const response = await fetch(`${BCTC_AGENT_BASE}/health`)
+  return expectJson(response)
+}
+
+export async function invokeBctcTool(toolId, input = {}) {
+  const response = await fetch(`${BCTC_AGENT_BASE}/tools/${encodeURIComponent(toolId)}:invoke`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ input }),
+  })
+  return expectJson(response)
+}
+
+export async function createBctcRun({ skillId, ticker, periods = ['2024Q3'], lineItem = null, formulaId = null, query = null }) {
+  const response = await fetch(`${BCTC_AGENT_BASE}/runs`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      skill_id: skillId,
+      ticker,
+      periods,
+      line_item: lineItem,
+      formula_id: formulaId,
+      query,
+    }),
+  })
+  return expectJson(response)
+}
+
+export async function getBctcRun(runId) {
+  const response = await fetch(`${BCTC_AGENT_BASE}/runs/${encodeURIComponent(runId)}`, {
+    headers: getAuthHeaders(),
+  })
+  return expectJson(response)
+}
+
+export async function createBctcMemo(memoPayload, idempotencyKey = null) {
+  const customHeaders = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+  const response = await fetch(`${BCTC_AGENT_BASE}/memos`, {
+    method: 'POST',
+    headers: getAuthHeaders(customHeaders),
+    body: JSON.stringify(memoPayload),
+  })
+  return expectJson(response)
+}
+
+export async function fetchBctcMemos() {
+  const response = await fetch(`${BCTC_AGENT_BASE}/memos`, {
+    headers: getAuthHeaders(),
+  })
+  return expectJson(response)
+}
+
+export async function getBctcMemo(memoId, revisionId = null) {
+  const url = revisionId
+    ? `${BCTC_AGENT_BASE}/memos/${encodeURIComponent(memoId)}?revision_id=${encodeURIComponent(revisionId)}`
+    : `${BCTC_AGENT_BASE}/memos/${encodeURIComponent(memoId)}`
+  const response = await fetch(url, {
+    headers: getAuthHeaders(),
+  })
+  return expectJson(response)
+}
+
+export async function deleteBctcMemo(memoId) {
+  const response = await fetch(`${BCTC_AGENT_BASE}/memos/${encodeURIComponent(memoId)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
+  return expectJson(response)
+}
+

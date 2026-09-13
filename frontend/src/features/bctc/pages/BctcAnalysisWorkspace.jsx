@@ -13,6 +13,8 @@ import {
 import { useCompanyMarketContext } from './useCompanyMarketContext'
 import RatioPracticeLab from './RatioPracticeLab'
 import { AgentRunPanel } from '../../../shared/agentic/AgentRunPanel'
+import BctcAgentPanel from '../components/BctcAgentPanel'
+import EvidenceSourceDrawer from '../components/EvidenceSourceDrawer'
 import './bctc-workspace.css'
 
 const BCTC_NAV_TABS = [
@@ -24,6 +26,7 @@ const BCTC_NAV_TABS = [
   { id: 'analysis', label: 'Phân tích chuyên sâu', icon: PieChart },
   { id: 'governance', label: 'Quản trị', icon: Building2 },
   { id: 'documents', label: 'Tài liệu & Bóc tách', icon: FileText },
+  { id: 'copilot', label: 'Agent Copilot', icon: Database },
 ]
 
 const REPORT_TABS = [
@@ -125,6 +128,7 @@ export default function BctcAnalysisWorkspace({
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   const [activeRunId, setActiveRunId] = useState(runId || null)
   const [activeRunStatus, setActiveRunStatus] = useState(statusProp || null)
+  const [selectedEvidenceMemo, setSelectedEvidenceMemo] = useState(null)
 
   useEffect(() => {
     if (runId !== undefined) setActiveRunId(runId)
@@ -248,6 +252,7 @@ export default function BctcAnalysisWorkspace({
       {activeTab === 'analysis' && status === 'ready' && <AnalysisView workspace={workspace} />}
       {activeTab === 'governance' && <GovernanceView marketContext={marketContext.data} loading={marketContext.loading} />}
       {activeTab === 'documents' && status === 'ready' && <DocumentsView ticker={ticker} workspace={workspace} onImported={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }} />}
+      {activeTab === 'copilot' && <BctcAgentPanel ticker={ticker} activePeriod={statement?.periods?.at(-1) || '2024Q3'} onOpenEvidenceDrawer={(memo) => setSelectedEvidenceMemo(memo)} />}
       {activeTab !== 'financials' && status === 'loading' && <LoadingState />}
       {activeTab !== 'financials' && status === 'error' && <div className="bctc-error"><strong>Không tải được dữ liệu {ticker}</strong><span>{error}</span><button type="button" onClick={() => { setStatus('loading'); setRefreshToken((value) => value + 1) }}>Thử lại nguồn</button></div>}
       {activeTab === 'financials' && <div className="bctc-report-window">
@@ -282,5 +287,12 @@ export default function BctcAnalysisWorkspace({
         <footer className="bctc-report-footer"><span><Info />Nguồn: {workspace?.data_provenance?.provider || '—'} · cập nhật {workspace?.data_provenance?.fetched_at ? new Date(workspace.data_provenance.fetched_at).toLocaleString('vi-VN') : '—'}</span><span>Dữ liệu phục vụ học tập và phân tích, không phải khuyến nghị đầu tư.</span></footer>
       </div>}
     </section>
+    <EvidenceSourceDrawer
+      isOpen={Boolean(selectedEvidenceMemo)}
+      onClose={() => setSelectedEvidenceMemo(null)}
+      memo={selectedEvidenceMemo}
+      currentRevisionId={workspace?.data_provenance?.revision_id}
+    />
   </main>
 }
+
