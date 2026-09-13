@@ -1612,36 +1612,501 @@ Không tự quyết được từ code — cần người trả lời trước k
 | **U5** | Deploy Prometheus, hay dùng `analytics_monitoring` sẵn có? Repo **không có** `prometheus_client` | S9 | Xác nhận stack với DevOps | DevOps |
 | **U6** | `is_private_upload` đang **hardcode `False`** (`report_resolver.py`) — private upload chưa đi qua agent path. Có trong scope v1 không? | CP4, S5 | Xác nhận phạm vi v1 | PO |
 | **U7** | A/B framework: tự viết `hash(account_id) % 100` hay dùng service? Repo chưa có experiment assignment | §2.4.4 | Quyết định kiến trúc | Tech lead |
-| **U8** | Cost tracking LLM để đo E4 (≤$0.03/memo) — hiện chưa thấy cơ chế đo cost trong repo | E4 | Kiểm tra provider SDK có trả token usage không | Tech lead |
+---
+
+## 8. CÁC CHỨC NĂNG CẦN CÓ SAU KHI HOÀN THÀNH (POST-COMPLETION ADVANCED CAPABILITIES)
+
+### 8.1 Tầm nhìn & Lộ trình Tiến hóa Hệ thống (Vision & Quantum Evolution)
+
+Sau khi hoàn tất Giai đoạn 1 (v1 Core: 6 Read Domain Tools, 5 Basic Skills, NumericReviewer Grounding Gate, HTTP Surface và Evidence Memo Persistence), Module 5 bước vào giai đoạn nâng cấp thành **Hệ thống Trí tuệ BCTC Cấp Tổ chức (Institutional-Grade Financial Intelligence Engine)**. Mục tiêu là chuyển dịch từ việc "truy vấn số liệu và tính chỉ số đơn lẻ" sang "thẩm định chất lượng tài chính đa chiều, phát hiện gian lận kế toán, định giá nội tại và dự báo rủi ro thanh khoản".
+
+```mermaid
+flowchart TD
+    subgraph Core_v1["Giai đoạn 1 (Đã hoàn tất)"]
+        T1["6 Canonical Read Tools"]
+        S1["5 Basic Analysis Skills"]
+        NR["NumericReviewer Grounding Gate"]
+        MEM["Evidence Memo CRUD"]
+    end
+
+    subgraph Quantum_v2["Giai đoạn 2 (Chức năng nâng cao cần có)"]
+        CAP1["CAP-1: Forensic & Manipulation Scanner"]
+        CAP2["CAP-2: Peer Benchmark & Industry Analysis"]
+        CAP3["CAP-3: Footnotes & Notes Deep Extraction"]
+        CAP4["CAP-4: Intrinsic Valuation & Scenario Modeling"]
+        CAP5["CAP-5: Liquidity Stress-Testing & Debt Wall"]
+        CAP6["CAP-6: Institutional Memo & PDF/DOCX Export"]
+        CAP7["CAP-7: Audit Opinion & Restatement Alerts"]
+    end
+
+    Core_v1 -->|Nền tảng Grounding & Tools| Quantum_v2
+    Quantum_v2 -->|Tham số cơ bản| MOD6["Module 6: Simulation Lab"]
+    Quantum_v2 -->|Xác nhận số liệu| MOD3["Module 3: Market Portfolio"]
+    Quantum_v2 -->|Giáo trình thực tế| MOD4["Module 4: Learn Hub"]
+```
 
 ---
 
-## 8. PHỤ LỤC — LỆNH VERIFY
+### 8.2 Danh mục 7 Chức năng Nâng cao (Capabilities Catalog)
+
+| Mã CAP | Tên chức năng | Tool ID đề xuất | Skill ID đề xuất | Giá trị nghiệp vụ cốt lõi |
+|---|---|---|---|---|
+| **CAP-1** | Forensic Accounting & Earnings Manipulation Scanner | `bctc.compute_forensic_scores` | `bctc.forensic_scan.v1` | Tự động tính toán Beneish M-Score, Altman Z''-Score, Piotroski F-Score và phát hiện tín hiệu bất thường kế toán. |
+| **CAP-2** | Peer Benchmark & Cross-Sectional Industry Analysis | `bctc.compare_peer_metrics` | `bctc.peer_benchmark.v1` | Đối sánh doanh nghiệp với trung vị ngành và Top đối thủ cạnh tranh qua phân rã DuPont 5 bước và Chu kỳ tiền mặt (CCC). |
+| **CAP-3** | Footnotes & Notes Deep Extraction | `bctc.resolve_footnote_section` | `bctc.extract_footnotes.v1` | Tách lớp thuyết minh nợ vay, ngân hàng chủ nợ, lãi suất thực tế, giao dịch bên liên quan và chi phí dở dang (CIP). |
+| **CAP-4** | Intrinsic Valuation & Sensitivity Modeling | `bctc.compute_valuation_models` | `bctc.intrinsic_valuation.v1` | Định giá nội tại đa mô hình (FCFF/FCFE 2 giai đoạn, DDM, P/E & P/B band lịch sử) kèm ma trận độ nhạy theo WACC và tăng trưởng dài hạn. |
+| **CAP-5** | Liquidity Stress-Testing & Debt Maturity Wall | `bctc.simulate_liquidity_runway` | `bctc.liquidity_stress_test.v1` | Lập tường nợ đáo hạn 12 tháng, đo lường hệ số bao phủ lãi vay (ICR, DSCR) và mô phỏng số tháng trụ vững khi doanh thu suy giảm. |
+| **CAP-6** | Automated Institutional-Grade Memo & Export | `bctc.compile_full_memo` | `bctc.generate_investment_memo.v1` | Soạn thảo báo cáo thẩm định đầu tư chuẩn mực tổ chức, đóng dấu số xác thực bằng chứng, xuất bản PDF/DOCX chuyên nghiệp. |
+| **CAP-7** | Smart Audit Opinion & Restatement Alert Engine | `bctc.scan_audit_modifications` | `bctc.audit_opinion_check.v1` | Tự động quét ý kiến kiểm toán (ngoại trừ/từ chối), vấn đề cần nhấn mạnh (Going Concern), và các điều chỉnh hồi tố số liệu quá khứ. |
+
+---
+
+### 8.3 Đặc tả Chi tiết từng Chức năng theo Use Case & Dataflow
+
+#### 8.3.1 CAP-1: Forensic Accounting & Earnings Manipulation Scanner
+
+##### A. Use Case
+- **Mục tiêu**: Phát hiện sớm các rủi ro gian lận kế toán, xào nấu lợi nhuận (Earnings Manipulation) và nguy cơ mất khả năng thanh toán trước khi số liệu vỡ nợ phản ánh ra giá cổ phiếu.
+- **Actors**: Chuyên viên phân tích cơ bản, Giám đốc Quản trị rủi ro tín dụng (Risk Manager), Nhà đầu tư giá trị.
+- **Preconditions**:
+  - Doanh nghiệp phi tài chính có tối thiểu 8 quý dữ liệu BCTC đã được chuẩn hóa trong cache/database.
+  - Phải có đủ 3 bảng: Bảng cân đối kế toán, Báo cáo kết quả kinh doanh và Báo cáo lưu chuyển tiền tệ (trực tiếp hoặc gián tiếp).
+- **Triggers**:
+  - Người dùng chọn Tab "Forensic & Manipulation Risk" trên `BctcAnalysisWorkspace` hoặc gửi prompt yêu cầu kiểm định gian lận.
+  - Lệnh kiểm tra định kỳ trong Multi-Agent Pipeline trước khi giải ngân danh mục.
+- **Happy Path**:
+  1. Người dùng chọn mã cổ phiếu (ví dụ: `NVL`, `HPG`, `VNM`) và kích hoạt `bctc.forensic_scan.v1`.
+  2. Agent triệu hồi tool `bctc.compute_forensic_scores` với tham số `ticker` và `period`.
+  3. Tool tính toán 8 biến số của **Beneish M-Score**:
+     - $DSRI$ (Days Sales in Receivables Index): $\frac{AR_t / Rev_t}{AR_{t-1} / Rev_{t-1}}$
+     - $GMI$ (Gross Margin Index): $\frac{GM_{t-1}}{GM_t}$
+     - $AQI$ (Asset Quality Index): Tỷ lệ tài sản phi hiện hữu phi sinh lời.
+     - $SGI$ (Sales Growth Index): Tốc độ tăng trưởng doanh thu.
+     - $DEPI$ (Depreciation Index): Tốc độ khấu hao tài sản.
+     - $SGAI$ (Sales, General and Administrative Expense Index).
+     - $LVGI$ (Leverage Index): Đòn bẩy nợ vay tổng thể.
+     - $TATA$ (Total Accruals to Total Assets): Chênh lệch giữa lợi nhuận thuần kế toán và dòng tiền hoạt động kinh doanh thực tế $CFO$.
+     - Công thức Beneish M:
+       $$\text{M-Score} = -4.84 + 0.920 \cdot DSRI + 0.528 \cdot GMI + 0.404 \cdot AQI + 0.892 \cdot SGI + 0.115 \cdot DEPI - 0.172 \cdot SGAI + 4.037 \cdot TATA + 0.0327 \cdot LVGI$$
+  4. Tool tính toán **Altman Z''-Score** (phiên bản thị trường mới nổi) và **Piotroski 9-point F-Score**.
+  5. Quét bộ quy tắc phát hiện bất thường (Rule-based Red Flags):
+     - Dòng tiền hoạt động kinh doanh $CFO < 0$ liên tục 3 kỳ trong khi Lợi nhuận sau thuế $PAT > 0$ và tăng trưởng.
+     - Tốc độ tăng Phải thu khách hàng ($DSO$) vượt trội > 2 lần tốc độ tăng trưởng doanh thu thuần.
+     - Chi phí trả trước ngắn/dài hạn hoặc Tạm ứng tăng vọt bất thường không có thuyết minh tương ứng.
+  6. Agent tổng hợp bảng bằng chứng số liệu (`EvidenceTable`), trích dẫn nguồn gốc từng biến số từ BCTC gốc, gán nhãn mức độ rủi ro (`LOW`, `MEDIUM`, `HIGH_MANIPULATION_RISK`).
+  7. `NumericReviewer` phê duyệt tính xác thực 100% của các số liệu tính toán. Kết quả hiển thị trực quan trên giao diện `BctcForensicCard`.
+- **Edge Cases & Failure Modes**:
+  - *Doanh nghiệp tài chính (Ngân hàng, Bảo hiểm, Chứng khoán)*: Cấu trúc BCTC đặc thù không áp dụng Beneish M-Score và Altman Z-Score thông thường. Hệ thống chuyển đổi sang mô hình **Texas Ratio** và **NPL Coverage Ratio**, ghi nhận rõ giới hạn phân tích trong trường `limitations`.
+  - *Thiếu kỳ so sánh*: Nếu thiếu dữ liệu kỳ $t-1$, hệ thống trả về kết quả từng phần có cờ `calculation_status: "insufficient_data"`, tuyệt đối không suy diễn số liệu.
+
+##### B. Dataflow Architecture
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as BctcAnalysisWorkspace (React)
+    participant API as AgentRouter (/runs)
+    participant SR as SkillRouter (bctc.forensic_scan.v1)
+    participant FT as BctcComputeForensicTool
+    participant DB as ReportResolver & SQLite Cache
+    participant NR as NumericReviewer (Grounding Gate)
+
+    UI->>API: POST /api/v1/public/bctc/agent/runs {skill_id: "bctc.forensic_scan.v1", ticker: "FPT", periods: ["2024Q3"]}
+    API->>SR: resolve_skill("bctc.forensic_scan.v1")
+    SR->>FT: execute(grant, ticker="FPT", periods=["2024Q3", "2023Q3"])
+    FT->>DB: load_dataset("FPT", refresh=False, max_cache_age=0)
+    DB-->>FT: FinancialDataset (8 quarters)
+    FT->>FT: Compute 8 Beneish Indices + Altman Z'' + Piotroski 9-point
+    FT->>FT: Run Accrual Anomaly Rules (CFO vs PAT divergence)
+    FT-->>SR: ForensicScanOutput (Scores, Red Flags, Citations)
+    SR->>NR: review(claims=[Beneish, Altman, Piotroski], evidence=citations)
+    alt Claims 100% Grounded
+        NR-->>API: verdict="pass", unsupported=[]
+        API-->>UI: 200 OK {status: "completed", output: ForensicScanOutput, review_status: "pass"}
+    else Ungrounded Numbers Detected
+        NR-->>API: verdict="reject", unsupported=[claims]
+        API-->>UI: 422 Unprocessable Entity {error: "GROUNDING_FAILED"}
+    end
+```
+
+##### C. Schemas & Contract Specification
+```python
+class BeneishIndices(BaseModel):
+    dsri: float = Field(..., description="Days Sales in Receivables Index")
+    gmi: float = Field(..., description="Gross Margin Index")
+    aqi: float = Field(..., description="Asset Quality Index")
+    sgi: float = Field(..., description="Sales Growth Index")
+    depi: float = Field(..., description="Depreciation Index")
+    sgai: float = Field(..., description="SGA Expense Index")
+    lvgi: float = Field(..., description="Leverage Index")
+    tata: float = Field(..., description="Total Accruals to Total Assets")
+    m_score: float = Field(..., description="Beneish M-Score value")
+    manipulation_probability: Literal["low", "unlikely", "high_probability"]
+
+class AltmanZScore(BaseModel):
+    z_score: float = Field(..., description="Altman Z''-Score value for emerging markets")
+    zone: Literal["safe", "grey", "distress"]
+
+class ForensicScanOutput(BaseModel):
+    schema_version: str = "1.0.0"
+    ticker: str
+    period: str
+    beneish: BeneishIndices
+    altman: AltmanZScore
+    piotroski_f_score: int = Field(..., ge=0, le=9)
+    red_flags: list[dict[str, Any]] = Field(default_factory=list)
+    citations: list[ProvenanceRef]
+    freshness_days: int
+```
+
+---
+
+#### 8.3.2 CAP-2: Peer Benchmark & Cross-Sectional Industry Analysis
+
+##### A. Use Case
+- **Mục tiêu**: Đặt doanh nghiệp vào bức tranh toàn cảnh ngành, nhận diện vị thế cạnh tranh vượt trội (Economic Moat) hoặc điểm yếu chết người so với các đối thủ cùng phân khúc.
+- **Actors**: Chuyên viên phân tích danh mục, Giám đốc đầu tư (CIO), Nhà nghiên cứu thị trường.
+- **Preconditions**:
+  - Mã cổ phiếu mục tiêu và danh sách các mã đối thủ (Peers) có BCTC cùng kỳ hợp lệ.
+  - Bảng tra cứu ngành chuẩn (Industry Classification Benchmark - ICB) cấp 2 và cấp 3 đã sẵn sàng.
+- **Triggers**:
+  - Người dùng yêu cầu đối sánh ngang: "So sánh biên lợi nhuận, ROE và chu kỳ tiền mặt của HPG so với NKG và HSG trong năm 2024".
+- **Happy Path**:
+  1. Người dùng chọn mã `HPG` và tab "Peer Comparison" (hệ thống tự động gợi ý `HSG`, `NKG`, `TLH` theo mã ngành Thép ICB 1750).
+  2. Agent triệu hồi `bctc.compare_peer_metrics`.
+  3. Tool tính toán đồng thời cho tất cả các mã trong nhóm:
+     - **Phân rã DuPont 5 bước**:
+       $$\text{ROE} = \left(\frac{\text{PAT}}{\text{EBT}}\right) \times \left(\frac{\text{EBT}}{\text{EBIT}}\right) \times \left(\frac{\text{EBIT}}{\text{Doanh thu}}\right) \times \left(\frac{\text{Doanh thu}}{\text{Tổng tài sản}}\right) \times \left(\frac{\text{Tổng tài sản}}{\text{Vốn chủ sở hữu}}\right)$$
+       *(Gồm: Gánh nặng thuế, Gánh nặng lãi vay, Biên lợi nhuận hoạt động EBIT Margin, Vòng quay tài sản Asset Turnover, và Đòn bẩy tài chính Leverage).*
+     - **Chu kỳ chuyển đổi tiền mặt (Cash Conversion Cycle - CCC)**:
+       $$\text{CCC} = \text{DIO (Số ngày tồn kho)} + \text{DSO (Số ngày thu tiền)} - \text{DPO (Số ngày trả người bán)}$$
+     - **Khả năng sinh lời & Định giá tương đối**: ROA, ROIC, Gross Margin, Net Margin, EV/EBITDA, P/E, P/B.
+  4. Tính toán giá trị **Trung vị ngành (Industry Median)** để loại bỏ nhiễu từ các doanh nghiệp đột biến ngoại lai (outliers).
+  5. Đánh giá tín hiệu Con hào kinh tế (Economic Moat Signals): Doanh nghiệp có biên gộp cao hơn ngành > 5% trong 3 năm liên tiếp hoặc CCC ngắn hơn ngành > 30 ngày.
+  6. Xuất ma trận đối sánh (Peer Matrix Table) và hiển thị biểu đồ radar trên frontend.
+- **Edge Cases & Failure Modes**:
+  - *Lệch kỳ kế toán*: Một số doanh nghiệp có niên độ tài chính kết thúc ngày 31/03 hoặc 30/09 thay vì 31/12 (ví dụ: một số công ty nông nghiệp/đường). Hệ thống tự động căn chỉnh (re-align) theo 4 quý lũy kế gần nhất (Trailing Twelve Months - TTM).
+  - *Đối thủ bị lỗ ròng*: Mẫu số âm làm méo mó các chỉ số P/E, ROE. Hệ thống tự động hiển thị `N/A` kèm ghi chú nguyên nhân âm, chuyển sang so sánh P/B hoặc EV/EBITDA.
+
+##### B. Dataflow Architecture
+```mermaid
+flowchart LR
+    subgraph Input_Stage["Tiếp nhận Yêu cầu"]
+        REQ["User Request<br/>Target: HPG, Peers: [HSG, NKG]<br/>Period: 2024Q3"]
+    end
+
+    subgraph Data_Aggregation["Thu thập & Chuẩn hóa BCTC Đa mã"]
+        DS_T["Dataset HPG"]
+        DS_P1["Dataset HSG"]
+        DS_P2["Dataset NKG"]
+    end
+
+    subgraph Engine_Processing["Động cơ Phân tích Đối sánh"]
+        DUPONT["5-Stage DuPont Decomposition"]
+        CCC_ENG["Working Capital & CCC Calculator"]
+        MEDIAN["Cross-Sectional Median Engine"]
+    end
+
+    subgraph Verification_Stage["Kiểm chứng & Xuất bản"]
+        NR_GATE["NumericReviewer Validation"]
+        UI_RENDER["Peer Comparison Radar & Matrix"]
+    end
+
+    REQ --> DS_T & DS_P1 & DS_P2
+    DS_T & DS_P1 & DS_P2 --> DUPONT & CCC_ENG
+    DUPONT & CCC_ENG --> MEDIAN
+    MEDIAN --> NR_GATE
+    NR_GATE --> UI_RENDER
+```
+
+---
+
+#### 8.3.3 CAP-3: Footnotes & Notes Deep Extraction
+
+##### A. Use Case
+- **Mục tiêu**: Bóc tách các thông tin trọng yếu ẩn sâu trong Thuyết minh BCTC mà các bảng tổng hợp không hiển thị được, đặc biệt là rủi ro nợ vay ngân hàng, phát hành trái phiếu và rút ruột qua các bên liên quan.
+- **Actors**: Chuyên viên thẩm định tín dụng ngân hàng, Kiểm toán viên độc lập, Chuyên gia định giá M&A.
+- **Preconditions**:
+  - Báo cáo tài chính đã kiểm toán có đính kèm phần Thuyết minh dạng văn bản hoặc bảng biểu chi tiết (hỗ trợ text structure từ file PDF hoặc file JSON bóc tách có cấu trúc).
+- **Triggers**:
+  - Người dùng truy vấn chuyên sâu: "Chi tiết các khoản nợ ngân hàng của FPT hiện tại có lãi suất bao nhiêu và vay những ngân hàng nào?" hoặc "Kiểm tra giao dịch với các bên liên quan của NVL".
+- **Happy Path**:
+  1. Agent nhận yêu cầu và kích hoạt tool `bctc.resolve_footnote_section`.
+  2. Tool phân tích mục lục và định vị các phần thuyết minh trọng điểm theo từ khóa nghiệp vụ kế toán Việt Nam (Chuẩn mực VAS / Thông tư 200/2014/TT-BTC):
+     - *Thuyết minh Nợ vay & Thuê tài chính*: Tách danh mục ngân hàng cho vay, dư nợ ngắn hạn/dài hạn, loại tiền tệ vay (VND hay USD), lãi suất vay thực tế (cố định hay thả nổi theo lãi suất huy động 12 tháng + biên độ), giá trị tài sản đảm bảo thế chấp.
+     - *Thuyết minh Trái phiếu Doanh nghiệp*: Lãi suất danh nghĩa, ngày đáo hạn, đơn vị tư vấn phát hành, điều khoản mua lại trước hạn, cam kết duy trì tỷ lệ tài chính (Financial Covenants).
+     - *Thuyết minh Giao dịch Bên liên quan*: Bảng tổng hợp các khoản Cho vay / Tạm ứng / Mua bán hàng hóa với các bên có liên quan, công ty liên doanh, công ty liên kết, ban điều hành.
+     - *Thuyết minh Chi phí Xây dựng Cơ bản Dở dang (CIP)*: Liệt kê chi tiết tiến độ các dự án nhà máy, khu đô thị, hạ tầng đang đầu tư dở dang và thời gian dự kiến hoàn thành.
+  3. Trích xuất thành bảng số liệu cấu trúc `FootnoteItemRecord`, mỗi khoản mục kèm dẫn chứng số trang (`page_number`), số thứ tự thuyết minh (`note_ref: "Thuyết minh số 15"`) và trích dẫn nguyên văn đoạn văn bản kiểm toán (`verbatim_excerpt`).
+  4. Trả về kết quả cho Frontend `EvidenceSourceDrawer` để người dùng có thể nhấp vào bất kỳ khoản nợ nào và xem ngay trang PDF kiểm toán gốc tương ứng.
+- **Edge Cases & Failure Modes**:
+  - *BCTC scan chất lượng thấp*: Hình ảnh mờ, bảng bị nghiêng. Module áp dụng cơ chế phân tích đa tầng (Multi-modal OCR) kèm độ tin cậy `ocr_confidence`. Nếu `ocr_confidence < 0.85`, hệ thống hiển thị cảnh báo và yêu cầu người dùng xác nhận thủ công đối chiếu văn bản.
+
+##### B. Dataflow Architecture
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Frontend (BctcAgentPanel)
+    participant Core as FootnoteExtractionService
+    participant Parser as PDF/Text Footnote Chunking Parser
+    participant Classifier as Accounting Section Classifier
+    participant CitEngine as Citation Anchoring Engine
+
+    Client->>Core: Request Footnote Section (ticker="FPT", section="borrowings_debt")
+    Core->>Parser: Load Full Audited Report Document
+    Parser->>Classifier: Identify Note Boundaries (TT200 Classification)
+    Classifier-->>Parser: Section Identified ("Thuyết minh 16: Vay và nợ thuê tài chính")
+    Parser->>CitEngine: Parse Structured Debt Table (Lenders, Tenors, Rates, Collaterals)
+    CitEngine-->>Core: FootnoteTablePayload + Verbatim Excerpts + Exact Page Coordinates
+    Core-->>Client: 200 OK (Render in Footnote Explorer & Source Drawer)
+```
+
+---
+
+#### 8.3.4 CAP-4: Intrinsic Valuation & Scenario Modeling
+
+##### A. Use Case
+- **Mục tiêu**: Cung cấp công cụ định giá nội tại dựa trên mô hình tài chính chuẩn mực (DCF, DDM, Historical Valuation Multiples) được cấp nguồn trực tiếp từ số liệu BCTC đã được kiểm chứng (grounded data).
+- **Actors**: Nhà đầu tư tổ chức, Chuyên viên nghiên cứu cổ phiếu (Equity Research Analyst).
+- **Preconditions**:
+  - Doanh nghiệp mục tiêu có tối thiểu 5 năm dữ liệu lịch sử về dòng tiền và doanh thu.
+  - Các chỉ số WACC, Beta ngành, Lãi suất phi rủi ro (Trái phiếu Chính phủ Việt Nam 10 năm) đã được cấu hình hoặc tính toán hợp lệ.
+- **Triggers**:
+  - Người dùng chọn chức năng "Định giá & Phân tích Độ nhạy" trên giao diện hoặc gửi lệnh qua Copilot: "Định giá DCF cho VNM với kịch bản WACC 10.5% và tốc độ tăng trưởng dài hạn 2.5%".
+- **Happy Path**:
+  1. Kích hoạt tool `bctc.compute_valuation_models`.
+  2. Tool thực hiện chuỗi tính toán chiết khấu dòng tiền:
+     - **Chiết khấu Dòng tiền Tự do Doanh nghiệp (FCFF)**:
+       $$\text{FCFF} = \text{EBIT} \times (1 - t) + \text{Khấu hao} - \text{Capex} - \Delta\text{Vốn lưu động}$$
+     - Tính toán **Chi phí vốn bình quân gia quyền (WACC)**:
+       $$\text{WACC} = \left(\frac{E}{E + D}\right) \times K_e + \left(\frac{D}{E + D}\right) \times K_d \times (1 - t)$$
+       Trong đó $K_e$ tính theo mô hình CAPM: $K_e = R_f + \beta \times (R_m - R_f)$.
+     - Tính Giá trị Doanh nghiệp ($EV$) và Giá trị Vốn chủ sở hữu ($Equity\ Value = EV - Nợ\ ròng$).
+     - Chia cho số lượng cổ phiếu lưu hành để ra **Giá trị hợp lý trên mỗi cổ phiếu (Fair Value per Share)**.
+  3. **Định giá theo Bội số Lịch sử (Historical Valuation Band)**:
+     - Thống kê phân vị P/E và P/B trong 5 năm lịch sử của cổ phiếu (Percentile 10%, 25%, 50% Median, 75%, 90%).
+     - Đưa ra mức định giá tương đối nếu P/E hồi quy về mức trung bình 5 năm.
+  4. **Lập Ma trận Phân tích Độ nhạy 2 chiều (2D Sensitivity Matrix)**:
+     - Biến thiên WACC từ $-1.5\%$ đến $+1.5\%$ (bước nhảy $0.5\%$).
+     - Biến thiên Tốc độ tăng trưởng dài hạn $g$ từ $-1.0\%$ đến $+1.0\%$ (bước nhảy $0.5\%$).
+     - Tạo ma trận $5 \times 5$ ô thể hiện giá trị cổ phiếu tương ứng trong từng kịch bản.
+  5. Tất cả các giả định (WACC, g, tax rate, capex) đều được ghi nhận rõ ràng vào báo cáo định giá, tuyệt đối không đưa ra khuyến nghị mua/bán chủ quan (tuân thủ nghiêm ngặt nguyên tắc Zero Buy/Sell Leakage).
+- **Edge Cases & Failure Modes**:
+  - *Dòng tiền FCFF âm triền miên*: Đối với các công ty khởi nghiệp hoặc công ty mở rộng tài sản quy mô lớn, FCFF có thể âm trong 5 năm tới. Hệ thống tự động chuyển trọng số sang mô hình **P/B lịch sử** hoặc mô hình **Chiết khấu Dòng tiền Siêu lợi nhuận (Residual Income Model - RIM)**.
+
+##### B. Dataflow Architecture
+```mermaid
+flowchart TD
+    subgraph Historical_Inputs["Dữ liệu Lịch sử BCTC Đã Grounded"]
+        HIST_IS["Báo cáo KQKD 5 năm (EBIT, Tax)"]
+        HIST_CF["Lưu chuyển Tiền tệ (Khấu hao, Capex, NWC)"]
+        HIST_BS["Bảng Cân đối Kế toán (Cash, Debt)"]
+    end
+
+    subgraph Valuation_Engine["Động cơ Định giá Đa mô hình"]
+        FCFF_CALC["Dự phóng & Chiết khấu FCFF / FCFE"]
+        WACC_CALC["WACC Engine (CAPM Ke + Kd sau thuế)"]
+        PE_BAND["Historical P/E & P/B Multiples Band"]
+        SENSITIVITY["2D Sensitivity Matrix Generator"]
+    end
+
+    subgraph Output_Presentation["Kết quả Thẩm định Định giá"]
+        FAIR_VALUE["Fair Value Range (Min, Median, Max)"]
+        SENS_TABLE["Bảng Ma trận Độ nhạy WACC x Growth"]
+        CIT_PROOF["Bằng chứng Provenance Liên kết"]
+    end
+
+    HIST_IS & HIST_CF & HIST_BS --> FCFF_CALC & PE_BAND
+    WACC_CALC --> FCFF_CALC
+    FCFF_CALC --> SENSITIVITY
+    SENSITIVITY --> FAIR_VALUE & SENS_TABLE
+    FAIR_VALUE & SENS_TABLE --> CIT_PROOF
+```
+
+---
+
+#### 8.3.5 CAP-5: Liquidity Stress-Testing & Debt Maturity Wall
+
+##### A. Use Case
+- **Mục tiêu**: Kiểm định sức chống chịu tài chính của doanh nghiệp trong kịch bản khủng hoảng tín dụng, đóng băng thanh khoản hoặc đứt gãy dòng tiền hoạt động kinh doanh.
+- **Actors**: Chuyên viên quản lý rủi ro danh mục, Bộ phận thẩm định bảo lãnh phát hành trái phiếu.
+- **Preconditions**:
+  - Dữ liệu nợ vay ngắn hạn, dài hạn và tài sản có tính thanh khoản cao (Tiền mặt, Tiền gửi ngân hàng ngắn hạn, Trái phiếu chính phủ có thể thanh lý ngay) của kỳ gần nhất.
+- **Triggers**:
+  - Người dùng kích hoạt kịch bản stress-test: "Kiểm tra sức chịu đựng thanh khoản của NVL nếu doanh thu giảm 30% và lãi suất vay tăng thêm 200 điểm cơ bản".
+- **Happy Path**:
+  1. Agent triệu hồi `bctc.simulate_liquidity_runway`.
+  2. Lập **Tường nợ Đáo hạn 12 tháng (Debt Maturity Wall)**:
+     - Tổng hợp nghĩa vụ nợ gốc và nợ lãi vay phải trả trong các mốc thời gian: 3 tháng, 6 tháng, 9 tháng và 12 tháng tới.
+     - So sánh đối ứng với **Bộ đệm Thanh khoản Tức thời (Liquid Buffer)** = Tiền mặt + Tương đương tiền + Đầu tư tài chính ngắn hạn thanh khoản cao.
+  3. Tính toán **Chỉ số Bao phủ Dịch vụ Nợ (Debt Service Coverage Ratio - DSCR)** và **Hệ số Bao phủ Lãi vay (Interest Coverage Ratio - ICR)**:
+     $$\text{ICR} = \frac{\text{EBIT}}{\text{Chi phí lãi vay}}$$
+     $$\text{DSCR} = \frac{\text{EBITDA} - \text{Thuế TNDN}}{\text{Nợ gốc đến hạn} + \text{Lãi vay}}$$
+  4. Mô phỏng kịch bản căng thẳng (Stress-Test Simulation):
+     - *Kịch bản Cơ sở (Base Case)*: Giữ nguyên tốc độ tăng trưởng và lãi suất hiện hành.
+     - *Kịch bản Căng thẳng Nhẹ (Mild Stress)*: Doanh thu giảm 15%, chi phí lãi vay tăng 100 bps.
+     - *Kịch bản Căng thẳng Cực đoan (Severe Stress)*: Doanh thu giảm 35%, biên gộp co hẹp 500 bps, chi phí lãi vay tăng 250 bps.
+  5. Ước tính **Thời gian Trụ vững Thanh khoản (Cash Runway in Months)**: Số tháng tối đa doanh nghiệp có thể trang trải chi phí cố định (Opex cố định + Lãi vay + Nợ gốc) trước khi cạn kiệt tiền mặt hoàn toàn nếu không huy động được vốn mới.
+  6. Xuất báo cáo rủi ro thanh khoản kèm ma trận cảnh báo đỏ nếu $DSCR < 1.0$ hoặc $Runway < 6\ \text{tháng}$.
+
+##### B. Dataflow Architecture
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as Risk Analyst
+    participant API as /tools/bctc.simulate_liquidity_runway:invoke
+    participant Engine as LiquidityStressEngine
+    participant Repo as FinancialDataset Repository
+    participant Rev as NumericReviewer
+
+    User->>API: Invoke Liquidity Runway (ticker="NVL", revenue_shock=-0.3, rate_shock=0.02)
+    API->>Engine: Run Liquidity Stress Simulation
+    Engine->>Repo: Fetch Cash & Equivalents, Debt Schedule, Operating Expenses
+    Repo-->>Engine: Financial Data Record
+    Engine->>Engine: Compute Debt Maturity Wall (3m, 6m, 9m, 12m)
+    Engine->>Engine: Stress-Test Cash Flow under Revenue & Rate Shocks
+    Engine->>Engine: Calculate DSCR, ICR & Survival Runway (Months)
+    Engine-->>Rev: Validate Computed Cash Metrics Against Baseline Evidence
+    Rev-->>API: Grounding Confirmed
+    API-->>User: 200 OK (Interactive Debt Wall Chart & Liquidity Warning Matrix)
+```
+
+---
+
+#### 8.3.6 CAP-6: Automated Institutional-Grade Investment Memo & Multi-Format Export
+
+##### A. Use Case
+- **Mục tiêu**: Chuyển hóa toàn bộ kết quả phân tích phân tán (chỉ số, mô hình gian lận, đối sánh ngành, định giá, thuyết minh) thành một **Bản Ghi nhớ Thẩm định Đầu tư Toàn diện (Institutional Investment Memo)**, có thể xuất bản ra file PDF hoặc DOCX chuẩn mực in ấn để phục vụ hội đồng đầu tư.
+- **Actors**: Trưởng phòng Phân tích (Head of Research), Chuyên viên quản lý quỹ (Fund Manager), Khách hàng VIP.
+- **Preconditions**:
+  - Đã thực hiện tối thiểu 1 Run phân tích BCTC và lưu các `evidence_rows` vào `MemoService`.
+- **Triggers**:
+  - Người dùng nhấn nút **"Xuất Báo cáo Toàn diện (Export Memo)"** trên giao diện hoặc chọn định dạng xuất file (PDF/Word).
+- **Happy Path**:
+  1. Người dùng chọn template báo cáo (ví dụ: `institutional_equity_research` hoặc `credit_risk_assessment`).
+  2. Agent triệu hồi `bctc.compile_full_memo`.
+  3. Hệ thống thu thập:
+     - Tóm tắt điều hành (Executive Summary).
+     - Bảng số liệu BCTC 4 kỳ gần nhất và 3 năm lịch sử.
+     - Kết quả phân rã DuPont và biểu đồ đối sánh ngành.
+     - Đánh giá chất lượng lợi nhuận và điểm số rủi ro gian lận (Beneish/Altman/Piotroski).
+     - Định giá nội tại và ma trận độ nhạy.
+     - Trích dẫn Thuyết minh trọng yếu (Nợ vay, Trái phiếu, Bên liên quan).
+     - Danh sách đầy đủ các nguồn gốc số liệu (Provenance Citations & Revision Hash).
+  4. Tạo mã băm an toàn **SHA-256 Digest** gắn trên header báo cáo, đính kèm timestamp kiểm toán và chữ ký số hệ thống để bảo đảm tài liệu không bị chỉnh sửa giả mạo số liệu sau khi xuất.
+  5. Đóng gói thành định dạng HTML chuẩn in ấn hoặc render thành file PDF / DOCX chuyên nghiệp có bìa, mục lục tự động, watermark bảo mật và biểu đồ sắc nét.
+  6. Lưu trữ bản ghi nhớ vào SQLite `bctc_evidence_memos` và trả về link tải file an toàn có thời hạn (Signed URL).
+
+---
+
+#### 8.3.7 CAP-7: Smart Audit Opinion & Restatement Alert Engine
+
+##### A. Use Case
+- **Mục tiêu**: Tự động phát hiện các tín hiệu cảnh báo pháp lý nguy hiểm nhất trên Báo cáo tài chính: Ý kiến kiểm toán bị sửa đổi (Modified Audit Opinion), Nghi ngờ khả năng hoạt động liên tục (Going Concern), và Hành vi điều chỉnh hồi tố số liệu quá khứ (Restatements).
+- **Actors**: Kiểm toán viên, Cán bộ thẩm định tuân thủ (Compliance Officer), Nhà đầu tư tổ chức.
+- **Preconditions**:
+  - Báo cáo tài chính năm đã qua kiểm toán độc lập của các đơn vị kiểm toán (Big 4 hoặc công ty kiểm toán được UBCKNN chấp thuận).
+- **Triggers**:
+  - Tự động chạy trong bộ lọc cổ phiếu định kỳ hoặc khi có BCTC kiểm toán mới được công bố.
+- **Happy Path**:
+  1. Kích hoạt `bctc.scan_audit_modifications`.
+  2. Phân tích văn bản Báo cáo Kiểm toán Độc lập (Independent Auditor's Report):
+     - Xác định loại ý kiến kiểm toán:
+       - `UNQUALIFIED` (Chấp nhận toàn phần - Sạch).
+       - `QUALIFIED` (Ý kiến ngoại trừ - Có vấn đề trọng yếu).
+       - `ADVERSE` (Ý kiến trái ngược - Không phản ánh trung thực và hợp lý).
+       - `DISCLAIMER` (Từ chối đưa ra ý kiến - Nghiêm trọng nhất, kiểm toán không thể thu thập đủ bằng chứng).
+     - Quét phần **Vấn đề cần nhấn mạnh (Emphasis of Matters)**: Phát hiện từ khóa cảnh báo: "nghi ngờ đáng kể về khả năng hoạt động liên tục", "vi phạm cam kết duy trì tỷ lệ tài chính của hợp đồng vay", "tranh chấp pháp lý chưa có phán quyết cuối cùng".
+  3. So sánh chéo số liệu giữa BCTC Kiểm toán năm nay và BCTC Tự lập cùng kỳ:
+     - Tính toán chênh lệch (Variance) Lợi nhuận sau thuế trước và sau kiểm toán.
+     - Gắn cờ cảnh báo đỏ nếu Lợi nhuận sau kiểm toán sụt giảm > 10% so với báo cáo tự lập (hiện tượng phổ biến trên sàn chứng khoán Việt Nam).
+  4. Quét **Điều chỉnh Hồi tố (Prior Year Restatement Check)**:
+     - So sánh số liệu "Số đầu năm" trên BCTC năm nay với số liệu "Số cuối năm" trên BCTC năm trước.
+     - Nếu phát hiện số dư đầu năm bị sửa đổi hồi tố (ví dụ: điều chỉnh giảm vốn chủ sở hữu, trích lập bổ sung chi phí năm trước), hệ thống lập bảng đối chiếu chênh lệch và phát tín hiệu cảnh báo gian lận giấu lỗ quá khứ.
+  5. Xuất báo cáo kiểm định tuân thủ kiểm toán kèm trích dẫn văn bản ý kiến kiểm toán viên.
+
+---
+
+### 8.4 Ma trận Phối hợp Multi-Agent trong Hệ thống Quantum (Inter-Agent Synergies)
+
+Module 5 (BCTC Agent) không hoạt động độc lập mà đóng vai trò là **Nguồn Sự thật Dữ liệu Cơ bản (Fundamental Grounding Source of Truth)** cho toàn bộ mạng lưới Multi-Agent Quantum:
+
+```mermaid
+flowchart TD
+    subgraph BCTC_Module["Module 5: BCTC Agent"]
+        BCTC_CORE["BCTC Grounded Intelligence Engine"]
+    end
+
+    subgraph Peer_Modules["Các Module trong Hệ thống Agentic Quantum"]
+        MOD3["Module 3: Market & Portfolio Desk<br/>(Lọc cổ phiếu cơ bản, Quản lý danh mục)"]
+        MOD4["Module 4: Learn Hub & AI Tutor<br/>(Giảng dạy Case Study BCTC thực tế)"]
+        MOD6["Module 6: Simulation Lab<br/>(Monte Carlo & Stress-Testing danh mục)"]
+        MOD7["Module 7: News & Sentiment Desk<br/>(Đối chiếu tin tức với số liệu thực tế)"]
+    end
+
+    BCTC_CORE -->|"1. Chỉ số định giá & Sức khỏe tài chính (ROE, P/E, Z-Score)"| MOD3
+    BCTC_CORE -->|"2. Dẫn chứng BCTC thực & Proof Citations"| MOD4
+    BCTC_CORE -->|"3. Phân phối dòng tiền, Opex, Debt Schedule"| MOD6
+    MOD7 -->|"4. Tin đồn/Tin tức thị trường cần kiểm chứng"| BCTC_CORE
+    BCTC_CORE -->|"5. Xác nhận/Bác bỏ tin đồn bằng số liệu BCTC chính thức"| MOD7
+```
+
+1. **Phối hợp với Module 3 (Market & Portfolio Desk)**:
+   - Module 3 triệu hồi BCTC Agent để thực hiện lọc cổ phiếu chất lượng cao (High-Quality Screening): Loại bỏ ngay lập tức các mã có Beneish M-Score cảnh báo gian lận hoặc Altman Z-Score thuộc vùng kiệt quệ tài chính trước khi đưa vào danh mục theo dõi.
+2. **Phối hợp với Module 4 (Learn Hub & AI Tutor)**:
+   - AI Tutor sử dụng BCTC Agent để lấy các ví dụ BCTC thực tế của các doanh nghiệp đầu ngành tại Việt Nam (như FPT, VNM, HPG) làm bài tập phân tích tình huống (Case Studies) cho học viên, bảo đảm 100% số liệu bài học là số liệu kiểm toán thật có căn cứ trích dẫn.
+3. **Phối hợp với Module 6 (Simulation Lab)**:
+   - Simulation Lab nhận ma trận dòng tiền, lịch đáo hạn nợ vay và chi phí hoạt động cố định từ BCTC Agent để chạy mô phỏng ngẫu nhiên Monte Carlo (10,000 kịch bản biến động doanh thu và chi phí vốn) nhằm dự báo xác suất vỡ nợ của danh mục đầu tư.
+4. **Phối hợp với Module 7 (News & Sentiment Desk)**:
+   - Khi News Desk phát hiện tin tức hoặc tin đồn trên thị trường (ví dụ: "Doanh nghiệp X sắp vỡ nợ trái phiếu" hoặc "Doanh nghiệp Y biên lợi nhuận tăng kỷ lục"), News Desk kích hoạt BCTC Agent để đối chiếu ngay với thuyết minh nợ vay và số liệu doanh thu thực tế, đưa ra cảnh báo "Tin đồn sai sự thật so với BCTC đã công bố".
+
+---
+
+### 8.5 Tiêu chuẩn Đảm bảo An toàn, Grounding Gate & Non-Deterministic Containment
+
+Mọi chức năng mở rộng trong Mục 8 bắt buộc phải tuân thủ nghiêm ngặt các rào chắn kỹ thuật (Invariants) sau:
+
+1. **Nguyên tắc Bảo toàn Grounding (Grounded Numeric Invariant)**:
+   - Mọi con số xuất hiện trong phân tích Forensic, Định giá, hay Đối sánh ngành bắt buộc phải bắt nguồn từ `NumericValue` có kèm `ProvenanceRef` hợp lệ.
+   - LLM tuyệt đối **KHÔNG ĐƯỢC PHÉP** tự tính nhẩm các phép tính phức tạp (WACC, M-Score, DuPont). Tất cả phép tính số học phải được thực hiện bằng Python logic nội bộ trong các Domain Tools và được `NumericReviewer` phê duyệt độc lập trước khi gửi ra response.
+2. **Nguyên tắc Cấm Khuyến nghị Đầu tư (Zero Buy/Sell Invariant)**:
+   - Mặc dù cung cấp mô hình định giá nội tại (Fair Value), hệ thống tuyệt đối không xuất các từ ngữ mệnh lệnh giao dịch trực tiếp (`mua ngay`, `bán khống`, `tất tay`, `buy/sell recommendations`).
+   - Mọi kết quả định giá phải được gắn kèm tuyên bố miễn trừ trách nhiệm (Disclaimer) và giới hạn phân tích (Limitations).
+3. **Nguyên tắc Cách ly Đa Người Dùng (Zero Cross-Account Leakage)**:
+   - Các BCTC riêng tư do người dùng tải lên (Private Uploads) chỉ được sử dụng cho tài khoản sở hữu. Không một chức năng phân tích đối sánh ngành (Peer Benchmark) nào được phép sử dụng BCTC riêng tư của Người dùng A để làm dữ liệu đối sánh cho Người dùng B trừ khi tài liệu đó được gắn cờ công khai rõ ràng.
+4. **Nguyên tắc Chống Sập Quota (Deterministic Offline Fallback)**:
+   - Mọi công cụ phân tích nâng cao phải ưu tiên sử dụng cache SQLite offline đã được chuẩn hóa. Tuyệt đối không để xảy ra tình trạng gọi lặp lại provider bên ngoài làm cạn kiệt hạn ngạch API hoặc làm treo hệ sinh thái.
+
+---
+
+## 9. PHỤ LỤC — LỆNH VERIFY
 
 ```bash
-# Chạy test BCTC (bỏ qua lỗi collection có sẵn của module community)
-.venv/bin/python -m pytest tests/ -k bctc -q \
-  --ignore=tests/modules/community --ignore=tests/test_community.py
+# Chạy test BCTC toàn diện
+.venv/bin/pytest tests/test_bctc_*.py tests/test_telegram_bctc_handler.py -v
 
-# Kiểm tool registry đủ 6
-.venv/bin/python -c "from risk_dashboard.modules.financials_product.agent_tools import get_bctc_tool_manifests; print(len(get_bctc_tool_manifests()))"
+# Kiểm tra tính toàn vẹn của Tool Registry (đủ 6 tools)
+.venv/bin/python -c "from risk_dashboard.modules.financials_product.agent_tools import get_bctc_tool_manifests; print(f'BCTC Tools: {len(get_bctc_tool_manifests())}')"
 
-# Guard: không còn stub hardcode
-grep -rn "52618" src/ && echo "FAIL: stub còn tồn tại" || echo "OK"
+# Guard CI: Kiểm tra sạch hoàn toàn stub giả mạo 52618 trên toàn repository
+grep -rn "52618" src/ || echo "CLEAN_NO_52618_IN_SRC"
+grep -rn --exclude-dir=node_modules --exclude-dir=dist "52618" frontend/src || echo "CLEAN_NO_52618_IN_FRONTEND"
 
-# Guard: IDOR đã vá (phải có resolve_principal trong route upload)
-grep -n "resolve_principal" src/risk_dashboard/modules/financials_product/api/public.py
+# Kiểm tra kiểm soát sở hữu và an toàn IDOR
+.venv/bin/pytest tests/test_idor_matrix.py -v
 
-# Kiểm schema DB
+# Kiểm tra hồi quy hệ thống
+.venv/bin/pytest tests/test_agentic_graph.py tests/test_financial_analysis.py -v
+
+# Kiểm tra schema SQLite BCTC
 sqlite3 data/app_state.db ".schema bctc_evidence_memos"
 sqlite3 data/app_state.db ".schema bctc_upload_ownership"
 
-# Eval offline
-.venv/bin/python -m risk_dashboard.modules.financials_product.evals.eval_runner
+# Kiểm tra build frontend production
+npm --prefix frontend run build
 ```
 
 > **Lưu ý môi trường:** `python` không có trên PATH — dùng `.venv/bin/python`. Nếu output lệnh trông bị biến dạng, chạy qua `rtk proxy <cmd>`.
 
 ---
 
-*Hết. Mọi `file:line` trong tài liệu này được verify trên branch `fix/learning-assets` ngày 2026-09-12. Tài liệu KHÔNG chứa code sản phẩm — chỉ spec, schema và diagram.*
+*Hết. Mọi `file:line` trong tài liệu này được verify trên branch `fix/audit-remediation-module5` ngày 2026-09-14. Tài liệu kết hợp đặc tả kỹ thuật v1 Core và lộ trình tính năng nâng cao Giai đoạn 2 cho Hệ thống Multi-Agent Quantum.*
