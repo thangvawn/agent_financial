@@ -9,8 +9,34 @@ import os
 import uuid
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, UploadFile, Form, File
+from fastapi import APIRouter, HTTPException, UploadFile, Form, File, Depends, Header
 from pydantic import BaseModel, Field
+
+from risk_dashboard.modules.auth.application.dependencies import resolve_principal
+from risk_dashboard.modules.auth.application.scope_resolver import BASE_SCOPES
+from risk_dashboard.modules.auth.application.security import utc_now_iso
+from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal, ConsentSnapshot
+from risk_dashboard.modules.financials_product.infrastructure.upload_ownership_repository import (
+    UploadOwnershipRepository,
+    validate_upload_path,
+)
+
+
+def resolve_bctc_upload_principal(
+    authorization: str | None = Header(default=None),
+) -> AuthPrincipal:
+    if authorization is not None:
+        return resolve_principal(authorization=authorization)
+    return AuthPrincipal(
+        account_id="anon_upload_client",
+        session_id="anon_upload_session",
+        assurance="anonymous",
+        scopes=BASE_SCOPES,
+        is_anonymous=True,
+        consent=ConsentSnapshot(memory=False, analytics=False, policy_version="1.0.0"),
+        resolved_at=utc_now_iso(),
+    )
+
 
 from risk_dashboard.data.financials import FinancialDataError, get_financial_dataset, import_financial_dataset
 from risk_dashboard.engines.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
@@ -317,7 +343,8 @@ def upload_financials(
     ticker: str = Form(None),
     report_type: str = Form("auto"),
     period: str = Form(None),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    principal: AuthPrincipal = Depends(resolve_bctc_upload_principal),
 ):
     filename = file.filename or ""
     _, ext = os.path.splitext(filename.lower())
@@ -366,12 +393,22 @@ def upload_financials(
         "filename": filename,
         "file_path": file_path,
         "status": "uploaded",
-        "pipeline": supported_extensions[ext]
+        "pipeline": supported_extensions[ext],
+        "account_id": principal.account_id,
     }
     
     metadata_path = os.path.join(uploads_dir, f"{upload_id}.json")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+    # Bind ownership in database
+    ownership_repo = UploadOwnershipRepository()
+    ownership_repo.bind_upload(
+        upload_id=upload_id,
+        account_id=principal.account_id,
+        filename=filename,
+        upload_path=file_path,
+    )
         
     return {
         "status": "uploaded",
@@ -385,10 +422,30 @@ def upload_financials(
 
 
 @router.post("/financials/uploads/{upload_id}/analyze", tags=["Financials"])
-def analyze_uploaded_file(upload_id: str):
+def analyze_uploaded_file(
+    upload_id: str,
+    principal: AuthPrincipal = Depends(resolve_bctc_upload_principal),
+):
     uploads_dir = os.getenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", "data/financial_uploads")
+    try:
+        validate_upload_path(upload_id, uploads_dir)
+    except PermissionError:
+        raise HTTPException(status_code=400, detail="Invalid upload_id format")
+
+    ownership_repo = UploadOwnershipRepository()
+    if not ownership_repo.check_ownership(upload_id, principal.account_id):
+        import logging
+        logging.getLogger("risk_dashboard.bctc").warning(
+            "bctc.upload.ownership_denied",
+            extra={
+                "event": "bctc.upload.ownership_denied",
+                "upload_id": upload_id,
+                "account_id": principal.account_id,
+            },
+        )
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
     metadata_path = os.path.join(uploads_dir, f"{upload_id}.json")
-    
     if not os.path.exists(metadata_path):
         raise HTTPException(status_code=404, detail="Upload session not found")
         
@@ -443,7 +500,8 @@ def analyze_uploaded_file(upload_id: str):
                     row_ticker = ticker_val.strip().upper()
                 
                 year_val = int(row.get(mapping.get("year", "Năm")) or 0)
-                quarter_val = int(row.get(mapping.get("quarter", "Kỳ")) or 0)
+                raw_q = str(row.get(mapping.get("quarter", "Kỳ")) or "").upper().replace("Q", "").strip()
+                quarter_val = int(raw_q) if raw_q.isdigit() else 0
                 
                 period_label = f"{year_val}-Q{quarter_val}" if quarter_val else f"{year_val}"
                 
@@ -1681,3 +1739,4 @@ def _safe_pct(value: Any, base: Any) -> float | None:
     if value is None or base in (None, 0):
         return None
     return (float(value) / abs(float(base))) * 100
+
