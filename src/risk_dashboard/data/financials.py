@@ -427,8 +427,11 @@ def get_financial_dataset(ticker: str, *, refresh: bool = False, max_cache_age_s
         dataset = _attempt_vnstock_fetch(ticker)
         save_financial_dataset(dataset)
         return dataset
-    except FinancialDataError as exc:
-        provider_errors.extend([exc.message, *(exc.notes or []), exc.hint or ""])
+    except BaseException as exc:
+        if isinstance(exc, FinancialDataError):
+            provider_errors.extend([exc.message, *(exc.notes or []), exc.hint or ""])
+        else:
+            provider_errors.append(str(exc))
 
     cached = load_cached_financial_dataset(ticker)
     if cached is not None:

@@ -19,7 +19,8 @@ class ReportResolver(ReportReader):
     """Resolves and pins financial reports to deterministic revisions."""
 
     def load_dataset(self, ticker: str, refresh: bool = False) -> FinancialDataset:
-        return get_financial_dataset(ticker, refresh=refresh)
+        max_age = 86400 if refresh else 0
+        return get_financial_dataset(ticker, refresh=refresh, max_cache_age_seconds=max_age)
 
     def resolve_report(
         self,
