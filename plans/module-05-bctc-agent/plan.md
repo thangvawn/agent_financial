@@ -4,7 +4,7 @@
 > **Priority:** P1 (Wave V2)
 > **Domain owner:** `modules/financials_product`
 > **Dependencies:** Module 00 (Agentic Core), Module 01 (Identity/Trust), Module 02 (AI Runtime), Module 04 (Learn Agent — COMPLETED)
-> **Source doc:** `docs/project/agentic-quantum/05_BCTC_AGENT_PLAN.md`
+> **Source doc:** `docs/project/agentic-quantum/05_BCTC_AGENT_TECHNICAL_SPEC.md`
 
 ---
 

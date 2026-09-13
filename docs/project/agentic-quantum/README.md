@@ -28,7 +28,7 @@ Nếu plan con mâu thuẫn với master plan thì master plan thắng, cho đ�
 | 02 | [`02_AI_RUNTIME_PLAN.md`](02_AI_RUNTIME_PLAN.md) | Model provider, structured generation, redaction, telemetry, budgets | P0 |
 | 03 | [`03_AI_TUTOR_PLAN.md`](03_AI_TUTOR_PLAN.md) | Conversation product, tutor persona, feedback, checkpoints | P0 |
 | 04 | [`04_LEARN_AGENT_PLAN.md`](04_LEARN_AGENT_PLAN.md) | Lesson-grounded teaching, mastery checks, next learning step | P0 |
-| 05 | [`05_BCTC_AGENT_PLAN.md`](05_BCTC_AGENT_PLAN.md) | Evidence-grounded financial-statement analysis | P1 |
+| 05 | [`05_BCTC_AGENT_TECHNICAL_SPEC.md`](05_BCTC_AGENT_TECHNICAL_SPEC.md) | Evidence-grounded financial-statement analysis | P1 |
 | 06 | [`06_SIMULATION_AGENT_TECHNICAL_SPEC.md`](06_SIMULATION_AGENT_TECHNICAL_SPEC.md) | Strategy design and backtest critique, no live trading | P1 |
 | 07 | [`07_NEWS_AGENT_PLAN.md`](07_NEWS_AGENT_PLAN.md) | Source-aware event briefs and impact hypotheses | P2 |
 | 08 | [`08_MARKET_PORTFOLIO_AGENT_PLAN.md`](08_MARKET_PORTFOLIO_AGENT_PLAN.md) | Market context and paper-portfolio review | P2 |

@@ -1,18 +1,85 @@
-# MODULE 5: AGENTIC QUANTUM (BCTC AGENT) — TECHNICAL SPECIFICATION
+# MODULE 5: BCTC / FINANCIAL STATEMENT AGENT — TECHNICAL SPECIFICATION & UNIFIED IMPLEMENTATION PLAN
 
-> Domain owner: `src/risk_dashboard/modules/financials_product`
-> Companion plan: [`05_BCTC_AGENT_PLAN.md`](./05_BCTC_AGENT_PLAN.md)
-> Master plan gate: AT5 / VP-AT5 ([`../AGENTIC_QUANTUM_MASTER_PLAN.md`](../AGENTIC_QUANTUM_MASTER_PLAN.md) §2171)
-> Interaction contract: [`../qa/USER_INTERACTION_GUIDE.md`](../qa/USER_INTERACTION_GUIDE.md) §2.3, §3.1–3.3
-> Spec date: 2026-09-12 — verified against branch `fix/learning-assets`
+> **Tài liệu Duy nhất & Chính thức cho Module 5 (Financials Product / BCTC Agent)**  
+> *Đã hợp nhất và đồng bộ toàn bộ nội dung từ `05_BCTC_AGENT_PLAN.md` và `05_BCTC_AGENT_TECHNICAL_SPEC.md`.*  
+> Domain owner: `src/risk_dashboard/modules/financials_product`  
+> Agent consumer: `modules/ai_tutor` và panel nhúng `BctcAnalysisWorkspace` (Frontend)  
+> Dependencies: Agentic Core (doc 00), AI Runtime (doc 02), Identity/Trust (doc 01)  
+> Roadmap liên quan: AT1, AT5, EA2  
+> Master plan gate: AT5 / VP-AT5 ([`../AGENTIC_QUANTUM_MASTER_PLAN.md`](../AGENTIC_QUANTUM_MASTER_PLAN.md) §2171)  
+> Interaction contract: [`../qa/USER_INTERACTION_GUIDE.md`](../qa/USER_INTERACTION_GUIDE.md) §2.3, §3.1–3.3  
+> Spec date: 2026-09-14 — verified against branch `feat/module6-simulation-agent`
 
 ---
 
-## 0. REALITY CHECK — TRẠNG THÁI ĐÃ VERIFY
+## 0. TỔNG QUAN, KHẢ NĂNG CỐT LÕI & TRẠNG THÁI VERIFY
 
-**Điểm quan trọng nhất: `05_BCTC_AGENT_PLAN.md` §0 đã lỗi thời.** Plan ghi `domain/`, `schemas/`, `agent_tools.py` "chưa tồn tại". Thực tế BCTC0–BCTC5 và BCTC8–BCTC9 đã được implement. Spec này viết trên trạng thái code thực, không viết lại từ đầu.
+### 0.1 Sứ mệnh & Năng lực Cốt lõi (Core Capability & Mission)
 
-### 0.1 Đã tồn tại (verified on disk)
+BCTC Agent giúp người dùng (học viên, nhà đầu tư, chuyên viên phân tích) đọc và thẩm định báo cáo tài chính bằng **bằng chứng số liệu có thể kiểm chứng (verifiable evidence)**:
+- Tra cứu chỉ tiêu báo cáo tài chính (`bctc.resolve_line_item`), giải thích công thức cấu thành, đối chiếu đa kỳ (`bctc.compare_periods`), nhận diện biến động bất thường.
+- Tạo báo cáo thẩm định chất lượng lợi nhuận và nghiên cứu chuyên sâu (`BCTCEvidenceMemo`) với bảng bằng chứng xác thực (`bctc.build_evidence_table`).
+- **Nguyên tắc bất biến**: Mọi con số model nhìn thấy hoặc trả về người dùng bắt buộc phải xuất phát từ typed tool, gắn chặt với định danh báo cáo (`report_id`), phiên bản revision (`revision_id`), kỳ báo cáo (`period`), đơn vị tiền tệ (`currency`), quy mô đơn vị (`unit`), và nguồn gốc dữ liệu (`source`/`fetched_at`).
+- **Zero Buy/Sell**: Agent tuyệt đối **không** đưa ra khuyến nghị mua/bán, không phán đoán giá cổ phiếu tương lai, và không thay thế ý kiến kiểm toán độc lập hay chuyên gia tài chính được cấp phép. `financials_product` sở hữu dữ liệu và compute; agent chỉ điều phối đọc-hiểu có kiểm chứng.
+
+### 0.2 Bối cảnh Bề mặt Bắt buộc (Required Surface Context)
+
+Mọi thao tác của BCTC Agent yêu cầu các thành phần ngữ cảnh định danh nghiêm ngặt:
+- Mã cổ phiếu / Công ty (`ticker`, canonical company ID).
+- Định danh báo cáo (`report_id`), kỳ báo cáo (`period`) và **active revision (`revision_id`)**.
+- Loại báo cáo (`statement_type`: `income_statement`, `balance_sheet`, `cash_flow`) và mã chỉ tiêu (`line_item`).
+- Đơn vị tiền tệ (`VND`), đơn vị hiển thị (`VND`, `VND_bn`, `pct`, `x`, `ratio`) và hệ số quy đổi (`scale`).
+- Thời điểm thu thập dữ liệu (`fetched_at`), nguồn dữ liệu (`source`) và ghi chú bản quyền (`license_note`).
+- Quyền sở hữu và phạm vi tài khoản (`AuthPrincipal.account_id`) đối với các báo cáo tải lên riêng tư (`upload_id`).
+- Client có thể gửi tham chiếu tài nguyên, nhưng server bắt buộc phải tự resolve và xác thực revision thực tế. `AuthPrincipal` được resolve phía server qua `ResolveSession.execute(*, session_id)`.
+
+### 0.3 Các Luồng Tác vụ Người dùng (User Workflows)
+
+| Luồng tác vụ (Workflow) | Cơ chế kích hoạt (Trigger) | Đầu ra của Agent (Agent Output) | Ranh giới ghi (Write Boundary) |
+|---|---|---|---|
+| **Explain line item** | Người dùng click vào một hàng chỉ tiêu trên bảng BCTC | Định nghĩa chuẩn mực kế toán, công thức cấu thành, các lưu ý (caveats), tham chiếu nguồn gốc | Read-only |
+| **Compare periods** | Chọn công ty + chỉ tiêu + các kỳ so sánh (2-8 kỳ) | Bảng so sánh chuẩn hóa, biến động tuyệt đối, % tăng trưởng YoY/QoQ, yếu tố dẫn dắt | Read-only |
+| **Ratio walkthrough** | Chọn công thức từ Formula Registry | Công thức chuẩn, số liệu thay thế, đơn vị, kết quả tính toán, giới hạn phân tích | Read-only |
+| **Earnings-quality review** | Chọn báo cáo cần thẩm định | Bảng bằng chứng số liệu (`EvidenceTable`), các giả thuyết phân tích, danh sách cảnh báo đỏ (Red Flags) | Proposal artifact (`BCTCEvidenceMemo`) |
+| **Research checklist** | Chọn công ty / báo cáo | Danh sách câu hỏi nghi vấn cần kiểm tra tiếp + bằng chứng tương ứng cần thu thập | Read-only |
+| **Cross-link to Learn** | Khái niệm tài chính / chỉ số phức tạp | Gợi ý bài học tiếp theo (kết nối Module 4 `learning.recommend_next`) | Không ghi đè tiến độ học |
+
+### 0.4 Ma trận Ánh xạ Work Packages Master Plan (BCTC0–BCTC9) sang Thực thi (S1–S11)
+
+Bảng đối chiếu 10 Work Packages ban đầu của Master Plan sang hiện trạng thực tế trên codebase và thứ tự triển khai kỹ thuật:
+
+| Mã WP Master | Tên Work Package ban đầu | Trạng thái hiện tại | Ánh xạ Implementation Sequence | Bằng chứng mã nguồn |
+|---|---|---|---|---|
+| **BCTC0** | Data Contract & Provenance | **DONE** | Nền tảng cho S1–S4 | `ProvenanceRef`, `NumericValue` tại `schemas/agent_tools.py:9,22`; scopes tại `module.py` |
+| **BCTC1** | 6 Read Domain Tools | **DONE (Lõi)** / Wire S1 | **S1** (Đăng ký ToolRegistry) | 6 tools tại `agent_tools/{report_tools,analysis_tools,evidence_tools,helpers}.py` |
+| **BCTC2** | Versioned Formula Registry | **DONE** | Nền tảng cho S1 | `domain/formula_registry.py` (7 formulas chuẩn hóa, versioned, governance approval) |
+| **BCTC3** | Agent Skills & Intent Routing | **DONE** | **S5** (Orchestrated Runs) | 5 skill manifests tại `skills/manifests.py`, prompts tại `skills/prompts/` |
+| **BCTC4** | Numeric Reviewer Grounding Gate | **DONE (Lõi)** / Wire S6 | **S6** (Wire vào Response Path) | `application/numeric_reviewer.py:30`, chặn 100% claim bịa/unsupported |
+| **BCTC5** | Evidence Memo & Artifact UI | **DONE (Lõi)** / Wire S7 | **S7** (Memo HTTP Surface) | `application/memo_service.py`, `infrastructure/sqlite_memo_repository.py` |
+| **BCTC6** | Private Data Controls & IDOR Guard | **DONE (Lõi)** / Wire S3 | **S3** (Vá IDOR HTTP Layer) | `upload_ownership_repository.py:19`, `validate_upload_path()` |
+| **BCTC7** | Rollout & Feature Flags | **SẴN SÀNG** | **S11** (Rollout 4 cohorts) | Flags `module.financials_product.enabled`, `bctc_agent.enabled` tại `module.py` |
+| **BCTC8** | Numeric Reviewer Thresholds | **DONE** | S6 / §5.2 Exit Criteria | Zero unsupported claims tolerated (`unsupported_count == 0`) |
+| **BCTC9** | Formula Governance Workflow | **DONE** | Nền tảng cho BCTC2 | `FormulaEntry.approved/approved_by/approved_at`, `get_formula()` reject unapproved |
+
+### 0.5 Nguyên tắc An toàn, Bảo mật & Tuân thủ Bất biến (Security & Compliance Invariants)
+
+Tích hợp toàn bộ rào chắn an toàn từ kế hoạch gốc:
+1. **Read-only tools trong initial release**: Không cung cấp bất kỳ công cụ ghi (`confirmed_write`) nào cho model trong giai đoạn đầu. `BCTCEvidenceMemo` được tạo qua cơ chế artifact proposal của Agentic Core.
+2. **Cấm tuyệt đối công cụ SQL/DataFrame tự do**: Model không được cung cấp công cụ chạy câu lệnh SQL hoặc thao tác DataFrame trực tiếp trên cơ sở dữ liệu tài chính.
+3. **Kiểm soát sở hữu tài nguyên nghiêm ngặt (Zero IDOR)**: Mọi báo cáo tải lên riêng tư (`upload_id`) chỉ resolve được khi `AuthPrincipal.account_id` trùng khớp với chủ sở hữu. Model tuyệt đối không được truyền hoặc giả lập `principal`.
+4. **Cô lập bộ nhớ dài hạn (Memory Privacy)**: Nội dung chi tiết của các BCTC riêng tư do người dùng tải lên không bao giờ được lưu vào bộ nhớ dài hạn dùng chung (`durable memory`).
+5. **Dữ liệu là Data, không phải Instructions**: Mọi nội dung báo cáo tài chính tải lên hoặc kết quả trích xuất từ văn bản PDF được xử lý thuần túy là dữ liệu đầu vào, không bao giờ được chuyển hóa thành câu lệnh điều khiển hệ thống (phòng chống triệt để Indirect Prompt Injection).
+6. **Không khuyến nghị giao dịch cá nhân hóa**: Không phát sinh các từ ngữ thúc giục mua/bán cổ phiếu.
+7. **Bảo mật nhật ký (Log Redaction)**: Log chỉ ghi nhận IDs, mã chỉ tiêu, thời gian xử lý và mã băm SHA-256 của account; không log toàn bộ payload báo cáo tài chính thô ở level INFO.
+8. **Chặn tấn công duyệt đường dẫn (Path Traversal)**: Mọi thao tác đọc file tải lên phải đi qua `validate_upload_path()`, giải mã URL unquote, chặn ký tự `..`, `/`, `\` và kiểm tra realpath prefix.
+
+---
+
+### 0.6 Reality Check — Trạng thái đã verify trên Disk
+
+**Điểm quan trọng nhất:** Kế hoạch ban đầu từng ghi `domain/`, `schemas/`, `agent_tools.py` "chưa tồn tại". Thực tế BCTC0–BCTC5 và BCTC8–BCTC9 đã được implement. Spec này viết trên trạng thái code thực, không viết lại từ đầu.
+
+#### Bảng thành phần đã tồn tại (verified on disk)
 
 | Thành phần | Đường dẫn | Bằng chứng |
 |---|---|---|
@@ -35,7 +102,7 @@ Lệnh: `.venv/bin/python -m pytest tests/ -k bctc -q --ignore=tests/modules/com
 
 > Pre-existing (KHÔNG thuộc module 5, chỉ báo cáo — không sửa trong scope này): `tests/test_community.py` fail collection với `NameError: name 'Query' is not defined`, gốc tại `src/risk_dashboard/modules/community/api/public.py:146`.
 
-### 0.2 Gap thực sự còn lại — đây là toàn bộ scope của spec này
+### 0.7 Gap thực sự còn lại — đây là toàn bộ scope của spec này
 
 | # | Gap | Bằng chứng | Mức độ |
 |---|---|---|---|
@@ -48,7 +115,7 @@ Lệnh: `.venv/bin/python -m pytest tests/ -k bctc -q --ignore=tests/modules/com
 | **G7** | Frontend chưa gọi agent. `financialsApi.js` không có endpoint agent nào | `frontend/src/features/bctc/services/financialsApi.js` | P1 |
 | **G8** | Không có structured logging chuẩn cho tool call / reviewer verdict | không có logger trong `agent_tools/*` | P1 |
 
-### 0.3 Uncertainty — CẦN NGƯỜI QUYẾT, không tự suy diễn
+### 0.8 Uncertainty — CẦN NGƯỜI QUYẾT, không tự suy diễn
 
 | ID | Câu hỏi | Vì sao không tự quyết được | Cách thu thập |
 |---|---|---|---|
@@ -838,7 +905,7 @@ groups:
         annotations: { runbook: "§1.5.3 Playbook P4" }
 ```
 
-Threshold latency lấy trực tiếp từ exit criteria `05_BCTC_AGENT_PLAN.md` §13 (ratio p50 <200ms / p95 <500ms; memo p50 <3s / p95 <8s).
+Threshold latency lấy trực tiếp từ exit criteria §5.2 / Master Plan §14A.3 (ratio p50 <200ms / p95 <500ms; memo p50 <3s / p95 <8s).
 
 #### 1.5.3 Incident playbooks
 
@@ -1543,7 +1610,7 @@ Chỉ áp dụng cho hành động **không tạo ra số**:
 
 ### 5.2 Exit Criteria (gate cho VP-AT5)
 
-Lấy từ `05_BCTC_AGENT_PLAN.md` §13, map master plan §14A.3:
+Lấy từ tiêu chí nghiệm thu kiểm soát chất lượng Master Plan §14A.3 / VP-AT5:
 
 | # | Tiêu chí | Đo bằng | Ngưỡng |
 |---|---|---|---|

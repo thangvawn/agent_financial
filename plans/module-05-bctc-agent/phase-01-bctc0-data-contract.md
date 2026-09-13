@@ -67,7 +67,7 @@ ProvenanceRef → gắn vào mọi NumericValue → NumericValue là atomic unit
 ## Implementation Steps
 
 ### Step 1: Tạo `schemas/agent_tools.py`
-Copy exact schema definitions từ §5.1 trong `05_BCTC_AGENT_PLAN.md`:
+Copy exact schema definitions từ `05_BCTC_AGENT_TECHNICAL_SPEC.md`:
 - `ProvenanceRef(BaseModel)` — frozen
 - `NumericValue(BaseModel)` — `provenance` field bắt buộc (không Optional)
 - `ResolveReportInput/Output`
