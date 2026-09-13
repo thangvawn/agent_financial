@@ -1,14 +1,22 @@
 from fastapi import APIRouter
 
 from risk_dashboard.app.registry.module_definition import ModuleDefinition
-from risk_dashboard.modules.pro_lab.api.public import router as public_router
+from risk_dashboard.modules.pro_lab.api.public import router as base_public_router
 from risk_dashboard.modules.pro_lab.api.pro import router as pro_router
 from risk_dashboard.modules.pro_lab.api.admin import router as admin_router
 from risk_dashboard.modules.pro_lab.api.ai import router as ai_router
+from risk_dashboard.modules.pro_lab.api.agent_router import router as agent_router
+
+public_router = APIRouter()
+public_router.include_router(base_public_router)
+public_router.include_router(agent_router, prefix="/simulation/agent")
+public_router.include_router(agent_router, prefix="/api/v1/public/simulation/agent")
+public_router.include_router(agent_router, prefix="/api/v1/simulation/agent")
 
 _combined_pro_router = APIRouter()
 _combined_pro_router.include_router(pro_router)
 _combined_pro_router.include_router(ai_router)
+_combined_pro_router.include_router(agent_router, prefix="/simulation/agent")
 
 # Phase 4: registered slug is simulation_lab; package folder remains pro_lab (HTTP /pro-lab kept for FE).
 module = ModuleDefinition(

@@ -10,6 +10,8 @@ from risk_dashboard.modules.learning.agent_tools import (
     RECOMMEND_NEXT_MANIFEST,
     UPDATE_PROGRESS_MANIFEST,
 )
+from risk_dashboard.modules.financials_product.agent_tools import get_bctc_tool_manifests
+from risk_dashboard.modules.pro_lab.application.simulation_tools import get_simulation_tool_manifests
 
 
 class ToolRegistry:
@@ -74,15 +76,10 @@ _CANONICAL_MANIFESTS: tuple[ToolManifest, ...] = (
         description="Fetch educational lesson content.",
         required_capabilities=("learning:read",),
     ),
-    ToolManifest(
-        tool_id="bctc.resolve_line_item",
-        name="Resolve Financial Line Item",
-        module="financials",
-        risk_class=RiskClass.READ,
-        version="1.0.0",
-        description="Fetch exact line item from verified financial reports.",
-        required_capabilities=("financials:read",),
-    ),
+    # Canonical BCTC Tools (Module 5 - BW0, BW1, BW3)
+    *get_bctc_tool_manifests(),
+    # Canonical Simulation Tools (Module 6 - SIM6)
+    *get_simulation_tool_manifests(),
     # Canonical Learning Engine Tools (Module 4 - LEA0, LEA1, LEA4)
     GET_CONTEXT_MANIFEST,
     GET_PROGRESS_MANIFEST,

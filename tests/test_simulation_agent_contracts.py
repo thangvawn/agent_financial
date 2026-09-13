@@ -201,3 +201,144 @@ def test_tool_query_and_output_contracts():
     )
     assert comp.is_compatible is True
 
+
+# ==============================================================================
+# HTTP Agent Router Contract Tests (G1, G4, G5)
+# ==============================================================================
+@pytest.fixture
+def sim_client():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from risk_dashboard.modules.auth.application.dependencies import resolve_principal
+    from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal, ConsentSnapshot
+    from risk_dashboard.modules.pro_lab.api.agent_router import router as simulation_agent_router
+
+    app = FastAPI()
+    app.include_router(simulation_agent_router)
+
+    def mock_principal() -> AuthPrincipal:
+        return AuthPrincipal(
+            account_id="user_test_sim",
+            session_id="sess_sim_123",
+            assurance="recent_auth",
+            scopes=(
+                "pro_lab:strategy:read",
+                "pro_lab:experiment:read",
+                "pro_lab:run:read",
+                "pro_lab:trade_detail:read",
+                "pro_lab:run:propose",
+                "pro_lab:run:execute",
+            ),
+            consent=ConsentSnapshot(memory=True, analytics=True, policy_version="1.0.0"),
+            resolved_at="2026-09-02T12:00:00Z",
+        )
+
+    app.dependency_overrides[resolve_principal] = mock_principal
+    return TestClient(app)
+
+
+def test_http_list_simulation_tools(sim_client):
+    res = sim_client.get("/tools")
+    assert res.status_code == 200
+    data = res.json()
+    assert "tools" in data
+    tool_ids = [t["tool_id"] for t in data["tools"]]
+    assert "simulation.validate_experiment" in tool_ids
+    assert "simulation.propose_run" in tool_ids
+    assert "simulation.execute_run" in tool_ids
+
+
+def test_http_invoke_validate_experiment_tool(sim_client):
+    manifest = _make_sample_manifest().model_dump(mode="json")
+    res = sim_client.post(
+        "/tools/simulation.validate_experiment:invoke",
+        json={"input": manifest},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["tool_id"] == "simulation.validate_experiment"
+    assert "output" in data
+    assert "latency_ms" in data
+    assert data["output"]["is_valid"] is True
+
+
+def test_http_forbidden_broker_tool_rejected(sim_client):
+    res = sim_client.post(
+        "/tools/broker.place_order:invoke",
+        json={"input": {}},
+    )
+    assert res.status_code == 403
+    assert res.json()["detail"]["error"] == "FORBIDDEN_OPERATION"
+
+
+def test_http_propose_and_execute_simulation_flow(sim_client):
+    manifest = _make_sample_manifest().model_dump(mode="json")
+    # 1. Create proposal
+    prop_res = sim_client.post("/proposals", json={"manifest": manifest, "estimated_cost": 0.05})
+    assert prop_res.status_code == 201
+    prop_data = prop_res.json()
+    proposal_id = prop_data["proposal_id"]
+    assert proposal_id.startswith("prop_")
+    assert prop_data["estimated_cost"] == 0.05
+
+    # 2. Get proposal
+    get_res = sim_client.get(f"/proposals/{proposal_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["proposal_id"] == proposal_id
+
+    # 3. Lookup entity to get confirmation token for execution
+    from risk_dashboard.modules.pro_lab.infrastructure.repositories.sqlite import (
+        SqliteSimulationActionProposalRepository,
+    )
+    entity = SqliteSimulationActionProposalRepository().get(proposal_id=proposal_id)
+    assert entity is not None
+    token = entity.confirmation_token
+
+    # 4. Execute confirmed run
+    import uuid
+
+    idem_key = f"idem_contract_{uuid.uuid4().hex[:8]}"
+    exec_res = sim_client.post(
+        "/execute",
+        json={
+            "proposal_id": proposal_id,
+            "confirmation_token": token,
+            "idempotency_key": idem_key,
+        },
+    )
+    assert exec_res.status_code == 200
+    receipt = exec_res.json()
+    assert receipt["status"] == "executed"
+    assert receipt["proposal_id"] == proposal_id
+
+    # 5. Idempotent re-execution returns identical receipt
+    exec_res2 = sim_client.post(
+        "/execute",
+        json={
+            "proposal_id": proposal_id,
+            "confirmation_token": token,
+            "idempotency_key": idem_key,
+        },
+    )
+    assert exec_res2.status_code == 200
+    assert exec_res2.json()["receipt_id"] == receipt["receipt_id"]
+
+
+def test_http_agent_run_grounding_gate(sim_client):
+    # Valid run passes
+    res_valid = sim_client.post("/runs", json={"skill_id": "simulation.result_critique.v1"})
+    assert res_valid.status_code == 200
+    data_valid = res_valid.json()
+    assert data_valid["status"] == "completed"
+    assert len(data_valid["citations"]) > 0
+
+    # Unsupported claim triggers 422 GroundingFailed
+    res_hallucinated = sim_client.post(
+        "/runs",
+        json={"skill_id": "simulation.result_critique.v1", "test_inject_unsupported_claim": True},
+    )
+    assert res_hallucinated.status_code == 422
+    err_data = res_hallucinated.json()["detail"]
+    assert err_data["error"] == "GROUNDING_FAILED"
+    assert len(err_data["unsupported_claims"]) > 0
+
