@@ -50,8 +50,8 @@ def auth_fixture(tmp_path, monkeypatch):
 # ==============================================================================
 
 def test_run_service_honors_real_consent_and_blocks_memory_when_false(auth_fixture):
-    from risk_dashboard.modules.agentic_core.application.run_service import RunService
-    from risk_dashboard.modules.agentic_core.schemas.requests import AgentRunRequestV1
+    from risk_dashboard.modules.agentic_core.application.run_service import AgentRunService
+    from risk_dashboard.modules.agentic_core.schemas.run import AgentRunRequestV1
     from risk_dashboard.modules.agentic_core.application.memory_service import MemoryGovernor
 
     account = auth_fixture["account"]
@@ -74,11 +74,11 @@ def test_run_service_honors_real_consent_and_blocks_memory_when_false(auth_fixtu
         resolved_at=datetime.now(timezone.utc).isoformat(),
     )
 
-    service = RunService()
+    service = AgentRunService()
     request = AgentRunRequestV1(
         surface="research",
         operation="fetch_market_signals",
-        task_input={"symbol": "VCB"},
+        input_parameters={"symbol": "VCB"},
     )
     envelope = service.build_envelope(request, principal)
 
@@ -90,9 +90,9 @@ def test_run_service_honors_real_consent_and_blocks_memory_when_false(auth_fixtu
     # Governor must drop proposal when consent.memory is False
     proposal = MemoryGovernor.evaluate_proposal(
         account_id=principal.account_id,
-        memory_type="preference",
+        memory_type="user_preference",
         content="Prefers high tech stocks",
-        provenance="user_stated",
+        provenance="user_explicit",
         consent_memory=envelope.consent.memory,
     )
     assert proposal is None
@@ -134,16 +134,16 @@ def test_user_rights_memory_crud_and_delete_all(auth_fixture):
     mem_svc = MemoryService()
     mem1 = mem_svc.record_memory(
         account_id=account.account_id,
-        memory_type="preference",
+        memory_type="user_preference",
         content="Thích cổ phiếu công nghệ FPT",
-        provenance="user_stated",
+        provenance="user_explicit",
         consent_memory=True,
     )
     mem2 = mem_svc.record_memory(
         account_id=account.account_id,
-        memory_type="goal",
+        memory_type="market_insight",
         content="Quan tâm nhóm ngân hàng VCB",
-        provenance="user_stated",
+        provenance="user_explicit",
         consent_memory=True,
     )
     assert mem1 is not None and mem2 is not None
@@ -284,7 +284,7 @@ def test_retention_ttl_service(auth_fixture):
     account = auth_fixture["account"]
 
     # Create expired session in past
-    from risk_dashboard.modules.auth.application.security import AccountSession
+    from risk_dashboard.modules.auth.domain.models import AccountSession
     expired_sess = AccountSession(
         session_id="expired_sess_123456",
         account_id=account.account_id,
@@ -301,3 +301,4 @@ def test_retention_ttl_service(auth_fixture):
 
     reloaded = sessions.get(session_id="expired_sess_123456")
     assert reloaded is None or reloaded.status == "revoked"
+

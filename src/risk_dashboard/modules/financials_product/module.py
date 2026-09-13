@@ -1,5 +1,15 @@
+from __future__ import annotations
+
+from fastapi import APIRouter
 from risk_dashboard.app.registry.module_definition import ModuleDefinition
-from risk_dashboard.modules.financials_product.api.public import router as public_router
+from risk_dashboard.modules.financials_product.api.public import router as base_public_router
+from risk_dashboard.modules.financials_product.api.agent_router import router as agent_router
+
+public_router = APIRouter()
+public_router.include_router(base_public_router)
+public_router.include_router(agent_router, prefix="/api/v1/public/bctc/agent")
+public_router.include_router(agent_router, prefix="/api/v1/bctc/agent")
+public_router.include_router(agent_router, prefix="/bctc/agent")
 
 module = ModuleDefinition(
     id="financials_product",

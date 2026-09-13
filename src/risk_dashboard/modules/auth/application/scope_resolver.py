@@ -15,6 +15,10 @@ BASE_SCOPES: tuple[str, ...] = (
     "me:memory:delete",
     "me:data:export",
     "agentic:read",
+    "financials:read",
+    "bctc:report:read",
+    "bctc:formula:read",
+    "bctc:evidence:read",
 )
 
 STARTER_SCOPES: tuple[str, ...] = BASE_SCOPES + (

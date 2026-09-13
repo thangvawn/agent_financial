@@ -173,3 +173,4 @@ def test_d26_product_mastery_default_80_threshold() -> None:
     assert LearningMemoryGovernor.propose_mastery(verified_event=_ev("u_def", 79), tier="standard") is None
     prop = LearningMemoryGovernor.propose_mastery(verified_event=_ev("u_def", 80), tier="standard")
     assert prop is not None and prop.score == 80
+

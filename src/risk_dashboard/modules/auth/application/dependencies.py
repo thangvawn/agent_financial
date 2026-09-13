@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import uuid
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException, Query
 
 from risk_dashboard.modules.auth.application.scope_resolver import BASE_SCOPES, resolve_scopes
 from risk_dashboard.modules.auth.application.security import utc_now_iso
@@ -76,16 +76,15 @@ def resolve_principal_relaxed(
 
 
 def resolve_surface_principal(
-    request: Request,
     authorization: str | None = Header(default=None),
+    session_id: str | None = Query(default=None),
 ) -> AuthPrincipal:
     if authorization is not None:
         return resolve_principal(authorization=authorization)
 
-    legacy_session_id = request.query_params.get("session_id")
-    if legacy_session_id:
+    if session_id:
         sessions_repo = SqliteAccountSessionRepository()
-        session = sessions_repo.get(session_id=legacy_session_id)
+        session = sessions_repo.get(session_id=session_id)
         if session and session.status == "active":
             accounts_repo = SqliteAccountRepository()
             account = accounts_repo.get_by_id(account_id=session.account_id)
@@ -102,8 +101,8 @@ def resolve_surface_principal(
 
         # Legacy test session or anonymous
         return AuthPrincipal(
-            account_id=legacy_session_id,
-            session_id=legacy_session_id,
+            account_id=session_id,
+            session_id=session_id,
             assurance="anonymous",
             scopes=BASE_SCOPES,
             is_anonymous=True,
