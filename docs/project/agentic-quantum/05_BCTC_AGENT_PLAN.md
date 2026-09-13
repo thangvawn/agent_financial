@@ -427,3 +427,22 @@ Metrics: unsupported numeric claim rate, evidence coverage, stale-report catches
   - unsupported claims blocked by reviewer;
   - zero cross-account private report access.
 - Validation gate: maps to VP-AT5 trong master §14A.3.
+
+---
+
+## 14. Lộ trình Tiến hóa Giai đoạn 2 (Post-Completion Advanced Capabilities)
+
+Sau khi hoàn tất nghiệm thu Giai đoạn 1 (v1 Core: 6 Read Tools, 5 Skills, NumericReviewer Gate, Memo Persistence), Module 5 mở rộng sang 7 năng lực nâng cao cấp tổ chức (Institutional-Grade). 
+
+Đặc tả chi tiết kiến trúc, Use Cases, Sequence Diagrams (Dataflow), Pydantic Schemas và Ma trận tương tác Multi-Agent được quy định tại tài liệu:
+👉 **[`05_BCTC_AGENT_TECHNICAL_SPEC.md` — Mục 8: CÁC CHỨC NĂNG CẦN CÓ SAU KHI HOÀN THÀNH](05_BCTC_AGENT_TECHNICAL_SPEC.md#8-cac-chuc-nang-can-co-sau-khi-hoan-thanh-post-completion-advanced-capabilities)**
+
+### Danh mục 7 Năng lực Nâng cao (CAP-1 → CAP-7):
+1. **CAP-1**: Forensic Accounting & Earnings Manipulation Scanner (`bctc.compute_forensic_scores` / `bctc.forensic_scan.v1`) — Beneish M-Score 8 biến, Altman Z''-Score thị trường mới nổi, Piotroski 9-point F-Score, quy tắc phân kỳ CFO vs PAT.
+2. **CAP-2**: Peer Benchmark & Cross-Sectional Industry Analysis (`bctc.compare_peer_metrics` / `bctc.peer_benchmark.v1`) — Phân rã DuPont 5 bước, Chu kỳ chuyển đổi tiền mặt (CCC = DIO + DSO - DPO), Trung vị ngành ICB, Lợi thế kinh tế (Moat).
+3. **CAP-3**: Footnotes & Notes Deep Extraction (`bctc.resolve_footnote_section` / `bctc.extract_footnotes.v1`) — Bóc tách thuyết minh nợ vay theo chủ nợ & lãi suất, Giao dịch bên liên quan, Tiến độ dự án dở dang (CIP).
+4. **CAP-4**: Intrinsic Valuation & Scenario Modeling (`bctc.compute_valuation_models` / `bctc.intrinsic_valuation.v1`) — Định giá FCFF/FCFE 2 giai đoạn, WACC theo CAPM, DDM, P/E & P/B 5-year percentile bands, Ma trận độ nhạy 2 chiều.
+5. **CAP-5**: Liquidity Stress-Testing & Debt Maturity Wall (`bctc.simulate_liquidity_runway` / `bctc.liquidity_stress_test.v1`) — Tường nợ đáo hạn 12 tháng, Hệ số ICR/DSCR, Mô phỏng số tháng sống sót (Cash Runway) dưới sốc doanh thu/chi phí vốn.
+6. **CAP-6**: Automated Institutional-Grade Investment Memo & Multi-Format Export (`bctc.compile_full_memo` / `bctc.generate_investment_memo.v1`) — Biên soạn Investment Memo chuẩn mực tổ chức, SHA-256 Data Integrity Digest, Export PDF/DOCX có watermark bảo mật.
+7. **CAP-7**: Smart Audit Opinion & Restatement Alert Engine (`bctc.scan_audit_modifications` / `bctc.audit_opinion_check.v1`) — Quét ý kiến kiểm toán (ngoại trừ/từ chối), Vấn đề cần nhấn mạnh Going Concern, Kiểm tra điều chỉnh hồi tố số dư đầu năm.
+
