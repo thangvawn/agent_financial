@@ -78,3 +78,104 @@ export async function fetchLearningCatalogTopics() {
   const response = await fetch('/api/v1/public/learning/catalog/topics')
   return expectJson(response)
 }
+
+export async function fetchCheckpoint(sessionIdOrLessonOrOptions, lessonIdOrOptions, maybeDifficulty) {
+  let sessionId, lessonId, difficulty
+  if (typeof sessionIdOrLessonOrOptions === 'object' && sessionIdOrLessonOrOptions !== null) {
+    lessonId = sessionIdOrLessonOrOptions.lesson_id || sessionIdOrLessonOrOptions.lessonId
+    difficulty = sessionIdOrLessonOrOptions.difficulty
+    sessionId = sessionIdOrLessonOrOptions.session_id || sessionIdOrLessonOrOptions.sessionId
+  } else if (typeof lessonIdOrOptions === 'object' && lessonIdOrOptions !== null) {
+    lessonId = sessionIdOrLessonOrOptions
+    difficulty = lessonIdOrOptions.difficulty
+    sessionId = lessonIdOrOptions.session_id || lessonIdOrOptions.sessionId
+  } else if (maybeDifficulty !== undefined) {
+    sessionId = sessionIdOrLessonOrOptions
+    lessonId = lessonIdOrOptions
+    difficulty = maybeDifficulty
+  } else if (sessionIdOrLessonOrOptions && lessonIdOrOptions) {
+    if (String(sessionIdOrLessonOrOptions).startsWith('lesson_')) {
+      lessonId = sessionIdOrLessonOrOptions
+      difficulty = lessonIdOrOptions
+    } else {
+      sessionId = sessionIdOrLessonOrOptions
+      lessonId = lessonIdOrOptions
+    }
+  } else {
+    lessonId = sessionIdOrLessonOrOptions
+  }
+
+  const params = new URLSearchParams()
+  if (lessonId) params.set('lesson_id', lessonId)
+  if (difficulty) params.set('difficulty', difficulty)
+  if (sessionId) params.set('session_id', sessionId)
+
+  const response = await fetch(`/api/v1/public/learning/checkpoint?${params.toString()}`)
+  return expectJson(response)
+}
+
+export async function gradeCheckpoint(sessionIdOrPayload, checkpointId, responseText) {
+  let sessionId, checkpoint_id, response
+  if (typeof sessionIdOrPayload === 'object' && sessionIdOrPayload !== null) {
+    checkpoint_id = sessionIdOrPayload.checkpoint_id || sessionIdOrPayload.checkpointId
+    response = sessionIdOrPayload.response
+    sessionId = sessionIdOrPayload.session_id || sessionIdOrPayload.sessionId
+  } else if (responseText !== undefined) {
+    sessionId = sessionIdOrPayload
+    checkpoint_id = checkpointId
+    response = responseText
+  } else {
+    checkpoint_id = sessionIdOrPayload
+    response = checkpointId
+  }
+
+  const url = sessionId
+    ? `/api/v1/public/learning/checkpoint/grade?session_id=${encodeURIComponent(sessionId)}`
+    : '/api/v1/public/learning/checkpoint/grade'
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      schema_version: '1.0.0',
+      checkpoint_id,
+      response,
+    }),
+  })
+  return expectJson(res)
+}
+
+export async function completeCheckpoint(sessionIdOrPayload, verifiedEventId, idempotencyKey, confirmationId) {
+  let sessionId, verified_event_id, idempotency_key, confirmation_id
+  if (typeof sessionIdOrPayload === 'object' && sessionIdOrPayload !== null) {
+    verified_event_id = sessionIdOrPayload.verified_event_id || sessionIdOrPayload.verifiedEventId
+    idempotency_key = sessionIdOrPayload.idempotency_key || sessionIdOrPayload.idempotencyKey
+    confirmation_id = sessionIdOrPayload.confirmation_id || sessionIdOrPayload.confirmationId
+    sessionId = sessionIdOrPayload.session_id || sessionIdOrPayload.sessionId
+  } else if (idempotencyKey !== undefined) {
+    sessionId = sessionIdOrPayload
+    verified_event_id = verifiedEventId
+    idempotency_key = idempotencyKey
+    confirmation_id = confirmationId
+  } else {
+    verified_event_id = sessionIdOrPayload
+    idempotency_key = verifiedEventId
+  }
+
+  const url = sessionId
+    ? `/api/v1/public/learning/checkpoint/complete?session_id=${encodeURIComponent(sessionId)}`
+    : '/api/v1/public/learning/checkpoint/complete'
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      schema_version: '1.0.0',
+      verified_event_id,
+      idempotency_key,
+      confirmation_id: confirmation_id || `conf_${Date.now()}`,
+    }),
+  })
+  return expectJson(res)
+}
+

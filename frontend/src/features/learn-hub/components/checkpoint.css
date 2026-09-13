@@ -1,0 +1,145 @@
+/* Northstar Finance Lab — Checkpoint & Socratic Hint (tokens.css) */
+.lh-checkpoint-card,
+.lh-socratic-widget {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  box-shadow: var(--shadow-sm);
+}
+.lh-checkpoint-header,
+.lh-socratic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line-subtle);
+}
+.lh-checkpoint-id-badge,
+.lh-socratic-badge {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--ink-muted);
+}
+.lh-checkpoint-prompt {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--ink-strong);
+  margin: 0;
+}
+.lh-checkpoint-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.lh-checkpoint-option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background-color var(--t-fast);
+  text-align: left;
+}
+.lh-checkpoint-option:hover:not(:disabled) { border-color: var(--line-strong); background: var(--surface-alt); }
+.lh-checkpoint-option.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+.lh-checkpoint-option-key {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.lh-checkpoint-option.is-selected .lh-checkpoint-option-key {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lh-checkpoint-option-text {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  line-height: 1.4;
+}
+.lh-checkpoint-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding-top: var(--sp-2);
+}
+.lh-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+.lh-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.lh-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-alt);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.lh-btn-secondary:hover:not(:disabled) { background: var(--surface-sunken); }
+.lh-checkpoint-feedback {
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.lh-checkpoint-feedback.is-passed { background: var(--pos-soft); border: 1px solid var(--pos); color: var(--pos-strong); }
+.lh-checkpoint-feedback.is-failed { background: var(--neg-soft); border: 1px solid var(--neg); color: var(--neg-strong); }
+
+/* Stepper & Socratic Progressive Disclosure */
+.lh-socratic-stepper { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lh-socratic-step {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  transition: border-color var(--t-fast);
+}
+.lh-socratic-step.is-active { border-color: var(--accent); }
+.lh-socratic-step.is-collapsed { opacity: 0.6; background: var(--surface-alt); }
+.lh-socratic-step-header { display: flex; align-items: center; gap: var(--sp-2); font-weight: 600; font-size: var(--fs-sm); margin-bottom: var(--sp-2); }
+.lh-socratic-step-num { font-family: var(--font-mono); font-size: var(--fs-xs); padding: 2px 6px; background: var(--surface-sunken); border-radius: var(--radius-xs); }
+.lh-socratic-step-content { font-size: var(--fs-sm); color: var(--ink-muted); line-height: 1.5; }

@@ -9,6 +9,7 @@ import {
 } from '../content/courseCatalogData'
 import LessonSidebar from './LessonSidebar'
 import LearnTutorPanel from './LearnTutorPanel'
+import CourseCheckpointTab from '../components/CourseCheckpointTab'
 
 const STORAGE_KEY = 'northstar.learn-hub.progress'
 
@@ -22,6 +23,7 @@ function writeProgress(data) {
 
 const PLAYER_TABS = [
   ['overview', 'Tổng quan'],
+  ['checkpoint', '🎯 Mốc kiểm tra'],
   ['tutor', '🎓 AI Gia Sư'],
   ['notes', 'Ghi chú'],
   ['resources', 'Tài liệu'],
@@ -200,6 +202,20 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
             role="tabpanel"
             aria-labelledby={`lhp-tab-${activeTab}`}
           >
+            {activeTab === 'checkpoint' ? (
+              <CourseCheckpointTab
+                lessonId={activeLessonId}
+                sessionId={sessionId}
+                onCompleteLesson={(id) => {
+                  setCompletedSet((prev) => {
+                    const next = new Set(prev)
+                    next.add(id)
+                    writeProgress({ ...readProgress(), [courseId]: Array.from(next) })
+                    return next
+                  })
+                }}
+              />
+            ) : null}
             {activeTab === 'tutor' ? (
               <LearnTutorPanel courseId={courseId} lessonId={activeLessonId} sessionId={sessionId} />
             ) : null}
