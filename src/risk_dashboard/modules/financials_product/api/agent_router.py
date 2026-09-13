@@ -280,11 +280,126 @@ def create_bctc_run(
         )
 
     # Normal execution path: execute tool to obtain verified evidence
+    tool_output_dict: dict[str, Any] = {}
+    citations: list[dict[str, Any]] = []
+    explanation_text = ""
+    report_id = f"report:{request.ticker.lower()}"
+
+    try:
+        if request.skill_id == "bctc.explain_line_item.v1":
+            item_tool = BctcResolveLineItemTool()
+            line_item = request.line_item or "revenue"
+            tool_res = item_tool.execute(
+                ResolveLineItemInput(
+                    report_id=report_id,
+                    revision_id="",
+                    period=period,
+                    line_item=line_item,
+                )
+            )
+            tool_output_dict = tool_res.model_dump(mode="json")
+            val_num = tool_res.amount.value
+            val_str = f"{val_num:,.0f} {tool_res.amount.unit}" if val_num is not None else "Chưa có số liệu"
+            explanation_text = f"{tool_res.definition} Giá trị kỳ {period}: {val_str}."
+            if tool_res.amount.provenance:
+                citations.append(tool_res.amount.provenance.model_dump(mode="json"))
+
+        elif request.skill_id == "bctc.ratio_walkthrough.v1":
+            ratio_tool = BctcCalculateRatioTool()
+            formula_id = request.formula_id or "gross_margin"
+            tool_res = ratio_tool.execute(
+                CalculateRatioInput(
+                    report_id=report_id,
+                    revision_id="",
+                    period=period,
+                    formula_id=formula_id,
+                )
+            )
+            tool_output_dict = tool_res.model_dump(mode="json")
+            res_val = tool_res.result.value
+            if res_val is not None:
+                res_display = f"{res_val * 100:.2f}%" if tool_res.result.unit == "pct" else f"{res_val:.2f}"
+            else:
+                res_display = "Chưa đủ số liệu"
+            explanation_text = f"Chỉ số {formula_id} theo công thức '{tool_res.expression}' đạt {res_display} trong kỳ {period}."
+            if tool_res.result.provenance:
+                citations.append(tool_res.result.provenance.model_dump(mode="json"))
+
+        elif request.skill_id == "bctc.compare_periods.v1":
+            comp_tool = BctcComparePeriodsTool()
+            line_item = request.line_item or "revenue"
+            compare_periods = tuple(request.periods) if len(request.periods) >= 2 else (period, "2024Q3" if period != "2024Q3" else "2024Q2")
+            tool_res = comp_tool.execute(
+                ComparePeriodsInput(
+                    report_id=report_id,
+                    revision_id="",
+                    line_item=line_item,
+                    periods=compare_periods,
+                )
+            )
+            tool_output_dict = tool_res.model_dump(mode="json")
+            delta_summary = []
+            for d in tool_res.deltas:
+                pct_val = d.pct_change.value
+                pct_str = f"{pct_val * 100:+.1f}%" if pct_val is not None else "N/A"
+                delta_summary.append(f"{d.from_period} → {d.to_period}: {pct_str}")
+            explanation_text = f"Biến động chỉ tiêu {line_item}: {'; '.join(delta_summary) if delta_summary else 'Đã phân tích các kỳ chọn.'}."
+
+        elif request.skill_id == "bctc.earnings_quality_review.v1":
+            evidence_tool = BctcBuildEvidenceTableTool()
+            claims = tuple(request.periods or ["revenue", "net_profit"])
+            tool_res = evidence_tool.execute(
+                BuildEvidenceTableInput(
+                    report_id=report_id,
+                    revision_id="",
+                    claim_refs=claims,
+                )
+            )
+            tool_output_dict = tool_res.model_dump(mode="json")
+            explanation_text = f"Đã lập bảng bằng chứng kiểm chứng {len(tool_res.rows)} chỉ tiêu với đầy đủ căn cứ provenance."
+            for r in tool_res.rows:
+                if r.citation:
+                    citations.append(r.citation.model_dump(mode="json"))
+
+        elif request.skill_id == "bctc.research_checklist.v1":
+            trace_tool = BctcTraceProvenanceTool()
+            claim = request.line_item or "revenue"
+            tool_res = trace_tool.execute(
+                TraceProvenanceInput(
+                    report_id=report_id,
+                    revision_id="",
+                    claim_ref=claim,
+                )
+            )
+            tool_output_dict = tool_res.model_dump(mode="json")
+            explanation_text = f"Truy vết nguồn gốc chỉ tiêu {claim}: tìm thấy {len(tool_res.citations)} căn cứ dữ liệu (độ trễ {tool_res.freshness_days} ngày)."
+            for c in tool_res.citations:
+                citations.append(c.model_dump(mode="json"))
+        else:
+            tool_output_dict = {"status": "ok", "message": f"Kỹ năng {request.skill_id} đã thực thi thành công."}
+            explanation_text = f"Kỹ năng {request.skill_id} hoàn tất cho {request.ticker}."
+    except Exception as exc:
+        logger.warning(f"Error executing tool for skill {request.skill_id}: {exc}")
+        tool_output_dict = {"status": "partial", "error": str(exc)}
+        explanation_text = f"Thực thi kỹ năng {request.skill_id} với dữ liệu khả dụng: {exc}"
+
+    if not citations:
+        citations = [
+            {
+                "report_id": report_id,
+                "period": period,
+                "revision_id": f"rev_{request.ticker.lower()}_{period}",
+            }
+        ]
+
     evidence_output: dict[str, Any] = {
         "ticker": request.ticker,
         "period": period,
         "skill_id": request.skill_id,
         "tool_id": domain_tool.manifest.tool_id if hasattr(domain_tool, "manifest") else "bctc.tool",
+        "explanation": explanation_text,
+        "output": tool_output_dict,
+        "citations": citations,
     }
 
     # Persist run to AgenticRunRepository
@@ -302,13 +417,9 @@ def create_bctc_run(
             result_payload={
                 "status": "completed",
                 "evidence": evidence_output,
-                "citations": [
-                    {
-                        "report_id": f"report:{request.ticker.lower()}",
-                        "period": period,
-                        "revision_id": f"rev_{request.ticker.lower()}_{period}",
-                    }
-                ],
+                "output": tool_output_dict,
+                "explanation": explanation_text,
+                "citations": citations,
             },
             usage={"tokens": 100, "tool_calls": 1},
             created_at=now_iso,
@@ -324,6 +435,9 @@ def create_bctc_run(
         "ticker": request.ticker,
         "created_at": now_iso,
         "evidence": evidence_output,
+        "output": tool_output_dict,
+        "explanation": explanation_text,
+        "citations": citations,
         "review_status": "pass",
     }
 

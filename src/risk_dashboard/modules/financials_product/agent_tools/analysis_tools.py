@@ -148,6 +148,18 @@ class BctcCalculateRatioTool:
         elif payload.formula_id == "net_margin":
             num_val = get_line_item_val(period_data, "net_profit")
             den_val = get_line_item_val(period_data, "revenue")
+        elif payload.formula_id == "roe":
+            num_val = get_line_item_val(period_data, "net_profit")
+            den_val = get_line_item_val(period_data, "equity")
+        elif payload.formula_id == "roa":
+            num_val = get_line_item_val(period_data, "net_profit")
+            den_val = get_line_item_val(period_data, "total_assets")
+        elif payload.formula_id == "current_ratio":
+            num_val = get_line_item_val(period_data, "current_assets")
+            den_val = get_line_item_val(period_data, "current_liabilities")
+        elif payload.formula_id == "debt_to_equity":
+            num_val = get_line_item_val(period_data, "total_liabilities")
+            den_val = get_line_item_val(period_data, "equity")
         elif payload.formula_id == "gross_profit":
             num_val = get_line_item_val(period_data, "revenue")
             den_val = get_line_item_val(period_data, "cogs")

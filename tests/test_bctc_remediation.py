@@ -102,11 +102,11 @@ def test_upload_analysis_unauthenticated_cannot_access_user_upload(test_client, 
     os.makedirs(uploads_dir, exist_ok=True)
     monkeypatch.setenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", uploads_dir)
 
-    csv_content = b"ticker,year,quarter,revenue,net_income\nFPT,2024,Q3,1000,100\n"
+    csv_content = b"ticker,year,quarter,revenue,net_income\nTESTUPLOAD,2024,Q3,1000,100\n"
     upload_resp = client.post(
         "/financials/upload",
         headers=headers_a,
-        data={"ticker": "FPT", "report_type": "auto", "period": "2024Q3"},
+        data={"ticker": "TESTUPLOAD", "report_type": "auto", "period": "2024Q3"},
         files={"file": ("test.csv", csv_content, "text/csv")},
     )
     assert upload_resp.status_code == 200
@@ -129,11 +129,11 @@ def test_upload_analysis_enforces_ownership(test_client, monkeypatch):
     monkeypatch.setenv("RISK_DASHBOARD_FINANCIAL_UPLOADS_DIR", uploads_dir)
 
     # User A uploads a valid csv file
-    csv_content = b"ticker,year,quarter,revenue,net_income\nFPT,2024,Q3,1000,100\n"
+    csv_content = b"ticker,year,quarter,revenue,net_income\nTESTUPLOAD,2024,Q3,1000,100\n"
     upload_resp = client.post(
         "/financials/upload",
         headers=headers_a,
-        data={"ticker": "FPT", "report_type": "auto", "period": "2024Q3"},
+        data={"ticker": "TESTUPLOAD", "report_type": "auto", "period": "2024Q3"},
         files={"file": ("test.csv", csv_content, "text/csv")},
     )
     assert upload_resp.status_code == 200, f"Upload failed: {upload_resp.text}"

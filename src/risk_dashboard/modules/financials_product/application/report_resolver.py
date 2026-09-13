@@ -32,7 +32,15 @@ class ReportResolver(ReportReader):
         periods = tuple(p.period for p in dataset.periods)
         fetched_at_iso = dataset.fetched_at.isoformat()
         revision_id = derive_revision_id(dataset.source, fetched_at_iso, periods)
-        active_period = period if period and period in periods else (periods[-1] if periods else "")
+        active_period = period if period and period in periods else ""
+        if not active_period and period:
+            norm_period = period.replace("-", "").upper()
+            for p in periods:
+                if p.replace("-", "").upper() == norm_period:
+                    active_period = p
+                    break
+        if not active_period:
+            active_period = periods[0] if periods else ""
         report_id = f"report:{dataset.ticker.lower()}"
         freshness = calculate_freshness_days(fetched_at_iso)
 
@@ -57,9 +65,18 @@ class ReportResolver(ReportReader):
         dataset: FinancialDataset,
         period_str: str,
     ) -> FinancialPeriodData | None:
+        if not dataset.periods:
+            return None
+        if not period_str:
+            return dataset.periods[0]
         for p in dataset.periods:
             if p.period == period_str:
                 return p
+        normalized = period_str.replace("-", "").upper()
+        if normalized:
+            for p in dataset.periods:
+                if p.period.replace("-", "").upper() == normalized:
+                    return p
         return None
 
     def make_provenance_ref(

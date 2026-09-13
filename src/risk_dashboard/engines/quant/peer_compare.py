@@ -98,7 +98,9 @@ def list_cached_tickers() -> list[str]:
 
 def _analyze_ticker(ticker: str) -> FinancialAnalysisResponse | None:
     try:
-        dataset = get_financial_dataset(ticker)
+        dataset = load_cached_financial_dataset(ticker)
+        if dataset is None:
+            dataset = get_financial_dataset(ticker, max_cache_age_seconds=0)
         return analyze_financial_dataset(dataset)
     except FinancialDataError:
         return None

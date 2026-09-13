@@ -826,7 +826,8 @@ def bctc_income_statement_instructor_review(
 
 def _load_dataset_or_503(ticker: str, *, refresh: bool = False) -> FinancialDataset:
     try:
-        return get_financial_dataset(ticker, refresh=refresh)
+        max_age = 86400 if refresh else 0
+        return get_financial_dataset(ticker, refresh=refresh, max_cache_age_seconds=max_age)
     except FinancialDataError as exc:
         raise HTTPException(
             status_code=503,

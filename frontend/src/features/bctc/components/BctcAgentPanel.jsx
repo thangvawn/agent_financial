@@ -35,12 +35,34 @@ const BCTC_SKILLS = [
   },
 ];
 
+const LINE_ITEMS = [
+  { id: "revenue", label: "Doanh thu thuần (Revenue)" },
+  { id: "net_profit", label: "Lợi nhuận sau thuế (Net Profit)" },
+  { id: "gross_profit", label: "Lợi nhuận gộp (Gross Profit)" },
+  { id: "operating_profit", label: "Lợi nhuận HĐKD (Operating Profit)" },
+  { id: "assets", label: "Tổng tài sản (Total Assets)" },
+  { id: "liabilities", label: "Nợ phải trả (Total Liabilities)" },
+  { id: "equity", label: "Vốn chủ sở hữu (Equity)" },
+];
+
+const FORMULAS = [
+  { id: "gross_margin", label: "Biên lợi nhuận gộp (Gross Margin)" },
+  { id: "net_margin", label: "Biên lợi nhuận ròng (Net Margin)" },
+  { id: "operating_margin", label: "Biên lợi nhuận HĐKD (Operating Margin)" },
+  { id: "roe", label: "Tỷ suất sinh lời trên VCSH (ROE)" },
+  { id: "roa", label: "Tỷ suất sinh lời trên Tổng tài sản (ROA)" },
+  { id: "current_ratio", label: "Khả năng thanh toán hiện hành (Current Ratio)" },
+  { id: "debt_to_equity", label: "Đòn bẩy Nợ / VCSH (D/E)" },
+];
+
 export default function BctcAgentPanel({
   ticker = "FPT",
   activePeriod = "2024Q3",
   onOpenEvidenceDrawer,
 }) {
   const [selectedSkill, setSelectedSkill] = useState(BCTC_SKILLS[0].id);
+  const [selectedLineItem, setSelectedLineItem] = useState("revenue");
+  const [selectedFormula, setSelectedFormula] = useState("gross_margin");
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [runError, setRunError] = useState(null);
@@ -74,7 +96,8 @@ export default function BctcAgentPanel({
         skillId: selectedSkill,
         ticker,
         periods: [activePeriod],
-        lineItem: "revenue",
+        lineItem: selectedLineItem,
+        formulaId: selectedFormula,
       });
       setRunResult(res);
     } catch (err) {
@@ -89,62 +112,51 @@ export default function BctcAgentPanel({
     setSavingMemo(true);
     try {
       const output = runResult.output || {};
-      const numVal = parseFloat(output.value) || 0.0;
-      const unit = output.unit || "VND_bn";
-      const claimRef = output.line_item || output.formula_id || selectedSkill;
+      let numVal = 0.0;
+      let unit = "VND";
+      let claimRef = selectedLineItem;
 
-      const dynamicEvidenceRows = [];
-      if (Array.isArray(runResult.evidence?.rows) && runResult.evidence.rows.length > 0) {
-        runResult.evidence.rows.forEach((r, idx) => {
-          dynamicEvidenceRows.push({
-            claim_ref: r.claim || `claim_${idx + 1}`,
-            kind: r.kind || "fact",
-            amount: {
-              value: typeof r.value?.value === "number" ? r.value.value : (parseFloat(r.value) || 0.0),
-              unit: r.value?.unit || unit,
-              provenance: {
-                report_id: `report:${ticker.toLowerCase()}`,
-                revision_id: `rev_${ticker.toLowerCase()}_${activePeriod}`,
-                period: activePeriod,
-                source: "vndirect",
-                fetched_at: new Date().toISOString(),
-              },
-            },
-          });
-        });
-      } else {
-        dynamicEvidenceRows.push({
+      if (output.amount && typeof output.amount.value === "number") {
+        numVal = output.amount.value;
+        unit = output.amount.unit || "VND";
+        claimRef = output.line_item || selectedLineItem;
+      } else if (output.result && typeof output.result.value === "number") {
+        numVal = output.result.value;
+        unit = output.result.unit || "ratio";
+        claimRef = output.formula_id || selectedFormula;
+      } else if (Array.isArray(output.deltas) && output.deltas.length > 0) {
+        numVal = output.deltas[0]?.pct_change?.value || 0.0;
+        unit = "pct";
+        claimRef = output.line_item || selectedLineItem;
+      }
+
+      const provCitation = (runResult.citations && runResult.citations[0]) || {
+        report_id: `report:${ticker.toLowerCase()}`,
+        revision_id: `rev_${ticker.toLowerCase()}_${activePeriod}`,
+        period: activePeriod,
+        source: "vndirect",
+        fetched_at: new Date().toISOString(),
+      };
+
+      const dynamicEvidenceRows = [
+        {
           claim_ref: claimRef,
           kind: "fact",
           amount: {
             value: numVal,
             unit: unit,
-            provenance: {
-              report_id: `report:${ticker.toLowerCase()}`,
-              revision_id: `rev_${ticker.toLowerCase()}_${activePeriod}`,
-              period: activePeriod,
-              source: "vndirect",
-              fetched_at: new Date().toISOString(),
-            },
+            provenance: provCitation,
           },
-        });
-      }
+        },
+      ];
 
       const memoPayload = {
         subject: `Thẩm định BCTC ${ticker} (${activePeriod}) - ${selectedSkill}`,
         scope: "public",
-        report_refs: [
-          {
-            report_id: `report:${ticker.toLowerCase()}`,
-            revision_id: `rev_${ticker.toLowerCase()}_${activePeriod}`,
-            period: activePeriod,
-            source: "vndirect",
-            fetched_at: new Date().toISOString(),
-          },
-        ],
+        report_refs: [provCitation],
         evidence_rows: dynamicEvidenceRows,
         interpretations: [
-          `Kết quả phân tích từ Skill ${selectedSkill} đã qua kiểm duyệt NumericReviewer (100% grounded).`,
+          runResult.explanation || `Kết quả phân tích từ Skill ${selectedSkill} đã qua kiểm duyệt NumericReviewer (100% grounded).`,
         ],
         limitations: ["Chỉ số phản ánh số liệu tại thời điểm báo cáo."],
         reviewer_status: "approved",
@@ -167,6 +179,9 @@ export default function BctcAgentPanel({
       alert("Không thể xoá memo: " + err.message);
     }
   };
+
+  const isRatioSkill = selectedSkill === "bctc.ratio_walkthrough.v1";
+  const isLineItemSkill = ["bctc.explain_line_item.v1", "bctc.compare_periods.v1", "bctc.research_checklist.v1"].includes(selectedSkill);
 
   return (
     <div className="bctc-agent-panel" style={{ padding: "16px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0", marginTop: "16px" }}>
@@ -201,6 +216,44 @@ export default function BctcAgentPanel({
         </p>
       </div>
 
+      {isLineItemSkill && (
+        <div style={{ marginBottom: "12px" }}>
+          <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#475569", marginBottom: "4px" }}>
+            Chọn khoản mục BCTC:
+          </label>
+          <select
+            value={selectedLineItem}
+            onChange={(e) => setSelectedLineItem(e.target.value)}
+            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "14px", backgroundColor: "#ffffff" }}
+          >
+            {LINE_ITEMS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {isRatioSkill && (
+        <div style={{ marginBottom: "12px" }}>
+          <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#475569", marginBottom: "4px" }}>
+            Chọn công thức / chỉ số tài chính:
+          </label>
+          <select
+            value={selectedFormula}
+            onChange={(e) => setSelectedFormula(e.target.value)}
+            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "14px", backgroundColor: "#ffffff" }}
+          >
+            {FORMULAS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
         <button
           onClick={handleRun}
@@ -228,28 +281,53 @@ export default function BctcAgentPanel({
       )}
 
       {runResult && (
-        <div style={{ padding: "12px", backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "6px", marginBottom: "16px" }}>
+        <div style={{ padding: "14px", backgroundColor: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px", marginBottom: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-            <span style={{ fontSize: "13px", fontWeight: "600", color: "#16a34a" }}>
-              ✓ Run hoàn tất (NumericReviewer: {runResult.review_status})
+            <span style={{ fontSize: "13px", fontWeight: "600", color: "#16a34a", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>✓</span> Run hoàn tất (NumericReviewer: {runResult.review_status})
             </span>
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>ID: {runResult.run_id}</span>
           </div>
-          <div style={{ fontSize: "13px", color: "#334155", marginBottom: "8px" }}>
-            <strong>Cổ phiếu:</strong> {runResult.ticker} | <strong>Kỳ:</strong> {runResult.evidence?.period}
+
+          <div style={{ padding: "10px 12px", backgroundColor: "#f1f5f9", borderRadius: "6px", fontSize: "13px", color: "#1e293b", lineHeight: "1.5", marginBottom: "10px", borderLeft: "4px solid #3b82f6" }}>
+            💡 <strong>Kết quả phân tích:</strong> {runResult.explanation || "Đã phân tích thành công."}
           </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "12px", color: "#475569", marginBottom: "12px" }}>
+            <span style={{ backgroundColor: "#e2e8f0", padding: "3px 8px", borderRadius: "4px" }}>
+              <strong>Mã CK:</strong> {runResult.ticker}
+            </span>
+            <span style={{ backgroundColor: "#e2e8f0", padding: "3px 8px", borderRadius: "4px" }}>
+              <strong>Kỳ:</strong> {activePeriod}
+            </span>
+            {runResult.citations?.[0]?.source && (
+              <span style={{ backgroundColor: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: "4px" }}>
+                <strong>Nguồn:</strong> {runResult.citations[0].source}
+              </span>
+            )}
+            {runResult.citations?.[0]?.revision_id && (
+              <span style={{ backgroundColor: "#f3e8ff", color: "#6b21a8", padding: "3px 8px", borderRadius: "4px" }}>
+                <strong>Revision:</strong> {runResult.citations[0].revision_id.slice(0, 14)}...
+              </span>
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={handleSaveMemo}
               disabled={savingMemo}
               style={{
-                padding: "6px 12px",
+                padding: "8px 14px",
                 backgroundColor: "#10b981",
                 color: "#ffffff",
                 border: "none",
-                borderRadius: "4px",
-                fontSize: "12px",
+                borderRadius: "6px",
+                fontSize: "13px",
+                fontWeight: "500",
                 cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
               }}
             >
               {savingMemo ? "Đang lưu..." : "💾 Lưu thành Evidence Memo"}
