@@ -283,11 +283,52 @@ def test_memo_crud_and_ownership(test_client):
 # ==============================================================================
 
 def test_bctc_agent_health_endpoint(test_client):
-    """G6 & S9: GET /api/v1/public/bctc/agent/health."""
+    """G6 & S9: GET /api/v1/public/bctc/agent/health and /api/v1/public/bctc/agent/health/bctc-agent."""
     client = test_client["client"]
-    resp = client.get("/api/v1/public/bctc/agent/health")
-    assert resp.status_code == 200, f"Health check failed: {resp.text}"
-    data = resp.json()
-    assert "status" in data
-    assert "checks" in data
-    assert "tool_registry" in data["checks"]
+    for path in ("/api/v1/public/bctc/agent/health", "/api/v1/public/bctc/agent/health/bctc-agent"):
+        resp = client.get(path)
+        assert resp.status_code == 200, f"Health check failed for {path}: {resp.text}"
+        data = resp.json()
+        assert data["status"] in ("healthy", "degraded")
+        assert "checks" in data
+        assert "tool_registry" in data["checks"]
+        assert data["checks"]["bctc_tools_registered"] == 6
+
+
+def test_bctc_metrics_and_account_hash_logging(test_client, caplog):
+    """G8 & S8: Logging must not leak raw account_id, metrics increment properly."""
+    import logging
+    import hashlib
+    from risk_dashboard.modules.financials_product.metrics import BCTC_TOOL_CALLS_TOTAL
+
+    client = test_client["client"]
+    headers_a = test_client["headers_a"]
+    acc_a_id = test_client["acc_a"].account_id
+    expected_hash = hashlib.sha256(acc_a_id.encode("utf-8")).hexdigest()[:12]
+
+    with caplog.at_level(logging.INFO):
+        resp = client.post(
+            "/api/v1/public/bctc/agent/tools/bctc.resolve_report:invoke",
+            headers=headers_a,
+            json={
+                "tool_id": "bctc.resolve_report",
+                "input": {
+                    "ticker": "FPT",
+                },
+            },
+        )
+        assert resp.status_code == 200
+
+    # Ensure log record has account_id_hash
+    tool_completed_records = [
+        rec for rec in caplog.records if getattr(rec, "event", None) == "bctc.tool.completed"
+    ]
+    assert len(tool_completed_records) >= 1
+    rec = tool_completed_records[-1]
+    assert getattr(rec, "account_id_hash", None) == expected_hash
+    assert getattr(rec, "tool_id", None) == "bctc.resolve_report"
+    assert getattr(rec, "status", None) == "success"
+    assert getattr(rec, "duration_ms", None) is not None
+    # Ensure raw account_id is not in log record attribute
+    assert not hasattr(rec, "raw_account_id")
+

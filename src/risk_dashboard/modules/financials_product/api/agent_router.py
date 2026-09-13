@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 import logging
 import os
@@ -25,6 +26,11 @@ from risk_dashboard.modules.financials_product.agent_tools import (
     BctcTraceProvenanceTool,
 )
 from risk_dashboard.modules.financials_product.application.memo_service import MemoService
+from risk_dashboard.modules.financials_product.metrics import (
+    BCTC_TOOL_CALLS_TOTAL,
+    BCTC_TOOL_DURATION_SECONDS,
+    BCTC_UNSUPPORTED_CLAIMS_TOTAL,
+)
 from risk_dashboard.modules.financials_product.application.numeric_reviewer import (
     NumericClaim,
     NumericReviewer,
@@ -152,15 +158,22 @@ def invoke_bctc_tool(
         raise HTTPException(status_code=422, detail=f"Invalid tool input schema: {exc}") from exc
 
     tool = tool_cls()
+    start_t = time.perf_counter()
     output = tool.execute(parsed_input)
+    duration_ms = round((time.perf_counter() - start_t) * 1000, 2)
     output_dict = output.model_dump(mode="json") if hasattr(output, "model_dump") else output
+
+    account_id_hash = hashlib.sha256(principal.account_id.encode("utf-8")).hexdigest()[:12]
+    BCTC_TOOL_CALLS_TOTAL.labels(tool_id=tool_id, status="success").inc()
+    BCTC_TOOL_DURATION_SECONDS.labels(tool_id=tool_id).observe(duration_ms / 1000.0)
 
     logger.info(
         "bctc.tool.completed",
         extra={
             "event": "bctc.tool.completed",
             "tool_id": tool_id,
-            "account_id": principal.account_id,
+            "duration_ms": duration_ms,
+            "account_id_hash": account_id_hash,
             "status": "success",
         },
     )
@@ -231,12 +244,15 @@ def create_bctc_run(
             is_hypothetical=False,
         )
         decision = reviewer.review([fake_claim], [])
+        account_id_hash = hashlib.sha256(principal.account_id.encode("utf-8")).hexdigest()[:12]
+        BCTC_UNSUPPORTED_CLAIMS_TOTAL.labels(ticker=request.ticker.upper()).inc()
         logger.warning(
             "bctc.review.unsupported_claim",
             extra={
                 "event": "bctc.review.unsupported_claim",
                 "run_id": run_id,
-                "account_id": principal.account_id,
+                "account_id_hash": account_id_hash,
+                "unsupported_count": len(decision.unsupported_claims),
                 "unsupported_claims": list(decision.unsupported_claims),
             },
         )
@@ -411,12 +427,13 @@ def create_bctc_memo(
         _IDEMPOTENT_MEMOS[f"{principal.account_id}:{idempotency_key}"] = memo_dict
 
     # Emit event (T40: payload MUST NOT contain numeric amounts)
+    account_id_hash = hashlib.sha256(principal.account_id.encode("utf-8")).hexdigest()[:12]
     logger.info(
         "bctc.evidence_memo.created",
         extra={
             "event": "bctc.evidence_memo.created",
             "memo_id": memo.memo_id,
-            "account_id": principal.account_id,
+            "account_id_hash": account_id_hash,
             "subject": memo.subject,
             "scope": memo.scope,
         },
@@ -492,6 +509,7 @@ def delete_bctc_memo(
 # S9 & G6: Health Check (G6, T21)
 # ==============================================================================
 @router.get("/health")
+@router.get("/health/bctc-agent")
 def bctc_agent_health() -> dict[str, Any]:
     from risk_dashboard.modules.agentic_core.application.tool_registry import get_default_tool_registry
     registry = get_default_tool_registry()
