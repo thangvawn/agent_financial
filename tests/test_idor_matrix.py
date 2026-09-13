@@ -49,10 +49,10 @@ def idor_fixture(tmp_path, monkeypatch):
 
 
 def test_idor_surface_agentic_runs_isolation(idor_fixture):
+    from datetime import datetime, timezone
     from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticRunRepository
     from risk_dashboard.modules.agentic_core.schemas.runs import AgentRun
     from risk_dashboard.platform.database import open_app_state_db
-    from datetime import datetime, timezone
 
     client = idor_fixture["client"]
     acc_a = idor_fixture["acc_a"]
@@ -157,3 +157,92 @@ def test_idor_surface_market_portfolio_isolation(idor_fixture):
     get_resp_a = client.get("/api/v1/market-portfolio/watchlist", headers=headers_a)
     items_a = get_resp_a.json().get("items", [])
     assert any(item["symbol"] == "FPT" for item in items_a)
+
+
+def test_idor_surface_bctc_upload_and_memo_isolation(idor_fixture):
+    client = idor_fixture["client"]
+    headers_a = idor_fixture["headers_a"]
+    headers_b = idor_fixture["headers_b"]
+
+    # 1. User A uploads a BCTC file
+    csv_content = b"metric,2023,2024\nRevenue,1000,1200\nNet_Income,200,250\n"
+    up_resp = client.post(
+        "/financials/upload",
+        files={"file": ("bctc_a.csv", csv_content, "text/csv")},
+        headers=headers_a,
+    )
+    assert up_resp.status_code == 200
+    upload_id_a = up_resp.json()["upload_id"]
+
+    # User B tries to analyze User A's upload -> must be 404 (non-disclosing, avoids oracle)
+    b_analyze_resp = client.post(
+        f"/financials/uploads/{upload_id_a}/analyze",
+        headers=headers_b,
+    )
+    assert b_analyze_resp.status_code == 404, f"Expected 404, got {b_analyze_resp.status_code}"
+
+    # 2. User A creates a BCTC memo
+    memo_payload = {
+        "subject": "Confidential Memo Alpha",
+        "scope": "public",
+        "report_refs": [
+            {
+                "report_id": "report:vnm",
+                "revision_id": "rev_123",
+                "period": "2024Q3",
+                "source": "vndirect",
+                "fetched_at": "2026-09-01T00:00:00Z",
+            }
+        ],
+        "evidence_rows": [
+            {
+                "claim_ref": "revenue",
+                "amount": {
+                    "value": 1200.0,
+                    "unit": "VND_bn",
+                    "provenance": {
+                        "report_id": "report:vnm",
+                        "revision_id": "rev_123",
+                        "period": "2024Q3",
+                        "source": "vndirect",
+                        "fetched_at": "2026-09-01T00:00:00Z",
+                    },
+                },
+            }
+        ],
+    }
+    memo_resp = client.post(
+        "/api/v1/public/bctc/agent/memos",
+        headers=headers_a,
+        json=memo_payload,
+    )
+    assert memo_resp.status_code == 200, f"Expected 200, got {memo_resp.status_code}: {memo_resp.text}"
+    memo_id_a = memo_resp.json()["memo_id"]
+
+    # User B tries to read User A's memo -> must be 404
+    b_get_memo = client.get(f"/api/v1/public/bctc/agent/memos/{memo_id_a}", headers=headers_b)
+    assert b_get_memo.status_code == 404
+
+    # User B tries to delete User A's memo -> must be 404
+    b_del_memo = client.delete(f"/api/v1/public/bctc/agent/memos/{memo_id_a}", headers=headers_b)
+    assert b_del_memo.status_code == 404
+
+    # User B lists memos -> must not see User A's memo
+    b_list_memos = client.get("/api/v1/public/bctc/agent/memos", headers=headers_b)
+    assert b_list_memos.status_code == 200
+    b_memos = b_list_memos.json().get("items", [])
+    assert all(m["memo_id"] != memo_id_a for m in b_memos)
+
+    # 3. User A creates an agent run
+    run_resp = client.post(
+        "/api/v1/public/bctc/agent/runs",
+        headers=headers_a,
+        json={"skill_id": "bctc.explain_line_item.v1", "ticker": "FPT"},
+    )
+    assert run_resp.status_code == 200, f"Expected 200, got {run_resp.status_code}: {run_resp.text}"
+    run_id_a = run_resp.json()["run_id"]
+
+    # User B tries to read User A's run -> must be 404
+    b_get_run = client.get(f"/api/v1/public/bctc/agent/runs/{run_id_a}", headers=headers_b)
+    assert b_get_run.status_code == 404
+
