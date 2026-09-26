@@ -1316,6 +1316,248 @@
   }
 }
 
+/* Moto Card reference translated into Northstar's financial learning language:
+   cinematic dark canvas, oversized editorial type, quiet borders and a staged
+   narrative instead of a dashboard wall. */
+.app-shell--home,
+.app-shell--home .home-redesign {
+  background: #071013 !important;
+  color: #effcf8 !important;
+}
+
+.app-shell--home .connected-nav__brand strong,
+.app-shell--home .connected-nav__tab {
+  color: rgba(239, 252, 248, 0.86) !important;
+}
+
+.app-shell--home .connected-nav__tab:hover,
+.app-shell--home .connected-nav__tab--active {
+  color: #f5fffc !important;
+  background: rgba(213, 255, 244, 0.08) !important;
+}
+
+.app-shell--home .sparkle-hero {
+  min-height: min(940px, 100dvh) !important;
+  padding: clamp(120px, 15vh, 180px) clamp(24px, 7vw, 112px) clamp(64px, 9vh, 110px) !important;
+  background:
+    radial-gradient(circle at 76% 48%, rgba(40, 151, 139, 0.17), transparent 30%),
+    #071013 !important;
+}
+
+.app-shell--home .sparkle-hero-copy {
+  width: min(680px, 100%) !important;
+}
+
+.app-shell--home .sparkle-hero h1 {
+  max-width: 690px !important;
+  color: #effcf8 !important;
+  font-size: clamp(3.4rem, 7.2vw, 7.3rem) !important;
+  font-weight: 500 !important;
+  line-height: 0.94 !important;
+  letter-spacing: -0.075em !important;
+}
+
+.app-shell--home .sparkle-hero-copy > p:not(.home-v2-kicker) {
+  max-width: 475px !important;
+  color: rgba(218, 241, 235, 0.64) !important;
+  font-size: 1rem !important;
+  line-height: 1.65 !important;
+}
+
+.app-shell--home .home-v2-kicker {
+  color: #9deee0 !important;
+  letter-spacing: 0.18em !important;
+}
+
+.app-shell--home .sparkle-button {
+  height: 48px !important;
+  padding: 0 20px !important;
+  border-radius: 999px !important;
+  font-size: 13px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.app-shell--home .sparkle-button--light {
+  background: #e8fff8 !important;
+  border-color: #e8fff8 !important;
+  color: #071013 !important;
+}
+
+.app-shell--home .sparkle-button--dark {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(218, 255, 247, 0.28) !important;
+  color: #e8fff8 !important;
+}
+
+.app-shell--home .sparkle-dashboard-stage {
+  min-height: clamp(400px, 58vh, 590px) !important;
+  border: 1px solid rgba(176, 245, 231, 0.24) !important;
+  border-radius: 28px !important;
+  background: rgba(9, 44, 44, 0.38) !important;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.28) !important;
+}
+
+.app-shell--home .sparkle-command-preview {
+  border-color: rgba(200, 255, 244, 0.24) !important;
+  border-radius: 20px !important;
+  background: rgba(7, 24, 28, 0.78) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25) !important;
+}
+
+.app-shell--home .sparkle-demo-flow,
+.app-shell--home .sparkle-features,
+.app-shell--home .sparkle-app-cta,
+.app-shell--home .sparkle-testimonials,
+.app-shell--home .sparkle-plans {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: clamp(92px, 12vw, 180px) clamp(24px, 8vw, 128px) !important;
+  border-top: 1px solid rgba(198, 246, 236, 0.12) !important;
+  background: #071013 !important;
+  color: #effcf8 !important;
+}
+
+.app-shell--home .sparkle-section-heading h2,
+.app-shell--home .sparkle-feature-copy h2,
+.app-shell--home .sparkle-app-cta h2,
+.app-shell--home .sparkle-testimonials h2,
+.app-shell--home .sparkle-plans h2 {
+  color: #effcf8 !important;
+  font-size: clamp(2.4rem, 5.5vw, 5.8rem) !important;
+  font-weight: 500 !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.065em !important;
+}
+
+.app-shell--home .sparkle-section-heading p,
+.app-shell--home .sparkle-feature-copy p,
+.app-shell--home .sparkle-app-cta p,
+.app-shell--home .sparkle-plans p {
+  color: rgba(218, 241, 235, 0.58) !important;
+}
+
+.app-shell--home .sparkle-demo-flow-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  margin-top: 90px !important;
+  border-top: 1px solid rgba(198, 246, 236, 0.2) !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card {
+  min-height: 230px !important;
+  padding: 26px 22px 20px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(198, 246, 236, 0.14) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card:last-child {
+  border-right: 0 !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card span,
+.app-shell--home .sparkle-plan-card > span {
+  color: #9deee0 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.16em !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card h3,
+.app-shell--home .sparkle-plan-card h3 {
+  color: #effcf8 !important;
+  font-size: 1.35rem !important;
+  font-weight: 500 !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card p,
+.app-shell--home .sparkle-plan-card p,
+.app-shell--home .sparkle-plan-card li {
+  color: rgba(218, 241, 235, 0.58) !important;
+}
+
+.app-shell--home .sparkle-features {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: center !important;
+  gap: clamp(40px, 8vw, 140px) !important;
+}
+
+.app-shell--home .sparkle-feature-visual {
+  min-height: 440px !important;
+  border: 1px solid rgba(198, 246, 236, 0.15) !important;
+  border-radius: 24px !important;
+  background: #102225 !important;
+  overflow: hidden !important;
+}
+
+.app-shell--home .sparkle-feature-visual img {
+  opacity: 0.78;
+  filter: saturate(0.65) contrast(1.08);
+}
+
+.app-shell--home .sparkle-plan-grid {
+  gap: 1px !important;
+  background: rgba(198, 246, 236, 0.18) !important;
+}
+
+.app-shell--home .sparkle-plan-card,
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark {
+  min-height: 420px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #0d1b1e !important;
+  padding: 34px !important;
+}
+
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark {
+  background: #bcefe2 !important;
+}
+
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark h3,
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark p,
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark li,
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark > span {
+  color: #071013 !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell--home .sparkle-demo-flow-grid,
+  .app-shell--home .sparkle-features {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .app-shell--home .sparkle-demo-flow-card:nth-child(2) {
+    border-right: 0 !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell--home .sparkle-hero {
+    min-height: 820px !important;
+    padding: 104px 18px 56px !important;
+  }
+
+  .app-shell--home .sparkle-hero h1 {
+    font-size: clamp(3.1rem, 15vw, 5rem) !important;
+  }
+
+  .app-shell--home .sparkle-dashboard-stage {
+    min-height: 320px !important;
+    border-radius: 22px !important;
+  }
+
+  .app-shell--home .sparkle-demo-flow-grid,
+  .app-shell--home .sparkle-features {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell--home .sparkle-demo-flow-card {
+    min-height: 160px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(198, 246, 236, 0.14) !important;
+  }
+}
+
 /* ThreeUI-inspired depth layer: a restrained perspective particle field keeps
    the financial preview alive without making the hero compete with its copy. */
 .finance-particle-field {
