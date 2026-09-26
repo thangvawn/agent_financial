@@ -21,6 +21,9 @@ export default function CheckpointCard({
   correctAnswer: _ca2,
   ...restProps
 }) {
+  void expiresAt
+  void _ca
+  void _ca2
   const isSubmitDisabled = !selectedOption || isSubmitting || disabled
 
   const handleSubmit = (e) => {

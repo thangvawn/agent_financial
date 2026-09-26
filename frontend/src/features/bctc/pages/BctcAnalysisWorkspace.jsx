@@ -126,17 +126,7 @@ export default function BctcAnalysisWorkspace({
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
-  const [activeRunId, setActiveRunId] = useState(runId || null)
-  const [activeRunStatus, setActiveRunStatus] = useState(statusProp || null)
   const [selectedEvidenceMemo, setSelectedEvidenceMemo] = useState(null)
-
-  useEffect(() => {
-    if (runId !== undefined) setActiveRunId(runId)
-  }, [runId])
-
-  useEffect(() => {
-    if (statusProp !== undefined) setActiveRunStatus(statusProp)
-  }, [statusProp])
 
   useEffect(() => {
     let cancelled = false
@@ -203,12 +193,12 @@ export default function BctcAnalysisWorkspace({
       <form className="bctc-symbol-search" onSubmit={submitTicker}><Search /><input aria-label="Mã chứng khoán" value={tickerInput} onChange={(event) => setTickerInput(event.target.value.toUpperCase())} /><button type="submit">Tra cứu</button></form>
     </header>
 
-    {(runId || activeRunId) && (
+    {runId && (
       <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #2a2e39' }}>
         <AgentRunPanel
-          runId={runId || activeRunId}
-          status={statusProp || activeRunStatus}
-          onCancel={onCancel || (() => { setActiveRunId(null); setActiveRunStatus(null) })}
+          runId={runId}
+          status={statusProp}
+          onCancel={onCancel}
           onArtifactClick={onArtifactClick}
         />
       </div>
@@ -295,4 +285,3 @@ export default function BctcAnalysisWorkspace({
     />
   </main>
 }
-

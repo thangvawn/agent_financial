@@ -3,7 +3,7 @@ import { fetchCheckpoint, gradeCheckpoint, completeCheckpoint } from '../service
 import CheckpointCard from './CheckpointCard'
 import SocraticHintWidget from './SocraticHintWidget'
 import MasteryProposalReview from './MasteryProposalReview'
-import { useMasteryProposal, resolveMasteryThreshold } from '../hooks/useMasteryProposal'
+import { resolveMasteryThreshold } from '../hooks/useMasteryProposal'
 import './checkpoint.css'
 
 export default function CourseCheckpointTab({
@@ -172,4 +172,3 @@ export default function CourseCheckpointTab({
     </div>
   )
 }
-

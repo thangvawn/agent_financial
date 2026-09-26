@@ -1,31 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
+import { handleKeyDown } from './masteryProposalUtils'
 
-export function handleKeyDown(e, onReject) {
-  if (e?.key === 'Escape' && typeof onReject === 'function') {
-    e.preventDefault?.()
-    onReject()
-  }
+function calculateTime(expiresAt) {
+  if (!expiresAt) return { expired: false, text: '' }
+  const diff = new Date(expiresAt).getTime() - Date.now()
+  if (diff <= 0) return { expired: true, text: 'Expired' }
+  const m = Math.floor(diff / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  return { expired: false, text: `${m}m ${s}s` }
 }
 
 export function MasteryProposalReview({ proposal, onConfirm, onReject }) {
-  const calculateTime = useCallback(() => {
-    if (!proposal?.expires_at) return { expired: false, text: '' }
-    const diff = new Date(proposal.expires_at).getTime() - Date.now()
-    if (diff <= 0) return { expired: true, text: 'Expired' }
-    const m = Math.floor(diff / 60000)
-    const s = Math.floor((diff % 60000) / 1000)
-    return { expired: false, text: `${m}m ${s}s` }
-  }, [proposal?.expires_at])
-
-  const [timerState, setTimerState] = useState(calculateTime)
+  const expiresAt = proposal?.expires_at
+  const [timerState, setTimerState] = useState(() => calculateTime(expiresAt))
 
   useEffect(() => {
     if (!proposal?.expires_at) return
-    const update = () => setTimerState(calculateTime())
+    const update = () => setTimerState(calculateTime(expiresAt))
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [proposal?.expires_at, calculateTime])
+  }, [expiresAt])
 
   useEffect(() => {
     const onWindowKey = (e) => handleKeyDown(e, onReject)

@@ -20,6 +20,10 @@ export default function SocraticHintWidget({
   correctAnswer: _ca2,
   ...restProps
 }) {
+  void checkpointId
+  void lessonId
+  void _ca
+  void _ca2
   const [internalLevel, setInternalLevel] = useState(currentLevel)
   const activeLevel = Math.max(currentLevel, internalLevel)
 
@@ -78,8 +82,6 @@ export default function SocraticHintWidget({
       <div className="lh-socratic-stepper stepper" role="region" aria-label="Các bước gợi ý">
         {pedagogicalSteps.map((step) => {
           const isUnlocked = activeLevel >= step.level
-          const isActive = activeLevel === step.level
-
           return (
             <div
               key={`socratic-step-${step.level}`}
