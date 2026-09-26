@@ -3,6 +3,7 @@ import {
   SparkleHighlights,
   SparklePlans,
 } from './HomeSparkleSections'
+import { Activity, ArrowUpRight, BookOpenCheck, ShieldCheck } from 'lucide-react'
 import { useSparkleMotion } from '../hooks/useSparkleMotion'
 import './home.css'
 
@@ -62,21 +63,39 @@ function SparkleHero({ actions }) {
         </div>
       </div>
       <div className="sparkle-dashboard-stage sparkle-reveal" aria-label="Financial dashboard preview">
-        <img
-          className="sparkle-dashboard-image"
-          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719b3_Main%20Dashh.png"
-          alt="Northstar finance dashboard preview"
-        />
-        <img
-          className="sparkle-floating-card sparkle-floating-card--left"
-          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e71995_div.png"
-          alt=""
-        />
-        <img
-          className="sparkle-floating-card sparkle-floating-card--right"
-          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e71994_div.png"
-          alt=""
-        />
+        <div className="sparkle-command-preview">
+          <div className="sparkle-command-preview__topline">
+            <span><i /> Workspace / overview</span>
+            <span className="sparkle-command-preview__status"><ShieldCheck size={13} /> Educational mode</span>
+          </div>
+          <div className="sparkle-command-preview__heading">
+            <div>
+              <span className="sparkle-command-preview__eyebrow">Market context</span>
+              <strong>Đọc dữ liệu trước khi hành động</strong>
+            </div>
+            <span className="sparkle-command-preview__date">26 Sep 2026</span>
+          </div>
+          <div className="sparkle-command-preview__metrics">
+            <div><span>VN-Index</span><strong>1,284.32</strong><em className="is-positive">+0.84%</em></div>
+            <div><span>Risk posture</span><strong>Moderate</strong><em>6 signals</em></div>
+            <div><span>Learning streak</span><strong>12 days</strong><em className="is-positive">On track</em></div>
+          </div>
+          <div className="sparkle-command-preview__lower">
+            <div className="sparkle-mini-chart" aria-label="Biểu đồ xu hướng minh họa">
+              <span className="sparkle-mini-chart__label">VN-Index / 30 sessions</span>
+              <div className="sparkle-mini-chart__bars" aria-hidden="true">
+                {[42, 48, 44, 58, 54, 62, 68, 63, 76, 72, 84, 80, 92].map((height, index) => (
+                  <i key={index} style={{ height: `${height}%` }} />
+                ))}
+              </div>
+            </div>
+            <div className="sparkle-command-preview__queue">
+              <span className="sparkle-command-preview__label">Your next step</span>
+              <div><BookOpenCheck size={16} /><span>Complete the risk lesson</span><ArrowUpRight size={14} /></div>
+              <div><Activity size={16} /><span>Review market breadth</span><ArrowUpRight size={14} /></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

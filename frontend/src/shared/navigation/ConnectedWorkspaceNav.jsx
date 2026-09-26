@@ -18,14 +18,24 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
   const [isHidden, setIsHidden] = useState(false)
   const [hoveredTab, setHoveredTab] = useState(null)
   const lastScrollYRef = useRef(getScrollY())
+  const frameRef = useRef(null)
+  const pendingScrollRef = useRef(null)
 
   useEffect(() => {
     function handleScroll() {
-      const nextScrollY = getScrollY()
-      const delta = nextScrollY - lastScrollYRef.current
-      setIsScrolled(nextScrollY > 18)
-      setIsHidden(nextScrollY > 140 && delta > 6)
-      lastScrollYRef.current = nextScrollY
+      pendingScrollRef.current = getScrollY()
+      if (frameRef.current !== null) return
+      frameRef.current = window.requestAnimationFrame(() => {
+        const nextScrollY = pendingScrollRef.current ?? getScrollY()
+        const delta = nextScrollY - lastScrollYRef.current
+        setIsScrolled((current) => (current === (nextScrollY > 18) ? current : nextScrollY > 18))
+        setIsHidden((current) => {
+          const nextHidden = nextScrollY > 140 && delta > 6
+          return current === nextHidden ? current : nextHidden
+        })
+        lastScrollYRef.current = nextScrollY
+        frameRef.current = null
+      })
     }
 
     const frame = window.requestAnimationFrame(() => {
@@ -36,6 +46,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
       window.cancelAnimationFrame(frame)
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current)
       window.removeEventListener('scroll', handleScroll)
     }
   }, [currentView])

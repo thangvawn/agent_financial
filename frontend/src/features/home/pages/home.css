@@ -1042,6 +1042,280 @@
   }
 }
 
+/* Home workbench refresh: keep the public entry point readable and useful even
+   when remote marketing imagery is unavailable. */
+.sparkle-hero {
+  min-height: 0;
+  grid-template-columns: minmax(0, 0.86fr) minmax(420px, 1.14fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: clamp(36px, 6vw, 96px);
+  padding: clamp(96px, 11vw, 148px) clamp(24px, 6vw, 88px) clamp(72px, 8vw, 112px);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(45, 212, 191, 0.20), transparent 28rem),
+    linear-gradient(135deg, #07151b 0%, #0c2228 58%, #102d31 100%);
+}
+
+.sparkle-hero::before {
+  background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.08) 46%, transparent 64%);
+  opacity: 0.5;
+  transform: translateX(-8%);
+}
+
+.sparkle-hero::after {
+  display: none;
+}
+
+.sparkle-hero-copy {
+  justify-items: start;
+  width: min(570px, 100%);
+  text-align: left;
+}
+
+.sparkle-hero h1 {
+  max-width: 540px;
+  font-size: clamp(2.8rem, 5.4vw, 5rem);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+}
+
+.sparkle-hero-copy > p:not(.home-v2-kicker) {
+  max-width: 530px;
+  color: rgba(235, 248, 246, 0.76);
+  font-size: clamp(1rem, 1.3vw, 1.16rem);
+}
+
+.sparkle-hero-actions {
+  justify-content: flex-start;
+}
+
+.sparkle-button--light {
+  border-color: rgba(153, 246, 228, 0.36) !important;
+  background: #5eead4 !important;
+  color: #062124 !important;
+}
+
+.sparkle-button--light:hover {
+  background: #99f6e4 !important;
+}
+
+.sparkle-button--dark {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #effcf9 !important;
+}
+
+.sparkle-dashboard-stage {
+  width: 100%;
+  max-width: 700px;
+  margin: 0;
+  justify-self: end;
+  transform: none;
+}
+
+.sparkle-command-preview {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(18px, 2.8vw, 30px);
+  border: 1px solid rgba(191, 255, 246, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(20, 49, 54, 0.96), rgba(8, 25, 31, 0.96));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #e9fffb;
+}
+
+.sparkle-command-preview::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: radial-gradient(circle at 88% 0%, rgba(94, 234, 212, 0.24), transparent 34%);
+  pointer-events: none;
+}
+
+.sparkle-command-preview__topline,
+.sparkle-command-preview__heading,
+.sparkle-command-preview__lower,
+.sparkle-command-preview__status,
+.sparkle-command-preview__queue div {
+  display: flex;
+  align-items: center;
+}
+
+.sparkle-command-preview__topline,
+.sparkle-command-preview__heading {
+  position: relative;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sparkle-command-preview__topline {
+  color: rgba(220, 250, 245, 0.62);
+  font: 600 0.68rem/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sparkle-command-preview__topline i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #5eead4;
+  box-shadow: 0 0 0 4px rgba(94, 234, 212, 0.12);
+}
+
+.sparkle-command-preview__status {
+  gap: 5px;
+  color: #99f6e4;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sparkle-command-preview__heading {
+  margin-top: 34px;
+  align-items: end;
+}
+
+.sparkle-command-preview__eyebrow,
+.sparkle-command-preview__label {
+  display: block;
+  color: rgba(220, 250, 245, 0.56);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sparkle-command-preview__heading strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(1.15rem, 2.1vw, 1.55rem);
+  letter-spacing: -0.03em;
+}
+
+.sparkle-command-preview__date {
+  color: rgba(220, 250, 245, 0.52);
+  font: 0.72rem var(--font-mono);
+}
+
+.sparkle-command-preview__metrics {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.sparkle-command-preview__metrics > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(191, 255, 246, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.sparkle-command-preview__metrics span,
+.sparkle-command-preview__metrics em {
+  display: block;
+  color: rgba(220, 250, 245, 0.58);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.sparkle-command-preview__metrics strong {
+  display: block;
+  margin: 7px 0 3px;
+  color: #f2fffd;
+  font: 600 clamp(1rem, 2vw, 1.35rem) var(--font-mono);
+}
+
+.sparkle-command-preview__metrics em.is-positive,
+.sparkle-command-preview__queue svg {
+  color: #5eead4;
+}
+
+.sparkle-command-preview__lower {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.78fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sparkle-mini-chart,
+.sparkle-command-preview__queue {
+  min-height: 170px;
+  padding: 16px;
+  border: 1px solid rgba(191, 255, 246, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sparkle-mini-chart__bars {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  height: 110px;
+  margin-top: 18px;
+}
+
+.sparkle-mini-chart__bars i {
+  flex: 1;
+  min-width: 5px;
+  border-radius: 4px 4px 1px 1px;
+  background: linear-gradient(180deg, #5eead4, rgba(45, 212, 191, 0.18));
+}
+
+.sparkle-command-preview__queue {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.sparkle-command-preview__queue div {
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(191, 255, 246, 0.10);
+  color: rgba(239, 255, 252, 0.82);
+  font-size: 0.78rem;
+}
+
+.sparkle-command-preview__queue div svg:last-child {
+  margin-left: auto;
+  color: rgba(239, 255, 252, 0.48);
+}
+
+@media (max-width: 900px) {
+  .sparkle-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkle-hero-copy,
+  .sparkle-dashboard-stage {
+    justify-self: stretch;
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .sparkle-hero {
+    padding: 90px 16px 52px;
+  }
+
+  .sparkle-hero h1 {
+    font-size: clamp(2.45rem, 13vw, 3.7rem);
+  }
+
+  .sparkle-command-preview__metrics,
+  .sparkle-command-preview__lower {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkle-command-preview__date {
+    display: none;
+  }
+}
+
 .surface-panel>section:not(.page),
 .surface-panel>article {
   padding: 1.35rem;
@@ -3925,4 +4199,76 @@
 .sparkle-macro-map-section .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Final cascade guard for the public home hero. Legacy home rules above are
+   retained for older surfaces, but must not override the current hero. */
+.app-shell--home .sparkle-hero {
+  min-height: 0 !important;
+  grid-template-columns: minmax(0, 0.86fr) minmax(420px, 1.14fr) !important;
+  align-items: center !important;
+  justify-items: stretch !important;
+  gap: clamp(36px, 6vw, 96px) !important;
+  padding: clamp(96px, 11vw, 148px) clamp(24px, 6vw, 88px) clamp(72px, 8vw, 112px) !important;
+  background:
+    radial-gradient(circle at 84% 18%, rgba(45, 212, 191, 0.20), transparent 28rem),
+    linear-gradient(135deg, #07151b 0%, #0c2228 58%, #102d31 100%) !important;
+}
+
+.app-shell--home .sparkle-hero::after {
+  display: none !important;
+}
+
+.app-shell--home .sparkle-hero-copy {
+  justify-items: start !important;
+  width: min(570px, 100%) !important;
+  text-align: left !important;
+}
+
+.app-shell--home .sparkle-hero h1 {
+  max-width: 540px !important;
+  color: #f4fffd !important;
+  font-family: var(--font-sans) !important;
+  font-size: clamp(2.8rem, 5.4vw, 5rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.055em !important;
+}
+
+.app-shell--home .sparkle-hero-copy > p:not(.home-v2-kicker) {
+  max-width: 530px !important;
+  color: rgba(235, 248, 246, 0.76) !important;
+  font-size: clamp(1rem, 1.3vw, 1.16rem) !important;
+}
+
+.app-shell--home .sparkle-hero-actions {
+  justify-content: flex-start !important;
+}
+
+.app-shell--home .sparkle-dashboard-stage {
+  width: 100% !important;
+  max-width: 700px !important;
+  margin: 0 !important;
+  justify-self: end !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell--home .sparkle-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell--home .sparkle-hero-copy,
+  .app-shell--home .sparkle-dashboard-stage {
+    justify-self: stretch !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell--home .sparkle-hero {
+    padding: 90px 16px 52px !important;
+  }
+
+  .app-shell--home .sparkle-hero h1 {
+    font-size: clamp(2.45rem, 13vw, 3.7rem) !important;
+  }
 }
