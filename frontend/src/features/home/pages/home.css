@@ -1316,6 +1316,46 @@
   }
 }
 
+/* ThreeUI-inspired depth layer: a restrained perspective particle field keeps
+   the financial preview alive without making the hero compete with its copy. */
+.finance-particle-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.app-shell--home .sparkle-dashboard-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 68% 42%, rgba(44, 187, 170, 0.18), transparent 32%),
+    linear-gradient(135deg, rgba(7, 50, 52, 0.78), rgba(11, 71, 72, 0.48));
+}
+
+.app-shell--home .sparkle-dashboard-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(120deg, rgba(7, 36, 38, 0.2), transparent 48%, rgba(126, 244, 224, 0.08));
+  pointer-events: none;
+}
+
+.app-shell--home .sparkle-command-preview {
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finance-particle-field {
+    opacity: 0.42;
+  }
+}
+
 .surface-panel>section:not(.page),
 .surface-panel>article {
   padding: 1.35rem;

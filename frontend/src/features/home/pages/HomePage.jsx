@@ -5,6 +5,7 @@ import {
 } from './HomeSparkleSections'
 import { Activity, ArrowUpRight, BookOpenCheck, ShieldCheck } from 'lucide-react'
 import { useSparkleMotion } from '../hooks/useSparkleMotion'
+import FinanceParticleField from '../components/FinanceParticleField'
 import './home.css'
 
 const KICKER = 'home-v2-kicker'
@@ -63,6 +64,7 @@ function SparkleHero({ actions }) {
         </div>
       </div>
       <div className="sparkle-dashboard-stage sparkle-reveal" aria-label="Financial dashboard preview">
+        <FinanceParticleField />
         <div className="sparkle-command-preview">
           <div className="sparkle-command-preview__topline">
             <span><i /> Workspace / overview</span>
