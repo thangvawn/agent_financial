@@ -39,3 +39,4 @@ except ImportError:
     BCTC_TOOL_CALLS_TOTAL = _MockMetric()  # type: ignore
     BCTC_UNSUPPORTED_CLAIMS_TOTAL = _MockMetric()  # type: ignore
     BCTC_TOOL_DURATION_SECONDS = _MockMetric()  # type: ignore
+

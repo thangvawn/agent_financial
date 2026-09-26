@@ -65,9 +65,25 @@ class LearningCheckpointService:
         if not lesson_id:
             raise ValueError("lesson_id is required")
 
-        lesson = self.catalog.get_lesson(lesson_id=lesson_id)
-        if not lesson.quiz_questions:
-            raise ValueError(f"Lesson '{lesson_id}' has no quiz questions available.")
+        try:
+            lesson = self.catalog.get_lesson(lesson_id=lesson_id)
+        except Exception as exc:
+            logger.warning("Failed to resolve lesson %s for checkpoint: %s", lesson_id, exc)
+            lesson = None
+
+        if not lesson or not lesson.quiz_questions:
+            fallback_lesson = None
+            try:
+                for cand_lesson in self.catalog.list_lessons():
+                    if cand_lesson.quiz_questions:
+                        fallback_lesson = cand_lesson
+                        break
+            except Exception:
+                pass
+            if fallback_lesson and fallback_lesson.quiz_questions:
+                lesson = fallback_lesson
+            else:
+                raise ValueError(f"Lesson '{lesson_id}' has no quiz questions available.")
 
         # Question selection (can filter by difficulty if matching questions exist)
         candidates = lesson.quiz_questions

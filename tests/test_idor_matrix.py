@@ -183,31 +183,15 @@ def test_idor_surface_bctc_upload_and_memo_isolation(idor_fixture):
 
     # 2. User A creates a BCTC memo
     memo_payload = {
-        "subject": "Confidential Memo Alpha",
-        "scope": "public",
-        "report_refs": [
-            {
-                "report_id": "report:vnm",
-                "revision_id": "rev_123",
-                "period": "2024Q3",
-                "source": "vndirect",
-                "fetched_at": "2026-09-01T00:00:00Z",
-            }
-        ],
+        "title": "Confidential Memo Alpha",
+        "symbol": "VNM",
+        "period": "2024",
         "evidence_rows": [
             {
-                "claim_ref": "revenue",
-                "amount": {
-                    "value": 1200.0,
-                    "unit": "VND_bn",
-                    "provenance": {
-                        "report_id": "report:vnm",
-                        "revision_id": "rev_123",
-                        "period": "2024Q3",
-                        "source": "vndirect",
-                        "fetched_at": "2026-09-01T00:00:00Z",
-                    },
-                },
+                "claim": "Doanh thu VNM tăng trưởng",
+                "kind": "fact",
+                "value": {"raw": 1200, "unit": "ty_vnd"},
+                "citation": {"document_id": "doc_vnm_2024", "line_item": "revenue"},
             }
         ],
     }
@@ -216,7 +200,7 @@ def test_idor_surface_bctc_upload_and_memo_isolation(idor_fixture):
         headers=headers_a,
         json=memo_payload,
     )
-    assert memo_resp.status_code == 200, f"Expected 200, got {memo_resp.status_code}: {memo_resp.text}"
+    assert memo_resp.status_code == 200
     memo_id_a = memo_resp.json()["memo_id"]
 
     # User B tries to read User A's memo -> must be 404
@@ -237,9 +221,9 @@ def test_idor_surface_bctc_upload_and_memo_isolation(idor_fixture):
     run_resp = client.post(
         "/api/v1/public/bctc/agent/runs",
         headers=headers_a,
-        json={"skill_id": "bctc.explain_line_item.v1", "ticker": "FPT"},
+        json={"symbol": "FPT", "skill": "bctc.health_check"},
     )
-    assert run_resp.status_code == 200, f"Expected 200, got {run_resp.status_code}: {run_resp.text}"
+    assert run_resp.status_code == 200
     run_id_a = run_resp.json()["run_id"]
 
     # User B tries to read User A's run -> must be 404

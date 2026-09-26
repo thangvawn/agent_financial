@@ -57,6 +57,7 @@ frontend/output/
 .playwright-cli
 .playwright-cli/
 frontend/.playwright-cli/
+.playwright-mcp/
 
 # ── IDE / OS ─────────────────────────
 .DS_Store

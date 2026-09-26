@@ -1,11 +1,9 @@
-# MODULE 6: SIMULATION / STRATEGY RESEARCH AGENT — TECHNICAL SPECIFICATION & IMPLEMENTATION PLAN
+# MODULE 6: SIMULATION / STRATEGY RESEARCH AGENT — TECHNICAL SPECIFICATION
 
-> **Tài liệu duy nhất & chính thức cho Module 6 (Simulation Lab / Pro Lab)**  
-> Domain owner: registered facade `src/risk_dashboard/modules/simulation_lab`; current implementation `src/risk_dashboard/modules/pro_lab`  
-> Quant dependency: deterministic engines/tools  
-> Roadmap liên quan: AT1, AT6, EA3  
-> Master plan gate: AT6 / VP-AT6 ([`../AGENTIC_QUANTUM_MASTER_PLAN.md`](../AGENTIC_QUANTUM_MASTER_PLAN.md) §2172)  
-> Interaction contract: [`../qa/USER_INTERACTION_GUIDE.md`](../qa/USER_INTERACTION_GUIDE.md) §2.4, §3.4  
+> Domain owner: `src/risk_dashboard/modules/simulation_lab` (Facade) / `src/risk_dashboard/modules/pro_lab` (Implementation)
+> Companion plan: [`06_SIMULATION_AGENT_PLAN.md`](./06_SIMULATION_AGENT_PLAN.md)
+> Master plan gate: AT6 / VP-AT6 ([`../AGENTIC_QUANTUM_MASTER_PLAN.md`](../AGENTIC_QUANTUM_MASTER_PLAN.md) §2172)
+> Interaction contract: [`../qa/USER_INTERACTION_GUIDE.md`](../qa/USER_INTERACTION_GUIDE.md) §2.4, §3.4
 > Spec date: 2026-09-13 — verified against branch `fix/audit-remediation-module5`
 
 ---
@@ -14,7 +12,7 @@
 
 ### 0.1 Reality Check — Trạng thái đã verify trên Disk
 
-Tương tự Module 5 (BCTC Agent), tài liệu draft ban đầu của Module 6 ghi nhận một số thành phần "chưa có contract/implementation". Tuy nhiên, qua khảo sát thực tế codebase tại branch `fix/audit-remediation-module5`, **toàn bộ tầng lõi (Core Domain, Schemas, Tools, Actions, Methodology Checks, Migrations và Evals) đã được hiện thực hóa và 44/44 tests đang pass**.
+Tương tự Module 5 (BCTC Agent), tài liệu draft ban đầu của Module 6 (`06_SIMULATION_AGENT_PLAN.md`) ghi nhận một số thành phần "chưa có contract/implementation". Tuy nhiên, qua khảo sát thực tế codebase tại branch `fix/audit-remediation-module5`, **toàn bộ tầng lõi (Core Domain, Schemas, Tools, Actions, Methodology Checks, Migrations và Evals) đã được hiện thực hóa và 44/44 tests đang pass**.
 
 Bảng đối chiếu thực tế (Ground Truth on Disk):
 
@@ -22,11 +20,11 @@ Bảng đối chiếu thực tế (Ground Truth on Disk):
 |---|---|---|
 | **Schemas & Data Contracts** | `pro_lab/schemas/simulation_agent.py` | Đầy đủ 11 Pydantic v2 models (`frozen=True`): `ReproducibilityManifest` (17 pinned fields), `SimulationRunArtifact`, `ActionProposal`, `ExecuteRunRequest`, `ActionReceipt`, `StrategySpec`, `ExperimentValidation`, `TradeSummary`, `RunComparison`. |
 | **7 Typed Tools** | `pro_lab/application/simulation_tools.py` | 7 tool classes & manifests hoàn chỉnh: `simulation.get_strategy_spec`, `simulation.validate_experiment`, `simulation.get_run`, `simulation.get_trade_summary`, `simulation.compare_runs`, `simulation.propose_run`, `simulation.execute_run`. Hàm `get_simulation_tool_manifests()` trả đủ 7 manifest. |
-| **2-Phase Action Service** | `pro_lab/application/simulation_actions.py` | `SimulationActionService`: Propose $\to$ Preview $\to$ Confirm $\to$ Execute $\to$ Receipt. Token generation (`tok_...`), Idempotency deduplication, Account ownership isolation, TTL expiry (15m). |
+| **2-Phase Action Service** | `pro_lab/application/simulation_actions.py` | `SimulationActionService`: Propose → Preview → Confirm → Execute → Receipt. Token generation (`tok_...`), Idempotency deduplication, Account ownership isolation, TTL expiry (15m). |
 | **Quantitative Methodology Checks** | `pro_lab/domain/methodology_checks.py` | 5 rule engines: `check_look_ahead_bias`, `check_survivorship_bias`, `check_overfitting_risk`, `check_transaction_costs`, `check_benchmark_mismatch`, và aggregator `run_all_methodology_checks`. |
 | **Database Migrations** | `platform/database/migrate.py:285-324,534-536` | 3 migrations additive: `012_simulation_experiment_specs`, `013_simulation_action_proposals`, `014_simulation_action_receipts`. Có index trên `account_id` và `idempotency_key`. |
 | **5 Skill Manifests & Prompts** | `pro_lab/skills/manifests.py`, `skills/prompts/` | 5 skill manifests: `simulation.hypothesis_builder.v1`, `simulation.backtest_preflight.v1`, `simulation.result_critique.v1`, `simulation.scenario_compare.v1`, `simulation.next_experiment.v1`. System prompts đóng gói độc lập. |
-| **Offline Eval & Quality Gates** | `pro_lab/evals/{eval_runner,gold_set,multi_agent_gate,parity_gate}.py` | Gold set $\ge 85$ cases; `SimulationEvalRunner` đo `grounded_rate`, `methodology_issue_recall`, `buy_sell_leak_rate` (=0.0); `MultiAgentGateRunner` siết điều kiện uplift $\ge 5.0$ pp; `ParityGateRunner` kiểm soát drift $\le 30\%$. |
+| **Offline Eval & Quality Gates** | `pro_lab/evals/{eval_runner,gold_set,multi_agent_gate,parity_gate}.py` | Gold set >= 85 cases; `SimulationEvalRunner` đo `grounded_rate`, `methodology_issue_recall`, `buy_sell_leak_rate` (=0.0); `MultiAgentGateRunner` siết điều kiện uplift >= 5.0 pp; `ParityGateRunner` kiểm soát drift <= 30%. |
 | **AI Runtime Integration** | `pro_lab/api/ai.py` | Đã di dời khỏi direct `ChatOpenAI` sang `platform.ai_runtime.provider.LLMProvider`. |
 | **Module Definition & Scopes** | `pro_lab/module.py` | Facade `simulation_lab` re-export `pro_lab`. Khai báo đủ 6 RBAC scopes: `pro_lab:strategy:read`, `pro_lab:experiment:read`, `pro_lab:run:read`, `pro_lab:trade_detail:read`, `pro_lab:run:propose`, `pro_lab:run:execute`. |
 
@@ -36,26 +34,7 @@ Bảng đối chiếu thực tế (Ground Truth on Disk):
 
 ---
 
-### 0.2 Real-Dependency Mapping (Ánh xạ Mã nguồn Thực tế)
-
-| Contract / Tool / Service | Live Code Hiện Hữu (file:line) | Work Package Liên Quan | Trạng thái |
-|---|---|---|---|
-| Strategy Blueprint & Spec | `ProLabBlueprint` (`domain/entities.py:11-24`); `SaveStrategyBlueprint.execute` (`application/services.py:453-505`) | SIM1 | **DONE** |
-| `simulation.get_run` | `GetProLabRun.execute` ownership-check (`application/services.py:365-375`); SQLite `get` (`infrastructure/repositories/sqlite.py:308-318`) | SIM1 | **DONE** |
-| Command Execution & Dispatch | `RunProLabCommand.execute` (`application/services.py:247-362`) | SIM1 | **DONE** |
-| Deterministic Backtest Execution | `RunBacktestStudio.execute` (`application/backtest_studio.py:67-119`) $\to$ `RunBacktestLab.execute` (`application/services.py:736-800`) | SIM1, SIM5 | **DONE** |
-| Experiment Run Persistence | `ProLabExperimentRun` (`domain/entities.py:55-71`); `SqliteProLabExperimentRunRepository` (`infrastructure/repositories/sqlite.py:267-361`) | SIM3, SIM5 | **DONE** |
-| Domain Provider Abstraction | `ProLabCommandDefinition`, `ProLabProviderDefinition`, `ProLabProviderResult` (`providers/contracts.py:6-38`) | SIM1 | **DONE** |
-| Domain Provider Registry | `ProLabProviderRegistry` catalog & deterministic dispatch (`providers/registry.py:49-414`) | SIM1 | **DONE** |
-| Model Provider Integration | Direct `ChatOpenAI` đã được thay thế bằng `platform.ai_runtime.provider.LLMProvider` (`api/ai.py:27-52, 65-70`) | SIM2, SIM8 | **DONE** |
-| Swarm Role-Play | Prompt role-play `api/ai.py:152-205` đã baseline; chuyển sang bounded skill packs | SIM0, SIM4 | **DONE** |
-| Additive DB Migrations | Migrations 012, 013, 014 trong `platform/database/migrate.py:285-324, 534-536` | SIM3, SIM5 | **DONE** |
-| ToolRegistry Registration | Cần đăng ký `get_simulation_tool_manifests()` vào `_CANONICAL_MANIFESTS` (`agentic_core/application/tool_registry.py:58-87`) | SIM6 | **TODO (GAP G2)** |
-| HTTP Surface Router | Cần tạo `src/risk_dashboard/modules/pro_lab/api/agent_router.py` | SIM7 | **TODO (GAP G1)** |
-
----
-
-### 0.3 Khoảng cách thực tế (Gaps to Production-Ready)
+### 0.2 Khoảng cách thực tế (Gaps to Production-Ready)
 
 Mặc dù core domain đã hoàn thiện, Module 6 đang gặp phải **8 khoảng cách kiến trúc nghiêm trọng (Architecture Gaps)** ngăn cản việc đưa vào production:
 
@@ -66,13 +45,13 @@ Mặc dù core domain đã hoàn thiện, Module 6 đang gặp phải **8 khoả
 | **G3** | **IDOR Vulnerability tại HTTP layer nếu expose proposal/receipt.** | `api/pro.py` dùng `_require_pro_scope` lỏng lẻo khi bypass test. Chưa có middleware ràng buộc `principal.account_id` trên endpoints `propose_run` và `execute_run`. | **P0 Security** | Rủi ro User A confirm proposal của User B hoặc đánh cắp kết quả backtest độc quyền. |
 | **G4** | **Thiếu OpenAPI 3.0 Contract & Error Envelope chuẩn.** | Chưa có tài liệu đặc tả schema HTTP chính thức cho request/response, validation errors, và status codes. | **P1 Contract** | Frontend teams phải tự mò code backend để tích hợp, nguy cơ mismatch payload. |
 | **G5** | **Thiếu kiến trúc Observability (Prometheus Metrics & Structured Logging).** | Không có Prometheus counters/histograms (`simulation_run_duration_seconds`, `simulation_unsupported_claims_total`). Log trong `simulation_actions.py` chưa theo chuẩn JSON envelope. | **P1 Ops** | SRE/DevOps không có dashboard giám sát SLA, latency, rate limit, hay sự cố look-ahead bias. |
-| **G6** | **FMEA chưa được định lượng (chỉ là bullet points).** | File plan cũ chỉ liệt kê tên các lỗi phương pháp luận, không có ma trận RPN ($S \times L \times D$), thiếu Detection mechanism và Recovery playbooks. | **P1 Reliability** | Khi xảy ra sự cố (vd: Overfitting multiple testing, Token replay), đội ngũ trực vận hành không có playbook xử lý. |
+| **G6** | **FMEA chưa được định lượng (chỉ là bullet points).** | File plan cũ chỉ liệt kê tên các lỗi phương pháp luận ở §8, không có ma trận RPN (S×L×D), thiếu Detection mechanism và Recovery playbooks. | **P1 Reliability** | Khi xảy ra sự cố (vd: Overfitting multiple testing, Token replay), đội ngũ trực vận hành không có playbook xử lý. |
 | **G7** | **Thiếu phân tích đánh đổi kiến trúc (System Trade-offs Matrix).** | Chưa có tài liệu lý giải tại sao chọn In-process token vs Redis, Polling vs SSE, JSON blob vs Normalized tables. | **P1 Governance** | Khó bảo vệ quyết định kiến trúc trong các đợt review nội bộ và khi scale. |
 | **G8** | **Chưa có UI Panel tích hợp Simulation Agent.** | Frontend studio (`features/simulation/` hoặc `pro_lab/`) chưa có giao diện hiển thị ActionProposal card, Preview confirmation modal, và Assumptions warning drawer. | **P2 UX** | Người dùng cuối chưa thể trải nghiệm workflow 2 pha trên trình duyệt. |
 
 ---
 
-### 0.4 Scope Definition (Mục tiêu & Phạm vi)
+### 0.3 Scope Definition (Mục tiêu & Phạm vi)
 
 #### A. Goals (Trong phạm vi — Đo lường được)
 1. **API Surface**: Triển khai `agent_router.py` mount tại `/api/v1/public/simulation/agent` bọc 7 tools và 2-phase proposal/confirm/execute flow.
@@ -86,21 +65,8 @@ Mặc dù core domain đã hoàn thiện, Module 6 đang gặp phải **8 khoả
 #### B. Non-Goals (Ngoài phạm vi — Chống Scope Creep)
 1. **KHÔNG hỗ trợ Live Trading / Đặt lệnh thật**: Module 6 là môi trường nghiên cứu (Paper/Research Lab). Mọi tool kết nối sàn giao dịch (`broker.place_order`, `broker.cancel_order`) là `RiskClass.FORBIDDEN`, fail-closed với mã lỗi `403 FORBIDDEN_OPERATION`.
 2. **KHÔNG viết lại Backtest Engine bằng C++/Rust**: Giữ nguyên engine Python deterministic hiện hữu (`RunBacktestStudio` / `RunBacktestLab`).
-3. **KHÔNG cho phép Model thực thi mã Python tùy ý (Arbitrary Code Execution)**: Không expose shell, `exec()`, `eval()` cho LLM. Mọi tham số chiến lược phải được map vào cấu trúc tham số có sẵn.
+3. **KHÔNG cho phép Model thực thi mã Python tùy ý (Arbitrary Code Execution)**: Không expose shell, exec(), eval() cho LLM. Mọi tham số chiến lược phải được map vào cấu trúc tham số có sẵn.
 4. **KHÔNG kích hoạt Multi-Agent Swarm mặc định**: Chế độ Multi-agent chỉ được kích hoạt khi vượt qua `MultiAgentGateRunner` với `quality_uplift_pp >= 5.0` mà không vượt ngân sách độ trễ.
-
----
-
-### 0.5 User Workflows (6 Luồng Tương tác Người dùng)
-
-| Workflow | Vai trò của Agent | Kết quả đầu ra (Output Artifact) | Ghi chú an toàn |
-|---|---|---|---|
-| **1. Hypothesis Builder** | Làm rõ luận điểm nghiên cứu (thesis), universe cổ phiếu, horizon, và risk constraints | `StrategySpec` / Experiment spec draft | Kiểm tra tính hợp lệ của tham số trước khi lưu draft |
-| **2. Strategy Explainer** | Giải thích quy tắc vào/ra lệnh, công thức tính chỉ báo, logic tái cân bằng | Rule & Formula walkthrough narrative | Đi kèm provenance citations về logic blueprint |
-| **3. Backtest Preflight** | Rà soát khoảng thời gian dữ liệu, độ rò rỉ (look-ahead), trượt giá, và phí giao dịch | Preflight Validation Checklist | Cảnh báo đỏ nếu commission/slippage = 0 |
-| **4. Result Critique** | Đánh giá phân phối trades, drawdown, Sharpe, tail risk, và bẫy phương pháp luận | Evidence-based critique memo | Số liệu phải được `NumericReviewer` xác thực 100% |
-| **5. Scenario Compare** | So sánh chuẩn hóa giữa các runs tương thích ngữ nghĩa | Normalized Run Comparison table | Từ chối so sánh nếu `metrics_calculation_version` khác nhau |
-| **6. Next Experiment** | Đề xuất kịch bản thử nghiệm độ nhạy tham số tiếp theo | `ActionProposal` để chạy simulation | Bắt buộc người dùng preview chi phí và confirm (HITL) |
 
 ---
 
@@ -180,79 +146,9 @@ flowchart TB
 
 ---
 
-### 1.2 File Layout Target (Cấu trúc Thư mục Đích)
+### 1.2 Luồng dữ liệu (Sequence Diagrams)
 
-```text
-src/risk_dashboard/modules/simulation_lab/
-├── __init__.py                                 # Facade
-└── module.py                                   # Facade re-exporting pro_lab
-src/risk_dashboard/modules/pro_lab/
-├── api/
-│   ├── admin.py                                # Admin endpoints
-│   ├── agent_router.py                         # NEW (SIM7): /api/v1/public/simulation/agent
-│   ├── ai.py                                   # AI endpoints (migrated to Shared Runtime)
-│   ├── ai_helpers.py                           # Scope & auth helpers
-│   ├── ai_prompts.py                           # System prompts
-│   ├── pro.py                                  # Studio legacy endpoints
-│   └── public.py                               # Public endpoints
-├── application/
-│   ├── backtest_studio.py                      # Deterministic backtest studio execution
-│   ├── helpers.py                              # Metric compatibility & trade aggregation
-│   ├── services.py                             # Domain command & query services
-│   ├── simulation_actions.py                   # 2-phase proposal/confirm/execute service
-│   └── simulation_tools.py                     # 7 typed domain tools & manifests
-├── domain/
-│   ├── entities.py                             # ProLabExperimentRun, Proposal & Receipt entities
-│   ├── methodology_checks.py                   # 5 rule engines detecting biases & risks
-│   └── ports.py                                # Repository ports
-├── infrastructure/repositories/
-│   └── sqlite.py                               # Sqlite repositories (Run, Proposal, Receipt)
-├── providers/
-│   ├── contracts.py                            # Domain-command provider definitions
-│   └── registry.py                             # Deterministic provider registry
-├── schemas/
-│   ├── requests.py                             # Request DTOs
-│   ├── responses.py                            # Response DTOs
-│   ├── simulation_agent.py                     # 11 Pydantic v2 schemas (frozen=True)
-│   └── studio.py                               # Studio DTOs
-├── skills/
-│   ├── manifests.py                            # 5 skill manifests
-│   └── prompts/                                # System prompts per skill
-│       ├── backtest_preflight.py
-│       ├── hypothesis_builder.py
-│       ├── next_experiment.py
-│       ├── result_critique.py
-│       └── scenario_compare.py
-├── evals/
-│   ├── baseline_fixtures.py                    # Golden baseline outputs
-│   ├── eval_runner.py                          # SimulationEvalRunner (quantitative metrics)
-│   ├── fake_simulation_provider.py             # Deterministic mock provider for tests
-│   ├── gold_set.py                             # Gold set (>= 85 cases)
-│   ├── multi_agent_gate.py                     # MultiAgentGateRunner (A/B gate)
-│   └── parity_gate.py                          # ParityGateRunner (drift gate)
-└── module.py                                   # ModuleDefinition, scopes, and flags
-```
-
----
-
-### 1.3 7 Domain Tools Specification
-
-| Tool ID | Tên Tool | Input Schema | Output Schema | Required Scope | Risk-Class | Bằng chứng Live Code |
-|---|---|---|---|---|---|---|
-| `simulation.get_strategy_spec` | Get Strategy Blueprint Spec | `StrategySpecQuery` | `StrategySpec` | `pro_lab:strategy:read` | `read` | `simulation_tools.py:128` |
-| `simulation.validate_experiment`| Validate Experiment Manifest | `ReproducibilityManifest` | `ExperimentValidation` | `pro_lab:experiment:read` | `read` | `simulation_tools.py:164` |
-| `simulation.get_run` | Get Simulation Run Artifact | `RunQuery` | `SimulationRunArtifact` | `pro_lab:run:read` | `read` | `simulation_tools.py:216` |
-| `simulation.get_trade_summary` | Get Simulation Trade Summary | `TradeSummaryQuery` | `TradeSummary` | `pro_lab:run:read` (detail: `pro_lab:trade_detail:read`) | `read` | `simulation_tools.py:284` |
-| `simulation.compare_runs` | Compare Simulation Runs | `CompareRunsQuery` | `RunComparison` | `pro_lab:run:read` | `read` | `simulation_tools.py:310` |
-| `simulation.propose_run` | Propose Simulation Run | `ReproducibilityManifest` | `ActionProposal` | `pro_lab:run:propose` | `proposal` | `simulation_tools.py:346` |
-| `simulation.execute_run` | Execute Confirmed Run | `ExecuteRunRequest` | `ActionReceipt` | `pro_lab:run:execute` | `confirmed_write`| `simulation_tools.py:384` |
-| bất kỳ broker/live-order path | Live Order Execution | — | fail-closed error | Không scope nào cấp được | `forbidden` | `tool_registry.py:88` |
-
----
-
-### 1.4 Luồng dữ liệu (Sequence Diagrams)
-
-#### A. Sequence 1: 2-Phase Action Execution (Propose $\to$ Preview $\to$ Confirm $\to$ Execute $\to$ Receipt)
+#### A. Sequence 1: 2-Phase Action Execution (Propose → Preview → Confirm → Execute → Receipt)
 
 ```mermaid
 sequenceDiagram
@@ -345,7 +241,9 @@ sequenceDiagram
 
 ---
 
-### 1.5 OpenAPI 3.0 Specification
+### 1.3 OpenAPI 3.0 Specification
+
+Dưới đây là đặc tả kỹ thuật chuẩn OpenAPI 3.0.3 cho toàn bộ API surface của Simulation Agent:
 
 ```yaml
 openapi: 3.0.3
@@ -697,7 +595,7 @@ components:
 
 ---
 
-### 1.6 Rate Limiting & Quota Management
+### 1.4 Rate Limiting & Quota Management
 
 Áp dụng giải thuật **Token Bucket** theo cặp khóa `(account_id, endpoint_class)`:
 
@@ -707,25 +605,6 @@ components:
 | `proposals:create` | Giai đoạn chuẩn bị | 20 req/min | 5 | 200 req | HTTP 429 (Tránh spam tạo rác DB) |
 | `execute:confirm` | Write-heavy (chạy engine) | 5 req/min | 2 | 50 runs | HTTP 429 (Bảo vệ CPU/RAM engine) |
 | `runs:agent_critique`| LLM reasoning | 10 req/min | 3 | 100 runs | HTTP 429 (Bảo vệ chi phí API LLM) |
-
----
-
-### 1.7 Circuit Breaker & Fallback Rules
-
-```yaml
-simulation_agent:
-  circuit_breaker:
-    backtest_engine:
-      failure_threshold: 3
-      timeout_ms: 20000
-      open_duration_seconds: 45
-      fallback: cached_or_error
-    llm_provider:
-      failure_threshold: 4
-      timeout_ms: 15000
-      open_duration_seconds: 60
-      fallback: deterministic_only  # Trả bảng metrics số liệu, không sinh narrative
-```
 
 ---
 
@@ -787,7 +666,7 @@ erDiagram
 
 ### 2.2 DDL Specifications (Migrations đã được tích hợp)
 
-Các bảng đã được khai báo chuẩn xác tại [`src/risk_dashboard/platform/database/migrate.py`](file:///home/nhattu/WorkSpace/MyProjects/agent_financial/src/risk_dashboard/platform/database/migrate.py):
+Các bảng đã được khai báo chuẩn xác tại `src/risk_dashboard/platform/database/migrate.py`:
 
 ```sql
 -- Migration 012: Specs lưu trữ các thông số tái lập
@@ -878,8 +757,6 @@ Hệ thống expose các metrics định lượng tại `/metrics` phục vụ P
 | `simulation_grounding_failures_total` | Counter | `skill_id` | Số lần NumericReviewer chặn narrative bịa đặt. Ngưỡng: = 0 trên production. |
 | `simulation_agent_run_duration_seconds`| Histogram | `skill_id`, `status` | Đo thời gian hoàn thành 1 critique run. SLA: p50 < 3s, p95 < 8s. |
 
----
-
 ### 3.3 Alert Rules (Prometheus Alertmanager)
 
 ```yaml
@@ -958,71 +835,9 @@ Một kiến trúc sư hệ thống trưởng thành không bao giờ khẳng đ
 
 ---
 
-## 5. SPECIALIST DESIGN & MULTI-AGENT GATING
+## 5. VERIFICATION STRATEGY & TEST MATRIX
 
-### 5.1 Bounded Specialists (4 Chuyên viên Chuyên biệt)
-
-Hệ thống đóng gói tri thức của Agent thành 4 Specialists độc lập, phối hợp dưới quyền điều phối của một Controller duy nhất (chống phân mảnh trạng thái):
-
-1. **Research Designer**: Làm rõ thesis, gợi ý asset universe, khung thời gian và ràng buộc rủi ro. Sinh bản thảo thông số thí nghiệm (`StrategySpec`).
-2. **Quant / Risk Analyst**: Đọc các chỉ số thống kê (CAGR, Sharpe, Sortino, Max Drawdown, Calmar), tính toán phân phối lãi/lỗ của trade log.
-3. **Evidence / Numeric Reviewer**: Đối chiếu từng con số trong văn bản giải thích với số liệu thực tế từ engine backtest. Ném cờ `reject` nếu có số liệu bịa đặt.
-4. **Safety / Methodology Reviewer**: Kiểm tra 5 bẫy phương pháp luận (Look-ahead bias, survivorship bias, curve-fitting, thiếu phí/trượt giá, benchmark mismatch).
-
-### 5.2 Nguyên tắc Bất biến (Boundary Rules)
-
-1. Mặc định luôn hoạt động ở chế độ `single_specialist`.
-2. Chuỗi tuần tự (`sequential`): Chỉ cho phép luồng Designer $\to$ Quant khi khởi tạo thiết kế thí nghiệm mới.
-3. Song song (`parallel`): Tối đa 2 nhánh đồng thời trong môi trường đánh giá kiểm thử (controlled eval).
-4. **Tuyệt đối CẤM** các agent tự ý sửa đổi shared state của nhau hoặc gửi free-form chat qua lại không có schema kiểm soát.
-
-### 5.3 Điều kiện Kích hoạt Multi-Agent (Gate Criteria)
-
-Chế độ Multi-Agent chỉ được bật trên production khi vượt qua `MultiAgentGateRunner` (`pro_lab/evals/multi_agent_gate.py`):
-- `quality_uplift_pp >= 5.0` (Điểm chất lượng vượt trội ít nhất 5 điểm phần trăm).
-- `cost_increase_pct <= 50.0%` (Chi phí token không vượt quá 1.5 lần).
-- `latency_p95_ms <= 8000.0 ms` (Độ trễ p95 vẫn trong ngân sách 8 giây).
-
----
-
-## 6. WORK PACKAGES, ROADMAP & DEFINITION OF DONE
-
-### 6.1 Danh mục Work Packages (SIM0 $\to$ SIM10)
-
-| ID | Work Package | Deliverable | Depends on | Tiêu chí Hoàn thành (DoD) | Trạng thái |
-|---|---|---|---|---|---|
-| **SIM0** | Inventory & Baseline | Map existing Pro Lab endpoints, baseline fixtures | — | Fixtures in `evals/baseline_fixtures.py` | **DONE** |
-| **SIM1** | Typed Tools & Schemas | 7 domain tools & Pydantic contracts | SIM0 | `schemas/simulation_agent.py`, `simulation_tools.py` | **DONE** |
-| **SIM2** | Shared Runtime Migration | Chuyển direct model call sang `platform.ai_runtime` | SIM0 | `pro_lab/api/ai.py` dùng `LLMProvider` | **DONE** |
-| **SIM3** | Reproducibility Manifest | Pinned 17 fields, migrations 012-014 | SIM1 | Deterministic replay test pass | **DONE** |
-| **SIM4** | Methodology & Critique Skills | 5 rule engines, 5 skill manifests & prompts | SIM1, SIM3 | `methodology_checks.py`, `skills/` | **DONE** |
-| **SIM5** | Confirmed Run Service | `SimulationActionService` (propose-confirm-execute) | SIM3 | Idempotency & isolation tests pass | **DONE** |
-| **SIM6** | ToolRegistry Registration | Wire `get_simulation_tool_manifests()` vào `tool_registry.py` | SIM1 | Registry discover được 7 tools | **TODO (GAP G2)** |
-| **SIM7** | HTTP Agent Router | `src/risk_dashboard/modules/pro_lab/api/agent_router.py` | SIM5, SIM6 | Endpoints pass OpenAPI & IDOR checks | **TODO (GAP G1, G3)** |
-| **SIM8** | Observability & Metrics | Prometheus metrics & JSON logging | SIM7 | `/metrics` expose đủ simulation counters | **TODO (GAP G5)** |
-| **SIM9** | Frontend Studio Integration | Tích hợp Proposal Preview Modal vào UI | SIM7 | E2E flow trên trình duyệt | **TODO (GAP G8)** |
-| **SIM10**| Multi-Agent Gate Evaluation | Chạy A/B Gate qua `MultiAgentGateRunner` | SIM7 | Quality uplift $\ge 5.0$ pp | **GATED** |
-
----
-
-### 6.2 Validation Checkpoint (Entry / Exit Criteria)
-
-- **Entry Criteria**:
-  - Mã nguồn core domain (7 tools, 2-phase action service, methodology checks) duy trì 44/44 unit tests pass.
-  - Template hợp đồng `ReproducibilityManifest` (17 fields) được duyệt bởi Tech Lead.
-- **Exit Criteria (Định lượng)**:
-  - 0 direct provider calls ngoài Shared AI Runtime (`platform.ai_runtime`).
-  - 100% critique narratives gắn kèm citation và version pinning (run/data/engine).
-  - Tỷ lệ `buy_sell_leak_rate == 0.0%`.
-  - Parity tests pass: sai lệch kết quả so với baseline $\le 0.001\%$.
-  - Critique SLA: p50 < 3.0s, p95 < 8.0s, chi phí $\le \$0.04$ / lượt critique.
-- **Validation Gate**: Ánh xạ trực tiếp tới Gate **VP-AT6** trong Master Plan.
-
----
-
-## 7. VERIFICATION STRATEGY & TEST MATRIX
-
-### 7.1 Test Matrix Toàn diện
+### 5.1 Test Matrix Toàn diện
 
 | Tầng Test | Mã Case | Kịch bản kiểm thử (Input Scenario) | Trạng thái / Kết quả kỳ vọng | Phương pháp xác minh (Tool/Command) |
 |---|---|---|---|---|
@@ -1039,23 +854,26 @@ Chế độ Multi-Agent chỉ được bật trên production khi vượt qua `M
 
 ---
 
-### 7.2 Pilot Strategy Families & Datasets
+### 5.2 Kế hoạch Thực thi theo Dependency (Implementation Sequence)
 
-- **Strategy Families được duyệt thí điểm**:
-  1. *Trend Following*: Moving Average Crossover (SMA 20/50, EMA 12/26).
-  2. *Mean Reversion*: RSI(14) oversold/overbought with Bollinger Bands.
-  3. *Breakout*: Donchian Channel / 20-day high-low breakout.
-- **Pilot Datasets**:
-  - `cafef_eod` (EOD data cho VN30 constituents từ 2020 đến nay).
-  - Benchmark chuẩn: `VNINDEX`.
+| Giai đoạn | Mã Item | Công việc chi tiết | Effort | Phụ thuộc | Gap được đóng | Tiêu chí hoàn thành (DoD) |
+|---|---|---|---|---|---|---|
+| **Phase 1** | **SIM-API-1** | Đăng ký 7 simulation manifests vào `agentic_core/application/tool_registry.py`. | 0.5d | — | **G2** | `ToolRegistry.get_manifest("simulation.propose_run")` trả manifest thật. Test registry assert đủ. |
+| **Phase 1** | **SIM-API-2** | Xây dựng `src/risk_dashboard/modules/pro_lab/api/agent_router.py` bọc 7 tools và 2-phase execution. | 2.0d | SIM-API-1 | **G1, G4** | Các route `/tools:invoke`, `/proposals`, `/execute` hoạt động với Pydantic validation. |
+| **Phase 2** | **SIM-SEC-1** | Áp dụng `resolve_principal` và kiểm tra quyền sở hữu `account_id` trên mọi endpoint mới. | 1.0d | SIM-API-2 | **G3** | Test IDOR xác nhận User B gọi proposal User A nhận HTTP 404. |
+| **Phase 2** | **SIM-OBS-1** | Tích hợp structured logging JSON và Prometheus metrics (`simulation_*`). | 1.0d | SIM-API-2 | **G5** | `/metrics` hiển thị đầy đủ counters/histograms của Module 6. |
+| **Phase 3** | **SIM-UI-1** | Xây dựng `ActionProposalModal.jsx` và tích hợp vào Backtest Studio. | 2.5d | SIM-SEC-1 | **G8** | Người dùng preview được chi phí, confirm và nhận receipt trực quan trên UI. |
+| **Phase 3** | **SIM-GATE-1**| Chạy đánh giá A/B Multi-agent vs Single specialist qua `MultiAgentGateRunner`. | 1.0d | Toàn bộ | **G7** | Xuất báo cáo Gate Report, quyết định bật/tắt cờ `multi_agent.enabled`. |
 
 ---
 
-## 8. OPEN QUESTIONS (UNCERTAINTIES)
+## 6. OPEN QUESTIONS (UNCERTAINTIES)
+
+Dưới đây là các điểm chưa chắc chắn cần sự phối hợp và chốt phương án từ các bên liên quan (Product, DevOps, Risk/Compliance):
 
 | ID | Câu hỏi mở (Open Question) | Hạng mục bị chặn | Rủi ro nếu tự quyết định | Phương án thu thập thông tin | Bên chịu trách nhiệm |
 |---|---|---|---|---|---|
-| **U1** | **Mức chi phí tượng trưng (`estimated_cost`) cho mỗi run simulation là bao nhiêu?** Hiện code đang hardcode `0.02 USD`. | SIM7, SIM9 | User hiểu nhầm là bị trừ tiền thật trong tài khoản. | Khảo sát ý kiến Product Lead về chính sách credit/quota của gói Pro Lab. | **Product Owner (PO)** |
+| **U1** | **Mức chi phí tượng trưng (`estimated_cost`) cho mỗi run simulation là bao nhiêu?** Hiện code đang hardcode `0.02 USD`. | SIM-API-2, SIM-UI-1 | User hiểu nhầm là bị trừ tiền thật trong tài khoản. | Khảo sát ý kiến Product Lead về chính sách credit/quota của gói Pro Lab. | **Product Owner (PO)** |
 | **U2** | **Thời gian hết hạn (TTL) của proposal: 15 phút đã tối ưu cho trải nghiệm người dùng chưa?** | `simulation_actions.py` | Quá ngắn thì user đang đọc tài liệu bị hết hạn; quá dài thì rác database. | Đo thời gian xem preview trung bình qua analytics frontend. | **UX Lead / PO** |
 | **U3** | **Quy chuẩn cảnh báo Survivorship Bias cho thị trường Việt Nam.** Hiện rule đang gắn cứng mốc trước năm 2020. | `methodology_checks.py` | Đưa ra cảnh báo sai lệch với các cổ phiếu mới niêm yết hoặc tái cơ cấu rổ VN30. | Tham vấn chuyên gia phân tích định lượng (Quant Lead). | **Head of Research / Quant** |
 | **U4** | **Chính sách lưu trữ (Data Retention) cho Trade Logs chi tiết của các backtest cũ.** | Quản lý dung lượng DB | Database phình to làm chậm truy vấn SQLite sau 6 tháng chạy thực tế. | Họp với DevOps để chốt policy: nén lưu S3/R2 sau 30 ngày hay xóa định kỳ. | **DevOps / SRE** |
@@ -1063,9 +881,9 @@ Chế độ Multi-Agent chỉ được bật trên production khi vượt qua `M
 
 ---
 
-## 9. OPERATIONAL RUNBOOK (VẬN HÀNH & ỨNG PHÓ SỰ CỐ)
+## 7. OPERATIONAL RUNBOOK (VẬN HÀNH & ỨNG PHÓ SỰ CỐ)
 
-### 9.1 Kiểm tra sức khỏe hệ thống (Health Check)
+### 7.1 Kiểm tra sức khỏe hệ thống (Health Check)
 Endpoint: `GET /health/simulation-agent`
 - Kiểm tra kết nối SQLite repository (`simulation_action_proposals`).
 - Kiểm tra tính sẵn sàng của Engine Backtest deterministic.
@@ -1080,7 +898,7 @@ Endpoint: `GET /health/simulation-agent`
   }
   ```
 
-### 9.2 Quy trình ứng phó sự cố (Incident Response Playbook)
+### 7.2 Quy trình ứng phó sự cố (Incident Response Playbook)
 
 1. **Khi phát hiện LLM sinh lời khuyên Mua/Bán (Buy/Sell Advisory Leak):**
    - **Hành động tức thì:** Tắt feature flag `module.simulation_lab.enabled` qua Admin Panel hoặc chuyển env var `MODULE_SIMULATION_LAB_ENABLED=false`.
@@ -1094,7 +912,7 @@ Endpoint: `GET /health/simulation-agent`
 
 ---
 
-## 10. PHỤ LỤC — LỆNH KIỂM CHỨNG TOÀN DIỆN (VERIFICATION COMMANDS)
+## 8. PHỤ LỤC — LỆNH KIỂM CHỨNG TOÀN DIỆN (VERIFICATION COMMANDS)
 
 ```bash
 # 1. Kiểm tra toàn bộ 44 tests của Simulation Agent
@@ -1112,3 +930,4 @@ Endpoint: `GET /health/simulation-agent`
 # 5. Chạy Eval Runner trên Gold Set định lượng
 .venv/bin/python -m pytest tests/test_simulation_eval_runner.py -s
 ```
+

@@ -341,3 +341,4 @@ def test_phase5_bctc_logging_pii_compliance(test_client, caplog):
         # Raw account_id không được xuất hiện trực tiếp trong log message
         assert acc_a_id not in log_msg, f"PII Leak! Raw account_id '{acc_a_id}' found in log message: {log_msg}"
         assert "52618" not in log_msg, f"Found hardcoded 52618 in log message: {log_msg}"
+

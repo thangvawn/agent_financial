@@ -46,3 +46,4 @@ except ImportError:
     SIMULATION_GROUNDING_FAILURES_TOTAL = _MockMetric()  # type: ignore
     SIMULATION_PROPOSALS_TOTAL = _MockMetric()  # type: ignore
     SIMULATION_EXECUTIONS_TOTAL = _MockMetric()  # type: ignore
+

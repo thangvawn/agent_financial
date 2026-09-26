@@ -35,3 +35,4 @@ def test_structured_logging_has_no_raw_tokens(caplog):
     log_text = caplog.text
     assert "simulation.action.confirmed" in log_text
     assert "tok_" not in log_text
+

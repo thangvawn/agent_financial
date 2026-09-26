@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 from risk_dashboard.modules.admin_cms.domain.entities import CmsContentItem, CmsContentVersion, utc_now_iso
@@ -12,7 +13,13 @@ from risk_dashboard.modules.learning.domain.entities import (
     LearningQuizQuestion,
 )
 from risk_dashboard.modules.learning.domain.ports import LearningCatalogReader
-from risk_dashboard.modules.learning.infrastructure.catalog import CONTEXT_TRIGGER_TO_LESSON, COURSES, LESSONS, PATHS
+from risk_dashboard.modules.learning.infrastructure.catalog import (
+    CONTEXT_TRIGGER_TO_LESSON,
+    COURSE_LESSON_ALIASES,
+    COURSES,
+    LESSONS,
+    PATHS,
+)
 
 
 def serialize_course(course: LearningCourse) -> dict[str, Any]:
@@ -211,6 +218,7 @@ class SqliteLearningCatalog(LearningCatalogReader):
         raise KeyError(path_id)
 
     def _resolve_lesson(self, lesson_id: str) -> LearningLesson:
+        # 1. Direct match in content ops
         content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=lesson_id)
         if content_ops_document is None:
             ensure_learning_catalog_seeded(self.content_ops_repo)
@@ -218,6 +226,25 @@ class SqliteLearningCatalog(LearningCatalogReader):
         if content_ops_document is not None:
             item, version = content_ops_document
             return self._lesson_from_content_ops(item=item, payload=version.payload)
+
+        # 2. Check alias mapping (e.g. fin-101-l1 -> money-basics-101)
+        target_slug = COURSE_LESSON_ALIASES.get(lesson_id)
+        if target_slug:
+            content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=target_slug)
+            if content_ops_document is None:
+                ensure_learning_catalog_seeded(self.content_ops_repo)
+                content_ops_document = self.content_ops_repo.find_published_content(content_type="lesson", slug=target_slug)
+            if content_ops_document is not None:
+                item, version = content_ops_document
+                lesson = self._lesson_from_content_ops(item=item, payload=version.payload)
+                return dataclasses.replace(lesson, lesson_id=lesson_id)
+            if target_slug in LESSONS:
+                return dataclasses.replace(LESSONS[target_slug], lesson_id=lesson_id)
+
+        # 3. Direct match in static LESSONS
+        if lesson_id in LESSONS:
+            return LESSONS[lesson_id]
+
         raise KeyError(lesson_id)
 
     def get_context_explainer(self, *, trigger: str) -> dict[str, Any] | None:

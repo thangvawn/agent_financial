@@ -5,6 +5,7 @@ import {
   sendTutorMessage,
   submitTutorFeedback,
 } from '../services/aiTutorApi'
+import TutorMessageContent from '../components/TutorMessageContent'
 import './learn-tutor.css'
 
 const QUICK_PROMPTS = [
@@ -308,7 +309,13 @@ export default function LearnTutorPanel({ courseId, lessonId, sessionId }) {
             key={msg.message_id}
             className={`lh-tutor-msg ${msg.role === 'user' ? 'lh-tutor-msg--user' : 'lh-tutor-msg--assistant'}`}
           >
-            <div className="lh-tutor-msg__text">{msg.content}</div>
+            <div className="lh-tutor-msg__text">
+              {msg.role === 'assistant' ? (
+                <TutorMessageContent content={msg.content} />
+              ) : (
+                msg.content
+              )}
+            </div>
 
             {msg.citations && msg.citations.length > 0 ? (
               <div className="lh-tutor-citations">

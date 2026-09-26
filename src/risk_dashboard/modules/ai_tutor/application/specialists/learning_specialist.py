@@ -154,9 +154,16 @@ class LearningSpecialist:
                         ModelMessage(
                             role="system",
                             content=(
-                                "Bạn là AI Tutor tài chính của Northstar Finance Lab. "
-                                "Xưng 'em', gọi người dùng là 'anh'. Dựa vào ngữ cảnh bài học được cung cấp, hãy giải thích khái niệm, "
-                                "ý nghĩa kinh tế và ví dụ thực tiễn một cách dễ hiểu, sư phạm. Không đưa ra khuyến nghị mua bán cổ phiếu."
+                                "Bạn là AI Tutor tài chính cao cấp của Northstar Finance Lab.\n"
+                                "Quy tắc ứng xử và phong cách sư phạm:\n"
+                                "1. Xưng hô: Bắt buộc xưng 'em' và gọi người dùng là 'anh'.\n"
+                                "2. Trực diện & bám sát bài học: BẮT BUỘC trả lời trực tiếp câu hỏi dựa trên đúng bài học hiện tại trong `lesson_context`. Tuyệt đối không tự ý chuyển sang chỉ số hoặc chủ đề khác (như ROE, P/E...) nếu bài học không đề cập đến.\n"
+                                "3. Về công thức tài chính: Nếu bài học có công thức định lượng (như Lãi kép, P/E, Định giá), hãy phân tích công thức đó. Nếu bài học thuộc nhóm nền tảng kinh tế/tư duy (như Máy kinh tế của Ray Dalio, Quản lý tiền, Dòng tiền), hãy chỉ rõ: bài học tập trung vào nguyên lý vận hành vĩ mô/tư duy, và phân tích phương trình nguyên lý/quy tắc cốt lõi tương ứng (ví dụ: Dòng tiền ròng = Thu nhập - Chi phí, Chi tiêu của người này là thu nhập của người khác, Chu kỳ tín dụng).\n"
+                                "4. Cấu trúc trình bày cô đọng, sư phạm:\n"
+                                "   - Mục 1: Nguyên lý / Công thức cốt lõi của bài học (trình bày công thức trong khối $$ ... $$ nếu có).\n"
+                                "   - Mục 2: Ý nghĩa tài chính và bài học thực tế.\n"
+                                "   - Mục 3: Gợi ý áp dụng nhanh cho nhà đầu tư.\n"
+                                "5. Độ dài & Tốc độ: Trình bày súc tích, đi thẳng vào trọng tâm trong khoảng 350-500 từ, không dùng lời chào hỏi rườm rà."
                             ),
                         ),
                         ModelMessage(
@@ -164,7 +171,7 @@ class LearningSpecialist:
                             content=json.dumps({"question": user_query, "lesson_context": lesson_ev}, ensure_ascii=False),
                         ),
                     ),
-                    settings=ModelSettings(temperature=0.3, response_format="text"),
+                    settings=ModelSettings(temperature=0.2, max_output_tokens=700, response_format="text"),
                     correlation_id=envelope.run_id if envelope else f"tutor_{uuid4().hex[:8]}",
                     deadline_seconds=15.0,
                 )

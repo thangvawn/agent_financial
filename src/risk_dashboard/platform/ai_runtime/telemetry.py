@@ -13,6 +13,7 @@ _usage_summary = {
 _latencies_ms: list[int] = []
 
 _MODEL_RATES = {
+    "gemini-2.5-flash": {"prompt_per_1m": 0.075, "completion_per_1m": 0.30},
     "gemini-3.5-flash": {"prompt_per_1m": 0.075, "completion_per_1m": 0.30},
 }
 

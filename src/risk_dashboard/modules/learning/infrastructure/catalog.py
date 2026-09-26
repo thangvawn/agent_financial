@@ -9,6 +9,38 @@ from risk_dashboard.modules.learning.domain.entities import (
 )
 
 
+COURSE_LESSON_ALIASES: dict[str, str] = {
+    # fin-101: Nhập môn Tài chính Cá nhân
+    "fin-101-l1": "money-basics-101",
+    "fin-101-l2": "cashflow-basics-101",
+    "fin-101-l3": "compounding-basics-101",
+    "fin-101-l4": "compounding-basics-101",
+    "fin-101-l5": "investing-basics-101",
+    # inv-201: Đầu tư cho Người mới
+    "inv-201-l1": "investing-basics-101",
+    "inv-201-l2": "investing-basics-101",
+    "inv-201-l3": "risk-basics-101",
+    "inv-201-l4": "drawdown-basics-101",
+    "inv-201-l5": "risk-basics-101",
+    "inv-201-l6": "investing-basics-101",
+    # bctc-301: Đọc hiểu Báo cáo & Định giá
+    "bctc-301-l1": "tool-financial-health-101",
+    "bctc-301-l2": "tool-financial-health-101",
+    "bctc-301-l3": "investing-basics-101",
+    "bctc-301-l4": "drawdown-basics-101",
+    "bctc-301-l5": "compounding-basics-101",
+    # macro-401: Kinh tế vĩ mô & Chu kỳ
+    "macro-401-l1": "money-basics-101",
+    "macro-401-l2": "money-basics-101",
+    "macro-401-l3": "risk-basics-101",
+    "macro-401-l4": "money-basics-101",
+    # quant-501: Công cụ định lượng căn bản
+    "quant-501-l1": "tool-stress-testing-101",
+    "quant-501-l2": "risk-basics-101",
+    "quant-501-l3": "tool-risk-score-101",
+}
+
+
 LESSONS: dict[str, LearningLesson] = {
     "money-basics-101": LearningLesson(
         lesson_id="money-basics-101",

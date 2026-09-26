@@ -12,7 +12,7 @@ from risk_dashboard.platform.ai_runtime.redaction import redact_for_provider
 from risk_dashboard.platform.ai_runtime.structured import parse_structured
 from risk_dashboard.platform.ai_runtime.telemetry import calculate_cost_usd
 
-MODEL_NAME = "gemini-3.5-flash"
+MODEL_NAME = os.getenv("AI_MODEL", "gemini-2.5-flash")
 
 
 def create_gemini_provider(api_key: str | None = None) -> GeminiAdapter:

@@ -84,6 +84,8 @@ Có thể chạy đồng thời các tác vụ độc lập:
 3. File code PHẢI dưới 200 dòng. Tách nhỏ nếu vượt quá.
 4. KHÔNG commit thông tin nhạy cảm.
 5. Conventional commits, không AI references trong commit message.
+6. **MCP & SKILL-FIRST MANDATE**: BẮT BUỘC ưu tiên sử dụng MCP tools (`codegraph`, `semble`, `agentmemory`, `context7`, `playwright`) và Skills thay vì native tools thô (`grep_search`, `find_by_name`, `view_file` hàng loạt). Tuân thủ nghiêm ngặt quy tắc toàn cục tại `~/.gemini/GEMINI.md`.
+
 
 ---
 

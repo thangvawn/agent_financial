@@ -104,8 +104,32 @@ export default function CourseCheckpointTab({
   return (
     <div className="lh-course-checkpoint-container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
       {error && (
-        <div style={{ padding: 'var(--sp-3)', backgroundColor: 'var(--neg-soft)', color: 'var(--neg)', borderRadius: 'var(--radius-sm)' }}>
-          {error}
+        <div style={{
+          padding: 'var(--sp-4)',
+          backgroundColor: 'rgba(239, 83, 80, 0.1)',
+          border: '1px solid rgba(239, 83, 80, 0.3)',
+          color: '#ef5350',
+          borderRadius: 'var(--radius-sm)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>⚠️ {error}</div>
+          <button
+            type="button"
+            onClick={loadQuestion}
+            style={{
+              padding: '4px 10px',
+              backgroundColor: 'rgba(239, 83, 80, 0.2)',
+              border: '1px solid rgba(239, 83, 80, 0.4)',
+              color: '#ffffff',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Thử tải lại
+          </button>
         </div>
       )}
 

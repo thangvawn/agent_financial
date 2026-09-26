@@ -93,10 +93,12 @@ class LearningLessonContextTool:
             card = next((c for c in DEFAULT_LEARNING_CARDS if c.card_id == target_id or target_id.lower() in c.card_id.lower() or target_id.lower() in c.title.lower()), None)
             if card:
                 return _format_card_payload(card)
+
             if self.catalog:
                 try:
                     lesson = self.catalog.get_lesson(lesson_id=target_id)
                     if lesson:
+                        glossary_text = " ".join(f"{g.term}: {g.definition}." for g in getattr(lesson, "glossary", []))
                         return {
                             "source": "learning_catalog",
                             "lesson_id": lesson.lesson_id,
@@ -104,8 +106,8 @@ class LearningLessonContextTool:
                             "lesson_topic": getattr(lesson, "content_type", "general") or "general",
                             "difficulty": getattr(lesson, "tier", "Cơ bản") or "Cơ bản",
                             "summary": lesson.summary,
-                            "key_takeaway": " ".join(lesson.body[:2]) if lesson.body else lesson.summary,
-                            "example": "",
+                            "key_takeaway": " ".join(lesson.body) if lesson.body else lesson.summary,
+                            "example": glossary_text,
                             "freshness": "latest",
                         }
                 except Exception:

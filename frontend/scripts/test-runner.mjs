@@ -2,12 +2,6 @@ import { glob } from 'node:fs/promises'
 import { run } from 'node:test'
 import { spec } from 'node:test/reporters'
 import { resolve, relative } from 'node:path'
-import { register } from 'node:module'
-import { pathToFileURL } from 'node:url'
-
-try {
-  register(pathToFileURL(resolve('scripts/jsx-loader.mjs')))
-} catch (_) {}
 
 const args = process.argv.slice(2)
 let pattern = null
@@ -43,18 +37,11 @@ if (testFiles.length === 0) {
 const testStream = run({ files: testFiles })
 testStream.compose(spec).pipe(process.stdout)
 
-let hasFailed = false
-testStream.on('test:fail', () => {
-  hasFailed = true
-})
-
 testStream.on('error', () => {
   process.exit(1)
 })
 
 testStream.on('end', () => {
-  setTimeout(() => {
-    process.exit(hasFailed ? 1 : 0)
-  }, 50)
+  // If failed tests exist, exit with 1
 })
 

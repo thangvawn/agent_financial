@@ -110,12 +110,18 @@ class TutorGraph:
             raw_result = await self.general_specialist.handle(user_query=user_query)
 
         # 2. Evidence & Numeric Review on BOTH metadata claims and prose numbers
-        accepted_cites, accepted_numeric, verified_prose, numeric_rejections = self.evidence_reviewer.review(
-            candidate_text=raw_result["answer"],
-            evidence=raw_result.get("evidence"),
-            citations=raw_result.get("citations", ()),
-            numeric_claims=raw_result.get("numeric_claims", ()),
-        )
+        if intent == "quant" or bool(raw_result.get("numeric_claims")):
+            accepted_cites, accepted_numeric, verified_prose, numeric_rejections = self.evidence_reviewer.review(
+                candidate_text=raw_result["answer"],
+                evidence=raw_result.get("evidence"),
+                citations=raw_result.get("citations", ()),
+                numeric_claims=raw_result.get("numeric_claims", ()),
+            )
+        else:
+            accepted_cites = tuple(c for c in raw_result.get("citations", ()) if getattr(c, "source_id", None))
+            accepted_numeric = ()
+            verified_prose = raw_result["answer"]
+            numeric_rejections = []
 
         # 3. Safety & Policy Review
         is_safe, safe_text, policy_rejections, policy_notice = self.safety_reviewer.review(verified_prose)
