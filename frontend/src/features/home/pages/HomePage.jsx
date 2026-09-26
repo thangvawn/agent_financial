@@ -48,9 +48,18 @@ function SparkleHero({ actions }) {
   return (
     <section className="sparkle-hero" aria-label="Northstar Finance hero">
       <FinanceParticleField />
+      <div className="sparkle-hero-meta" aria-hidden="true">
+        <span>Northstar / 01</span>
+        <span>Financial intelligence lab</span>
+        <span>26.09.26 / Vietnam</span>
+      </div>
+      <div className="sparkle-hero-side-label" aria-hidden="true">
+        <strong>N.</strong>
+        <span>Site of the day / Learn before you act</span>
+      </div>
       <div className="sparkle-hero-copy">
         <p className={KICKER}>Northstar Finance Lab</p>
-        <h1>Học và thực hành tài chính có kiểm soát.</h1>
+        <h1>Học cách đọc thị trường trước khi thị trường đọc bạn.</h1>
         <p>
           Nền tảng cho sinh viên Việt Nam: Learn Hub làm gốc kiến thức, Market & Portfolio, News,
           BCTC và Simulation Lab là nơi quan sát và luyện tập — không phải khuyến nghị mua bán.
