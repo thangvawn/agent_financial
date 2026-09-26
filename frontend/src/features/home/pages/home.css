@@ -1442,6 +1442,10 @@
   pointer-events: auto;
 }
 
+.app-shell--home .sparkle-command-preview {
+  display: none !important;
+}
+
 .app-shell--home .sparkle-dashboard-stage::after {
   display: none !important;
 }
@@ -1502,12 +1506,7 @@
   }
 
   .app-shell--home .sparkle-command-preview {
-    top: 265px !important;
-    right: 28px !important;
-    bottom: auto !important;
-    width: 250px !important;
-    transform: scale(0.84);
-    transform-origin: top right;
+    display: none !important;
   }
 }
 

@@ -44,6 +44,66 @@ function rotatePoint(point, rotation, pointer) {
   }
 }
 
+function drawDataCard(context, centerX, centerY, radius, rotation, opacity) {
+  const cardWidth = radius * 1.72
+  const cardHeight = radius * 1.05
+  const tilt = -0.16 + rotation * 0.08
+  const halfWidth = cardWidth / 2
+  const halfHeight = cardHeight / 2
+
+  context.save()
+  context.translate(centerX + radius * 0.03, centerY - radius * 0.02)
+  context.rotate(tilt)
+  context.globalAlpha = opacity
+  context.shadowColor = 'rgba(0, 0, 0, 0.52)'
+  context.shadowBlur = radius * 0.18
+  context.shadowOffsetY = radius * 0.06
+
+  const cardGradient = context.createLinearGradient(-halfWidth, -halfHeight, halfWidth, halfHeight)
+  cardGradient.addColorStop(0, '#eef8f4')
+  cardGradient.addColorStop(0.42, '#9fbdb7')
+  cardGradient.addColorStop(0.7, '#476b68')
+  cardGradient.addColorStop(1, '#183b3d')
+  context.fillStyle = cardGradient
+  context.beginPath()
+  context.roundRect(-halfWidth, -halfHeight, cardWidth, cardHeight, radius * 0.06)
+  context.fill()
+
+  context.shadowBlur = 0
+  context.strokeStyle = 'rgba(239, 255, 249, 0.62)'
+  context.lineWidth = 1
+  context.stroke()
+
+  context.save()
+  context.beginPath()
+  context.roundRect(-halfWidth, -halfHeight, cardWidth, cardHeight, radius * 0.06)
+  context.clip()
+  const light = context.createLinearGradient(-halfWidth, halfHeight, halfWidth, -halfHeight)
+  light.addColorStop(0, 'rgba(255, 255, 255, 0)')
+  light.addColorStop(0.48, 'rgba(230, 255, 247, 0.12)')
+  light.addColorStop(0.56, 'rgba(255, 255, 255, 0.5)')
+  light.addColorStop(0.64, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = light
+  context.fillRect(-halfWidth, -halfHeight, cardWidth, cardHeight)
+  context.restore()
+
+  context.fillStyle = 'rgba(7, 29, 31, 0.76)'
+  context.font = `600 ${Math.max(9, radius * 0.085)}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  context.fillText('NORTHSTAR / 01', -halfWidth + radius * 0.14, -halfHeight + radius * 0.2)
+  context.font = `500 ${Math.max(8, radius * 0.065)}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  context.fillText('EDUCATIONAL MODE', -halfWidth + radius * 0.14, halfHeight - radius * 0.14)
+
+  context.fillStyle = 'rgba(8, 35, 36, 0.8)'
+  context.beginPath()
+  context.roundRect(-halfWidth + radius * 0.14, -radius * 0.04, radius * 0.38, radius * 0.24, radius * 0.025)
+  context.fill()
+
+  context.fillStyle = 'rgba(236, 255, 247, 0.92)'
+  context.font = `700 ${Math.max(12, radius * 0.14)}px ui-sans-serif, system-ui, sans-serif`
+  context.fillText('1,284.32', -halfWidth + radius * 0.14, radius * 0.27)
+  context.restore()
+}
+
 export default function FinanceParticleField() {
   const canvasRef = useRef(null)
 
@@ -92,8 +152,9 @@ export default function FinanceParticleField() {
       })
 
       const centerX = width * (width < 720 ? 0.72 : 0.74) + pointer.x * width * 0.018
-      const centerY = height * 0.52 + pointer.y * height * 0.018
-      const sphereRadius = Math.min(width * 0.36, height * 0.58)
+      const mobileStage = width < 720
+      const centerY = height * (mobileStage ? 0.31 : 0.52) + pointer.y * height * 0.018
+      const sphereRadius = Math.min(width * (mobileStage ? 0.3 : 0.25), height * (mobileStage ? 0.58 : 0.46))
 
       const aura = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, sphereRadius * 1.25)
       aura.addColorStop(0, 'rgba(55, 224, 201, 0.16)')
@@ -203,6 +264,10 @@ export default function FinanceParticleField() {
       context.beginPath()
       context.arc(centerX, centerY, sphereRadius * 0.94, -0.52, 0.32)
       context.stroke()
+
+      // A premium card-like data object sits in front of the particle globe,
+      // echoing Moto's singular 3D product object without copying its asset.
+      drawDataCard(context, centerX, centerY, sphereRadius, rotation, reducedMotion ? 0.76 : 0.82)
     }
 
     function animate(timestamp) {
