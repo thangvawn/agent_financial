@@ -1316,6 +1316,394 @@
   }
 }
 
+/* DESIGN.md application: Revolut-inspired fintech bands, product mockups and
+   cobalt used only as a deliberate system accent. */
+.app-shell--home .sparkle-home {
+  background: #000 !important;
+  color: #fff !important;
+  font-family: Inter, var(--font-sans), system-ui, sans-serif !important;
+}
+
+.app-shell--home .northstar-eyebrow {
+  margin: 0 0 18px;
+  color: #494fdf !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  line-height: 1.4 !important;
+  text-transform: uppercase !important;
+}
+
+.app-shell--home .sparkle-client-strip {
+  display: flex !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px clamp(24px, 6vw, 96px) !important;
+  border-top: 1px solid #e2e2e7 !important;
+  border-bottom: 1px solid #e2e2e7 !important;
+  border-radius: 0 !important;
+  background: #f4f4f4 !important;
+  gap: 0 !important;
+  overflow-x: auto;
+}
+
+.app-shell--home .sparkle-client-logo {
+  flex: 1 0 max-content;
+  min-height: 42px;
+  padding: 8px 24px !important;
+  border: 0 !important;
+  border-right: 1px solid #e2e2e7 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #505a63 !important;
+  font-family: Inter, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase;
+}
+
+.app-shell--home .sparkle-client-logo:hover {
+  background: #fff !important;
+  color: #494fdf !important;
+}
+
+.app-shell--home .sparkle-demo-flow,
+.app-shell--home .sparkle-features,
+.app-shell--home .sparkle-app-cta,
+.app-shell--home .sparkle-testimonials,
+.app-shell--home .sparkle-plans {
+  border-top: 0 !important;
+  border-radius: 0 !important;
+}
+
+.app-shell--home .sparkle-demo-flow {
+  padding: clamp(100px, 12vw, 176px) clamp(24px, 7vw, 112px) !important;
+  background: #000 !important;
+}
+
+.app-shell--home .sparkle-section-heading {
+  max-width: 820px !important;
+  margin-bottom: 72px !important;
+}
+
+.app-shell--home .sparkle-section-heading h2,
+.app-shell--home .sparkle-feature-copy h2,
+.app-shell--home .sparkle-app-cta h2,
+.app-shell--home .sparkle-testimonials h2,
+.app-shell--home .sparkle-plans h2 {
+  margin: 0 !important;
+  color: #fff !important;
+  font-family: 'Aeonik Pro', Aeonik, Outfit, var(--font-sans), sans-serif !important;
+  font-size: clamp(40px, 6.4vw, 88px) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.065em !important;
+  line-height: 1 !important;
+}
+
+.app-shell--home .sparkle-section-heading p:not(.northstar-eyebrow),
+.app-shell--home .sparkle-feature-copy > p:not(.northstar-eyebrow),
+.app-shell--home .sparkle-app-cta p:not(.northstar-eyebrow),
+.app-shell--home .sparkle-plans p:not(.northstar-eyebrow) {
+  max-width: 620px;
+  margin: 22px 0 0;
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-size: 18px !important;
+  line-height: 1.56 !important;
+}
+
+.app-shell--home .sparkle-demo-flow-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  margin: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card {
+  min-height: 260px !important;
+  padding: 28px 24px 32px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card:last-child {
+  border-right: 0 !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card > span {
+  color: #9aa3aa !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 12px !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card h3 {
+  margin: 80px 0 12px !important;
+  color: #fff !important;
+  font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.app-shell--home .sparkle-demo-flow-card p {
+  margin: 0 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.app-shell--home .sparkle-features {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0 7vw !important;
+  padding: 0 !important;
+  background: #f4f4f4 !important;
+  color: #191c1f !important;
+}
+
+.app-shell--home .sparkle-feature-copy {
+  display: flex !important;
+  min-height: 620px;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(56px, 9vw, 128px) clamp(24px, 7vw, 112px) !important;
+}
+
+.app-shell--home .sparkle-feature-copy h2 {
+  color: #191c1f !important;
+  font-size: clamp(38px, 5vw, 72px) !important;
+}
+
+.app-shell--home .sparkle-feature-copy > p:not(.northstar-eyebrow) {
+  max-width: 460px;
+  color: #505a63 !important;
+}
+
+.app-shell--home .sparkle-feature-copy .northstar-eyebrow {
+  color: #494fdf !important;
+}
+
+.app-shell--home .sparkle-feature-visual {
+  min-height: 620px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.app-shell--home .northstar-product-window {
+  position: relative;
+  height: 100%;
+  padding: 20px;
+  background: #000;
+  color: #fff;
+}
+
+.app-shell--home .northstar-product-window::after {
+  content: '';
+  position: absolute;
+  inset: 12% 10%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  transform: rotate(-7deg);
+  pointer-events: none;
+}
+
+.app-shell--home .northstar-product-window__bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9aa3aa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-shell--home .northstar-product-window__bar i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #494fdf;
+}
+
+.app-shell--home .northstar-product-window__bar i:nth-child(2) { background: #9aa3aa; }
+.app-shell--home .northstar-product-window__bar i:nth-child(3) { background: #00a87e; }
+.app-shell--home .northstar-product-window__bar span { margin-left: 8px; }
+
+.app-shell--home .northstar-lesson-preview,
+.app-shell--home .northstar-market-preview,
+.app-shell--home .northstar-simulation-preview {
+  position: absolute;
+  z-index: 1;
+  inset: 24% 15%;
+  display: grid;
+  align-content: center;
+  gap: 20px;
+}
+
+.app-shell--home .northstar-lesson-preview > span,
+.app-shell--home .northstar-market-preview > span,
+.app-shell--home .northstar-simulation-preview span {
+  color: #9aa3aa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.app-shell--home .northstar-lesson-preview strong {
+  max-width: 320px;
+  color: #fff;
+  font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif;
+  font-size: clamp(28px, 3vw, 48px);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.app-shell--home .northstar-lesson-preview > div {
+  display: flex;
+  justify-content: space-between;
+  color: #9aa3aa;
+  font-size: 12px;
+}
+
+.app-shell--home .northstar-lesson-preview b { color: #00a87e; font-weight: 600; }
+.app-shell--home .northstar-lesson-preview em { color: #fff; font-style: normal; }
+.app-shell--home .northstar-lesson-preview > i { height: 4px; background: linear-gradient(90deg, #494fdf 62%, rgba(255, 255, 255, 0.14) 62%); }
+
+.app-shell--home .northstar-market-preview strong {
+  color: #fff;
+  font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif;
+  font-size: clamp(32px, 4vw, 64px);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+}
+
+.app-shell--home .northstar-market-preview strong em { color: #00a87e; font-size: 0.38em; font-style: normal; letter-spacing: 0; }
+.app-shell--home .northstar-market-preview__chart { display: flex; height: 160px; align-items: end; gap: 5px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); }
+.app-shell--home .northstar-market-preview__chart i { flex: 1; background: #494fdf; opacity: 0.82; }
+.app-shell--home .northstar-market-preview small,
+.app-shell--home .northstar-simulation-preview small { color: #9aa3aa; font-size: 12px; }
+
+.app-shell--home .northstar-simulation-preview { grid-template-columns: 1fr 1fr; }
+.app-shell--home .northstar-simulation-preview > div { display: grid; gap: 8px; padding: 18px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 12px; background: #16181a; }
+.app-shell--home .northstar-simulation-preview strong { color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 20px; font-weight: 500; }
+.app-shell--home .northstar-simulation-preview__timeline { grid-column: 1 / -1; display: flex !important; align-items: end; gap: 7px; height: 100px; }
+.app-shell--home .northstar-simulation-preview__timeline i { flex: 1; height: 40%; background: #494fdf; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(2) { height: 62%; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(3) { height: 47%; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(4) { height: 80%; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(5) { height: 56%; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(6) { height: 76%; }
+.app-shell--home .northstar-simulation-preview__timeline i:nth-child(7) { height: 92%; }
+.app-shell--home .northstar-simulation-preview small { grid-column: 1 / -1; }
+
+.app-shell--home .sparkle-check-list {
+  display: grid !important;
+  gap: 12px !important;
+  margin-top: 28px !important;
+}
+
+.app-shell--home .sparkle-check-list span {
+  padding-top: 12px;
+  border-top: 1px solid #e2e2e7;
+  color: #505a63;
+  font-size: 14px;
+}
+
+.app-shell--home .sparkle-app-cta {
+  display: grid !important;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
+  min-height: 680px !important;
+  align-items: center;
+  gap: 8vw !important;
+  padding: clamp(80px, 10vw, 144px) clamp(24px, 7vw, 112px) !important;
+  background: #000 !important;
+}
+
+.app-shell--home .northstar-cta-copy h2 { max-width: 680px; }
+.app-shell--home .northstar-cta-copy > p:not(.northstar-eyebrow) { max-width: 420px; }
+.app-shell--home .northstar-cta-visual { position: relative; display: grid; min-height: 460px; place-items: center; }
+.app-shell--home .northstar-cta-visual__ring { position: absolute; width: min(34vw, 460px); height: min(34vw, 460px); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%; }
+.app-shell--home .northstar-cta-visual__ring--one { transform: rotate(32deg) scaleX(0.42); }
+.app-shell--home .northstar-cta-visual__ring--two { transform: rotate(-48deg) scaleX(0.42); border-color: rgba(73, 79, 223, 0.72); }
+.app-shell--home .northstar-cta-visual__core { display: grid; width: 160px; height: 160px; place-items: center; align-content: center; border-radius: 50%; background: #494fdf; color: #fff; box-shadow: 0 0 110px rgba(73, 79, 223, 0.42); }
+.app-shell--home .northstar-cta-visual__core span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; letter-spacing: 0.15em; }
+.app-shell--home .northstar-cta-visual__core strong { font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif; font-size: 56px; font-weight: 500; letter-spacing: -0.08em; }
+
+.app-shell--home .sparkle-testimonials {
+  display: grid !important;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
+  gap: 8vw !important;
+  padding: clamp(100px, 12vw, 176px) clamp(24px, 7vw, 112px) !important;
+  background: #f4f4f4 !important;
+  color: #191c1f !important;
+}
+
+.app-shell--home .northstar-section-intro { max-width: 680px; }
+.app-shell--home .northstar-section-intro h2 { color: #191c1f !important; }
+.app-shell--home .northstar-section-intro > p:not(.northstar-eyebrow) { max-width: 430px; color: #505a63 !important; }
+.app-shell--home .northstar-section-intro--split { display: flex; justify-content: space-between; grid-column: 1 / -1; max-width: none; gap: 48px; }
+.app-shell--home .northstar-section-intro--split > p { max-width: 360px !important; margin-top: 20px; }
+.app-shell--home .northstar-module-list { display: grid; border-top: 1px solid #191c1f; }
+.app-shell--home .northstar-module-row { display: grid; grid-template-columns: 42px 34px minmax(0, 1fr) 28px; gap: 18px; align-items: center; padding: 22px 0; border-bottom: 1px solid #e2e2e7; }
+.app-shell--home .northstar-module-index { color: #8d969e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.app-shell--home .northstar-module-row h3 { margin: 0 0 4px; color: #191c1f; font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif; font-size: 24px; font-weight: 500; letter-spacing: -0.03em; }
+.app-shell--home .northstar-module-row p { margin: 0; color: #505a63; font-size: 14px; line-height: 1.5; }
+.app-shell--home .northstar-module-arrow { color: #494fdf; font-size: 22px; }
+.app-shell--home .northstar-module-glyph { position: relative; display: flex; height: 28px; align-items: end; gap: 2px; }
+.app-shell--home .northstar-module-glyph i { display: block; width: 5px; border-radius: 2px 2px 0 0; background: #494fdf; }
+.app-shell--home .northstar-module-glyph--learn i:nth-child(1) { height: 12px; }.app-shell--home .northstar-module-glyph--learn i:nth-child(2) { height: 22px; }.app-shell--home .northstar-module-glyph--learn i:nth-child(3) { height: 16px; }
+.app-shell--home .northstar-module-glyph--market i:nth-child(1) { height: 8px; }.app-shell--home .northstar-module-glyph--market i:nth-child(2) { height: 18px; }.app-shell--home .northstar-module-glyph--market i:nth-child(3) { height: 12px; }.app-shell--home .northstar-module-glyph--market i:nth-child(4) { height: 26px; }
+.app-shell--home .northstar-module-glyph--report i:nth-child(1) { height: 24px; }.app-shell--home .northstar-module-glyph--report i:nth-child(2) { height: 12px; }
+.app-shell--home .northstar-module-glyph--simulation i:nth-child(1) { height: 8px; }.app-shell--home .northstar-module-glyph--simulation i:nth-child(2) { height: 14px; }.app-shell--home .northstar-module-glyph--simulation i:nth-child(3) { height: 20px; }.app-shell--home .northstar-module-glyph--simulation i:nth-child(4) { height: 15px; }.app-shell--home .northstar-module-glyph--simulation i:nth-child(5) { height: 27px; }
+
+.app-shell--home .sparkle-plans { padding: clamp(100px, 12vw, 176px) clamp(24px, 7vw, 112px) !important; background: #000 !important; }
+.app-shell--home .sparkle-plan-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 20px !important; background: transparent !important; }
+.app-shell--home .sparkle-plan-card,
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark { min-height: 430px !important; padding: 32px !important; border: 1px solid rgba(255, 255, 255, 0.16) !important; border-radius: 20px !important; background: #16181a !important; color: #fff !important; }
+.app-shell--home .sparkle-plan-card.sparkle-plan-card--dark { background: #494fdf !important; border-color: #494fdf !important; }
+.app-shell--home .northstar-plan-topline { display: flex; justify-content: space-between; color: #9aa3aa; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.1em; }
+.app-shell--home .sparkle-plan-card--dark .northstar-plan-topline { color: rgba(255, 255, 255, 0.72); }
+.app-shell--home .sparkle-plan-card h3 { margin: 130px 0 16px !important; color: #fff !important; font-family: 'Aeonik Pro', Aeonik, Outfit, sans-serif; font-size: clamp(32px, 4vw, 56px) !important; font-weight: 500 !important; letter-spacing: -0.06em !important; }
+.app-shell--home .sparkle-plan-card p { max-width: 420px; color: rgba(255, 255, 255, 0.68) !important; }
+.app-shell--home .sparkle-plan-card ul { display: grid; gap: 8px; margin: 24px 0 32px; padding: 0; list-style: none; color: rgba(255, 255, 255, 0.82); font-size: 14px; }
+.app-shell--home .sparkle-plan-card li::before { content: '+ '; color: #00a87e; }
+.app-shell--home .sparkle-plan-card .sparkle-button--dark { background: #fff !important; border-color: #fff !important; color: #000 !important; }
+.app-shell--home .sparkle-plan-card--dark .sparkle-button--light { background: #000 !important; border-color: #000 !important; color: #fff !important; }
+
+@media (max-width: 900px) {
+  .app-shell--home .sparkle-demo-flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .app-shell--home .sparkle-demo-flow-card:nth-child(2) { border-right: 0 !important; }
+  .app-shell--home .sparkle-features,
+  .app-shell--home .sparkle-app-cta,
+  .app-shell--home .sparkle-testimonials { grid-template-columns: 1fr !important; }
+  .app-shell--home .sparkle-feature-visual { min-height: 500px !important; }
+  .app-shell--home .northstar-section-intro--split { display: block; }
+}
+
+@media (max-width: 560px) {
+  .app-shell--home .sparkle-client-strip { padding-inline: 12px !important; }
+  .app-shell--home .sparkle-client-logo { padding-inline: 14px !important; font-size: 10px !important; }
+  .app-shell--home .sparkle-demo-flow-grid,
+  .app-shell--home .sparkle-plan-grid { grid-template-columns: 1fr !important; }
+  .app-shell--home .sparkle-demo-flow-card { min-height: 190px !important; border-right: 0 !important; }
+  .app-shell--home .sparkle-demo-flow-card h3 { margin-top: 46px !important; }
+  .app-shell--home .sparkle-feature-copy { min-height: 480px; }
+  .app-shell--home .sparkle-feature-visual { min-height: 390px !important; }
+  .app-shell--home .northstar-cta-visual { min-height: 340px; }
+  .app-shell--home .northstar-cta-visual__ring { width: 280px; height: 280px; }
+  .app-shell--home .northstar-section-intro h2 { font-size: 42px !important; }
+}
+
 /* Reference-specific composition: one hero stage, one intelligence object,
    oversized copy and a small telemetry overlay. */
 .app-shell--home .sparkle-hero {
