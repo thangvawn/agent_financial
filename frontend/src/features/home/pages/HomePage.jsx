@@ -4,7 +4,6 @@ import {
   SparklePlans,
 } from './HomeSparkleSections'
 import { useSparkleMotion } from '../hooks/useSparkleMotion'
-import FinanceParticleField from '../components/FinanceParticleField'
 import './home.css'
 
 const KICKER = 'home-v2-kicker'
@@ -34,7 +33,6 @@ export default function HomePage({
   return (
     <section className="home-redesign sparkle-home" aria-label="Northstar Finance Lab">
       <SparkleHero actions={actions} />
-      <SparkleModuleStrip onOpen={actions} />
       <SparkleDemoFlow />
       <SparkleFeatureGrid />
       <SparkleAppCta actions={actions} />
@@ -47,22 +45,12 @@ export default function HomePage({
 function SparkleHero({ actions }) {
   return (
     <section className="sparkle-hero" aria-label="Northstar Finance hero">
-      <FinanceParticleField />
-      <div className="sparkle-hero-meta" aria-hidden="true">
-        <span>Northstar / 01</span>
-        <span>Financial intelligence lab</span>
-        <span>26.09.26 / Vietnam</span>
-      </div>
-      <div className="sparkle-hero-side-label" aria-hidden="true">
-        <strong>N.</strong>
-        <span>Site of the day / Learn before you act</span>
-      </div>
       <div className="sparkle-hero-copy">
         <p className={KICKER}>Northstar Finance Lab</p>
-        <h1>Học cách đọc thị trường trước khi thị trường đọc bạn.</h1>
+        <h1>Học và thực hành tài chính có kiểm soát.</h1>
         <p>
           Nền tảng cho sinh viên Việt Nam: Learn Hub làm gốc kiến thức, Market & Portfolio, News,
-          BCTC và Simulation Lab là nơi quan sát và luyện tập, không phải khuyến nghị mua bán.
+          BCTC và Simulation Lab là nơi quan sát và luyện tập — không phải khuyến nghị mua bán.
         </p>
         <div className="sparkle-hero-actions">
           <button type="button" className="sparkle-button sparkle-button--light" onClick={actions.primary}>
@@ -72,6 +60,23 @@ function SparkleHero({ actions }) {
             Xem Market
           </button>
         </div>
+      </div>
+      <div className="sparkle-dashboard-stage sparkle-reveal" aria-label="Financial dashboard preview">
+        <img
+          className="sparkle-dashboard-image"
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719b3_Main%20Dashh.png"
+          alt="Northstar finance dashboard preview"
+        />
+        <img
+          className="sparkle-floating-card sparkle-floating-card--left"
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e71995_div.png"
+          alt=""
+        />
+        <img
+          className="sparkle-floating-card sparkle-floating-card--right"
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e71994_div.png"
+          alt=""
+        />
       </div>
     </section>
   )
@@ -107,7 +112,7 @@ function SparkleDemoFlow() {
     {
       number: '01',
       title: 'Onboarding nhẹ',
-      description: 'Vài câu hỏi để hiểu trình độ và mục tiêu học, không phải tư vấn đầu tư.',
+      description: 'Vài câu hỏi để hiểu trình độ và mục tiêu học — không phải tư vấn đầu tư.',
     },
     {
       number: '02',
@@ -117,20 +122,19 @@ function SparkleDemoFlow() {
     {
       number: '03',
       title: 'Quan sát dữ liệu',
-      description: 'News và BCTC giúp đọc bối cảnh. AI giải thích chỉ số, không phím hàng.',
+      description: 'News và BCTC giúp đọc bối cảnh; AI giải thích chỉ số, không phím hàng.',
     },
     {
       number: '04',
       title: 'Thực hành an toàn',
-      description: 'Market lệnh ảo và Simulation Lab để luyện kỷ luật trên dữ liệu lịch sử.',
+      description: 'Market lệnh ảo và Simulation Lab để luyện kỷ luật rủi ro trên dữ liệu lịch sử.',
     },
   ]
   return (
     <section className="sparkle-demo-flow sparkle-reveal" aria-label="Luồng sản phẩm">
       <div className="sparkle-section-heading">
-        <p className="northstar-eyebrow">The path / four chapters</p>
         <h2>Một hành trình học có thứ tự.</h2>
-        <p>Từ hiểu bản thân, học, đọc dữ liệu đến thực hành có kiểm soát.</p>
+        <p>Từ hiểu bản thân → học → đọc dữ liệu → thực hành có kiểm soát.</p>
       </div>
       <div className="sparkle-demo-flow-grid">
         {steps.map((step, index) => (
@@ -153,51 +157,45 @@ function SparkleFeatureGrid() {
   return (
     <section className="sparkle-features" aria-label="Tính năng nổi bật">
       <div className="sparkle-feature-copy sparkle-reveal">
-        <p className="northstar-eyebrow">01 / Learn before action</p>
-        <h2>Learn Hub là gốc của mọi quyết định tốt.</h2>
+        <h2>Learn Hub là gốc. Các module còn lại để thực hành.</h2>
         <p>
-          Lộ trình học, tài liệu và checkpoint giúp bạn biết mình đang hiểu gì trước khi mở một chart.
+          Mỗi không gian một nhiệm vụ: học, theo dõi thị trường, đọc tin, phân tích BCTC,
+          hoặc tua kịch bản lịch sử trong Simulation Lab.
+        </p>
+      </div>
+      <div className="sparkle-feature-visual sparkle-feature-visual--one sparkle-reveal">
+        <img
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719a8_639d70c4406f2f93d788cb0f_div-2-min.png"
+          alt="Market analytics preview"
+        />
+      </div>
+      <div className="sparkle-feature-visual sparkle-feature-visual--two sparkle-reveal">
+        <img
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719a7_639d70c47a191caa80cab6f5_div-1-min.png"
+          alt="Learning preview"
+        />
+      </div>
+      <div className="sparkle-feature-copy sparkle-reveal">
+        <h2>AI để giải thích — không để ra lệnh mua bán.</h2>
+        <p>
+          Trợ lý định hướng sang bài học, chỉ số BCTC hoặc tin tức. Guardrail ưu tiên giáo dục
+          và cảnh báo rủi ro.
         </p>
         <div className="sparkle-check-list">
           <span>Learning path theo trình độ</span>
-          <span>Checkpoint không lộ đáp án</span>
-          <span>Gợi ý Socratic theo từng bước</span>
-        </div>
-      </div>
-      <div className="sparkle-feature-visual sparkle-feature-visual--one sparkle-reveal">
-        <div className="northstar-product-window northstar-product-window--lesson" aria-label="Learn Hub preview">
-          <div className="northstar-product-window__bar"><i /><i /><i /><span>learn / checkpoint-03</span></div>
-          <div className="northstar-lesson-preview"><span>03 / Risk basics</span><strong>Biên an toàn nói gì về một doanh nghiệp?</strong><div><b>Đang học</b><em>62%</em></div><i /></div>
-        </div>
-      </div>
-      <div className="sparkle-feature-visual sparkle-feature-visual--two sparkle-reveal">
-        <div className="northstar-product-window northstar-product-window--market" aria-label="Market preview">
-          <div className="northstar-product-window__bar"><i /><i /><i /><span>market / breadth</span></div>
-          <div className="northstar-market-preview"><span>VN-Index / 30 sessions</span><strong>1,284.32 <em>+0.84%</em></strong><div className="northstar-market-preview__chart">{[28, 36, 31, 46, 40, 54, 50, 66, 58, 78, 73, 88].map((height, index) => <i key={index} style={{ height: `${height}%` }} />)}</div><small>Quan sát dữ liệu trước khi diễn giải.</small></div>
-        </div>
-      </div>
-      <div className="sparkle-feature-copy sparkle-reveal">
-        <p className="northstar-eyebrow">02 / Explain the signal</p>
-        <h2>AI để giải thích, không để ra lệnh.</h2>
-        <p>
-          Trợ lý định hướng sang bài học, chỉ số BCTC hoặc tin tức. Guardrail ưu tiên giáo dục và cảnh báo rủi ro.
-        </p>
-        <div className="sparkle-check-list">
-          <span>Evidence trước kết luận</span>
           <span>Phân tích BCTC và peer</span>
-          <span>Thị trường và lệnh giấy</span>
+          <span>Thị trường + lệnh giấy</span>
         </div>
       </div>
       <div className="sparkle-feature-copy sparkle-reveal">
-        <p className="northstar-eyebrow">03 / Practice with context</p>
-        <h2>Thực hành với bối cảnh, không với ảo tưởng.</h2>
-        <p>Simulation Lab đưa bạn về dữ liệu lịch sử để đo kỷ luật, drawdown và thói quen ra quyết định.</p>
+        <h2>An toàn, giải thích được, có dữ liệu.</h2>
+        <p>Tập trung học và quan sát — không biến Home thành feed tín hiệu.</p>
       </div>
       <div className="sparkle-feature-visual sparkle-feature-visual--three sparkle-reveal">
-        <div className="northstar-product-window northstar-product-window--simulation" aria-label="Simulation Lab preview">
-          <div className="northstar-product-window__bar"><i /><i /><i /><span>simulation / replay</span></div>
-          <div className="northstar-simulation-preview"><div><span>Replay date</span><strong>14.06.2023</strong></div><div><span>Max drawdown</span><strong>-8.42%</strong></div><div className="northstar-simulation-preview__timeline"><i /><i /><i /><i /><i /><i /><i /></div><small>Time skip / bar replay / risk review</small></div>
-        </div>
+        <img
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719ab_639d70c46affc08126525de0_div-min.png"
+          alt="Portfolio practice preview"
+        />
       </div>
     </section>
   )

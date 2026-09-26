@@ -1,63 +1,56 @@
-function ModuleGlyph({ type }) {
-  if (type === 'learn') return <span className="northstar-module-glyph northstar-module-glyph--learn" aria-hidden="true"><i /><i /><i /></span>
-  if (type === 'market') return <span className="northstar-module-glyph northstar-module-glyph--market" aria-hidden="true"><i /><i /><i /><i /></span>
-  if (type === 'report') return <span className="northstar-module-glyph northstar-module-glyph--report" aria-hidden="true"><i /><i /></span>
-  return <span className="northstar-module-glyph northstar-module-glyph--simulation" aria-hidden="true"><i /><i /><i /><i /><i /></span>
-}
 
 export function SparkleAppCta({ actions }) {
   return (
     <section className="sparkle-app-cta sparkle-reveal" aria-label="Bắt đầu Northstar">
-      <div className="northstar-cta-copy">
-        <p className="northstar-eyebrow">Northstar / start here</p>
-        <h2>Một lab tài chính được xây cho những quyết định chậm hơn.</h2>
-        <p>Học trước. Quan sát kỹ. Thực hành với rủi ro có thể nhìn thấy.</p>
-        <div className="sparkle-hero-actions">
+      <div>
+        <h2>Một lab tài chính thông minh — không chỉ dashboard.</h2>
+        <p>*Tập trung trải nghiệm, giải thích, dữ liệu và an toàn người học.</p>
+        <div className="sparkle-hero-actions" style={{ justifyContent: 'flex-start', marginTop: 20 }}>
           <button type="button" className="sparkle-button sparkle-button--light" onClick={actions.primary}>
             {actions.primaryLabel}
           </button>
           <button type="button" className="sparkle-button sparkle-button--dark" onClick={actions.onOpenLearning}>
-            Khám phá Learn Hub
+            Learn Hub
           </button>
         </div>
       </div>
-      <div className="northstar-cta-visual" aria-hidden="true">
-        <div className="northstar-cta-visual__ring northstar-cta-visual__ring--one" />
-        <div className="northstar-cta-visual__ring northstar-cta-visual__ring--two" />
-        <div className="northstar-cta-visual__core">
-          <span>NS</span>
-          <strong>01</strong>
-        </div>
+      <div className="sparkle-phone-preview">
+        <img
+          src="https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719ac_639d70c3406f2fc42c88caee_Frame%203868-min.png"
+          alt="Learning app preview"
+        />
       </div>
     </section>
   )
 }
 
 export function SparkleHighlights() {
-  const modules = [
-    ['learn', 'Learn Hub', 'Học kiến thức nền với lộ trình, bài đọc và checkpoint rõ ràng.'],
-    ['market', 'Market & Portfolio', 'Quan sát giá, breadth và vị thế trên một mặt phẳng dữ liệu sạch.'],
-    ['report', 'BCTC Analysis', 'Đọc báo cáo, so sánh peer và truy nguyên con số về nguồn.'],
-    ['simulation', 'Simulation Lab', 'Tua dữ liệu lịch sử để luyện kỷ luật trước khi dùng tiền thật.'],
+  const quotes = [
+    ['Learn Hub', 'Thư viện video, sách và tài liệu làm gốc kiến thức trước khi thực hành.'],
+    ['News & Intelligence', 'Lọc tin, gắn mã và đọc nguồn — nối sang bài học khi cần.'],
+    ['BCTC Analysis', 'Đọc báo cáo, so sánh peer và để AI giải thích chỉ số.'],
+    ['Simulation Lab', 'Backtest, tua lịch sử và đo kỷ luật rủi ro trên dữ liệu quá khứ.'],
+  ]
+  const images = [
+    'https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e719b9_duncan%20(1).jpg',
+    'https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e71979_Screenshot_8%20(1).jpg',
+    'https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e7197c_pexels-nishant-kumar-10939146.jpg',
+    'https://cdn.prod.website-files.com/69f02d3c4b3f5ee193e718bd/69f02d3e4b3f5ee193e7197d_Screenshot_9.jpg',
   ]
 
   return (
-    <section className="sparkle-testimonials sparkle-reveal" aria-label="Các module chính">
-      <div className="northstar-section-intro">
-        <p className="northstar-eyebrow">The system / four surfaces</p>
-        <h2>Một hệ thống. Bốn cách nhìn thị trường.</h2>
-        <p>Mỗi module có một nhiệm vụ rõ ràng, cùng chung một nguyên tắc: giải thích trước khi hành động.</p>
-      </div>
-      <div className="northstar-module-list">
-        {modules.map(([type, name, description], index) => (
-          <article className="northstar-module-row" key={name}>
-            <span className="northstar-module-index">0{index + 1}</span>
-            <ModuleGlyph type={type} />
-            <div>
-              <h3>{name}</h3>
-              <p>{description}</p>
-            </div>
-            <span className="northstar-module-arrow" aria-hidden="true">↗</span>
+    <section className="sparkle-testimonials sparkle-reveal" aria-label="Điểm nổi bật">
+      <h2>Dự án có gì nổi bật?</h2>
+      <div className="sparkle-testimonial-grid">
+        {quotes.map(([name, quote], index) => (
+          <article
+            key={name}
+            className="sparkle-testimonial-card sparkle-reveal"
+            style={{ '--delay': `${index * 90}ms` }}
+          >
+            <img src={images[index]} alt="" />
+            <strong>{name}</strong>
+            <p>{quote}</p>
           </article>
         ))}
       </div>
@@ -68,35 +61,32 @@ export function SparkleHighlights() {
 export function SparklePlans({ onOpen }) {
   return (
     <section className="sparkle-plans sparkle-reveal" aria-label="Hai lớp trải nghiệm">
-      <div className="northstar-section-intro northstar-section-intro--split">
-        <div>
-          <p className="northstar-eyebrow">Choose your pace</p>
-          <h2>Đi từ hiểu đến làm.</h2>
-        </div>
-        <p>Không cần nhảy thẳng vào chart. Northstar mở đúng không gian khi bạn đã sẵn sàng.</p>
+      <div className="sparkle-section-heading">
+        <h2>Hai lớp trải nghiệm trong lab.</h2>
+        <p>Học & quan sát cho mọi người; Simulation Lab cho thực hành sâu hơn.</p>
       </div>
       <div className="sparkle-plan-grid">
         <article className="sparkle-plan-card">
-          <div className="northstar-plan-topline"><span>01 / CORE</span><span>OPEN</span></div>
+          <span>Core</span>
           <h3>Learn & Observe</h3>
-          <p>Không gian mặc định cho việc học, đọc tin, phân tích BCTC và theo dõi thị trường.</p>
+          <p>Onboarding, Learn Hub, News, BCTC và Market giấy cho người mới.</p>
           <ul>
-            <li>Onboarding theo trình độ</li>
-            <li>Learn Hub và checkpoint</li>
-            <li>Market, News và BCTC</li>
+            <li>Onboarding</li>
+            <li>Learn Hub</li>
+            <li>Market & News</li>
           </ul>
           <button type="button" className="sparkle-button sparkle-button--dark" onClick={onOpen.onOpenLearning}>
             Mở Learn Hub
           </button>
         </article>
         <article className="sparkle-plan-card sparkle-plan-card--dark">
-          <div className="northstar-plan-topline"><span>02 / PRACTICE</span><span>DEEP MODE</span></div>
+          <span>Practice</span>
           <h3>Simulation Lab</h3>
-          <p>Thực hành strategy, replay và risk metrics trên dữ liệu quá khứ trước khi ra quyết định thật.</p>
+          <p>Strategy builder, time skip / bar replay, kịch bản lịch sử và analytics.</p>
           <ul>
-            <li>Backtest và time skip</li>
-            <li>Scenario builder</li>
-            <li>Risk metrics có giải thích</li>
+            <li>Backtest</li>
+            <li>Scenarios</li>
+            <li>Risk metrics</li>
           </ul>
           <button type="button" className="sparkle-button sparkle-button--light" onClick={onOpen.onOpenProLab}>
             Mở Simulation Lab
