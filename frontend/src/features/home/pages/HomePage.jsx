@@ -47,6 +47,7 @@ export default function HomePage({
 function SparkleHero({ actions }) {
   return (
     <section className="sparkle-hero" aria-label="Northstar Finance hero">
+      <FinanceParticleField />
       <div className="sparkle-hero-copy">
         <p className={KICKER}>Northstar Finance Lab</p>
         <h1>Học và thực hành tài chính có kiểm soát.</h1>
@@ -64,7 +65,6 @@ function SparkleHero({ actions }) {
         </div>
       </div>
       <div className="sparkle-dashboard-stage sparkle-reveal" aria-label="Financial dashboard preview">
-        <FinanceParticleField />
         <div className="sparkle-command-preview">
           <div className="sparkle-command-preview__topline">
             <span><i /> Workspace / overview</span>

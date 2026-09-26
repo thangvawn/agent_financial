@@ -1328,6 +1328,37 @@
   pointer-events: none;
 }
 
+.app-shell--home .sparkle-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.app-shell--home .sparkle-hero > .finance-particle-field {
+  z-index: 0;
+  opacity: 0.78;
+  mix-blend-mode: screen;
+}
+
+.app-shell--home .sparkle-hero-copy,
+.app-shell--home .sparkle-dashboard-stage {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell--home .sparkle-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(164, 239, 229, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(164, 239, 229, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+  pointer-events: none;
+}
+
 .app-shell--home .sparkle-dashboard-stage {
   position: relative;
   isolation: isolate;
