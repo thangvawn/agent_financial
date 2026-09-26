@@ -36,7 +36,6 @@ dependencies = [
   "google-genai>=1.0",
   "jsonschema>=4.0",
   "yfinance>=0.2.40",
-  "vnstock>=4.0.2",
 ]
 
 [project.scripts]
