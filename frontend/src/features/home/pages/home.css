@@ -1336,7 +1336,7 @@
 
 .app-shell--home .sparkle-hero > .finance-particle-field {
   z-index: 0;
-  opacity: 0.78;
+  opacity: 1;
   mix-blend-mode: screen;
 }
 
