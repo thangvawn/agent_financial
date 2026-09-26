@@ -1318,6 +1318,12 @@
 
 /* DESIGN.md application: Revolut-inspired fintech bands, product mockups and
    cobalt used only as a deliberate system accent. */
+.app-shell--home .sparkle-reveal {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
 .app-shell--home .sparkle-home {
   background: #000 !important;
   color: #fff !important;
