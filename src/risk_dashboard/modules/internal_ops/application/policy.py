@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
-from enum import StrEnum
+from risk_dashboard.compat import StrEnum
 from typing import Any
 import uuid
 
@@ -168,4 +168,3 @@ class PolicyEngine:
                 f"Grant role {grant.role} does not permit access to module '{source_module}'."
             )
         return True
-

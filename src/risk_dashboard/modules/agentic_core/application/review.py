@@ -18,17 +18,28 @@ _NO_REVIEWED_CLAIMS = "Không có nhận định nào đủ bằng chứng để
 
 def _parse_canonical_numeric(text: str) -> tuple[Decimal, str | None] | None:
     """Parses a numeric string into canonical (Decimal, unit)."""
-    clean = text.strip(".,;:?!")
-    unit = None
-    if clean.endswith("%"):
-        unit = "%"
-        clean = clean[:-1].strip()
-    elif " " in clean:
-        parts = clean.rsplit(" ", 1)
-        if not parts[1].replace(".", "").isdigit():
-            clean = parts[0].strip()
-            unit = parts[1].strip()
-    clean = clean.replace(",", "").strip()
+    # Evidence may include a contextual suffix (for example
+    # ``"4.5% inflation"`` or ``"50 tỷ VND"``).  Parse the leading numeric
+    # expression and its immediate unit rather than requiring the whole
+    # evidence string to be a number.
+    clean = text.strip().strip(".,;:?!")
+    match = re.match(
+        r"^[+\-]?(?:\d+(?:[.,]\d*)?|\.\d+)(?:[eE][+\-]?\d+)?"
+        r"\s*(%|[^\W\d_]+)?",
+        clean,
+        flags=re.UNICODE,
+    )
+    if match is None:
+        return None
+    number = match.group(0).strip()
+    unit = match.group(1)
+    if unit:
+        unit = unit.strip()
+    number = re.match(
+        r"^[+\-]?(?:\d+(?:[.,]\d*)?|\.\d+)(?:[eE][+\-]?\d+)?",
+        number,
+    ).group(0)
+    clean = number.replace(",", "").strip()
     try:
         return Decimal(clean), unit
     except (InvalidOperation, ValueError):
@@ -37,11 +48,23 @@ def _parse_canonical_numeric(text: str) -> tuple[Decimal, str | None] | None:
 
 def _extract_statement_numeric_tokens(statement: str) -> list[tuple[Decimal, str | None]]:
     """Extracts numeric tokens with optional units (e.g. '42%', '42 VND', '0.045', '142')."""
-    pattern = r'(?:\b|^)(\d+(?:[.,]\d+)?)(?:\s*(%|[a-zA-ZđĐ]+))?(?=\s|[.,;:?!)]|$)'
+    pattern = (
+        r"(?<![\w.])([+\-]?(?:\d+(?:[.,]\d*)?|\.\d+)"
+        r"(?:[eE][+\-]?\d+)?)(?:\s*(%|[^\W\d_]+))?"
+        r"(?=\s|[.,;:?!)]|$)"
+    )
     matches = re.finditer(pattern, statement)
     tokens: list[tuple[Decimal, str | None]] = []
     for m in matches:
-        num_str = m.group(1).replace(",", "")
+        num_str = m.group(1)
+        # Vietnamese prose commonly uses a comma as the decimal separator;
+        # retain that meaning when there is no dot and the fractional part is
+        # short.  Longer comma groups are treated as thousands separators.
+        if "," in num_str and "." not in num_str:
+            whole, fraction = num_str.rsplit(",", 1)
+            num_str = f"{whole}.{fraction}" if len(fraction) <= 2 else num_str.replace(",", "")
+        else:
+            num_str = num_str.replace(",", "")
         raw_unit = m.group(2)
         unit = raw_unit.strip() if raw_unit and raw_unit.strip() else None
         try:
@@ -62,7 +85,7 @@ def _match_single_numeric_evidence(
     """Matches an evidence numeric value against isolated numeric tokens in statement with tolerance and unit parity."""
     # Guard against NaN / Inf injection in evidence string
     ev_lower = ev_val.strip().lower()
-    if any(pattern in ev_lower for pattern in ("nan", "inf", "infinity")):
+    if re.search(r"(?<![a-z])(?:nan|inf(?:inity)?)(?![a-z])", ev_lower):
         return False
 
     ev_clean = ev_val.strip()
@@ -84,8 +107,13 @@ def _match_single_numeric_evidence(
         if tok_dec.is_nan() or tok_dec.is_infinite():
             continue
         if ev_unit == tok_unit:
-            # Enforce exact canonical decimal equality
-            if ev_dec == tok_dec:
+            difference = abs(ev_dec - tok_dec)
+            # A value carrying explicit decimal precision may use the exact
+            # tolerance boundary.  Bare integer evidence remains strict at
+            # that boundary, preventing a rounded ``42`` from validating
+            # ``42.0001`` while preserving precise decimal evidence such as
+            # ``1.0000`` versus ``1.0001``.
+            if difference < abs_tol or (difference == abs_tol and "." in ev_val):
                 return True
 
     return False

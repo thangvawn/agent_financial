@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from enum import StrEnum
-
 from pydantic import BaseModel, ConfigDict
+
+from risk_dashboard.compat import StrEnum
 
 
 class RiskClass(StrEnum):
@@ -36,4 +36,3 @@ class ToolGrant(BaseModel):
     resource_id: str | None = None
     max_calls: int = 1
     expires_at: str
-
