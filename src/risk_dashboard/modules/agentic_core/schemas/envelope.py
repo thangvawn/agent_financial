@@ -33,6 +33,8 @@ class TrustedExecutionEnvelope(BaseModel):
     account_id: str
     scopes: tuple[str, ...] = ()
     surface: str
+    requested_operation: str | None = None
+    requested_resource_id: str | None = None
     resource_refs: tuple[ResourceRef, ...] = ()
     locale: str = "vi-VN"
     allowed_capabilities: tuple[str, ...] = ()

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 
 import AppShell from './app/AppShell.jsx'
 import { resolveDomainRoute, resolvePathForView } from './app/domainRoutes'
+import { FinancialWorkflowProvider } from './shared/context/FinancialWorkflowContext.jsx'
+import TickerActionPopover from './shared/components/TickerActionPopover.jsx'
+import './shared/styles/fintech-typography.css'
 
 export default function App() {
   const [view, setView] = useState(() => resolveCurrentView())
@@ -26,7 +29,12 @@ export default function App() {
     window.history[method]({ view: nextView }, '', nextPath)
   }
 
-  return <AppShell view={view} onNavigate={navigate} />
+  return (
+    <FinancialWorkflowProvider onNavigateView={navigate}>
+      <AppShell view={view} onNavigate={navigate} />
+      <TickerActionPopover />
+    </FinancialWorkflowProvider>
+  )
 }
 
 function resolveCurrentView() {

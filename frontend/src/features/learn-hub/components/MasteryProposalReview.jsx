@@ -15,7 +15,7 @@ export function MasteryProposalReview({ proposal, onConfirm, onReject }) {
   const [timerState, setTimerState] = useState(() => calculateTime(expiresAt))
 
   useEffect(() => {
-    if (!proposal?.expires_at) return
+    if (!expiresAt) return
     const update = () => setTimerState(calculateTime(expiresAt))
     update()
     const interval = setInterval(update, 1000)

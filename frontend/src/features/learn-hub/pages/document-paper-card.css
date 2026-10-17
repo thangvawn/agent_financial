@@ -1,0 +1,158 @@
+/* Research Paper Cards and Abstract Modal */
+
+.lh-papers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .lh-papers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lh-paper-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  gap: 0.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.lh-paper-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+}
+
+.lh-paper-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lh-paper-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.lh-paper-badge {
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+}
+
+.lh-paper-badge--arxiv { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.lh-paper-badge--fed { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.lh-paper-badge--nber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.lh-paper-badge--cat { background: rgba(255, 255, 255, 0.08); color: #94a3b8; }
+
+.lh-paper-card__date {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.lh-paper-card__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #f8fafc);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.lh-paper-card__authors {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.785rem;
+  color: #38bdf8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lh-paper-card__abstract {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #94a3b8);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.lh-paper-card__topics {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.lh-paper-topic-tag {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+.lh-paper-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+}
+
+/* Modal paper dialog */
+.lh-modal-dialog--paper {
+  max-width: 680px;
+  width: 90vw;
+}
+
+.lh-paper-modal__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text, #f8fafc);
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.lh-paper-modal__meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.lh-paper-modal__abstract-box {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  line-height: 1.6;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+}

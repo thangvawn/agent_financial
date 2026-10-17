@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
-from typing import Any, Sequence
+from typing import Any
 
 from risk_dashboard.modules.home_onboarding.application.journey_candidates import (
     create_candidates,
@@ -31,18 +32,20 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _parse_iso(value: str) -> datetime:
+    normalized = value.strip().replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 def _calc_card_expires_at(summary_expires_at: str, now_iso: str) -> str:
     try:
-        now_dt = datetime.fromisoformat(now_iso)
-        if now_dt.tzinfo is None:
-            now_dt = now_dt.replace(tzinfo=timezone.utc)
+        now_dt = _parse_iso(now_iso)
     except Exception:
         now_dt = datetime.now(timezone.utc)
     limit_24h = now_dt + timedelta(hours=24)
     try:
-        sum_dt = datetime.fromisoformat(summary_expires_at)
-        if sum_dt.tzinfo is None:
-            sum_dt = sum_dt.replace(tzinfo=timezone.utc)
+        sum_dt = _parse_iso(summary_expires_at)
         return min(sum_dt, limit_24h).isoformat()
     except Exception:
         return limit_24h.isoformat()
@@ -170,4 +173,3 @@ async def get_home_journey(
         stale_sources_omitted=stale_count,
         consent_required=False,
     )
-

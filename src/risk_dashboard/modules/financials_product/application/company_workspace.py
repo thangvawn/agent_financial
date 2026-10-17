@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Any
 
 from risk_dashboard.engines.quant.financial_analysis import analyze_financial_dataset
 from risk_dashboard.schemas.financials import FinancialDataset
-
 
 FLOW_FIELDS = {
     "revenue", "gross_profit", "operating_profit", "ebit", "ebitda", "net_income",
@@ -112,10 +112,21 @@ EVALUATION_GROUPS = (
 )
 
 
-def _safe_div(numerator: Any, denominator: Any) -> float | None:
-    if numerator is None or denominator in (None, 0):
+def _finite_number(value: Any) -> float | None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
         return None
-    return float(numerator) / float(denominator)
+    return result if math.isfinite(result) else None
+
+
+def _safe_div(numerator: Any, denominator: Any) -> float | None:
+    top = _finite_number(numerator)
+    bottom = _finite_number(denominator)
+    if top is None or bottom is None or bottom == 0:
+        return None
+    result = top / bottom
+    return result if math.isfinite(result) else None
 
 
 def _pct(numerator: Any, denominator: Any) -> float | None:
@@ -126,7 +137,15 @@ def _pct(numerator: Any, denominator: Any) -> float | None:
 def _growth(current: Any, reference: Any) -> float | None:
     if current is None or reference in (None, 0):
         return None
-    return round(((float(current) - float(reference)) / abs(float(reference))) * 100, 4)
+    try:
+        current_value = float(current)
+        reference_value = float(reference)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(current_value) or not math.isfinite(reference_value) or reference_value == 0:
+        return None
+    result = ((current_value - reference_value) / abs(reference_value)) * 100
+    return round(result, 4) if math.isfinite(result) else None
 
 
 def _raw_periods(dataset: FinancialDataset) -> list[dict[str, Any]]:
@@ -158,28 +177,51 @@ def _annualize(periods: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _derive_period(item: dict[str, Any]) -> dict[str, Any]:
     row = dict(item)
-    revenue = row.get("revenue")
-    gross_profit = row.get("gross_profit")
-    cfo = row.get("operating_cash_flow")
-    capex = row.get("capex")
+    revenue = _finite_number(row.get("revenue"))
+    gross_profit = _finite_number(row.get("gross_profit"))
+    cfo = _finite_number(row.get("operating_cash_flow"))
+    capex = _finite_number(row.get("capex"))
     row["cost_of_goods_sold"] = revenue - gross_profit if revenue is not None and gross_profit is not None else None
-    row["free_cash_flow"] = cfo - abs(capex or 0) if cfo is not None else None
-    cash_parts = [row.get("operating_cash_flow"), row.get("investing_cash_flow"), row.get("financing_cash_flow")]
+    # A missing CAPEX value is not equivalent to zero.  Treat FCF as
+    # unavailable until both cash-from-operations and CAPEX are reported;
+    # otherwise the learning surface would silently teach CFO as FCF.
+    row["free_cash_flow"] = cfo - abs(capex) if cfo is not None and capex is not None else None
+    cash_parts = [_finite_number(row.get(field)) for field in ("operating_cash_flow", "investing_cash_flow", "financing_cash_flow")]
     row["net_cash_change"] = sum(cash_parts) if all(value is not None for value in cash_parts) else None
     row["gross_margin_pct"] = _pct(gross_profit, revenue)
     row["operating_margin_pct"] = _pct(row.get("operating_profit"), revenue)
     row["net_margin_pct"] = _pct(row.get("net_income"), revenue)
     row["roe_pct"] = _pct(row.get("net_income"), row.get("equity"))
     row["roa_pct"] = _pct(row.get("net_income"), row.get("total_assets"))
-    invested_capital = (row.get("equity") or 0) + (row.get("debt") or 0) - (row.get("cash") or 0)
-    row["roic_pct"] = _pct((row.get("operating_profit") or 0) * .8, invested_capital) if invested_capital > 0 else None
+    equity = _finite_number(row.get("equity"))
+    debt = _finite_number(row.get("debt"))
+    cash = _finite_number(row.get("cash"))
+    operating_profit = _finite_number(row.get("operating_profit"))
+    invested_capital = (
+        equity + debt - cash
+        if equity is not None and debt is not None and cash is not None
+        else None
+    )
+    row["roic_pct"] = (
+        _pct(operating_profit * 0.8, invested_capital)
+        if operating_profit is not None and invested_capital is not None and invested_capital > 0
+        else None
+    )
     row["current_ratio"] = _safe_div(row.get("current_assets"), row.get("current_liabilities"))
-    quick_assets = None if row.get("current_assets") is None else row.get("current_assets") - (row.get("inventory") or 0)
+    current_assets = _finite_number(row.get("current_assets"))
+    inventory = _finite_number(row.get("inventory"))
+    quick_assets = (
+        current_assets - inventory
+        if current_assets is not None and inventory is not None
+        else None
+    )
     row["quick_ratio"] = _safe_div(quick_assets, row.get("current_liabilities"))
     row["cash_ratio"] = _safe_div(row.get("cash"), row.get("current_liabilities"))
     row["debt_to_equity"] = _safe_div(row.get("debt"), row.get("equity"))
     row["liabilities_to_assets"] = _pct(row.get("total_liabilities"), row.get("total_assets"))
-    net_debt = (row.get("debt") or 0) - (row.get("cash") or 0)
+    # Net debt is undefined when either debt or cash is missing. Do not turn a
+    # missing balance-sheet field into zero and teach a false leverage signal.
+    net_debt = debt - cash if debt is not None and cash is not None else None
     row["net_debt_to_ebitda"] = _safe_div(net_debt, row.get("ebitda"))
     row["asset_turnover"] = _safe_div(revenue, row.get("total_assets"))
     days = 365 if row.get("quarter") is None else 90
@@ -216,17 +258,32 @@ def _workspace_statements(dataset: FinancialDataset, periods: list[dict[str, Any
     if not dataset.raw_statements:
         return fallback
 
+    is_quarter_mode = any("-Q" in str(item.get("period") or "") for item in periods)
     result: dict[str, Any] = {}
-    for key, statement in dataset.raw_statements.items():
+    for key, fb_statement in fallback.items():
+        raw_stmt = dataset.raw_statements.get(key)
+        # If in annual mode and raw statement only has quarterly periods, use annualized fallback
+        if not raw_stmt or (not is_quarter_mode and any("-Q" in str(p) for p in (raw_stmt.get("periods") or []))):
+            result[key] = fb_statement
+            continue
+
         available = sorted(
-            list(statement.get("periods") or []),
+            list(raw_stmt.get("periods") or []),
             key=lambda period: _normalize_workspace_period(period),
         )[-limit:][::-1]
-        rows = []
-        for row in statement.get("rows") or []:
+        raw_rows = []
+        for row in raw_stmt.get("rows") or []:
             values = [value for value in row.get("values") or [] if value.get("period") in available]
-            rows.append({**row, "values": values})
-        result[key] = {**statement, "periods": available, "rows": rows}
+            raw_rows.append({**row, "values": values})
+
+        # Append canonical fallback rows so standard metrics are never missing
+        raw_keys = {row.get("key") for row in raw_rows}
+        merged_rows = list(raw_rows)
+        for fb_row in fb_statement.get("rows") or []:
+            if fb_row.get("key") not in raw_keys:
+                merged_rows.append(fb_row)
+
+        result[key] = {**raw_stmt, "periods": available, "rows": merged_rows}
     for key, statement in fallback.items():
         result.setdefault(key, statement)
     return result

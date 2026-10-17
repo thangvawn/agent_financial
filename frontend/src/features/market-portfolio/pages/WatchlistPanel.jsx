@@ -112,13 +112,16 @@ export default function WatchlistPanel({ sessionId }) {
           <table className="mp-watchlist-table">
             <thead><tr><th>#</th><th>Mã CK</th><th>Giá</th><th>+/-</th><th>%</th><th>Vốn hóa (tỷ)</th><th>Thao tác</th></tr></thead>
             <tbody>{rows.map((item, index) => {
-              const positive = Number(item.change_pct || 0) >= 0
+              const chg = Number(item.change_pct ?? item.change ?? 0)
+              const positive = chg > 0
+              const negative = chg < 0
+              const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
               return <tr key={item.item_id}>
                 <td className="num mp-watchlist-rank">{index + 1}</td>
-                <td><strong className="mp-watchlist-symbol">{item.symbol}</strong><small>{item.name || item.label || '—'}</small></td>
-                <td className="num strong">{formatVnd(item.price)}</td>
-                <td className={`num ${positive ? 'is-pos' : 'is-neg'}`}>{item.change == null ? '—' : formatVnd(item.change)}</td>
-                <td className={`num ${positive ? 'is-pos' : 'is-neg'}`}>{item.change_pct == null ? '—' : `${positive ? '+' : ''}${Number(item.change_pct).toFixed(2)}%`}</td>
+                <td><strong className={`mp-watchlist-symbol ${toneClass}`}>{item.symbol}</strong><small>{item.name || item.label || '—'}</small></td>
+                <td className={`num strong ${toneClass}`}>{formatVnd(item.price)}</td>
+                <td className={`num ${toneClass}`}>{item.change == null ? '—' : formatVnd(item.change)}</td>
+                <td className={`num ${toneClass}`}>{item.change_pct == null ? '—' : `${positive ? '+' : ''}${Number(item.change_pct).toFixed(2)}%`}</td>
                 <td className="num">{item.market_cap == null ? '—' : Number(item.market_cap).toLocaleString('vi-VN')}</td>
                 <td><button className="mp-watchlist-remove" type="button" onClick={() => onRemove(item.symbol)} disabled={busy}>Bỏ theo dõi</button></td>
               </tr>

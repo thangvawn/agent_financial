@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from risk_dashboard.modules.news_intelligence.domain.enums import importance_label_for_score
+from risk_dashboard.modules.news_intelligence.domain.text import count_keywords
 
 
 @dataclass(frozen=True)
@@ -61,15 +62,17 @@ _HIGH_IMPACT_KEYWORDS = frozenset({
     "fed", "fomc", "rate", "rates", "inflation", "cpi", "gdp",
     "recession", "war", "sanctions", "tariff", "default", "crisis",
     "oil", "opec", "gold", "bitcoin", "earnings", "sec", "ecb",
-    "imf", "pboc", "boj", "rba",
+    "imf", "pboc", "boj", "rba", "lãi suất", "lạm phát", "tỷ giá",
+    "khủng hoảng", "chiến tranh", "suy thoái", "thanh khoản", "dầu", "vàng",
 })
 _SYSTEMIC_KEYWORDS = frozenset({
     "crisis", "default", "bank run", "sanction", "invasion",
-    "recession", "liquidity", "contagion", "collapse",
+    "recession", "liquidity", "contagion", "collapse", "khủng hoảng",
+    "suy thoái", "thanh khoản", "vỡ nợ",
 })
 _BROAD_KEYWORDS = frozenset({
     "global", "worldwide", "all markets", "broad-based",
-    "systemic", "across sectors",
+    "systemic", "across sectors", "toàn cầu", "nhiều ngành", "diện rộng",
 })
 
 
@@ -86,7 +89,7 @@ def calculate_importance(
     is_duplicate: bool = False,
 ) -> ImportanceResult:
     """Calculate importance score (0–100) for a news article."""
-    text = f"{headline} {summary}".lower()
+    text = f"{headline} {summary}"
 
     market_impact = _score_market_impact(text, impact, sentiment)
     source_reliability = _score_source_reliability(source_tier)
@@ -122,7 +125,7 @@ def calculate_importance(
 
 def _score_market_impact(text: str, impact: str, sentiment: str) -> int:
     base = 30
-    hit_count = sum(1 for kw in _HIGH_IMPACT_KEYWORDS if kw in text)
+    hit_count = count_keywords(text, _HIGH_IMPACT_KEYWORDS)
     base += min(hit_count * 8, 40)
     if impact == "high":
         base += 20
@@ -171,7 +174,7 @@ def _score_novelty(is_duplicate: bool, cluster_size: int) -> int:
 
 def _score_severity(text: str, threat_level: str) -> int:
     base = 20
-    hits = sum(1 for kw in _SYSTEMIC_KEYWORDS if kw in text)
+    hits = count_keywords(text, _SYSTEMIC_KEYWORDS)
     base += min(hits * 15, 45)
     if threat_level == "elevated":
         base += 25
@@ -184,7 +187,7 @@ def _score_severity(text: str, threat_level: str) -> int:
 
 def _score_breadth(text: str, cluster_size: int) -> int:
     base = 20
-    hits = sum(1 for kw in _BROAD_KEYWORDS if kw in text)
+    hits = count_keywords(text, _BROAD_KEYWORDS)
     base += min(hits * 12, 36)
     if cluster_size >= 4:
         base += 25

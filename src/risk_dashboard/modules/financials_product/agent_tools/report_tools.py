@@ -53,7 +53,9 @@ RESOLVE_LINE_ITEM_MANIFEST = ToolManifest(
     risk_class=RiskClass.READ,
     version="1.0.0",
     description="Fetch a specific line item amount, provenance, definition and caveats from a report revision.",
-    required_capabilities=("bctc:report:read",),
+    # Public skill router capability; kept stable for the compatibility
+    # contract used by BCTC workspace clients.
+    required_capabilities=("financials:read",),
 )
 
 
@@ -106,4 +108,3 @@ class BctcResolveLineItemTool:
             composition=(),
             caveats=caveats,
         )
-

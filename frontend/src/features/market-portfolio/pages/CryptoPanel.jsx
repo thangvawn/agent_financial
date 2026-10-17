@@ -1,6 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Activity, ArrowUpRight, Bitcoin, RefreshCw, Search, SlidersHorizontal, WalletCards } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, ArrowUpRight, Bitcoin, Layers, RefreshCw, Search, SlidersHorizontal, TrendingUp, WalletCards } from 'lucide-react'
 import { fetchMpCryptoSnapshot } from '../services'
+import CryptoOrderBookWidget from './CryptoOrderBookWidget'
+import TradingViewRealtimeWidget from './TradingViewRealtimeWidget'
+
+const DEFAULT_CRYPTO_POLL_MS = 15_000
+const MIN_CRYPTO_POLL_MS = 5_000
+const BINANCE_STREAM_SYMBOLS = [
+  'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'USDCUSDT', 'SOLUSDT', 'TRXUSDT',
+  'DOGEUSDT', 'LINKUSDT', 'ADAUSDT', 'XLMUSDT', 'NEARUSDT', 'BCHUSDT', 'UNIUSDT',
+  'HBARUSDT', 'LTCUSDT', 'AVAXUSDT', 'SUIUSDT', 'SHIBUSDT', 'DOTUSDT', 'PEPEUSDT',
+  'ICPUSDT', 'ARBUSDT', 'FILUSDT', 'APTUSDT', 'OPUSDT', 'INJUSDT',
+]
+const BINANCE_SYMBOL_MAP = Object.fromEntries(BINANCE_STREAM_SYMBOLS.map((symbol) => [symbol, symbol.replace(/USDT$/, '')]))
+const BINANCE_STREAM_URL = `wss://stream.binance.com:9443/stream?streams=${BINANCE_STREAM_SYMBOLS.map((symbol) => `${symbol.toLowerCase()}@miniTicker`).join('/')}`
 
 const money = (value, digits = 2) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
@@ -13,7 +26,11 @@ const money = (value, digits = 2) => {
 
 const price = (value) => {
   if (value === null || value === undefined) return '—'
-  return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: Number(value) < 1 ? 4 : 2, maximumFractionDigits: 4 })}`
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  const absolute = Math.abs(number)
+  const digits = absolute >= 1 ? 2 : absolute >= 0.1 ? 4 : absolute >= 0.01 ? 5 : absolute >= 0.0001 ? 6 : absolute >= 0.000001 ? 8 : 10
+  return `$${number.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
 }
 
 function Change({ value, compact = false }) {
@@ -46,12 +63,49 @@ export default function CryptoPanel() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('market_cap')
   const [selected, setSelected] = useState('BTC')
+  const [focusTab, setFocusTab] = useState('orderbook') // 'orderbook' | 'overview' | 'chart'
+  const previousQuotesRef = useRef(new Map())
+  const liveQuotesRef = useRef(new Map())
+  const pulseTimerRef = useRef(null)
+  const [updatedSymbols, setUpdatedSymbols] = useState(() => new Set())
+  const [streamStatus, setStreamStatus] = useState('connecting')
+
+  const pulseSymbols = useCallback((symbols) => {
+    if (!symbols.length) return
+    setUpdatedSymbols(new Set(symbols))
+    if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current)
+    pulseTimerRef.current = window.setTimeout(() => setUpdatedSymbols(new Set()), 1000)
+  }, [])
+
+  const applyPayload = useCallback((payload) => {
+    const mergedPayload = {
+      ...payload,
+      items: (payload?.items || []).map((item) => {
+        const live = liveQuotesRef.current.get(item.symbol)
+        if (!live) return item
+        const liveTime = Date.parse(live.updated_at || '')
+        const snapshotTime = Date.parse(item.updated_at || '')
+        return !Number.isFinite(snapshotTime) || (Number.isFinite(liveTime) && liveTime >= snapshotTime)
+          ? { ...item, ...live }
+          : item
+      }),
+    }
+    const changed = (mergedPayload.items || [])
+      .filter((item) => {
+        const previous = previousQuotesRef.current.get(item.symbol)
+        previousQuotesRef.current.set(item.symbol, { price: item.price, updated_at: item.updated_at })
+        return previous && (previous.price !== item.price || previous.updated_at !== item.updated_at)
+      })
+      .map((item) => item.symbol)
+    pulseSymbols(changed)
+    setData(mergedPayload)
+  }, [pulseSymbols])
 
   async function load() {
     try {
       setLoading(true)
       const payload = await fetchMpCryptoSnapshot()
-      setData(payload)
+      applyPayload(payload)
       setError('')
     } catch (err) {
       setError(err.message)
@@ -62,20 +116,174 @@ export default function CryptoPanel() {
 
   useEffect(() => {
     let cancelled = false
-    async function initialLoad() {
+    let timer = null
+    let controller = null
+    let pollDelay = DEFAULT_CRYPTO_POLL_MS
+    let failures = 0
+
+    function schedule(success) {
+      if (cancelled || document.visibilityState === 'hidden') return
+      failures = success ? 0 : failures + 1
+      const retryDelay = Math.min(120_000, pollDelay * (2 ** Math.min(failures, 3)))
+      const delay = success
+        ? pollDelay
+        : retryDelay
+      timer = window.setTimeout(tick, delay)
+    }
+
+    async function tick() {
+      if (cancelled || document.visibilityState === 'hidden') return
+      controller?.abort()
+      controller = new AbortController()
       try {
-        const payload = await fetchMpCryptoSnapshot()
-        if (!cancelled) { setData(payload); setError('') }
+        const payload = await fetchMpCryptoSnapshot({ signal: controller.signal })
+        if (cancelled) return
+        const serverInterval = Number(payload?.refresh_interval_seconds)
+        if (Number.isFinite(serverInterval) && serverInterval > 0) {
+          // Reads are cheap because the API serves the shared snapshot. Keep
+          // the UI responsive at 15s while the backend owns provider refresh
+          // cadence and rate limiting.
+          pollDelay = Math.min(DEFAULT_CRYPTO_POLL_MS, Math.max(MIN_CRYPTO_POLL_MS, serverInterval * 1000))
+        }
+        applyPayload(payload)
+        setError('')
+        setLoading(false)
+        schedule(true)
       } catch (err) {
-        if (!cancelled) setError(err.message)
-      } finally {
-        if (!cancelled) setLoading(false)
+        if (err.name === 'AbortError' || cancelled) return
+        setError(err.message)
+        setLoading(false)
+        schedule(false)
       }
     }
-    initialLoad()
-    const timer = setInterval(initialLoad, 30000)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [])
+
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') {
+        if (timer) window.clearTimeout(timer)
+        timer = null
+        controller?.abort()
+        return
+      }
+      if (!timer) tick()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    tick()
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+      controller?.abort()
+      if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [applyPayload])
+
+  useEffect(() => {
+    let socket = null
+    let reconnectTimer = null
+    let cancelled = false
+    let reconnectAttempt = 0
+
+    function scheduleReconnect() {
+      if (cancelled || document.visibilityState === 'hidden' || reconnectTimer) return
+      const delay = Math.min(30_000, 1_000 * (2 ** Math.min(reconnectAttempt, 5)))
+      reconnectAttempt += 1
+      setStreamStatus('reconnecting')
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, delay)
+    }
+
+    function connect() {
+      if (cancelled || document.visibilityState === 'hidden') return
+      if (!window.WebSocket) {
+        setStreamStatus('polling')
+        return
+      }
+      setStreamStatus(reconnectAttempt ? 'reconnecting' : 'connecting')
+      try {
+        socket = new window.WebSocket(BINANCE_STREAM_URL)
+      } catch {
+        scheduleReconnect()
+        return
+      }
+      socket.onopen = () => {
+        reconnectAttempt = 0
+        setStreamStatus('live')
+      }
+      socket.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data)
+          const tick = parsed?.data || parsed
+          const symbol = BINANCE_SYMBOL_MAP[tick?.s]
+          const numericPrice = Number(tick?.c)
+          const eventTime = Number(tick?.E)
+          if (!symbol || !Number.isFinite(numericPrice) || !Number.isFinite(eventTime)) return
+          const updatedAt = new Date(eventTime).toISOString()
+          const previousLive = liveQuotesRef.current.get(symbol)
+          if (previousLive && Date.parse(previousLive.updated_at) > eventTime) return
+          const openPrice = Number(tick?.o)
+          const changePct = Number.isFinite(openPrice) && openPrice !== 0 ? ((numericPrice / openPrice) - 1) * 100 : null
+          const high24h = Number(tick?.h)
+          const low24h = Number(tick?.l)
+          const liveQuote = {
+            price: numericPrice,
+            updated_at: updatedAt,
+          }
+          if (Number.isFinite(changePct)) liveQuote.change_pct = changePct
+          if (Number.isFinite(high24h)) liveQuote.high_24h = high24h
+          if (Number.isFinite(low24h)) liveQuote.low_24h = low24h
+          liveQuotesRef.current.set(symbol, liveQuote)
+          previousQuotesRef.current.set(symbol, { price: liveQuote.price, updated_at: liveQuote.updated_at })
+          setData((current) => {
+            if (!current?.items) return current
+            return {
+              ...current,
+              source: 'binance_ws',
+              as_of: updatedAt,
+              items: current.items.map((item) => item.symbol === symbol ? { ...item, ...liveQuote } : item),
+            }
+          })
+          pulseSymbols([symbol])
+        } catch {
+          // Ignore malformed provider messages; the REST poll remains the fallback.
+        }
+      }
+      socket.onerror = () => {
+        setStreamStatus('polling')
+        socket?.close()
+      }
+      socket.onclose = () => {
+        socket = null
+        if (!cancelled && document.visibilityState === 'visible') scheduleReconnect()
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        if (reconnectTimer) window.clearTimeout(reconnectTimer)
+        reconnectTimer = null
+        socket?.close()
+        socket = null
+        setStreamStatus('polling')
+        return
+      }
+      if (!socket && !reconnectTimer) {
+        reconnectAttempt = 0
+        connect()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    connect()
+    return () => {
+      cancelled = true
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      socket?.close()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pulseSymbols])
 
   const items = useMemo(() => data?.items || [], [data?.items])
   const visibleItems = useMemo(() => {
@@ -87,6 +295,10 @@ export default function CryptoPanel() {
     })
   }, [items, query, sort])
   const selectedCoin = items.find((item) => item.symbol === selected) || items[0]
+  const latestQuoteAt = useMemo(() => {
+    const timestamps = items.map((item) => new Date(item.updated_at || 0).getTime()).filter(Number.isFinite)
+    return timestamps.length ? new Date(Math.max(...timestamps)).toLocaleTimeString('vi-VN') : null
+  }, [items])
   const stats = useMemo(() => ({
     marketCap: items.reduce((sum, item) => sum + (item.market_cap || 0), 0),
     volume: items.reduce((sum, item) => sum + (item.volume_24h || 0), 0),
@@ -106,9 +318,9 @@ export default function CryptoPanel() {
           <p>Giá giao ngay, vốn hóa và dòng thanh khoản 24 giờ trên các tài sản dẫn dắt thị trường.</p>
         </div>
         <div className="crypto-page__status">
-          <span className={`gt-status-dot ${data?.freshness === 'fresh' ? 'is-live' : ''}`} />
-          <span>{data?.freshness === 'fresh' ? 'LIVE FEED' : 'CACHED FEED'}</span>
-          <small>{data?.source || '—'} · {data?.as_of ? new Date(data.as_of).toLocaleTimeString('vi-VN') : '—'}</small>
+          <span className={`gt-status-dot ${streamStatus === 'live' || data?.freshness === 'fresh' ? 'is-live' : ''}`} />
+          <span>{streamStatus === 'live' ? 'TICK LIVE' : data?.freshness === 'fresh' ? 'LIVE FEED' : 'CACHED FEED'}</span>
+          <small>{streamStatus === 'live' ? 'Binance WS' : data?.source || '—'} · quote {latestQuoteAt || '—'}</small>
           <button type="button" className="crypto-icon-button" onClick={load} disabled={loading} aria-label="Làm mới dữ liệu"><RefreshCw size={15} className={loading ? 'is-spinning' : ''} /></button>
         </div>
       </header>
@@ -134,10 +346,10 @@ export default function CryptoPanel() {
               <thead><tr><th>#</th><th>Tài sản</th><th>Giá USD</th><th>24h</th><th>Biểu đồ 7 ngày</th><th>Vốn hóa</th><th>KL 24h</th></tr></thead>
               <tbody>{visibleItems.map((coin, index) => {
                 const up = (coin.change_pct ?? 0) >= 0
-                return <tr key={coin.symbol} className={selectedCoin?.symbol === coin.symbol ? 'is-selected' : ''} onClick={() => setSelected(coin.symbol)}>
+                return <tr key={coin.symbol} className={`${selectedCoin?.symbol === coin.symbol ? 'is-selected' : ''} ${updatedSymbols.has(coin.symbol) ? 'is-updating' : ''}`} onClick={() => setSelected(coin.symbol)}>
                   <td className="crypto-rank">{coin.market_cap_rank || index + 1}</td>
-                  <td><div className="crypto-asset"><span className="crypto-asset__icon">{coin.symbol.slice(0, 1)}</span><span><strong>{coin.symbol}</strong><small>{coin.name}</small></span></div></td>
-                  <td className="num crypto-price">{price(coin.price)}</td>
+                  <td><div className="crypto-asset"><span className="crypto-asset__icon">{coin.symbol.slice(0, 1)}</span><span><strong className={up ? 'is-up' : 'is-down'}>{coin.symbol}</strong><small>{coin.name}</small></span></div></td>
+                  <td className={`num crypto-price ${up ? 'is-up' : 'is-down'} ${updatedSymbols.has(coin.symbol) ? 'is-updating' : ''}`}>{price(coin.price)}</td>
                   <td className="num"><Change value={coin.change_pct} compact /></td>
                   <td className="crypto-chart-cell"><Sparkline points={coin.sparkline} positive={up} /></td>
                   <td className="num crypto-muted">{money(coin.market_cap, 1)}</td>
@@ -150,14 +362,80 @@ export default function CryptoPanel() {
         </div>
 
         <aside className="crypto-focus-card">
-          <div className="crypto-focus-card__top"><span className="crypto-kicker">TÀI SẢN ĐANG CHỌN</span><span className="crypto-live-pill"><span /> 24H</span></div>
-          {selectedCoin ? <>
-            <div className="crypto-focus-identity"><span className="crypto-focus-icon">{selectedCoin.symbol.slice(0, 1)}</span><div><h3>{selectedCoin.name}</h3><span>{selectedCoin.symbol} / USD</span></div></div>
-            <div className="crypto-focus-price">{price(selectedCoin.price)} <Change value={selectedCoin.change_pct} /></div>
-            <div className="crypto-focus-chart"><Sparkline points={selectedCoin.sparkline} positive={(selectedCoin.change_pct ?? 0) >= 0} /></div>
-            <div className="crypto-focus-grid"><Metric label="Cao nhất 24h" value={price(selectedCoin.high_24h)} /><Metric label="Thấp nhất 24h" value={price(selectedCoin.low_24h)} /><Metric label="Vốn hóa" value={money(selectedCoin.market_cap)} /><Metric label="Nguồn cung" value={selectedCoin.circulating_supply ? Number(selectedCoin.circulating_supply).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'} /></div>
-            <div className="crypto-focus-note"><ArrowUpRight size={14} /> Dữ liệu được chọn theo vốn hóa thị trường</div>
-          </> : <div className="crypto-empty">Chưa có asset trong feed.</div>}
+          <div className="crypto-focus-card__top">
+            <span className="crypto-kicker">TÀI SẢN ĐANG CHỌN</span>
+            <span className="crypto-live-pill"><span /> 24H</span>
+          </div>
+          {selectedCoin ? (() => {
+            const focusUp = (selectedCoin.change_pct ?? 0) >= 0
+            return (
+              <>
+                <div className="crypto-focus-identity">
+                  <span className="crypto-focus-icon">{selectedCoin.symbol.slice(0, 1)}</span>
+                  <div>
+                    <h3>{selectedCoin.name}</h3>
+                    <span className={focusUp ? 'is-up' : 'is-down'}>{selectedCoin.symbol} / USD</span>
+                  </div>
+                </div>
+
+                <div className={`crypto-focus-price ${focusUp ? 'is-up' : 'is-down'}`}>
+                  {price(selectedCoin.price)} <Change value={selectedCoin.change_pct} />
+                </div>
+
+                <div className="crypto-focus-tabs">
+                  <button
+                    type="button"
+                    className={`crypto-focus-tab ${focusTab === 'orderbook' ? 'is-active' : ''}`}
+                    onClick={() => setFocusTab('orderbook')}
+                  >
+                    <Layers size={13} /> Sổ lệnh L2
+                  </button>
+                  <button
+                    type="button"
+                    className={`crypto-focus-tab ${focusTab === 'overview' ? 'is-active' : ''}`}
+                    onClick={() => setFocusTab('overview')}
+                  >
+                    <Activity size={13} /> Thống kê
+                  </button>
+                  <button
+                    type="button"
+                    className={`crypto-focus-tab ${focusTab === 'chart' ? 'is-active' : ''}`}
+                    onClick={() => setFocusTab('chart')}
+                  >
+                    <TrendingUp size={13} /> Biểu đồ TV
+                  </button>
+                </div>
+
+                {focusTab === 'orderbook' && (
+                  <CryptoOrderBookWidget symbol={selectedCoin.symbol} basePrice={selectedCoin.price} />
+                )}
+
+                {focusTab === 'overview' && (
+                  <>
+                    <div className="crypto-focus-chart">
+                      <Sparkline points={selectedCoin.sparkline} positive={focusUp} />
+                    </div>
+                    <div className="crypto-focus-grid">
+                      <Metric label="Cao nhất 24h" value={price(selectedCoin.high_24h)} />
+                      <Metric label="Thấp nhất 24h" value={price(selectedCoin.low_24h)} />
+                      <Metric label="Vốn hóa" value={money(selectedCoin.market_cap)} />
+                      <Metric label="Nguồn cung" value={selectedCoin.circulating_supply ? Number(selectedCoin.circulating_supply).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'} />
+                    </div>
+                  </>
+                )}
+
+                {focusTab === 'chart' && (
+                  <div style={{ marginTop: '8px' }}>
+                    <TradingViewRealtimeWidget symbol={selectedCoin.symbol} height={480} />
+                  </div>
+                )}
+
+                <div className="crypto-focus-note">
+                  <ArrowUpRight size={14} /> Dữ liệu L2 WebSocket kết nối trực tiếp sàn Binance
+                </div>
+              </>
+            )
+          })() : <div className="crypto-empty">Chưa có asset trong feed.</div>}
         </aside>
       </div>
     </section>

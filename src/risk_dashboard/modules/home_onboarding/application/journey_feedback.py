@@ -8,13 +8,19 @@ from risk_dashboard.modules.home_onboarding.domain.journey_ports import (
     HomeFeedbackRepository,
 )
 from risk_dashboard.modules.home_onboarding.schemas.journey import (
-    HomeJourneyFeedbackRequestV1,
     HomeJourneyFeedbackReceiptV1,
+    HomeJourneyFeedbackRequestV1,
 )
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(value: str) -> datetime:
+    normalized = value.strip().replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
 
 def record_feedback(
@@ -39,9 +45,7 @@ def record_feedback(
                 f"Invalid snooze_hours: {request.snooze_hours}. Must be 24, 72, or 168."
             )
         try:
-            base_dt = datetime.fromisoformat(now_iso)
-            if base_dt.tzinfo is None:
-                base_dt = base_dt.replace(tzinfo=timezone.utc)
+            base_dt = _parse_iso(now_iso)
         except Exception:
             base_dt = datetime.now(timezone.utc)
         snooze_until = (base_dt + timedelta(hours=request.snooze_hours)).isoformat()
@@ -80,4 +84,3 @@ def record_feedback(
         snooze_until=snooze_until,
         idempotency_key=request.idempotency_key,
     )
-

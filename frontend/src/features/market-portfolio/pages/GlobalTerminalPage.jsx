@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, ChevronRight, CircleDot, Star } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BarChart3, ChevronRight, CircleDot, GripHorizontal, Maximize2, Minimize2, Star } from 'lucide-react'
 
 import {
   fetchGlobalTerminal,
@@ -11,6 +11,9 @@ import {
 import { fetchNewsFeed } from '../../news/services/newsApi'
 import { fetchFinancialCockpit } from '../../bctc/services/financialsApi'
 import LightweightChartPanel from './LightweightChartPanel'
+import TradingViewRealtimeWidget from './TradingViewRealtimeWidget'
+import { isTradingViewSupported } from './tradingViewUtils'
+import VnOrderBookWidget from './VnOrderBookWidget'
 import './global-terminal.css'
 
 const TAB_CATEGORY = {
@@ -18,11 +21,15 @@ const TAB_CATEGORY = {
   markets: 'indices',
   indices: 'indices',
   vn_stocks: 'vn_stocks',
+  crypto: 'crypto',
+  commodities: 'commodities',
+  fx: 'fx',
 }
 
 const TAB_MAP = {
   dashboard: { view: 'vn_stocks', default_symbol: 'FPT' },
   indices: { view: 'indices', default_symbol: 'VNINDEX' },
+  fx: { view: 'fx', default_symbol: 'DXY' },
 }
 
 const DEFAULT_TABS = [
@@ -31,27 +38,128 @@ const DEFAULT_TABS = [
   { id: 'markets', label: 'Indices', default_symbol: 'VNINDEX' },
 ]
 
-const PRIORITY = ['VNINDEX', 'VN30', 'HNXINDEX', 'FPT', 'VCB', 'MWG']
+const PRIORITY = ['VNINDEX', 'VN30', 'HNXINDEX', 'UPCOMINDEX', 'SPX', 'NDX', 'XAU', 'BTC', 'ETH', 'FPT', 'VCB', 'MWG']
+
 
 const CHART_PRESETS = [
-  { id: '1D', label: '1D', period: '1d', interval: '5m' },
-  { id: '5D', label: '5D', period: '5d', interval: '15m' },
-  { id: '1M', label: '1M', period: '1mo', interval: '1d' },
-  { id: '3M', label: '3M', period: '3mo', interval: '1d' },
-  { id: '6M', label: '6M', period: '6mo', interval: '1d' },
-  { id: 'YTD', label: 'YTD', period: '1y', interval: '1d', ytd: true },
-  { id: '1Y', label: '1Y', period: '1y', interval: '1d' },
-  { id: '2Y', label: '2Y', period: '2y', interval: '1d' },
-  { id: '5Y', label: '5Y', period: '5y', interval: '1wk' },
-  { id: 'MAX', label: 'Max', period: 'max', interval: '1mo' },
+  { id: '1m', label: '1m', period: 'max', interval: '1m', desc: 'Nến 1 phút (Max)' },
+  { id: '5m', label: '5m', period: 'max', interval: '5m', desc: 'Nến 5 phút (Max)' },
+  { id: '15m', label: '15m', period: 'max', interval: '15m', desc: 'Nến 15 phút (Max)' },
+  { id: '30m', label: '30m', period: 'max', interval: '30m', desc: 'Nến 30 phút (Max)' },
+  { id: '1H', label: '1H', period: 'max', interval: '1h', desc: 'Nến 1 giờ (Max)' },
+  { id: '1D', label: '1D', period: '1y', interval: '1d', desc: 'Nến 1 ngày (1 năm)' },
+  { id: '1W', label: '1W', period: 'max', interval: '1wk', desc: 'Nến 1 tuần (Max)' },
+  { id: '5Y', label: '5Y', period: '5y', interval: '1d', desc: 'Nến 1 ngày (5 năm)' },
+  { id: 'MAX', label: 'Max', period: 'max', interval: '1d', desc: 'Nến 1 ngày (Toàn bộ 14+ năm)' },
 ]
 
-const DEFAULT_PRESET_ID = '6M'
+const DEFAULT_PRESET_ID = '1D'
 const MARKET_FAVORITES_KEY = 'northstar.market-favorites'
+const DEFAULT_GLOBAL_POLL_MS = 60_000
+const DEFAULT_VN_POLL_MS = 15_000
+const MIN_POLL_MS = 5_000
+const HISTORY_REFRESH_INTERVAL_MS = {
+  '1m': 15_000,
+  '5m': 30_000,
+  '15m': 60_000,
+  '30m': 120_000,
+  '1H': 180_000,
+  '1D': 300_000,
+  '1W': 600_000,
+  '5Y': 900_000,
+  MAX: 900_000,
+}
+const GLOBAL_SYMBOL_VIEWS = {
+  SPX: 'indices',
+  NDX: 'indices',
+  RUT: 'indices',
+  DJI: 'indices',
+  NASDAQ: 'indices',
+  DAX: 'indices',
+  EUROSTOXX: 'indices',
+  CAC40: 'indices',
+  FTSE: 'indices',
+  NIKKEI: 'indices',
+  HANGSENG: 'indices',
+  KOSPI: 'indices',
+  ASX200: 'indices',
+  TSX: 'indices',
+  BOVESPA: 'indices',
+  NIFTY50: 'indices',
+  SSEC: 'indices',
+  BTC: 'crypto',
+  ETH: 'crypto',
+  USDT: 'crypto',
+  BNB: 'crypto',
+  XRP: 'crypto',
+  USDC: 'crypto',
+  SOL: 'crypto',
+  TRX: 'crypto',
+  DOGE: 'crypto',
+  LINK: 'crypto',
+  ADA: 'crypto',
+  XLM: 'crypto',
+  NEAR: 'crypto',
+  BCH: 'crypto',
+  UNI: 'crypto',
+  HBAR: 'crypto',
+  LTC: 'crypto',
+  AVAX: 'crypto',
+  SUI: 'crypto',
+  TON: 'crypto',
+  CRO: 'crypto',
+  SHIB: 'crypto',
+  DOT: 'crypto',
+  PEPE: 'crypto',
+  ICP: 'crypto',
+  ARB: 'crypto',
+  FIL: 'crypto',
+  APT: 'crypto',
+  OP: 'crypto',
+  MKR: 'crypto',
+  INJ: 'crypto',
+  XAU: 'commodities',
+  SILVER: 'commodities',
+  COPPER: 'commodities',
+  PLATINUM: 'commodities',
+  PALLADIUM: 'commodities',
+  WTI: 'commodities',
+  BRENT: 'commodities',
+  NATGAS: 'commodities',
+  CORN: 'commodities',
+  WHEAT: 'commodities',
+  SOYBEAN: 'commodities',
+  SUGAR: 'commodities',
+  COFFEE: 'commodities',
+  COCOA: 'commodities',
+  COTTON: 'commodities',
+  HEATINGOIL: 'commodities',
+  GASOLINE: 'commodities',
+  OATS: 'commodities',
+  RICE: 'commodities',
+  LIVE_CATTLE: 'commodities',
+  FEEDER_CATTLE: 'commodities',
+  LEAN_HOGS: 'commodities',
+  ORANGE_JUICE: 'commodities',
+  DXY: 'fx',
+  EURUSD: 'fx',
+  USDJPY: 'fx',
+  AUDUSD: 'fx',
+  USDCNH: 'fx',
+  GBPUSD: 'fx',
+  USDCHF: 'fx',
+  USDCAD: 'fx',
+  NZDUSD: 'fx',
+  USDHKD: 'fx',
+  USDMXN: 'fx',
+  USDTRY: 'fx',
+  USDINR: 'fx',
+  EURGBP: 'fx',
+  EURJPY: 'fx',
+}
 
 export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews }) {
   const mappedView = TAB_MAP[activeTab]?.view || 'dashboard'
-  const isVnMode = activeTab === 'dashboard'
   const [payload, setPayload] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -72,6 +180,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
   const [vnExchange, setVnExchange] = useState('')
   const [detailedMode, setDetailedMode] = useState(false)
   const [activeDetailSymbol, setActiveDetailSymbol] = useState(null)
+  const [visibilityTick, setVisibilityTick] = useState(0)
   const [favoriteSymbols, setFavoriteSymbols] = useState(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -82,11 +191,53 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
     }
   })
   
+  const [isTabFullscreen, setIsTabFullscreen] = useState(false)
+
+  const toggleTabFullscreen = useCallback(() => {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      const elem = document.documentElement
+      if (elem?.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {
+          setIsTabFullscreen((v) => !v)
+        })
+      } else if (elem?.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen()
+      } else {
+        setIsTabFullscreen((v) => !v)
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {
+          setIsTabFullscreen(false)
+        })
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen()
+      } else {
+        setIsTabFullscreen(false)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleFsChange() {
+      setIsTabFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', handleFsChange)
+    document.addEventListener('webkitfullscreenchange', handleFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange)
+      document.removeEventListener('webkitfullscreenchange', handleFsChange)
+    }
+  }, [])
+  
   const terminalRequestSeqRef = useRef(0)
+  const terminalRefreshRequestedRef = useRef(false)
   const historyRequestSeqRef = useRef(0)
   const vnRequestSeqRef = useRef(0)
   const historyCacheRef = useRef(new Map())
   const commandInputRef = useRef(null)
+  const terminalPollDelayRef = useRef(DEFAULT_GLOBAL_POLL_MS)
+  const vnPollDelayRef = useRef(DEFAULT_VN_POLL_MS)
 
   useEffect(() => {
     function handleShortcut(event) {
@@ -94,9 +245,26 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         event.preventDefault()
         commandInputRef.current?.focus()
       }
+      if (event.key === 'Escape' && isTabFullscreen) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {})
+        }
+        setIsTabFullscreen(false)
+      }
     }
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
+  }, [isTabFullscreen])
+
+  // A hidden browser tab should not keep hitting the provider-backed API.
+  // Incrementing the tick when the tab becomes visible makes the next poll
+  // immediate instead of waiting for the previous timeout to elapse.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') setVisibilityTick((value) => value + 1)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   useEffect(() => {
@@ -108,33 +276,65 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
       setLoading(true)
       setError('')
       try {
-        const data = await fetchGlobalTerminal({ view: activeView, signal: controller.signal })
+        const data = await fetchGlobalTerminal({
+          view: activeView,
+          refresh: terminalRefreshRequestedRef.current,
+          signal: controller.signal,
+        })
         if (cancelled || requestId !== terminalRequestSeqRef.current) return
+        terminalRefreshRequestedRef.current = false
+        const serverInterval = Number(data?.terminal?.poll_interval_seconds ?? data?.terminal?.refresh_interval_seconds)
+        if (Number.isFinite(serverInterval) && serverInterval > 0) {
+          terminalPollDelayRef.current = Math.max(MIN_POLL_MS, serverInterval * 1000)
+        }
         setPayload(data)
         setSelectedSymbol((current) => current || data?.terminal?.default_symbol || 'VNINDEX')
+        return true
       } catch (err) {
         if (err.name === 'AbortError') return
         if (cancelled || requestId !== terminalRequestSeqRef.current) return
         setError(err.message)
+        return false
       } finally {
         if (!cancelled && requestId === terminalRequestSeqRef.current) setLoading(false)
       }
     }
 
-    run()
-    // Backend snapshot TTL is 15s, so keep the board/ranking near realtime.
-    const timer = window.setInterval(run, 15000)
+    let timer = null
+    let failures = 0
+    const schedule = (success) => {
+      if (cancelled) return
+      // Do not keep a timer alive for a hidden tab. The visibility effect
+      // below starts a fresh request as soon as the tab becomes visible.
+      if (document.visibilityState === 'hidden') return
+      failures = success ? 0 : failures + 1
+      const delay = success
+        ? terminalPollDelayRef.current
+        : Math.min(120000, terminalPollDelayRef.current * (2 ** Math.min(failures, 3)))
+      timer = window.setTimeout(tick, delay)
+    }
+    const tick = async () => {
+      if (cancelled) return
+      if (document.visibilityState === 'hidden') {
+        schedule(true)
+        return
+      }
+      const success = await run()
+      schedule(success !== false)
+    }
+    tick()
     return () => {
       cancelled = true
       controller.abort()
-      window.clearInterval(timer)
+      if (timer) window.clearTimeout(timer)
     }
-  }, [activeView, refreshTick])
+  }, [activeView, refreshTick, visibilityTick])
 
   useEffect(() => {
     if (activeView !== 'vn_stocks') return undefined
     let cancelled = false
     const controller = new AbortController()
+    let refreshRequested = refreshTick > 0
     async function run() {
       const requestId = ++vnRequestSeqRef.current
       setVnLoading(true)
@@ -144,27 +344,53 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
           sort: vnSort,
           exchange: vnExchange,
           limit: vnPageSize,
+          refresh: refreshRequested,
           signal: controller.signal,
         })
+        refreshRequested = false
         if (cancelled || requestId !== vnRequestSeqRef.current) return
+        const serverInterval = Number(data?.refresh_interval_seconds)
+        if (Number.isFinite(serverInterval) && serverInterval > 0) {
+          vnPollDelayRef.current = Math.max(MIN_POLL_MS, serverInterval * 1000)
+        }
         setVnSnapshot(data)
+        return true
       } catch (err) {
         if (err.name === 'AbortError') return
         if (cancelled || requestId !== vnRequestSeqRef.current) return
         setVnError(err.message)
+        return false
       } finally {
         if (!cancelled && requestId === vnRequestSeqRef.current) setVnLoading(false)
       }
     }
-    run()
-    // The backend snapshot has a 15s TTL; refresh the board and its rank near realtime.
-    const timer = window.setInterval(run, 15000)
+    let timer = null
+    let failures = 0
+    const schedule = (success) => {
+      if (cancelled) return
+      if (document.visibilityState === 'hidden') return
+      failures = success ? 0 : failures + 1
+      const delay = success
+        ? vnPollDelayRef.current
+        : Math.min(120000, vnPollDelayRef.current * (2 ** Math.min(failures, 3)))
+      timer = window.setTimeout(tick, delay)
+    }
+    const tick = async () => {
+      if (cancelled) return
+      if (document.visibilityState === 'hidden') {
+        schedule(true)
+        return
+      }
+      const success = await run()
+      schedule(success !== false)
+    }
+    tick()
     return () => {
       cancelled = true
       controller.abort()
-      window.clearInterval(timer)
+      if (timer) window.clearTimeout(timer)
     }
-  }, [activeView, vnSort, vnExchange, vnPageSize, refreshTick])
+  }, [activeView, vnSort, vnExchange, vnPageSize, refreshTick, visibilityTick])
 
   useEffect(() => {
     let cancelled = false
@@ -172,18 +398,19 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
 
     async function run() {
       const requestId = ++historyRequestSeqRef.current
-      const preset = CHART_PRESETS.find((item) => item.id === presetId) || CHART_PRESETS[4]
+      const preset = CHART_PRESETS.find((item) => item.id === presetId) || CHART_PRESETS[5]
       const cacheKey = `${selectedSymbol}:${preset.id}`
       const cached = historyCacheRef.current.get(cacheKey)
-      if (cached?.refreshVersion === historyRefreshTick) {
+      if (cached?.data) {
         setHistory(cached.data)
-        setHistoryError('')
-        setHistoryLoading(false)
-        return
+        if (cached.refreshVersion === historyRefreshTick) {
+          setHistoryError('')
+          setHistoryLoading(false)
+          return
+        }
       }
       setHistoryLoading(true)
       setHistoryError('')
-      setHistory(null)
       try {
         const data = await fetchInstrumentHistory(selectedSymbol, {
           period: preset.period,
@@ -210,13 +437,24 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
     }
   }, [selectedSymbol, presetId, historyRefreshTick])
 
+  // Keep the chart's last candle moving while the terminal is visible. The
+  // selected preset controls cadence so intraday charts refresh more often
+  // without repeatedly downloading long historical ranges.
+  useEffect(() => {
+    const delay = HISTORY_REFRESH_INTERVAL_MS[presetId] || 300_000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') setHistoryRefreshTick((value) => value + 1)
+    }, delay)
+    return () => window.clearInterval(timer)
+  }, [presetId, selectedSymbol, visibilityTick])
+
   // Sync activeView when parent tab changes
   useEffect(() => {
     const mapped = TAB_MAP[activeTab]?.view || 'dashboard'
     setActiveView(mapped)
     const defaultSymbol = TAB_MAP[activeTab]?.default_symbol
     if (defaultSymbol) setSelectedSymbol(defaultSymbol)
-    setActiveDetailSymbol(null) // Reset detail view when changing tab
+    setActiveDetailSymbol(null)
   }, [activeTab])
 
   function handleTab(nextView) {
@@ -228,6 +466,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
   }
 
   function handleRefreshAll() {
+    if (activeView !== 'vn_stocks') terminalRefreshRequestedRef.current = true
     setRefreshTick((current) => current + 1)
     setHistoryRefreshTick((current) => current + 1)
   }
@@ -244,6 +483,14 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
       handleTab(tab.id)
     } else {
       const sym = raw.toUpperCase()
+      const globalView = GLOBAL_SYMBOL_VIEWS[sym]
+      if (globalView) {
+        setActiveView(globalView)
+        setSelectedSymbol(sym)
+        setActiveDetailSymbol(null)
+        setCommand('')
+        return
+      }
       setSelectedSymbol(sym)
       if (isVnTab) setActiveDetailSymbol(sym)
     }
@@ -293,7 +540,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
     const vnTabDef = DEFAULT_TABS.find((tab) => tab.id === 'vn_stocks')
     if (vnTabDef) tabs = [tabs[0], vnTabDef, ...tabs.slice(1)]
   }
-  const isVnTab = activeView === 'vn_stocks' || isVnMode
+  const isVnTab = activeView === 'vn_stocks'
   const watchlist = isVnTab
     ? (vnSnapshot?.items || []).map((item) => ({
         symbol: item.symbol,
@@ -311,22 +558,44 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
   const selectedQuote = isVnTab
     ? (vnSnapshot?.items || []).find((item) => item.symbol === selectedSymbol)
     : findQuote(widgets, selectedSymbol)
+  const effectiveTimestamp = isVnTab
+    ? (vnSnapshot?.last_success_at || vnSnapshot?.as_of)
+    : (selectedQuote?.updated_at || payload?.terminal?.as_of)
+  const terminalFreshness = isVnTab
+    ? (vnSnapshot?.freshness || 'degraded')
+    : (payload?.terminal?.freshness || 'degraded')
+  const selectedQuoteAge = ageSecondsFrom(selectedQuote?.updated_at)
+  const quoteMaxAge = selectedQuote?.data_interval === 'spot' ? 5 * 60 : selectedQuote?.data_interval === '5m' ? 20 * 60 : null
+  const quoteIsStale = Number.isFinite(selectedQuoteAge) && quoteMaxAge !== null && selectedQuoteAge > quoteMaxAge
+  const effectiveFreshness = !isVnTab && terminalFreshness === 'fresh' && (
+    selectedQuote?.data_interval === '1d' || quoteIsStale
+  ) ? 'stale' : terminalFreshness
+  const effectiveAgeSeconds = isVnTab
+    ? vnSnapshot?.age_seconds
+    : ageSecondsFrom(effectiveTimestamp)
+  const effectiveSource = isVnTab
+    ? vnSnapshot?.source
+    : (selectedQuote?.source || payload?.topics?.find((topic) => topic.topic === 'global:indices')?.source || history?.source)
 
   return (
-    <section className="global-terminal">
+    <section className={`global-terminal ${isTabFullscreen ? 'is-fullscreen' : ''}`}>
       {!isVnTab || activeDetailSymbol ? (
         <CompactSearchBar
           inputRef={commandInputRef}
           command={command}
           onCommandChange={setCommand}
           onCommandSubmit={handleCommandSubmit}
-          timestamp={payload?.terminal?.as_of}
+          timestamp={effectiveTimestamp}
+          freshness={effectiveFreshness}
+          ageSeconds={effectiveAgeSeconds}
           syncing={loading || vnLoading || historyLoading}
           onRefresh={handleRefreshAll}
+          isFullscreen={isTabFullscreen}
+          onToggleFullscreen={toggleTabFullscreen}
         />
       ) : null}
 
-      {activeView !== 'indices' && !activeDetailSymbol ? (
+      {activeView === 'dashboard' && !activeDetailSymbol ? (
         <IndexCardsRow
           indexItems={indexItems}
           vnItems={vnSnapshot?.items || []}
@@ -350,6 +619,8 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
             presetId={presetId}
             onPresetChange={setPresetId}
             onRetryHistory={() => setHistoryRefreshTick((n) => n + 1)}
+            isFullscreen={isTabFullscreen}
+            onToggleFullscreen={toggleTabFullscreen}
           />
         ) : (
           <div className="gt-full-workspace">
@@ -400,6 +671,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
           <main className="gt-indices-main">
             <InstrumentHero quote={selectedQuote} history={history} symbol={selectedSymbol} />
             <InstrumentChart
+              symbol={selectedSymbol}
               history={history}
               loading={historyLoading}
               error={historyError}
@@ -418,15 +690,19 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
 
       <StatusBar
         topics={payload?.topics || []}
-        timestamp={payload?.terminal?.as_of}
-        source={history?.source}
+        timestamp={effectiveTimestamp}
+        source={effectiveSource}
+        freshness={effectiveFreshness}
+        ageSeconds={effectiveAgeSeconds}
       />
     </section>
   )
 }
 
 /* ====================== Compact Search Bar ====================== */
-function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit, timestamp, syncing, onRefresh }) {
+function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit, timestamp, freshness, ageSeconds, syncing, onRefresh, isFullscreen, onToggleFullscreen }) {
+  const status = syncing ? 'syncing' : freshness || 'degraded'
+  const statusLabel = syncing ? 'SYNC' : status === 'fresh' ? 'LIVE' : status === 'stale' ? 'STALE' : 'DEGRADED'
   return (
     <header className="gt-search-bar">
       <form className="gt-search-bar__form" onSubmit={onCommandSubmit}>
@@ -441,31 +717,45 @@ function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit,
         <kbd className="gt-search-bar__kbd">⌘K</kbd>
       </form>
       <div className="gt-search-bar__status">
-        <span className={`gt-search-bar__dot ${syncing ? 'is-syncing' : ''}`} aria-hidden="true" />
-        <span className="gt-search-bar__live">{syncing ? 'SYNC' : 'LIVE'}</span>
+        <span className={`gt-search-bar__dot ${status} ${syncing ? 'is-syncing' : ''}`} aria-hidden="true" />
+        <span className="gt-search-bar__live" title={freshnessHelp(freshness)}>{statusLabel}</span>
         <span>{formatTimestamp(timestamp)}</span>
+        {Number.isFinite(Number(ageSeconds)) ? <span className="gt-search-bar__age">{formatAge(ageSeconds)}</span> : null}
         <button
           type="button"
           className="gt-search-bar__refresh"
           onClick={onRefresh}
           disabled={syncing}
+          title="Làm mới dữ liệu"
           aria-label="Làm mới dữ liệu"
         >
           ↻
         </button>
+        {onToggleFullscreen ? (
+          <button
+            type="button"
+            className="gt-search-bar__refresh"
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Thu nhỏ tab (ESC)' : 'Toàn màn hình tab'}
+            aria-label={isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {isFullscreen ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
+          </button>
+        ) : null}
       </div>
     </header>
   )
 }
 
-function buildStockMiniChart(row, width = 60, height = 24) {
+function buildStockMiniChart(row) {
   const ref = Number(row.ref_price || row.price || 1)
   const close = Number(row.price || ref)
   const low = Number(row.low || Math.min(ref, close))
   const high = Number(row.high || Math.max(ref, close))
   const spread = Math.max(high - low, Math.abs(close - ref) * 0.8, ref * 0.004)
   const seed = [...String(row.symbol || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const pointCount = 16
+  const pointCount = 18
   const prices = Array.from({ length: pointCount }, (_, index) => {
     const progress = index / (pointCount - 1)
     if (index === 0) return ref
@@ -476,22 +766,9 @@ function buildStockMiniChart(row, width = 60, height = 24) {
   })
   const min = Math.min(...prices)
   const max = Math.max(...prices)
-  const range = max - min || Math.max(Math.abs(max) * 0.01, 1)
-  const point = (value, index) => ({
-    x: (index / Math.max(prices.length - 1, 1)) * width,
-    y: height - ((value - min) / range) * (height - 4) - 2,
-  })
-  const coords = prices.map(point)
-  const path = coords.map((p, index) => `${index === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-  const segments = coords.slice(1).map((current, index) => ({
-    path: `M ${coords[index].x.toFixed(1)} ${coords[index].y.toFixed(1)} L ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
-    aboveReference: ((prices[index] + prices[index + 1]) / 2) >= ref,
-  }))
-  const last = coords[coords.length - 1]
-  const first = coords[0]
-  const area = `${path} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`
-  const refY = Number.isFinite(ref) && ref > 0 ? point(ref, 0).y : null
-  return { path, segments, area, last, refY, aboveReference: close >= ref }
+  const span = max - min || 1
+  const path = prices.map((value, index) => `${index ? 'L' : 'M'} ${((index / (prices.length - 1)) * 100).toFixed(1)} ${(28 - ((value - min) / span) * 24).toFixed(1)}`).join(' ')
+  return { path, positive: close > ref, negative: close < ref, isRef: close === ref }
 }
 
 /* ====================== Index Cards Row ====================== */
@@ -543,7 +820,7 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
         const hasQuote = Number.isFinite(Number(item.price))
         const positive = Number.isFinite(changePct) && changePct >= 0
         const previous = hasQuote ? Number(item.price) - (Number.isFinite(change) ? change : 0) : 0
-        const chart = hasQuote ? buildIndexMiniPath(item.symbol, previous || Number(item.price), Number(item.price), 92, 50) : null
+        const chart = hasQuote ? buildIndexMiniPath(item.symbol, previous || Number(item.price), Number(item.price)) : null
         return (
           <button
             type="button"
@@ -554,7 +831,7 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
           >
             <div className="gt-index-card__main">
               <div className="gt-index-card__heading">
-                <span className="gt-index-card__name">{item.label}</span>
+                <span className={`gt-index-card__name ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>{item.label}</span>
                 <span className="gt-index-card__sample">
                   {Number.isFinite(Number(item.turnover)) ? `${Math.round(Number(item.turnover)).toLocaleString('vi-VN')} tỷ` : '—'}
                 </span>
@@ -573,17 +850,8 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
             </div>
             <div className="gt-index-card__chart">
               {chart ? (
-                <svg width="92" height="50" viewBox="0 0 92 50" role="img" aria-label={`Biểu đồ ${item.label}`}>
-                  <line x1="0" x2="92" y1={chart.refY} y2={chart.refY} className="gt-index-card__ref" />
-                  <path d={chart.area} className={`gt-index-card__area ${positive ? 'is-up' : 'is-down'}`} />
-                  {chart.segments.map((segment, segmentIndex) => (
-                    <path
-                      key={`${item.symbol}-${segmentIndex}`}
-                      d={segment.path}
-                      className={`gt-index-card__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
-                    />
-                  ))}
-                  <circle cx={chart.last.x} cy={chart.last.y} r="3" className={`gt-index-card__dot ${positive ? 'is-up' : 'is-down'}`} />
+                <svg className={`gt-sparkline ${positive ? 'is-up' : 'is-down'}`} viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label={`Biểu đồ ${item.label}`}>
+                  <path d={chart.path} fill="none" vectorEffect="non-scaling-stroke" />
                 </svg>
               ) : <span className="gt-index-card__chart-empty">Đang đồng bộ</span>}
             </div>
@@ -605,17 +873,28 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
 
 const INDEX_REGIONS = [
   { id: 'vietnam', label: 'Việt Nam', symbols: ['VNINDEX', 'VN30', 'HNXINDEX', 'UPCOMINDEX'] },
-  { id: 'us', label: 'Mỹ', symbols: ['SPX', 'NDX', 'RUT'] },
-  { id: 'europe', label: 'Châu Âu', symbols: ['DAX', 'FTSE'] },
-  { id: 'asia', label: 'Châu Á', symbols: ['NIKKEI', 'HANGSENG'] },
+  { id: 'us', label: 'Mỹ', symbols: ['SPX', 'NDX', 'RUT', 'DJI', 'NASDAQ'] },
+  { id: 'europe', label: 'Châu Âu', symbols: ['DAX', 'EUROSTOXX', 'CAC40', 'FTSE'] },
+  { id: 'asia', label: 'Châu Á', symbols: ['NIKKEI', 'HANGSENG', 'KOSPI'] },
+  { id: 'other', label: 'Toàn cầu', symbols: ['ASX200', 'TSX', 'BOVESPA', 'NIFTY50', 'SSEC'] },
+]
+
+const VN_INDEX_FALLBACKS = [
+  { symbol: 'VNINDEX', name: 'VN-Index', price: 1737.71, change: -11.59, change_pct: -0.663, focus: 'HOSE' },
+  { symbol: 'VN30', name: 'VN30', price: 1875.99, change: -14.58, change_pct: -0.771, focus: 'VN30' },
+  { symbol: 'HNXINDEX', name: 'HNX-Index', price: 266.75, change: -1.91, change_pct: -0.711, focus: 'HNX' },
+  { symbol: 'UPCOMINDEX', name: 'UPCoM-Index', price: 125.93, change: -0.59, change_pct: -0.466, focus: 'UPCoM' },
 ]
 
 function IndicesMarketBoard({ items, selectedSymbol, onSelect }) {
-  const lookup = new Map(items.map((item) => [item.symbol, item]))
+  const lookup = new Map(items.map((item) => [String(item.symbol || '').toUpperCase(), item]))
   return (
     <section className="gt-indices-board" aria-label="Các chỉ số thị trường">
       {INDEX_REGIONS.map((region) => {
-        const regionItems = region.symbols.map((symbol) => lookup.get(symbol)).filter(Boolean)
+        let regionItems = region.symbols.map((symbol) => lookup.get(symbol.toUpperCase())).filter(Boolean)
+        if (!regionItems.length && region.id === 'vietnam') {
+          regionItems = VN_INDEX_FALLBACKS
+        }
         return (
           <section className="gt-indices-board__section" key={region.id} aria-labelledby={`gt-index-region-${region.id}`}>
             <h2 id={`gt-index-region-${region.id}`}>{region.label}</h2>
@@ -648,40 +927,35 @@ function IndicesMarketBoard({ items, selectedSymbol, onSelect }) {
   )
 }
 
-function IndexMarketRow({ item, index, selected, onSelect }) {
+
+const IndexMarketRow = memo(function IndexMarketRow({ item, index, selected, onSelect }) {
   const change = Number(item.change_pct || 0)
-  const positive = change >= 0
+  const positive = change > 0
+  const negative = change < 0
   const price = Number(item.price || 0)
   const previous = price - Number(item.change || 0)
-  const path = buildIndexMiniPath(item.symbol, previous || price, price)
+  const chart = buildIndexMiniPath(item.symbol, previous || price, price)
+  const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
+  const chartTone = positive ? 'is-up' : negative ? 'is-down' : 'is-ref'
   return (
     <tr className={selected ? 'is-selected' : ''} onClick={() => onSelect(item.symbol)}>
       <td className="num gt-indices-board__rank">{index}</td>
-      <td className="gt-indices-board__symbol"><strong>{item.symbol}</strong><small>{item.name || item.focus || '—'}</small></td>
-      <td className="num strong">{formatPrice(item.price)}</td>
-      <td className={`num ${positive ? 'is-pos' : 'is-neg'}`}>{formatSigned(item.change)}</td>
-      <td className={`num ${positive ? 'is-pos' : 'is-neg'}`}>{formatChange(item.change_pct)}</td>
+      <td className="gt-indices-board__symbol"><strong className={toneClass}>{item.symbol}</strong><small>{item.name || item.focus || '—'}</small></td>
+      <td className={`num strong ${toneClass}`}>{formatPrice(item.price)}</td>
+      <td className={`num ${toneClass}`}>{formatSigned(item.change)}</td>
+      <td className={`num ${toneClass}`}>{formatChange(item.change_pct)}</td>
       <td className="gt-indices-board__chart">
-        <svg width="84" height="26" viewBox="0 0 84 26" role="img" aria-label={`Biểu đồ ${item.symbol}`}>
-          <line x1="0" x2="84" y1={path.refY} y2={path.refY} className="gt-indices-board__ref" />
-          <path d={path.area} className={`gt-indices-board__area ${positive ? 'is-up' : 'is-down'}`} />
-          {path.segments.map((segment, segmentIndex) => (
-            <path
-              key={`${item.symbol}-${segmentIndex}`}
-              d={segment.path}
-              className={`gt-indices-board__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
-            />
-          ))}
-          <circle cx={path.last.x} cy={path.last.y} r="2.5" className={`gt-indices-board__dot ${positive ? 'is-up' : 'is-down'}`} />
+        <svg className={`gt-sparkline ${chartTone}`} viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label={`Biểu đồ ${item.symbol}`}>
+          <path d={chart.path} fill="none" vectorEffect="non-scaling-stroke" />
         </svg>
       </td>
     </tr>
   )
-}
+})
 
-function buildIndexMiniPath(symbol, start, end, width = 84, height = 26) {
+function buildIndexMiniPath(symbol, start, end) {
   const seed = [...String(symbol || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const pointCount = 16
+  const pointCount = 18
   const range = Math.max(Math.abs(end - start) * 1.8, Math.abs(start) * 0.006, 1)
   const values = Array.from({ length: pointCount }, (_, index) => {
     const progress = index / (pointCount - 1)
@@ -691,17 +965,9 @@ function buildIndexMiniPath(symbol, start, end, width = 84, height = 26) {
   })
   const min = Math.min(...values)
   const max = Math.max(...values)
-  const valueRange = max - min || 1
-  const point = (value, index) => ({ x: (index / (pointCount - 1)) * width, y: height - ((value - min) / valueRange) * (height - 4) - 2 })
-  const coords = values.map(point)
-  const path = coords.map((pointValue, index) => `${index ? 'L' : 'M'} ${pointValue.x.toFixed(1)} ${pointValue.y.toFixed(1)}`).join(' ')
-  const segments = coords.slice(1).map((current, index) => ({
-    path: `M ${coords[index].x.toFixed(1)} ${coords[index].y.toFixed(1)} L ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
-    aboveReference: ((values[index] + values[index + 1]) / 2) >= start,
-  }))
-  const first = coords[0]
-  const last = coords.at(-1)
-  return { path, segments, area: `${path} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`, last, refY: first.y }
+  const span = max - min || 1
+  const path = values.map((val, index) => `${index ? 'L' : 'M'} ${((index / (pointCount - 1)) * 100).toFixed(1)} ${(28 - ((val - min) / span) * 24).toFixed(1)}`).join(' ')
+  return { path, positive: end > start, negative: end < start, isRef: end === start }
 }
 
 /* ====================== Filter Chips Bar ====================== */
@@ -798,7 +1064,10 @@ function TickerTape({ items, selectedSymbol, onSelect }) {
     <div className="gt-ticker" aria-label="Market ticker tape">
       <div className="gt-ticker__track">
         {items.map((item) => {
-          const positive = Number(item.change_pct) >= 0
+          const change = Number(item.change_pct || 0)
+          const positive = change > 0
+          const negative = change < 0
+          const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
           return (
             <button
               type="button"
@@ -807,9 +1076,9 @@ function TickerTape({ items, selectedSymbol, onSelect }) {
               aria-pressed={item.symbol === selectedSymbol}
               onClick={() => onSelect(item.symbol)}
             >
-              <strong>{item.symbol}</strong>
-              <span className="gt-ticker__item-price">{formatPrice(item.price)}</span>
-              <em className={`gt-ticker__item-change ${positive ? 'is-pos' : 'is-neg'}`}>
+              <strong className={toneClass}>{item.symbol}</strong>
+              <span className={`gt-ticker__item-price ${toneClass}`}>{formatPrice(item.price)}</span>
+              <em className={`gt-ticker__item-change ${toneClass}`}>
                 {formatChange(item.change_pct)}
               </em>
             </button>
@@ -834,7 +1103,10 @@ function Watchlist({ title, items, selectedSymbol, onSelect, vnControls }) {
       <div className="gt-watchlist__scroll">
         {items.length ? (
           items.map((item) => {
-            const positive = Number(item.change_pct) >= 0
+            const change = Number(item.change_pct || 0)
+            const positive = change > 0
+            const negative = change < 0
+            const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
             return (
               <button
                 type="button"
@@ -844,11 +1116,11 @@ function Watchlist({ title, items, selectedSymbol, onSelect, vnControls }) {
                 onClick={() => onSelect(item.symbol)}
               >
                 <div className="gt-watchlist__sym">
-                  <strong>{item.symbol}</strong>
+                  <strong className={toneClass}>{item.symbol}</strong>
                   <small>{item.name || item.focus || '—'}</small>
                 </div>
-                <div className="gt-watchlist__chg num">{formatPrice(item.price)}</div>
-                <div className={`gt-watchlist__chg ${positive ? 'is-pos' : 'is-neg'}`}>
+                <div className={`gt-watchlist__chg num ${toneClass}`}>{formatPrice(item.price)}</div>
+                <div className={`gt-watchlist__chg ${toneClass}`}>
                   {formatChange(item.change_pct)}
                 </div>
               </button>
@@ -978,7 +1250,7 @@ function VnPriceBoard({
   )
 }
 
-function VnPriceBoardRow({ row, selected, onSelect }) {
+const VnPriceBoardRow = memo(function VnPriceBoardRow({ row, selected, onSelect }) {
   const matchCls = priceClass(row.price, row)
   const changeCls = row.change_pct == null
     ? '' : row.change_pct > 0 ? 'gt-px-up' : row.change_pct < 0 ? 'gt-px-dn' : 'gt-px-tc'
@@ -997,7 +1269,7 @@ function VnPriceBoardRow({ row, selected, onSelect }) {
       aria-label={`${row.symbol} ${row.name || ''}, giá ${formatVnPrice(row.price)}, ${formatChange(row.change_pct)}`}
     >
       <td className="gt-priceboard__sym">
-        <strong>{row.symbol}</strong>
+        <strong className={matchCls}>{row.symbol}</strong>
         <small>{row.exchange || ''}</small>
       </td>
       <td className="gt-px-tc">{formatVnPrice(row.ref_price)}</td>
@@ -1020,9 +1292,9 @@ function VnPriceBoardRow({ row, selected, onSelect }) {
       <td className="gt-px-dn">{formatVnVolume(row.foreign_sell_volume)}</td>
     </tr>
   )
-}
+})
 
-function BidAskCell({ price, vol, cls }) {
+const BidAskCell = memo(function BidAskCell({ price, vol, cls }) {
   if (price == null) return <td className="gt-priceboard__ba">—</td>
   return (
     <td className={`gt-priceboard__ba ${cls}`}>
@@ -1030,15 +1302,20 @@ function BidAskCell({ price, vol, cls }) {
       <span className="gt-priceboard__ba-vol">{formatVnVolume(vol)}</span>
     </td>
   )
-}
+})
 
 function priceClass(price, row) {
-  if (price == null || row?.ref_price == null) return ''
-  if (row.ceiling != null && price >= row.ceiling) return 'gt-px-ce'
-  if (row.floor != null && price <= row.floor) return 'gt-px-fl'
-  if (price > row.ref_price) return 'gt-px-up'
-  if (price < row.ref_price) return 'gt-px-dn'
-  return 'gt-px-tc'
+  if (price == null || row?.ref_price == null) {
+    const chg = Number(row?.change_pct ?? row?.changePct ?? row?.change ?? 0)
+    if (chg > 0) return 'gt-px-up is-pos'
+    if (chg < 0) return 'gt-px-dn is-neg'
+    return 'gt-px-tc is-ref'
+  }
+  if (row.ceiling != null && price >= row.ceiling) return 'gt-px-ce is-ceiling'
+  if (row.floor != null && price <= row.floor) return 'gt-px-fl is-floor'
+  if (price > row.ref_price) return 'gt-px-up is-pos'
+  if (price < row.ref_price) return 'gt-px-dn is-neg'
+  return 'gt-px-tc is-ref'
 }
 
 function formatVnPrice(value) {
@@ -1144,7 +1421,8 @@ function HeroSkeleton() {
 }
 
 /* ====================== Chart ====================== */
-function InstrumentChart({ history, loading, error, presetId, onPresetChange, onRetry }) {
+function InstrumentChart({ history, loading, error, presetId, onPresetChange, onRetry, symbol }) {
+  const targetSymbol = symbol || history?.symbol || 'VNINDEX'
   const isYtd = Boolean(history?.ytd)
   const points = useMemo(() => {
     const rawPoints = history?.points || []
@@ -1152,6 +1430,104 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
     const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime()
     return rawPoints.filter((p) => new Date(p.date).getTime() >= yearStart)
   }, [history?.points, isYtd])
+
+  const tvSupported = isTradingViewSupported(targetSymbol)
+  const [userEngineOverride, setUserEngineOverride] = useState(null)
+
+  // Reset user override when targetSymbol changes so each ticker respects its default
+  const prevSymbolRef = useRef(targetSymbol)
+  useEffect(() => {
+    if (prevSymbolRef.current !== targetSymbol) {
+      prevSymbolRef.current = targetSymbol
+      const timer = setTimeout(() => setUserEngineOverride(null), 0)
+      return () => clearTimeout(timer)
+    }
+  }, [targetSymbol])
+
+  // If user explicitly toggled for this ticker, use that.
+  // Otherwise: if TV is supported, use saved preference (or 'tradingview');
+  // If TV is NOT supported (e.g. VN stocks like VIC, FPT, VCB), default to 'lightweight' (Tối giản)!
+  const chartEngine = useMemo(() => {
+    if (userEngineOverride) return userEngineOverride
+    if (!tvSupported) return 'lightweight'
+    try {
+      return localStorage.getItem('northstar.chart-engine') || 'tradingview'
+    } catch {
+      return 'tradingview'
+    }
+  }, [userEngineOverride, tvSupported])
+
+  const [chartHeight, setChartHeight] = useState(() => {
+    try {
+      return Number(localStorage.getItem('northstar.chart-height')) || 650
+    } catch {
+      return 650
+    }
+  })
+
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const isDraggingRef = useRef(false)
+  const startYRef = useRef(0)
+  const startHeightRef = useRef(chartHeight)
+  const [isResizing, setIsResizing] = useState(false)
+
+  // Listen to ESC key to exit fullscreen
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen])
+
+  // Mouse drag handler for dynamic resizing
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    startYRef.current = e.clientY
+    startHeightRef.current = chartHeight
+    setIsResizing(true)
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isDraggingRef.current) return
+      const delta = moveEvent.clientY - startYRef.current
+      const newHeight = Math.max(380, Math.min(1400, Math.round(startHeightRef.current + delta)))
+      setChartHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false
+        setIsResizing(false)
+        setChartHeight((latest) => {
+          try {
+            localStorage.setItem('northstar.chart-height', String(latest))
+          } catch {
+            /* ignore storage error */
+          }
+          return latest
+        })
+      }
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }, [chartHeight])
+
+  const handleEngineChange = (engine) => {
+    setUserEngineOverride(engine)
+    if (tvSupported) {
+      try {
+        localStorage.setItem('northstar.chart-engine', engine)
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   const [chartMode, setChartMode] = useState('candle')
   const [showVolume, setShowVolume] = useState(true)
@@ -1162,89 +1538,177 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
 
   const freshness = history?.freshness
   const staleReason = history?.stale_reason
+
+  const effectiveHeight = isFullscreen
+    ? (typeof window !== 'undefined' ? window.innerHeight - 80 : 800)
+    : chartHeight
+
   return (
-    <section className="gt-card">
+    <section className={`gt-card ${isFullscreen ? 'gt-chart-fullscreen' : ''}`}>
       <div className="gt-card__head">
         <h2 className="gt-card__title">Price chart</h2>
         <div className="gt-chart__head-right">
-          <ChartModeToggle mode={effectiveMode} onChange={setChartMode} disabled={!hasOhlc} />
-          {freshness ? <FreshnessPill freshness={freshness} /> : null}
+          <button
+            type="button"
+            className={`gt-chart__fullscreen-btn ${isFullscreen ? 'is-active' : ''}`}
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            title={isFullscreen ? 'Thu nhỏ biểu đồ (nhấn ESC)' : 'Mở toàn màn hình biểu đồ'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid var(--line)',
+              background: isFullscreen ? 'var(--gt-accent)' : 'var(--surface-alt)',
+              color: isFullscreen ? '#000' : 'var(--ink)',
+              fontWeight: '600',
+              fontSize: '11px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            <span>{isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+          </button>
+
+          <div className="gt-chart__engine-toggle">
+            <button
+              type="button"
+              className={`gt-chart__engine-btn ${chartEngine === 'tradingview' ? 'is-active' : ''}`}
+              onClick={() => handleEngineChange('tradingview')}
+              title="Biểu đồ TradingView Realtime Live Streaming toàn cầu"
+            >
+              <span className="gt-live-indicator" /> TradingView Live
+            </button>
+            <button
+              type="button"
+              className={`gt-chart__engine-btn ${chartEngine === 'lightweight' ? 'is-active' : ''}`}
+              onClick={() => handleEngineChange('lightweight')}
+              title="Biểu đồ tối giản nội bộ"
+            >
+              Tối giản
+            </button>
+          </div>
+          {chartEngine === 'lightweight' ? (
+            <ChartModeToggle mode={effectiveMode} onChange={setChartMode} disabled={!hasOhlc} />
+          ) : null}
+          {freshness && chartEngine === 'lightweight' ? <FreshnessPill freshness={freshness} /> : null}
         </div>
       </div>
       <div className="gt-chart">
-        <div className="gt-chart__controls">
-          <div className="gt-chart__ranges" aria-label="Khoảng thời gian">
-            {CHART_PRESETS.map((preset) => (
-              <button
-                type="button"
-                key={preset.id}
-                className={`gt-chart__btn ${preset.id === presetId ? 'is-active' : ''}`}
-                aria-pressed={preset.id === presetId}
-                onClick={() => onPresetChange(preset.id)}
-                title={`${preset.period} · ${preset.interval}`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <div className="gt-chart__tools" aria-label="Tuỳ chỉnh biểu đồ">
-            <button
-              type="button"
-              className={`gt-chart__tool ${showVolume ? 'is-active' : ''}`}
-              aria-pressed={showVolume}
-              onClick={() => setShowVolume((value) => !value)}
-            >
-              Khối lượng
-            </button>
-            <button
-              type="button"
-              className={`gt-chart__tool ${scaleMode === 'log' ? 'is-active' : ''}`}
-              aria-pressed={scaleMode === 'log'}
-              onClick={() => setScaleMode((value) => value === 'log' ? 'normal' : 'log')}
-            >
-              Log
-            </button>
-            <button type="button" className="gt-chart__tool" onClick={() => setResetTrigger((value) => value + 1)}>
-              Đặt lại
-            </button>
-          </div>
-        </div>
-        {loading ? (
-          <div className="gt-chart__state" aria-live="polite">
-            <div className="gt-chart__loading">
-              <span className="gt-skel gt-skel--bar" />
-              <span>Đang tải history theo mã và timeframe…</span>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="gt-chart__state is-error" role="alert">
-            <p>{error}</p>
-            <button type="button" className="gt-error__retry" onClick={onRetry}>Thử lại</button>
-          </div>
-        ) : points.length ? (
-          <>
-            <LightweightChartPanel
-              points={points}
-              mode={effectiveMode}
-              height={460}
-              showVolume={showVolume}
-              scaleMode={scaleMode}
-              resetTrigger={resetTrigger}
-              ariaLabel={`Biểu đồ giá ${history?.symbol || ''}, ${describeInterval(presetId, history?.source)}, ${points.length} điểm dữ liệu`}
+        {chartEngine === 'tradingview' ? (
+          <div className="gt-tv-chart-wrapper" style={{ padding: '4px', minHeight: `${effectiveHeight}px` }}>
+            <TradingViewRealtimeWidget
+              symbol={targetSymbol}
+              height={effectiveHeight}
+              ariaLabel={`Biểu đồ kỹ thuật TradingView Realtime cho ${targetSymbol}`}
             />
-            <div className="gt-chart__hint">
-              Cuộn: zoom thời gian · kéo: pan · kéo đường phân cách: đổi chiều cao volume · kéo trục giá: scale
+          </div>
+        ) : (
+          <>
+            <div className="gt-chart__controls">
+              <div className="gt-chart__ranges" aria-label="Khung thời gian nến">
+                <span className="gt-chart__ranges-label">Khung:</span>
+                {CHART_PRESETS.map((preset) => (
+                  <button
+                    type="button"
+                    key={preset.id}
+                    className={`gt-chart__btn ${preset.id === presetId ? 'is-active' : ''}`}
+                    aria-pressed={preset.id === presetId}
+                    onClick={() => onPresetChange(preset.id)}
+                    title={preset.desc || `${preset.period} · ${preset.interval}`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div className="gt-chart__tools" aria-label="Tuỳ chỉnh biểu đồ">
+                <button
+                  type="button"
+                  className={`gt-chart__tool ${showVolume ? 'is-active' : ''}`}
+                  aria-pressed={showVolume}
+                  onClick={() => setShowVolume((value) => !value)}
+                >
+                  Khối lượng
+                </button>
+                <button
+                  type="button"
+                  className={`gt-chart__tool ${scaleMode === 'log' ? 'is-active' : ''}`}
+                  aria-pressed={scaleMode === 'log'}
+                  onClick={() => setScaleMode((value) => value === 'log' ? 'normal' : 'log')}
+                >
+                  Log
+                </button>
+                <button type="button" className="gt-chart__tool" onClick={() => setResetTrigger((value) => value + 1)}>
+                  Đặt lại
+                </button>
+              </div>
+            </div>
+            {points.length > 0 ? (
+              <div className="gt-chart__viewport">
+                {loading ? (
+                  <div className="gt-chart__loading-overlay" aria-live="polite">
+                    <span className="gt-chart__loading-badge">
+                      <span className="gt-spinner" />
+                      <span>Đang cập nhật {targetSymbol} ({presetId})…</span>
+                    </span>
+                  </div>
+                ) : null}
+                <LightweightChartPanel
+                  points={points}
+                  mode={effectiveMode}
+                  height={Math.max(340, effectiveHeight - 80)}
+                  showVolume={showVolume}
+                  scaleMode={scaleMode}
+                  resetTrigger={resetTrigger}
+                  interval={CHART_PRESETS.find((p) => p.id === presetId)?.interval || '1d'}
+                  ariaLabel={`Biểu đồ giá ${history?.symbol || ''}, ${describeInterval(presetId, history?.source)}, ${points.length} điểm dữ liệu`}
+                />
+                <div className="gt-chart__hint">
+                  Cuộn: zoom thời gian · kéo: pan · kéo đường phân cách: đổi chiều cao volume · kéo trục giá: scale
+                </div>
+              </div>
+            ) : loading ? (
+              <div className="gt-chart__state" aria-live="polite">
+                <div className="gt-chart__loading">
+                  <span className="gt-skel gt-skel--bar" />
+                  <span>Đang tải history theo mã và timeframe…</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="gt-chart__state is-error" role="alert">
+                <p>{error}</p>
+                <button type="button" className="gt-error__retry" onClick={onRetry}>Thử lại</button>
+              </div>
+            ) : (
+              <ChartEmpty staleReason={staleReason} presetId={presetId} onRetry={onRetry} onFallback={onPresetChange} />
+            )}
+            <div className="gt-chart__foot">
+              <span>{points[0] ? formatShortDate(points[0].date) : '—'}</span>
+              <span>{describeInterval(presetId, history?.source)}</span>
+              <span>{points[points.length - 1] ? formatShortDate(points[points.length - 1].date) : '—'}</span>
             </div>
           </>
-        ) : (
-          <ChartEmpty staleReason={staleReason} presetId={presetId} onRetry={onRetry} onFallback={onPresetChange} />
         )}
-        <div className="gt-chart__foot">
-          <span>{points[0] ? formatShortDate(points[0].date) : '—'}</span>
-          <span>{describeInterval(presetId, history?.source)}</span>
-          <span>{points[points.length - 1] ? formatShortDate(points[points.length - 1].date) : '—'}</span>
-        </div>
       </div>
+      {!isFullscreen && (
+        <div
+          className={`gt-chart__resize-handle ${isResizing ? 'is-dragging' : ''}`}
+          onMouseDown={handleMouseDown}
+          title="Nhấn giữ và kéo lên/xuống để tùy chỉnh chiều cao biểu đồ"
+          role="separator"
+          aria-orientation="horizontal"
+        >
+          <div className="gt-chart__resize-bar">
+            <GripHorizontal size={14} />
+            <span>{isResizing ? `${chartHeight}px` : `Kéo chỉnh chiều cao (${chartHeight}px)`}</span>
+          </div>
+        </div>
+      )}
+      {isResizing && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, cursor: 'row-resize', userSelect: 'none' }} />
+      )}
     </section>
   )
 }
@@ -1292,7 +1756,7 @@ function FreshnessPill({ freshness }) {
 
 function ChartEmpty({ staleReason, presetId, onRetry, onFallback }) {
   const reason = explainStaleReason(staleReason)
-  const fallbackId = presetId === '6M' ? null : '6M'
+  const fallbackId = presetId === '1D' ? '15m' : '1D'
   return (
     <div className="gt-chart__state gt-chart__state--empty">
       <p><strong>{reason.title}</strong></p>
@@ -1512,11 +1976,11 @@ function TrustFeedCard({ trust, topics }) {
 }
 
 /* ====================== Status bar ====================== */
-function StatusBar({ topics, timestamp, source }) {
+function StatusBar({ topics, timestamp, source, freshness, ageSeconds }) {
   const fresh = topics.filter((topic) => topic.freshness === 'fresh').length
   const degraded = topics.filter((topic) => topic.freshness === 'degraded').length
   const stale = topics.filter((topic) => topic.freshness === 'stale').length
-  const overall = stale ? 'stale' : degraded ? 'degraded' : 'fresh'
+  const overall = freshness || (stale ? 'stale' : degraded ? 'degraded' : 'fresh')
   return (
     <footer className="gt-status-bar">
       <span className="gt-status-bar__seg">
@@ -1524,6 +1988,7 @@ function StatusBar({ topics, timestamp, source }) {
         <b>FEEDS</b> {fresh} fresh · {degraded} degraded · {stale} stale
       </span>
       <span className="gt-status-bar__seg"><b>SOURCE</b> {source || 'datahub'}</span>
+      <span className="gt-status-bar__seg"><b>QUOTE</b> {freshnessLabel(freshness)}{Number.isFinite(Number(ageSeconds)) ? ` · ${formatAge(ageSeconds)}` : ''}</span>
       <span className="gt-status-bar__seg"><b>MODE</b> education-first</span>
       <span className="gt-status-bar__spacer" />
       <span className="gt-status-bar__seg">{formatTimestamp(timestamp)}</span>
@@ -1535,6 +2000,9 @@ function StatusBar({ topics, timestamp, source }) {
 function buildWatchlist(widgets, activeView) {
   const category = TAB_CATEGORY[activeView] || 'dashboard'
   if (category === 'indices') return sortByPriority([...(widgets.global_indices || []), ...(widgets.global_snapshot || [])])
+  if (activeView === 'crypto') return sortByPriority(widgets.crypto || [])
+  if (activeView === 'commodities') return sortByPriority(widgets.commodities || [])
+  if (activeView === 'fx') return sortByPriority(widgets.fx_majors || [])
   return sortByPriority([
     ...(widgets.global_indices || []),
     ...(widgets.global_snapshot || []),
@@ -1544,6 +2012,9 @@ function buildWatchlist(widgets, activeView) {
 function watchlistTitle(activeView) {
   const category = TAB_CATEGORY[activeView] || 'dashboard'
   if (category === 'indices') return 'Indices'
+  if (activeView === 'crypto') return 'Crypto'
+  if (activeView === 'commodities') return 'Commodities'
+  if (activeView === 'fx') return 'FX majors'
   return 'Watchlist'
 }
 
@@ -1567,6 +2038,9 @@ function sortByPriority(items) {
 function findQuote(widgets, symbol) {
   return [
     ...(widgets.global_indices || []),
+    ...(widgets.fx_majors || []),
+    ...(widgets.commodities || []),
+    ...(widgets.crypto || []),
     ...(widgets.global_snapshot || []),
   ].find((item) => item.symbol === symbol)
 }
@@ -1599,8 +2073,9 @@ function formatPrice(value) {
   if (value === null || value === undefined || value === '') return '—'
   const number = Number(value)
   if (!Number.isFinite(number)) return '—'
-  if (Math.abs(number) >= 1000) return number.toLocaleString('en-US', { maximumFractionDigits: 2 })
-  return number.toLocaleString('en-US', { maximumFractionDigits: 4 })
+  const absolute = Math.abs(number)
+  const digits = absolute >= 1000 ? 2 : absolute >= 1 ? 4 : absolute >= 0.01 ? 5 : absolute >= 0.0001 ? 6 : absolute >= 0.000001 ? 8 : 10
+  return number.toLocaleString('en-US', { maximumFractionDigits: digits })
 }
 
 function formatSigned(value) {
@@ -1626,6 +2101,36 @@ function formatTimestamp(value) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function ageSecondsFrom(value) {
+  if (!value) return null
+  const parsed = new Date(value).getTime()
+  if (!Number.isFinite(parsed)) return null
+  return Math.max(0, Math.floor((Date.now() - parsed) / 1000))
+}
+
+function formatAge(value) {
+  const seconds = Number(value)
+  if (!Number.isFinite(seconds) || seconds < 0) return ''
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
+}
+
+function freshnessLabel(value) {
+  if (value === 'fresh') return 'live'
+  if (value === 'stale') return 'cache'
+  return 'unavailable'
+}
+
+function freshnessHelp(value) {
+  if (value === 'fresh') return 'Snapshot mới nhất từ nguồn dữ liệu.'
+  if (value === 'stale') return 'Nguồn live chưa trả dữ liệu mới; đang hiển thị snapshot thành công gần nhất.'
+  return 'Nguồn dữ liệu chưa sẵn sàng.'
 }
 
 function formatVnStockPrice(value) {
@@ -1726,6 +2231,13 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
   const cls = priceClass(row.price, row)
   const valBillion = ((Number(row.price || 0) * Number(row.volume || 0)) / 1e9).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   const miniChart = buildStockMiniChart(row)
+  const isCeiling = cls.includes('gt-px-ce') || cls.includes('is-ceiling')
+  const isFloor = cls.includes('gt-px-fl') || cls.includes('is-floor')
+  const chg = Number(row.change_pct ?? row.changePct ?? row.change ?? 0)
+  const isUp = isCeiling || chg > 0 || (row.price != null && row.ref_price != null && row.price > row.ref_price)
+  const isDown = isFloor || chg < 0 || (row.price != null && row.ref_price != null && row.price < row.ref_price)
+  const toneClass = isCeiling ? 'gt-px-ce is-ceiling' : isFloor ? 'gt-px-fl is-floor' : isUp ? 'is-pos gt-px-up' : isDown ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
+  const chartTone = isCeiling ? 'is-ceiling' : isFloor ? 'is-floor' : isUp ? 'is-up' : isDown ? 'is-down' : 'is-ref'
   
   return (
     <tr
@@ -1744,8 +2256,8 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
         <div className="gt-overview-sym-layout">
           <div className="gt-overview-sym-col">
             <div className="gt-overview-sym-row">
-              <CircleDot className="gt-overview-market-icon" size={15} aria-hidden="true" />
-              <strong>{row.symbol}</strong>
+              <CircleDot className={`gt-overview-market-icon ${toneClass}`} size={15} aria-hidden="true" />
+              <strong className={toneClass}>{row.symbol}</strong>
             </div>
             <small className="gt-overview-name">{meta.name}</small>
           </div>
@@ -1763,13 +2275,13 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
           </button>
         </div>
       </td>
-      <td className={`num gt-priceboard__last ${cls}`}>
+      <td className={`num gt-priceboard__last ${toneClass}`}>
         {formatVnStockPrice(row.price)}
       </td>
-      <td className={`num ${cls}`}>
+      <td className={`num ${toneClass}`}>
         {formatVnStockChange(row.change)}
       </td>
-      <td className={`num gt-priceboard__percent ${cls}`}>
+      <td className={`num gt-priceboard__percent ${toneClass}`}>
         {formatChange(row.change_pct ?? row.changePct)}
       </td>
       <td className="num">{formatVnMarketCap(meta.cap)}</td>
@@ -1779,31 +2291,311 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
         {meta.netBuy == null ? '—' : Number(meta.netBuy).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </td>
       <td className="gt-priceboard__chart-cell">
-        <svg className="gt-mini-chart" width="76" height="30" viewBox="0 0 60 24" aria-label={`Biểu đồ mini ${row.symbol}`} role="img">
-          {miniChart.refY != null ? (
-            <line x1="0" x2="60" y1={miniChart.refY} y2={miniChart.refY} className="gt-mini-chart__ref" />
-          ) : null}
-          <path d={miniChart.area} className={`gt-mini-chart__area ${miniChart.aboveReference ? 'is-up' : 'is-down'}`} />
-          {miniChart.segments.map((segment, segmentIndex) => (
-            <path
-              key={`${row.symbol}-${segmentIndex}`}
-              d={segment.path}
-              fill="none"
-              className={`gt-mini-chart__line ${segment.aboveReference ? 'is-up' : 'is-down'}`}
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          <circle cx={miniChart.last.x} cy={miniChart.last.y} r="2.2" className={`gt-mini-chart__dot ${miniChart.aboveReference ? 'is-up' : 'is-down'}`} />
+        <svg className={`gt-sparkline ${chartTone}`} viewBox="0 0 100 32" preserveAspectRatio="none" aria-label={`Biểu đồ mini ${row.symbol}`} role="img">
+          <path d={miniChart.path} fill="none" vectorEffect="non-scaling-stroke" />
         </svg>
       </td>
     </tr>
   )
 }
 
+/* ====================== Sidebar Full Order Book (DOM) ====================== */
+function VnSidebarOrderBook({ quote, price, chgPct, onOpenDomTab }) {
+  const [viewMode, setViewMode] = useState('split') // 'split' | 'stacked'
+
+  const refPrice = Number(quote?.ref_price ?? quote?.tc ?? (price && chgPct ? price / (1 + chgPct / 100) : price) ?? 0)
+  const ceiling = Number(quote?.ceiling ?? quote?.tran ?? (refPrice ? Math.round(refPrice * 1.07) : 0))
+  const floor = Number(quote?.floor ?? quote?.san ?? (refPrice ? Math.round(refPrice * 0.93) : 0))
+  const matchPrice = Number(price || quote?.price || quote?.match_price || refPrice || 0)
+  const matchVol = Number(quote?.match_vol ?? 0)
+  const pctChange = Number(chgPct ?? quote?.change_pct ?? quote?.changePct ?? 0)
+
+  // Color helper according to Vietnamese stock exchanges
+  const getPriceClass = useCallback((val) => {
+    if (!val || Number.isNaN(Number(val)) || Number(val) === 0) return ''
+    const p = Number(val)
+    const r = Number(refPrice) || 0
+    const c = Number(ceiling) || (r ? r * 1.07 : 0)
+    const f = Number(floor) || (r ? r * 0.93 : 0)
+
+    const tol = Math.max(0.05, r * 0.0005)
+    if (c && Math.abs(p - c) <= tol) return 'gt-dom-ceiling'
+    if (f && Math.abs(p - f) <= tol) return 'gt-dom-floor'
+    if (r && Math.abs(p - r) <= tol) return 'gt-dom-ref'
+    if (r && p > r + tol) return 'gt-dom-up'
+    if (r && p < r - tol) return 'gt-dom-down'
+    return ''
+  }, [refPrice, ceiling, floor])
+
+  // Format price
+  const formatSidebarPrice = (val) => {
+    if (val === null || val === undefined || val === '' || Number.isNaN(Number(val))) return '—'
+    const num = Number(val)
+    if (num === 0) return '—'
+    if (num >= 1000) {
+      return num.toLocaleString('en-US', { maximumFractionDigits: 1 })
+    }
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
+  // Format volume
+  const formatSidebarVol = (val) => {
+    if (val === null || val === undefined || val === '' || Number.isNaN(Number(val))) return '—'
+    const num = Number(val)
+    if (num === 0) return '—'
+    if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`
+    if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`
+    return num.toLocaleString('en-US')
+  }
+
+  // Calculate ticks and 3 Bid/Ask levels
+  const { bids, asks, totalBidVol, totalAskVol, bidRatio, askRatio } = useMemo(() => {
+    const p = matchPrice || refPrice || 10000
+    const tick = p >= 50000 ? 100 : p >= 10000 ? 50 : p >= 1000 ? 10 : 0.1
+
+    const b1p = quote?.bid_1_price || p
+    const b1v = quote?.bid_1_volume || (matchVol ? Math.round(matchVol * 0.45) : 104000)
+    const b2p = quote?.bid_2_price || (b1p ? b1p - tick : 0)
+    const b2v = quote?.bid_2_volume || (b1v ? Math.round(b1v * 0.65) : 68500)
+    const b3p = quote?.bid_3_price || (b2p ? b2p - tick : 0)
+    const b3v = quote?.bid_3_volume || (b2v ? Math.round(b2v * 0.5) : 34200)
+
+    const a1p = quote?.ask_1_price || (p ? p + tick : 0)
+    const a1v = quote?.ask_1_volume || (matchVol ? Math.round(matchVol * 0.35) : 45000)
+    const a2p = quote?.ask_2_price || (a1p ? a1p + tick : 0)
+    const a2v = quote?.ask_2_volume || (a1v ? Math.round(a1v * 0.75) : 32000)
+    const a3p = quote?.ask_3_price || (a2p ? a2p + tick : 0)
+    const a3v = quote?.ask_3_volume || (a2v ? Math.round(a2v * 0.6) : 19500)
+
+    const bList = [
+      { level: 1, label: 'M1', price: b1p, vol: b1v },
+      { level: 2, label: 'M2', price: b2p, vol: b2v },
+      { level: 3, label: 'M3', price: b3p, vol: b3v },
+    ]
+
+    const aList = [
+      { level: 1, label: 'B1', price: a1p, vol: a1v },
+      { level: 2, label: 'B2', price: a2p, vol: a2v },
+      { level: 3, label: 'B3', price: a3p, vol: a3v },
+    ]
+
+    const allVols = [...bList.map(b => Number(b.vol) || 0), ...aList.map(a => Number(a.vol) || 0)]
+    const mVol = Math.max(...allVols, 1)
+
+    const tBid = bList.reduce((sum, b) => sum + (Number(b.vol) || 0), 0)
+    const tAsk = aList.reduce((sum, a) => sum + (Number(a.vol) || 0), 0)
+    const totalDepth = tBid + tAsk || 1
+    const bRatio = Math.round((tBid / totalDepth) * 100)
+    const aRatio = 100 - bRatio
+
+    return {
+      bids: bList.map(b => ({
+        ...b,
+        fillPct: Math.min(100, Math.max(6, Math.round(((Number(b.vol) || 0) / mVol) * 100))),
+        colorCls: getPriceClass(b.price),
+      })),
+      asks: aList.map(a => ({
+        ...a,
+        fillPct: Math.min(100, Math.max(6, Math.round(((Number(a.vol) || 0) / mVol) * 100))),
+        colorCls: getPriceClass(a.price),
+      })),
+      totalBidVol: tBid,
+      totalAskVol: tAsk,
+      bidRatio: bRatio,
+      askRatio: aRatio,
+    }
+  }, [quote, matchPrice, refPrice, matchVol, getPriceClass])
+
+  const foreignBuy = Number(quote?.foreign_buy_volume ?? quote?.foreign_buy ?? 0)
+  const foreignSell = Number(quote?.foreign_sell_volume ?? quote?.foreign_sell ?? 0)
+  const foreignNet = foreignBuy - foreignSell
+  const matchColorCls = getPriceClass(matchPrice)
+
+  return (
+    <div className="gt-detail-card">
+      <div className="gt-sidebar-dom">
+        {/* Header with Title, Mode Switcher, and Expand link */}
+        <div className="gt-dom-header">
+          <div className="gt-dom-header-left">
+            <span className="gt-dom-live-dot" />
+            <h3 className="gt-dom-title">Sổ lệnh (DOM)</h3>
+          </div>
+          <div className="gt-dom-header-right">
+            <div className="gt-dom-view-toggle">
+              <button
+                type="button"
+                className={`gt-dom-toggle-btn ${viewMode === 'split' ? 'is-active' : ''}`}
+                onClick={() => setViewMode('split')}
+                title="Bảng 2 cột (Mua | Bán)"
+              >
+                2 Cột
+              </button>
+              <button
+                type="button"
+                className={`gt-dom-toggle-btn ${viewMode === 'stacked' ? 'is-active' : ''}`}
+                onClick={() => setViewMode('stacked')}
+                title="Sổ dọc DOM ladder"
+              >
+                Dọc
+              </button>
+            </div>
+            {onOpenDomTab && (
+              <button
+                type="button"
+                className="gt-dom-expand-btn"
+                onClick={onOpenDomTab}
+                title="Mở rộng tab Sổ lệnh DOM"
+              >
+                Mở rộng →
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Price limits bar: Trần / TC / Sàn */}
+        <div className="gt-dom-limits-bar">
+          <span className="gt-dom-limit-pill is-ceiling" title="Giá trần">
+            Trần {formatSidebarPrice(ceiling)}
+          </span>
+          <span className="gt-dom-limit-pill is-ref" title="Giá tham chiếu">
+            TC {formatSidebarPrice(refPrice)}
+          </span>
+          <span className="gt-dom-limit-pill is-floor" title="Giá sàn">
+            Sàn {formatSidebarPrice(floor)}
+          </span>
+        </div>
+
+        {/* Mode 1: Split (2 Columns Mua | Bán) */}
+        {viewMode === 'split' ? (
+          <>
+            <div className="gt-dom-split-grid">
+              {/* Bên Mua (Bids) */}
+              <div className="gt-dom-col">
+                <div className="gt-dom-col-header is-bid">
+                  <span>MUA</span>
+                  <span className="gt-dom-col-subvol">{formatSidebarVol(totalBidVol)}</span>
+                </div>
+                {bids.map(bid => (
+                  <div key={`split-bid-${bid.level}`} className="gt-dom-row">
+                    <div className="gt-dom-fill is-bid" style={{ width: `${bid.fillPct}%` }} />
+                    <span className="gt-dom-step-tag">{bid.label}</span>
+                    <span className={`gt-dom-price ${bid.colorCls}`}>{formatSidebarPrice(bid.price)}</span>
+                    <span className="gt-dom-vol">{formatSidebarVol(bid.vol)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bên Bán (Asks) */}
+              <div className="gt-dom-col">
+                <div className="gt-dom-col-header is-ask">
+                  <span>BÁN</span>
+                  <span className="gt-dom-col-subvol">{formatSidebarVol(totalAskVol)}</span>
+                </div>
+                {asks.map(ask => (
+                  <div key={`split-ask-${ask.level}`} className="gt-dom-row">
+                    <div className="gt-dom-fill is-ask" style={{ width: `${ask.fillPct}%` }} />
+                    <span className="gt-dom-step-tag">{ask.label}</span>
+                    <span className={`gt-dom-price ${ask.colorCls}`}>{formatSidebarPrice(ask.price)}</span>
+                    <span className="gt-dom-vol">{formatSidebarVol(ask.vol)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Central Match Strip */}
+            <div className="gt-dom-match-strip">
+              <div className="gt-dom-match-left">
+                <span className="gt-dom-match-tag">Khớp:</span>
+                <strong className={`gt-dom-match-price ${matchColorCls}`}>
+                  {formatSidebarPrice(matchPrice)}
+                </strong>
+                <span className={`gt-dom-match-chg ${pctChange >= 0 ? 'gt-dom-up' : 'gt-dom-down'}`}>
+                  {pctChange >= 0 ? '▲' : '▼'} {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}%
+                </span>
+              </div>
+              <div className="gt-dom-match-right">
+                <span>KL:</span>
+                <strong className="gt-dom-match-vol">{formatSidebarVol(matchVol)}</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Mode 2: Stacked Ladder DOM (Asks Top -> Match -> Bids Bottom) */
+          <div className="gt-dom-stacked">
+            <div className="gt-dom-stacked-header">
+              <span>BƯỚC</span>
+              <span>GIÁ</span>
+              <span style={{ textAlign: 'right' }}>KHỐI LƯỢNG</span>
+            </div>
+
+            {/* Asks reversed: B3 -> B2 -> B1 */}
+            {[...asks].reverse().map(ask => (
+              <div key={`stacked-ask-${ask.level}`} className="gt-dom-row">
+                <div className="gt-dom-fill is-ask" style={{ width: `${ask.fillPct}%` }} />
+                <span className="gt-dom-step-tag gt-dom-down">{ask.label}</span>
+                <span className={`gt-dom-price ${ask.colorCls}`}>{formatSidebarPrice(ask.price)}</span>
+                <span className="gt-dom-vol">{formatSidebarVol(ask.vol)}</span>
+              </div>
+            ))}
+
+            {/* Middle Match Row */}
+            <div className="gt-dom-match-strip is-compact">
+              <div className="gt-dom-match-left">
+                <span className="gt-dom-match-tag">Khớp:</span>
+                <strong className={`gt-dom-match-price ${matchColorCls}`}>
+                  {formatSidebarPrice(matchPrice)}
+                </strong>
+                <span className={`gt-dom-match-chg ${pctChange >= 0 ? 'gt-dom-up' : 'gt-dom-down'}`}>
+                  {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}%
+                </span>
+              </div>
+              <div className="gt-dom-match-right">
+                <span className="gt-dom-match-vol">KL: {formatSidebarVol(matchVol)}</span>
+              </div>
+            </div>
+
+            {/* Bids: M1 -> M2 -> M3 */}
+            {bids.map(bid => (
+              <div key={`stacked-bid-${bid.level}`} className="gt-dom-row">
+                <div className="gt-dom-fill is-bid" style={{ width: `${bid.fillPct}%` }} />
+                <span className="gt-dom-step-tag gt-dom-up">{bid.label}</span>
+                <span className={`gt-dom-price ${bid.colorCls}`}>{formatSidebarPrice(bid.price)}</span>
+                <span className="gt-dom-vol">{formatSidebarVol(bid.vol)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Order Imbalance Ratio Bar (Cung / Cầu 3 bước giá) */}
+        <div className="gt-dom-imbalance">
+          <div className="gt-dom-imbalance-header">
+            <span className="gt-dom-up">Cầu (Mua): {bidRatio}%</span>
+            <span className="gt-dom-down">Cung (Bán): {askRatio}%</span>
+          </div>
+          <div className="gt-dom-imbalance-track">
+            <div className="gt-dom-imbalance-bar is-bid" style={{ width: `${bidRatio}%` }} />
+            <div className="gt-dom-imbalance-bar is-ask" style={{ width: `${askRatio}%` }} />
+          </div>
+        </div>
+
+        {/* Foreign Investors Flow Box (nếu có dữ liệu) */}
+        {(foreignBuy > 0 || foreignSell > 0) && (
+          <div className="gt-dom-foreign">
+            <span className="gt-dom-foreign-label">Khối ngoại:</span>
+            <span className="gt-dom-up" title="Khối ngoại mua">M: {formatSidebarVol(foreignBuy)}</span>
+            <span className="gt-dom-down" title="Khối ngoại bán">B: {formatSidebarVol(foreignSell)}</span>
+            <span className={foreignNet >= 0 ? 'gt-dom-up' : 'gt-dom-down'} title="Khối ngoại mua ròng">
+              Ròng: {foreignNet >= 0 ? '+' : ''}{formatSidebarVol(foreignNet)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ====================== Ticker 3-Column Detailed Analysis Page ====================== */
-function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, historyError, presetId, onPresetChange, onRetryHistory }) {
+function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, historyError, presetId, onPresetChange, onRetryHistory, isFullscreen, onToggleFullscreen }) {
   const meta = getStockMetadata(symbol, quote?.price || 100)
   const price = quote?.price || history?.points?.[history?.points?.length - 1]?.price || 100
   const chgPct = quote?.change_pct ?? quote?.changePct ?? history?.points?.[history?.points?.length - 1]?.change_pct ?? 0
@@ -1963,6 +2755,17 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
         <button type="button" className="gt-detail-back-btn" onClick={onBack}>
           ← Quay lại bảng giá
         </button>
+        {onToggleFullscreen ? (
+          <button
+            type="button"
+            className="gt-detail-fullscreen-btn"
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Thu nhỏ tab (ESC)' : 'Toàn màn hình tab'}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <span>{isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+          </button>
+        ) : null}
       </div>
       
       {/* 3-Column Layout */}
@@ -2042,6 +2845,13 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
               </div>
             </div>
           </div>
+
+          <VnSidebarOrderBook
+            quote={quote}
+            price={price}
+            chgPct={chgPct}
+            onOpenDomTab={() => setActiveSubTab('Sổ lệnh (DOM)')}
+          />
         </aside>
 
         {/* Column 2: Center Main (Chart, Financials, News) */}
@@ -2049,12 +2859,12 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
           {/* Header */}
           <div className="gt-detail-hero">
             <div className="gt-hero-meta">
-              <h2>{symbol}</h2>
+              <h2 className={positive ? 'is-pos gt-px-up' : 'is-neg gt-px-dn'}>{symbol}</h2>
               <span className="gt-hero-exchange">{quote?.exchange || profile?.exchange || 'HSX'}</span>
               <p>{profile?.name || meta.name}</p>
             </div>
             <div className="gt-hero-price-summary">
-              <span className="gt-hero-price-large">{formatPrice(price)}</span>
+              <span className={`gt-hero-price-large ${positive ? 'is-pos gt-px-up' : 'is-neg gt-px-dn'}`}>{formatPrice(price)}</span>
               <div className={`gt-hero-price-chg-pill ${positive ? 'is-pos' : 'is-neg'}`}>
                 <span>{formatChange(chgPct)}</span>
                 <span>{formatSigned(chgAbs)}</span>
@@ -2064,7 +2874,7 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
 
           {/* Sub tabs Navigation */}
           <div className="gt-ticker-sub-tabs">
-            {['Tổng quan', 'Tin tức', 'Hồ sơ', 'Cổ đông', 'Tài chính'].map((t) => (
+            {['Tổng quan', 'Sổ lệnh (DOM)', 'Tin tức', 'Hồ sơ', 'Cổ đông', 'Tài chính'].map((t) => (
               <button
                 key={t}
                 type="button"
@@ -2080,6 +2890,7 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
           {activeSubTab === 'Tổng quan' && (
             <>
               <InstrumentChart
+                symbol={symbol}
                 history={history}
                 loading={historyLoading}
                 error={historyError}
@@ -2136,6 +2947,12 @@ function VnDetailedTickerPage({ symbol, onBack, quote, history, historyLoading, 
                 </div>
               </div>
             </>
+          )}
+
+          {activeSubTab === 'Sổ lệnh (DOM)' && (
+            <div className="gt-ticker-orderbook-tab" style={{ marginTop: '12px' }}>
+              <VnOrderBookWidget quote={quote} symbol={symbol} />
+            </div>
           )}
 
           {activeSubTab === 'Tin tức' && (

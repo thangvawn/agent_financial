@@ -20,7 +20,6 @@ export default function NewsArticleReader({
   const monitors = detail?.what_to_monitor || activeArticle.what_to_monitor || []
   const learnLinks = detail?.learn_links || activeArticle.learn_links || []
   const whyThisMatters = detail?.why_this_matters
-  const info = detail?.info_grid
 
   return (
     <article className="news-reader" aria-busy={detailLoading}>
@@ -62,14 +61,6 @@ export default function NewsArticleReader({
           <h3>Vì sao đáng chú ý</h3>
           <p>{whyThisMatters}</p>
         </section>
-      ) : null}
-
-      {info ? (
-        <dl className="news-reader__info" aria-label="Thông tin bài viết">
-          <div><dt>Phân loại</dt><dd>{info.category || 'Chưa phân loại'}</dd></div>
-          <div><dt>Khu vực</dt><dd>{info.region || 'Toàn cầu'}</dd></div>
-          <div><dt>Độ tin cậy nguồn</dt><dd>{info.source_tier || 'Đang đánh giá'}</dd></div>
-        </dl>
       ) : null}
 
       {affectedMarkets.length ? (

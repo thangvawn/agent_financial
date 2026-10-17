@@ -64,6 +64,61 @@ export async function fetchLearningAssets(kind = 'videos') {
   return expectJson(response)
 }
 
+export async function fetchVideoAgentStatus(sessionId, lessonId, sourceUrl) {
+  const params = new URLSearchParams()
+  if (sessionId) params.set('session_id', sessionId)
+  if (sourceUrl) params.set('source_url', sourceUrl)
+  const response = await fetch(`/api/v1/public/learning/lessons/${encodeURIComponent(lessonId)}/video-agent?${params.toString()}`)
+  return expectJson(response)
+}
+
+export async function prepareVideoAgent(sessionId, lessonId, { sourceUrl, transcriptText, language = 'vi', forceRefresh = false } = {}) {
+  const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ''
+  const response = await fetch(`/api/v1/public/learning/lessons/${encodeURIComponent(lessonId)}/video-agent/prepare${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source_url: sourceUrl || undefined,
+      transcript_text: transcriptText || undefined,
+      language,
+      force_refresh: forceRefresh,
+    }),
+  })
+  return expectJson(response)
+}
+
+export async function fetchVideoAgentCheckpoint(sessionId, lessonId, { sourceUrl, currentTimeSeconds = 0 } = {}) {
+  const params = new URLSearchParams({ current_time_seconds: String(Math.max(0, currentTimeSeconds || 0)) })
+  if (sessionId) params.set('session_id', sessionId)
+  if (sourceUrl) params.set('source_url', sourceUrl)
+  const response = await fetch(`/api/v1/public/learning/lessons/${encodeURIComponent(lessonId)}/video-agent/checkpoint?${params.toString()}`)
+  return expectJson(response)
+}
+
+export async function gradeVideoAgentCheckpoint(sessionId, lessonId, checkpointId, responseText) {
+  const response = await fetch(`/api/v1/public/learning/lessons/${encodeURIComponent(lessonId)}/video-agent/checkpoint/grade${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ checkpoint_id: checkpointId, response: responseText }),
+  })
+  return expectJson(response)
+}
+
+export async function askVideoAgent(sessionId, lessonId, { question, sourceUrl, currentTimeSeconds = 0, windowSeconds = 45 } = {}) {
+  const response = await fetch(`/api/v1/public/learning/lessons/${encodeURIComponent(lessonId)}/video-agent/ask${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      source_url: sourceUrl || undefined,
+      current_time_seconds: Math.max(0, currentTimeSeconds || 0),
+      window_seconds: windowSeconds,
+      language: 'vi',
+    }),
+  })
+  return expectJson(response)
+}
+
 export async function fetchLearningCatalog(kind = 'video', { topic, tier, language, limit } = {}) {
   const params = new URLSearchParams({ kind })
   if (topic) params.set('topic', topic)
@@ -178,4 +233,3 @@ export async function completeCheckpoint(sessionIdOrPayload, verifiedEventId, id
   })
   return expectJson(res)
 }
-

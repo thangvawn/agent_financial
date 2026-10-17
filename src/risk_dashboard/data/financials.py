@@ -36,7 +36,7 @@ _STATEMENT_TYPE_MAP = {
 }
 
 _METRIC_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
-    ("revenue", ("doanh thu thuần", "doanh thu", "net sales", "revenue")),
+    ("revenue", ("doanh thu thuần", "doanh thu", "net sales", "revenue", "thu nhập lãi thuần", "tổng thu nhập hoạt động", "tổng doanh thu hoạt động")),
     ("gross_profit", ("lợi nhuận gộp", "lãi gộp", "gross profit")),
     ("operating_profit", ("lợi nhuận thuần từ hoạt động kinh doanh", "lãi/lỗ từ hoạt động kinh doanh", "lãi/(lỗ) từ hoạt động kinh doanh", "operating profit")),
     ("ebit", ("ebit", "earnings before interest and taxes")),
@@ -99,7 +99,21 @@ def _cache_path_for_ticker(ticker: str) -> Path:
 
 
 def load_cached_financial_dataset(ticker: str) -> FinancialDataset | None:
-    path = _cache_path_for_ticker(ticker)
+    ticker_norm = ticker.upper().strip()
+    try:
+        from risk_dashboard.platform.database.connection import connect_db
+
+        conn = connect_db()
+        row = conn.execute(
+            "SELECT dataset_json FROM company_financial_datasets WHERE ticker = ?",
+            (ticker_norm,),
+        ).fetchone()
+        if row and row[0]:
+            return FinancialDataset.model_validate_json(row[0])
+    except Exception:
+        pass
+
+    path = _cache_path_for_ticker(ticker_norm)
     if not path.exists():
         return None
     return FinancialDataset.model_validate_json(path.read_text(encoding="utf-8"))
@@ -108,7 +122,96 @@ def load_cached_financial_dataset(ticker: str) -> FinancialDataset | None:
 def save_financial_dataset(dataset: FinancialDataset) -> Path:
     path = _cache_path_for_ticker(dataset.ticker)
     path.write_text(dataset.model_dump_json(indent=2), encoding="utf-8")
+    _persist_dataset_to_db(dataset)
     return path
+
+
+def _persist_dataset_to_db(dataset: FinancialDataset) -> None:
+    """Store financial dataset summary and period line items into SQLite."""
+    try:
+        from risk_dashboard.platform.database.connection import connect_db
+
+        conn = connect_db()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        latest = dataset.periods[-1] if dataset.periods else None
+
+        conn.execute(
+            """
+            INSERT INTO company_financial_datasets (
+              ticker, periods_count, latest_period, latest_revenue, latest_net_income, dataset_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(ticker) DO UPDATE SET
+              periods_count = excluded.periods_count,
+              latest_period = excluded.latest_period,
+              latest_revenue = excluded.latest_revenue,
+              latest_net_income = excluded.latest_net_income,
+              dataset_json = excluded.dataset_json,
+              updated_at = excluded.updated_at
+            """,
+            (
+                dataset.ticker,
+                len(dataset.periods),
+                latest.period if latest else None,
+                latest.revenue if latest else None,
+                latest.net_income if latest else None,
+                dataset.model_dump_json(),
+                now_iso,
+            ),
+        )
+
+        for p in dataset.periods:
+            conn.execute(
+                """
+                INSERT INTO company_financial_periods (
+                  ticker, period, year, quarter, revenue, gross_profit, operating_profit, net_income,
+                  total_assets, total_liabilities, equity, cash, short_term_debt, long_term_debt,
+                  operating_cash_flow, investing_cash_flow, financing_cash_flow, raw_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ticker, period) DO UPDATE SET
+                  year = excluded.year,
+                  quarter = excluded.quarter,
+                  revenue = excluded.revenue,
+                  gross_profit = excluded.gross_profit,
+                  operating_profit = excluded.operating_profit,
+                  net_income = excluded.net_income,
+                  total_assets = excluded.total_assets,
+                  total_liabilities = excluded.total_liabilities,
+                  equity = excluded.equity,
+                  cash = excluded.cash,
+                  short_term_debt = excluded.short_term_debt,
+                  long_term_debt = excluded.long_term_debt,
+                  operating_cash_flow = excluded.operating_cash_flow,
+                  investing_cash_flow = excluded.investing_cash_flow,
+                  financing_cash_flow = excluded.financing_cash_flow,
+                  raw_json = excluded.raw_json,
+                  updated_at = excluded.updated_at
+                """,
+                (
+                    dataset.ticker,
+                    p.period,
+                    p.year,
+                    p.quarter,
+                    p.revenue,
+                    p.gross_profit,
+                    p.operating_profit,
+                    p.net_income,
+                    p.total_assets,
+                    p.total_liabilities,
+                    p.equity,
+                    p.cash,
+                    p.short_term_debt,
+                    p.long_term_debt,
+                    p.operating_cash_flow,
+                    p.investing_cash_flow,
+                    p.financing_cash_flow,
+                    p.model_dump_json(),
+                    now_iso,
+                ),
+            )
+        conn.commit()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Lỗi lưu dataset vào SQLite: %s", exc)
 
 
 def import_financial_dataset(dataset: FinancialDataset) -> Path:
@@ -344,6 +447,84 @@ def _prepare_vnstock_runtime() -> None:
     os.environ.setdefault("MPLCONFIGDIR", str(runtime_home / ".matplotlib"))
 
 
+def _fetch_direct_statements(ticker: str) -> FinancialDataset:
+    """Fetch financial statements directly from primary securities gateway with 0 third-party ads.
+
+    Retrieves full historical quarters (~34 quarters) concurrently for:
+    - Income Statement (Kết quả kinh doanh)
+    - Balance Sheet (Cân đối kế toán)
+    - Cash Flow (Lưu chuyển tiền tệ)
+    - Financial statement metrics metadata
+    """
+    import urllib.request
+    from concurrent.futures import ThreadPoolExecutor
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)",
+        "Referer": "https://trading.vietcap.com.vn/",
+        "Origin": "https://trading.vietcap.com.vn/",
+        "Accept": "application/json, text/plain, */*",
+    }
+
+    base = f"https://iq.vietcap.com.vn/api/iq-insight-service/v1/company/{ticker}"
+
+    def fetch_endpoint(url: str) -> dict[str, Any]:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("data") or {}
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_metrics = executor.submit(fetch_endpoint, f"{base}/financial-statement/metrics")
+        f_inc = executor.submit(fetch_endpoint, f"{base}/financial-statement?section=INCOME_STATEMENT")
+        f_bal = executor.submit(fetch_endpoint, f"{base}/financial-statement?section=BALANCE_SHEET")
+        f_cf = executor.submit(fetch_endpoint, f"{base}/financial-statement?section=CASH_FLOW")
+
+    metrics_data = f_metrics.result()
+    inc_data = f_inc.result()
+    bal_data = f_bal.result()
+    cf_data = f_cf.result()
+
+    def build_statement_df(section_key: str, data: dict[str, Any]) -> pd.DataFrame:
+        metrics = metrics_data.get(section_key, [])
+        quarters = data.get("quarters", [])
+        if not quarters:
+            return pd.DataFrame()
+        rows = []
+        for m in metrics:
+            field = m.get("field")
+            if not field:
+                continue
+            row = {
+                "item": m.get("titleVi") or m.get("name") or field,
+                "item_en": m.get("titleEn"),
+                "item_id": field,
+            }
+            for q in quarters:
+                y = q.get("yearReport") or q.get("year")
+                qr = q.get("lengthReport") or q.get("quarter")
+                if y is not None:
+                    period_label = f"{y}-Q{qr}" if qr else str(y)
+                    row[period_label] = q.get(field)
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+    inc_df = build_statement_df("INCOME_STATEMENT", inc_data)
+    bal_df = build_statement_df("BALANCE_SHEET", bal_data)
+    cf_df = build_statement_df("CASH_FLOW", cf_data)
+
+    if inc_df.empty and bal_df.empty:
+        raise ValueError(f"Direct API returned empty statements for {ticker}")
+
+    return _build_dataset_from_statement_frames(
+        ticker,
+        income_df=inc_df,
+        balance_df=bal_df,
+        cashflow_df=cf_df,
+        source="direct-gateway",
+    )
+
+
 def _attempt_vnstock_fetch(ticker: str) -> FinancialDataset:
     attempts: list[str] = []
 
@@ -358,42 +539,45 @@ def _attempt_vnstock_fetch(ticker: str) -> FinancialDataset:
             notes=[str(exc)],
         ) from exc
 
-    for source in ("VCI", "KBS"):
-        frames: dict[str, pd.DataFrame] = {}
-        try:
-            finance = Finance(source=source, symbol=ticker, period="quarter", get_all=True, show_log=False)
-            provider = getattr(finance, "_provider", None)
+    import io
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        for source in ("VCI", "KBS"):
+            frames: dict[str, pd.DataFrame] = {}
+            try:
+                finance = Finance(source=source, symbol=ticker, period="quarter", get_all=True, show_log=False)
+                provider = getattr(finance, "_provider", None)
 
-            def fetch_statement(report_type: str, public_method: str) -> pd.DataFrame:
-                # vnstock 4.0.2 hard-codes four periods on public VCI calls. The
-                # provider supports a limit, so request enough history for the
-                # chart workbench while retaining a public-method fallback.
-                if source == "VCI" and provider is not None and hasattr(provider, "_get_financial_report"):
-                    return provider._get_financial_report(  # noqa: SLF001 - compatibility adapter
-                        report_type,
-                        period="quarter",
-                        lang="vi",
-                        dropna=True,
-                        limit=40,
-                    )
-                method = getattr(finance, public_method)
-                return method(period="quarter", lang="vi", dropna=True)
+                def fetch_statement(report_type: str, public_method: str) -> pd.DataFrame:
+                    if source == "VCI" and provider is not None and hasattr(provider, "_get_financial_report"):
+                        return provider._get_financial_report(  # noqa: SLF001 - compatibility adapter
+                            report_type,
+                            period="quarter",
+                            lang="vi",
+                            dropna=True,
+                            limit=40,
+                        )
+                    method = getattr(finance, public_method)
+                    return method(period="quarter", lang="vi", dropna=True)
 
-            frames["income"] = fetch_statement("income_statement", "income_statement")
-            frames["balance"] = fetch_statement("balance_sheet", "balance_sheet")
-            frames["cashflow"] = fetch_statement("cash_flow", "cash_flow")
-            if any(frame.empty for frame in frames.values()):
-                raise ValueError("Provider returned empty statement.")
-            return _build_dataset_from_statement_frames(
-                ticker,
-                income_df=frames["income"],
-                balance_df=frames["balance"],
-                cashflow_df=frames["cashflow"],
-                source=f"vnstock-{source.lower()}",
-                provider_notes=attempts,
-            )
-        except Exception as exc:
-            attempts.append(f"{source}: {exc}")
+                frames["income"] = fetch_statement("income_statement", "income_statement")
+                frames["balance"] = fetch_statement("balance_sheet", "balance_sheet")
+                frames["cashflow"] = fetch_statement("cash_flow", "cash_flow")
+                if any(frame.empty for frame in frames.values()):
+                    raise ValueError("Provider returned empty statement.")
+                return _build_dataset_from_statement_frames(
+                    ticker,
+                    income_df=frames["income"],
+                    balance_df=frames["balance"],
+                    cashflow_df=frames["cashflow"],
+                    source=f"vnstock-{source.lower()}",
+                    provider_notes=attempts,
+                )
+            except Exception as exc:
+                attempts.append(f"{source}: {exc}")
+    finally:
+        sys.stdout = old_stdout
 
     raise FinancialDataError(
         f"Không lấy được đầy đủ BCTC từ vnstock cho mã {ticker}.",
@@ -420,9 +604,17 @@ def get_financial_dataset(ticker: str, *, refresh: bool = False, max_cache_age_s
             if is_fresh:
                 return cached
 
-
     provider_errors: list[str] = []
 
+    # 1. Primary: Direct Fast Gateway (no vnstock, 34 quarters, < 0.3s)
+    try:
+        dataset = _fetch_direct_statements(ticker)
+        save_financial_dataset(dataset)
+        return dataset
+    except BaseException as exc:
+        provider_errors.append(f"direct-gateway: {exc}")
+
+    # 2. Fallback: vnstock
     try:
         dataset = _attempt_vnstock_fetch(ticker)
         save_financial_dataset(dataset)
@@ -431,8 +623,9 @@ def get_financial_dataset(ticker: str, *, refresh: bool = False, max_cache_age_s
         if isinstance(exc, FinancialDataError):
             provider_errors.extend([exc.message, *(exc.notes or []), exc.hint or ""])
         else:
-            provider_errors.append(str(exc))
+            provider_errors.append(f"vnstock: {exc}")
 
+    # 3. Fallback: Cached data if available
     cached = load_cached_financial_dataset(ticker)
     if cached is not None:
         notes = list(cached.provider_notes)

@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Live documentation lookup for React 19, FastAPI, Tailwind v4, Vite, and modern libraries"
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "Multi-step reasoning and complex problem decomposition for quantitative risk models"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp", "--browser", "chrome"],
+      "description": "Browser automation and UI visual verification for charts and dashboard panels"
+    },
+    "sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "data/db/northstar.db"
+      ],
+      "description": "Direct transactional querying for Northstar SQLite database (app state, tables, ingest registry)"
+    }
+  }
+}

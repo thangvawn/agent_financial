@@ -4,10 +4,10 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
-from risk_dashboard.modules.data_hub.application.vn_market_feed import VnMarketFeedProducer
 from risk_dashboard.modules.data_hub.application.global_market_feed import GlobalMarketFeedProducer
+from risk_dashboard.modules.data_hub.application.vn_market_feed import VnMarketFeedProducer
 
 _START_LOCK = threading.Lock()
 _STARTED = False
@@ -74,9 +74,13 @@ def _run_loop(logger: logging.Logger) -> None:
     slow_interval = max(int(os.getenv("VN_MARKET_INTERVAL_SLOW_SEC", "300")), 60)
     universe_interval = max(int(os.getenv("VN_MARKET_UNIVERSE_INTERVAL_SEC", "21600")), 3600)
     prefetch_interval = max(int(os.getenv("VN_MARKET_PREFETCH_INTERVAL_SEC", "7200")), 600)
+    global_interval = max(int(os.getenv("GLOBAL_MARKET_INTERVAL_SEC", "60")), 30)
+    global_cache_ttl = max(int(os.getenv("GLOBAL_MARKET_CACHE_TTL_SEC", "75")), 30)
+    global_producer = GlobalMarketFeedProducer(max_cache_age_seconds=global_cache_ttl)
     next_snapshot = 0.0
     next_universe = 0.0
     next_prefetch = 0.0
+    next_global = 0.0
     last_log_state: str | None = None
     while True:
         now = time.time()
@@ -88,11 +92,20 @@ def _run_loop(logger: logging.Logger) -> None:
             last_log_state = state
         try:
             if now >= next_universe:
-                producer.universe()
+                # Listing refresh is infrequent.  Run it before the first
+                # snapshot refresh so a cold start cannot race with an empty
+                # universe and publish a degraded snapshot unnecessarily.
+                producer.universe(force_refresh=True)
                 next_universe = now + universe_interval
             if now >= next_snapshot:
-                producer.snapshot(force_refresh=True)
+                producer.refresh_in_background()
                 next_snapshot = now + (fast_interval if in_market else slow_interval)
+            if now >= next_global:
+                # Keep cross-asset data warm independently from HTTP traffic.
+                # The endpoint can then serve the latest successful snapshot
+                # without making each browser poll call yfinance.
+                global_producer.refresh_in_background()
+                next_global = now + global_interval
             if now >= next_prefetch:
                 _prefetch_popular_history(history_producer, logger)
                 next_prefetch = now + prefetch_interval
@@ -101,6 +114,7 @@ def _run_loop(logger: logging.Logger) -> None:
             next_snapshot = now + (fast_interval if in_market else slow_interval)
             next_universe = now + universe_interval
             next_prefetch = now + prefetch_interval
+            next_global = now + global_interval
         time.sleep(min(5, fast_interval))
 
 

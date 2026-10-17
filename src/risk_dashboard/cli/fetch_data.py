@@ -55,7 +55,7 @@ def main() -> None:
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end)
 
-    paths = PipelinePaths.defaults(Path.cwd())
+    paths = PipelinePaths.defaults()
     out_dir = (args.out or paths.cache_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 

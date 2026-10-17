@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, BarChart3, Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database,
-  DollarSign, Download, FileSpreadsheet, FileText, GraduationCap, Info, PieChart, RefreshCw, Search, Star, TrendingUp,
+  DollarSign, Download, FileSpreadsheet, FileText, GraduationCap, Info, MoreHorizontal, PieChart, RefreshCw, Search, Star, TrendingUp,
 } from 'lucide-react'
 import '../../market-portfolio/pages/market-portfolio-panels.css'
 
@@ -18,12 +18,15 @@ import EvidenceSourceDrawer from '../components/EvidenceSourceDrawer'
 import './bctc-workspace.css'
 
 const BCTC_NAV_TABS = [
-  { id: 'charts', label: 'Biểu đồ tổng quan', icon: TrendingUp },
-  { id: 'financials', label: 'Báo cáo tài chính', icon: FileSpreadsheet },
   { id: 'practice', label: 'Thực hành chỉ số', icon: GraduationCap },
+  { id: 'financials', label: 'Báo cáo tài chính', icon: FileSpreadsheet },
+  { id: 'charts', label: 'Biểu đồ tổng quan', icon: TrendingUp },
   { id: 'evaluation', label: 'Đánh giá sức khỏe', icon: Activity },
-  { id: 'technical', label: 'Kỹ thuật', icon: BarChart3 },
   { id: 'analysis', label: 'Phân tích chuyên sâu', icon: PieChart },
+]
+
+const BCTC_SECONDARY_TABS = [
+  { id: 'technical', label: 'Kỹ thuật', icon: BarChart3 },
   { id: 'governance', label: 'Quản trị', icon: Building2 },
   { id: 'documents', label: 'Tài liệu & Bóc tách', icon: FileText },
   { id: 'copilot', label: 'Agent Copilot', icon: Database },
@@ -127,6 +130,7 @@ export default function BctcAnalysisWorkspace({
   const [error, setError] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   const [selectedEvidenceMemo, setSelectedEvidenceMemo] = useState(null)
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -181,7 +185,7 @@ export default function BctcAnalysisWorkspace({
   function toggleReportGroups() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(reportGroups))
   }
-  const [activeTab, setActiveTab] = useState('charts')
+  const [activeTab, setActiveTab] = useState('practice')
 
   return <main className="bctc-workspace">
     <header className="bctc-company-bar">
@@ -214,7 +218,7 @@ export default function BctcAnalysisWorkspace({
     </section>
 
     {/* Unified Single Navigation Tab Bar */}
-    <div className="mp-desk__tabs" role="tablist" aria-label="BCTC Nav Tabs">
+    <div className="mp-desk__tabs" role="tablist" aria-label="Không gian học tập BCTC">
       {BCTC_NAV_TABS.map((item) => {
         const Icon = item.icon
         const isActive = activeTab === item.id
@@ -224,6 +228,8 @@ export default function BctcAnalysisWorkspace({
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-controls={`bctc-panel-${item.id}`}
+            id={`bctc-tab-${item.id}`}
             className={isActive ? 'is-active' : ''}
             onClick={() => setActiveTab(item.id)}
           >
@@ -232,9 +238,28 @@ export default function BctcAnalysisWorkspace({
           </button>
         )
       })}
+      <div className="bctc-more-tabs">
+        <button
+          type="button"
+          className={BCTC_SECONDARY_TABS.some((item) => item.id === activeTab) ? 'is-active' : ''}
+          aria-expanded={isMoreOpen}
+          aria-haspopup="menu"
+          onClick={() => setIsMoreOpen((value) => !value)}
+        >
+          <MoreHorizontal size={14} />
+          <span>Khác</span>
+          <ChevronDown size={13} />
+        </button>
+        {isMoreOpen && <div className="bctc-more-menu" role="menu" aria-label="Các công cụ BCTC khác">
+          {BCTC_SECONDARY_TABS.map((item) => {
+            const Icon = item.icon
+            return <button type="button" role="menuitem" key={item.id} className={activeTab === item.id ? 'is-active' : ''} onClick={() => { setActiveTab(item.id); setIsMoreOpen(false) }}><Icon size={14} /><span>{item.label}</span></button>
+          })}
+        </div>}
+      </div>
     </div>
 
-    <section className="bctc-stage">
+    <section className="bctc-stage" role="tabpanel" id={`bctc-panel-${activeTab}`} aria-labelledby={`bctc-tab-${activeTab}`}>
       {activeTab === 'practice' && status === 'ready' && <RatioPracticeLab workspace={workspace} />}
       {activeTab === 'charts' && status === 'ready' && <FinancialChartsView workspace={workspace} />}
       {activeTab === 'evaluation' && status === 'ready' && <EvaluationView key={ticker} workspace={workspace} ticker={ticker} />}

@@ -34,7 +34,7 @@ def main() -> None:
     if args.macro in ("csv", "official") and not args.macro_csv:
         p.error(f"--macro {args.macro} cần --macro-csv")
 
-    paths = PipelinePaths.defaults(Path.cwd())
+    paths = PipelinePaths.defaults()
     out_dir = (args.out or paths.cache_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 

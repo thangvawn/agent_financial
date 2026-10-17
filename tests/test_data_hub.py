@@ -141,6 +141,33 @@ def test_vn_snapshot_returns_exchange_market_summary(monkeypatch):
     }
     assert summary["HNX"]["unchanged"] == 1
     assert summary["UPCOM"]["quoted"] == 0
+    payload = response.json()
+    assert payload["last_success_at"] == payload["as_of"]
+    assert payload["age_seconds"] is not None
+    assert payload["market_session"] in {"open", "closed"}
+
+
+def test_vn_snapshot_refresh_is_non_blocking(monkeypatch):
+    refresh_calls = []
+    monkeypatch.setattr(
+        "risk_dashboard.modules.data_hub.api.public._vn_market.refresh_in_background",
+        lambda: refresh_calls.append(True),
+    )
+    monkeypatch.setattr(
+        "risk_dashboard.modules.data_hub.api.public._vn_market.snapshot",
+        lambda: {
+            "as_of": "2026-07-21T04:00:00+00:00",
+            "source": "test",
+            "freshness": "fresh",
+            "items": [],
+        },
+    )
+
+    response = TestClient(app).get("/api/v1/public/data-hub/vn-market/snapshot?refresh=true")
+
+    assert response.status_code == 200
+    assert refresh_calls == [True]
+    assert response.json()["refresh_requested"] is True
 
 
 def test_data_hub_topic_status_and_lookup(monkeypatch):

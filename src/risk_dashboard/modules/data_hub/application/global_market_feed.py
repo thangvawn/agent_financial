@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import contextlib
 import json
 import logging
 import os
+import threading
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
 from typing import Any
 
 import pandas as pd
@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 GLOBAL_MARKET_CACHE_DIR = _PROJECT_ROOT / "data" / "global_market_prices"
 _SUPPORTED_HISTORY_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "4h", "1d", "1wk", "1mo", "1y"}
+_DEFAULT_SNAPSHOT_CACHE_AGE_SECONDS = 75
+_SNAPSHOT_INTRADAY_INTERVAL = "5m"
+_REFRESH_LOCK = threading.Lock()
+_REFRESH_IN_FLIGHT = False
 
 
 @dataclass(frozen=True)
@@ -43,15 +47,35 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
     FeedInstrument("SPX", "S&P 500", "^GSPC", "indices", "US large-cap breadth"),
     FeedInstrument("NDX", "Nasdaq 100", "^NDX", "indices", "US growth / tech beta"),
     FeedInstrument("RUT", "Russell 2000", "^RUT", "indices", "US small-cap risk appetite"),
+    FeedInstrument("DJI", "Dow Jones Industrial Average", "^DJI", "indices", "US blue-chip breadth"),
+    FeedInstrument("NASDAQ", "Nasdaq Composite", "^IXIC", "indices", "US technology breadth"),
     FeedInstrument("DAX", "DAX", "^GDAXI", "indices", "Europe growth pulse"),
+    FeedInstrument("EUROSTOXX", "Euro Stoxx 50", "^STOXX50E", "indices", "Eurozone large-cap breadth"),
+    FeedInstrument("CAC40", "CAC 40", "^FCHI", "indices", "France equity pulse"),
     FeedInstrument("FTSE", "FTSE 100", "^FTSE", "indices", "UK defensive mix"),
     FeedInstrument("NIKKEI", "Nikkei 225", "^N225", "indices", "Japan equity pulse"),
     FeedInstrument("HANGSENG", "Hang Seng", "^HSI", "indices", "China/HK sentiment"),
+    FeedInstrument("KOSPI", "KOSPI", "^KS11", "indices", "South Korea technology cycle"),
+    FeedInstrument("ASX200", "ASX 200", "^AXJO", "indices", "Australia equity pulse"),
+    FeedInstrument("TSX", "S&P/TSX Composite", "^GSPTSE", "indices", "Canada equity pulse"),
+    FeedInstrument("BOVESPA", "Bovespa", "^BVSP", "indices", "Brazil risk appetite"),
+    FeedInstrument("NIFTY50", "NIFTY 50", "^NSEI", "indices", "India growth pulse"),
+    FeedInstrument("SSEC", "Shanghai Composite", "000001.SS", "indices", "Mainland China breadth"),
     FeedInstrument("DXY", "Dollar Index", "DX-Y.NYB", "fx", "USD pressure"),
     FeedInstrument("EURUSD", "EUR/USD", "EURUSD=X", "fx", "Europe vs USD"),
     FeedInstrument("USDJPY", "USD/JPY", "JPY=X", "fx", "JPY carry stress"),
     FeedInstrument("AUDUSD", "AUD/USD", "AUDUSD=X", "fx", "Commodity FX"),
     FeedInstrument("USDCNH", "USD/CNH", "CNH=X", "fx", "China currency pressure"),
+    FeedInstrument("GBPUSD", "GBP/USD", "GBPUSD=X", "fx", "UK vs USD"),
+    FeedInstrument("USDCHF", "USD/CHF", "CHF=X", "fx", "Swiss franc haven"),
+    FeedInstrument("USDCAD", "USD/CAD", "CAD=X", "fx", "Oil-linked currency"),
+    FeedInstrument("NZDUSD", "NZD/USD", "NZDUSD=X", "fx", "New Zealand risk proxy"),
+    FeedInstrument("USDHKD", "USD/HKD", "HKD=X", "fx", "Hong Kong currency regime"),
+    FeedInstrument("USDMXN", "USD/MXN", "MXN=X", "fx", "Mexico carry proxy"),
+    FeedInstrument("USDTRY", "USD/TRY", "TRY=X", "fx", "Turkey inflation stress"),
+    FeedInstrument("USDINR", "USD/INR", "INR=X", "fx", "India currency pressure"),
+    FeedInstrument("EURGBP", "EUR/GBP", "EURGBP=X", "fx", "Euro vs sterling"),
+    FeedInstrument("EURJPY", "EUR/JPY", "EURJPY=X", "fx", "Euro carry cross"),
     FeedInstrument("XAU", "Gold", "GC=F", "commodities", "Safe-haven / inflation hedge", category="metals", unit="USD/oz"),
     FeedInstrument("SILVER", "Silver", "SI=F", "commodities", "Safe-haven and cyclicality", category="metals", unit="USD/oz"),
     FeedInstrument("COPPER", "Copper", "HG=F", "commodities", "Industrial cycle proxy", category="metals", unit="USD/lb"),
@@ -60,20 +84,52 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
     FeedInstrument("WTI", "Crude Oil WTI", "CL=F", "commodities", "Growth and energy pressure", category="energy", unit="USD/bbl"),
     FeedInstrument("BRENT", "Brent Crude", "BZ=F", "commodities", "Global oil benchmark", category="energy", unit="USD/bbl"),
     FeedInstrument("NATGAS", "Natural Gas", "NG=F", "commodities", "Power and heating demand", category="energy", unit="USD/MMBtu"),
+    FeedInstrument("HEATINGOIL", "Heating Oil", "HO=F", "commodities", "Refining and winter demand", category="energy", unit="USD/gal"),
+    FeedInstrument("GASOLINE", "RBOB Gasoline", "RB=F", "commodities", "US transport fuel demand", category="energy", unit="USD/gal"),
     FeedInstrument("CORN", "Corn", "ZC=F", "commodities", "Grain supply cycle", category="grains", unit="US cents/bu"),
     FeedInstrument("WHEAT", "Wheat", "ZW=F", "commodities", "Food inflation pressure", category="grains", unit="US cents/bu"),
     FeedInstrument("SOYBEAN", "Soybean", "ZS=F", "commodities", "Feed and oilseed cycle", category="grains", unit="US cents/bu"),
+    FeedInstrument("OATS", "Oats", "ZO=F", "commodities", "Grain diversification", category="grains", unit="US cents/bu"),
+    FeedInstrument("RICE", "Rough Rice", "ZR=F", "commodities", "Food supply cycle", category="grains", unit="USD/cwt"),
+    FeedInstrument("LIVE_CATTLE", "Live Cattle", "LE=F", "commodities", "Meat and livestock cycle", category="livestock", unit="US cents/lb"),
+    FeedInstrument("FEEDER_CATTLE", "Feeder Cattle", "GF=F", "commodities", "Livestock feed demand", category="livestock", unit="US cents/lb"),
+    FeedInstrument("LEAN_HOGS", "Lean Hogs", "HE=F", "commodities", "Meat supply cycle", category="livestock", unit="US cents/lb"),
     FeedInstrument("SUGAR", "Sugar", "SB=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
     FeedInstrument("COFFEE", "Coffee", "KC=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
     FeedInstrument("COCOA", "Cocoa", "CC=F", "commodities", "Soft commodities", category="raw_materials", unit="USD/ton"),
     FeedInstrument("COTTON", "Cotton", "CT=F", "commodities", "Soft commodities", category="raw_materials", unit="US cents/lb"),
-    FeedInstrument("LUMBER", "Lumber", "LBS=F", "commodities", "Construction cycle", category="raw_materials", unit="USD/1000 board ft"),
+    FeedInstrument("ORANGE_JUICE", "Frozen Orange Juice", "OJ=F", "commodities", "Agricultural softs", category="raw_materials", unit="US cents/lb"),
     FeedInstrument("BTC", "Bitcoin", "BTC-USD", "crypto", "Global risk appetite"),
     FeedInstrument("ETH", "Ethereum", "ETH-USD", "crypto", "Crypto breadth"),
-    FeedInstrument("BNB", "Binance Coin", "BNB-USD", "crypto", "Exchange utility token"),
+    FeedInstrument("USDT", "Tether", "USDT-USD", "crypto", "Dollar stablecoin liquidity"),
+    FeedInstrument("BNB", "BNB", "BNB-USD", "crypto", "Exchange utility token"),
+    FeedInstrument("XRP", "XRP", "XRP-USD", "crypto", "Cross-border payment"),
+    FeedInstrument("USDC", "USD Coin", "USDC-USD", "crypto", "Dollar stablecoin liquidity"),
     FeedInstrument("SOL", "Solana", "SOL-USD", "crypto", "L1 network speed"),
-    FeedInstrument("XRP", "Ripple", "XRP-USD", "crypto", "Cross-border payment"),
+    FeedInstrument("TRX", "TRON", "TRX-USD", "crypto", "High-throughput settlement"),
     FeedInstrument("DOGE", "Dogecoin", "DOGE-USD", "crypto", "Meme speculation pulse"),
+    FeedInstrument("LINK", "Chainlink", "LINK-USD", "crypto", "Oracle infrastructure"),
+    FeedInstrument("ADA", "Cardano", "ADA-USD", "crypto", "Proof-of-stake L1"),
+    FeedInstrument("XLM", "Stellar", "XLM-USD", "crypto", "Cross-border settlement"),
+    FeedInstrument("NEAR", "NEAR Protocol", "NEAR-USD", "crypto", "L1 developer activity"),
+    FeedInstrument("BCH", "Bitcoin Cash", "BCH-USD", "crypto", "Bitcoin fork liquidity"),
+    FeedInstrument("UNI", "Uniswap", "UNI7083-USD", "crypto", "DeFi activity"),
+    FeedInstrument("HBAR", "Hedera", "HBAR-USD", "crypto", "Enterprise DLT adoption"),
+    FeedInstrument("LTC", "Litecoin", "LTC-USD", "crypto", "Payments network"),
+    FeedInstrument("AVAX", "Avalanche", "AVAX-USD", "crypto", "L1 subnet ecosystem"),
+    FeedInstrument("SUI", "Sui", "SUI20947-USD", "crypto", "L1 growth beta"),
+    FeedInstrument("TON", "Toncoin", "TON-USD", "crypto", "Messaging ecosystem"),
+    FeedInstrument("CRO", "Cronos", "CRO-USD", "crypto", "Exchange ecosystem"),
+    FeedInstrument("SHIB", "Shiba Inu", "SHIB-USD", "crypto", "Meme token breadth"),
+    FeedInstrument("DOT", "Polkadot", "DOT-USD", "crypto", "Interoperability network"),
+    FeedInstrument("PEPE", "Pepe", "PEPE24478-USD", "crypto", "Meme speculation pulse"),
+    FeedInstrument("ICP", "Internet Computer", "ICP-USD", "crypto", "Decentralized compute"),
+    FeedInstrument("ARB", "Arbitrum", "ARB-USD", "crypto", "Ethereum L2 activity"),
+    FeedInstrument("FIL", "Filecoin", "FIL-USD", "crypto", "Decentralized storage"),
+    FeedInstrument("APT", "Aptos", "APT21794-USD", "crypto", "L1 developer activity"),
+    FeedInstrument("OP", "Optimism", "OP-USD", "crypto", "Ethereum L2 activity"),
+    FeedInstrument("MKR", "Maker", "MKR-USD", "crypto", "DeFi credit protocol"),
+    FeedInstrument("INJ", "Injective", "INJ-USD", "crypto", "On-chain markets"),
 )
 
 
@@ -89,14 +145,47 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> bool:
         return False
 
 
-class GlobalMarketFeedProducer:
-    def __init__(self, *, cache_dir: Path = GLOBAL_MARKET_CACHE_DIR, max_cache_age_seconds: int = 300) -> None:
-        self.cache_dir = cache_dir
-        self.max_cache_age_seconds = max_cache_age_seconds
+_MEM_HISTORY_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    def snapshot(self) -> dict[str, Any]:
+
+def _history_cache_ttl_seconds(interval: str) -> int:
+    norm = (interval or "1d").lower()
+    if norm == "1m":
+        return 20
+    if norm in {"5m", "15m", "30m"}:
+        return 45
+    if norm in {"1h", "4h"}:
+        return 120
+    return 600  # daily, weekly, monthly: 10 minutes cache
+
+
+class GlobalMarketFeedProducer:
+    def __init__(
+        self,
+        *,
+        cache_dir: Path = GLOBAL_MARKET_CACHE_DIR,
+        max_cache_age_seconds: int | None = None,
+    ) -> None:
+        self.cache_dir = cache_dir
+        configured_age = max_cache_age_seconds
+        if configured_age is None:
+            try:
+                configured_age = int(os.getenv("GLOBAL_MARKET_CACHE_TTL_SEC", str(_DEFAULT_SNAPSHOT_CACHE_AGE_SECONDS)))
+            except (TypeError, ValueError):
+                configured_age = _DEFAULT_SNAPSHOT_CACHE_AGE_SECONDS
+            # Never let an invalid/negative environment value make every
+            # request hit the provider. The scheduler owns the refresh
+            # cadence; this is only the maximum age accepted by a request.
+            configured_age = max(configured_age, 30)
+        else:
+            # Preserve the explicit constructor contract: tests and callers
+            # can pass 0 to require a provider check on every read.
+            configured_age = max(int(configured_age), 0)
+        self.max_cache_age_seconds = configured_age
+
+    def snapshot(self, *, force_refresh: bool = False, read_only: bool = False) -> dict[str, Any]:
         cached = self._load_cache()
-        if not self._is_cache_fresh(cached):
+        if not read_only and (force_refresh or not self._is_cache_fresh(cached)):
             live = self._fetch_yahoo_snapshot()
             if live["items"]:
                 self._write_cache(live)
@@ -112,10 +201,77 @@ class GlobalMarketFeedProducer:
         return {
             "as_of": cached.get("as_of") if isinstance(cached, dict) else None,
             "source": cached.get("source", "yahoo_finance") if isinstance(cached, dict) else "yahoo_finance",
+            "data_interval": cached.get("data_interval", "1d") if isinstance(cached, dict) else "1d",
             "freshness": "fresh" if self._is_cache_fresh(cached) else "stale" if items else "degraded",
             "stale_reason": None if self._is_cache_fresh(cached) else "live_feed_unavailable_using_cache" if items else "live_feed_unavailable_no_cache",
             "groups": by_group,
         }
+
+    def refresh_in_background(self) -> bool:
+        """Start one provider refresh without blocking an HTTP request.
+
+        The scheduler and the browser can both request a refresh at the same
+        time. A process-wide guard collapses those requests into one provider
+        call, which protects Yahoo/CoinGecko rate limits.
+        """
+        global _REFRESH_IN_FLIGHT
+        with _REFRESH_LOCK:
+            if _REFRESH_IN_FLIGHT:
+                return False
+            _REFRESH_IN_FLIGHT = True
+
+        def worker() -> None:
+            global _REFRESH_IN_FLIGHT
+            try:
+                self.snapshot(force_refresh=True)
+            except Exception:
+                logger.exception("Global market background refresh failed")
+            finally:
+                with _REFRESH_LOCK:
+                    _REFRESH_IN_FLIGHT = False
+
+        threading.Thread(target=worker, name="global-market-refresh", daemon=True).start()
+        return True
+
+    def refresh_crypto_in_background(self) -> bool:
+        """Refresh only the CoinGecko group without waiting on Yahoo data.
+
+        Crypto quotes are available 24/7 and have a different provider
+        cadence from indices, FX and commodities. Keeping this path separate
+        prevents a slow Yahoo download from making the crypto tab look frozen.
+        The same process-wide guard serializes it with a full snapshot write.
+        """
+        global _REFRESH_IN_FLIGHT
+        with _REFRESH_LOCK:
+            if _REFRESH_IN_FLIGHT:
+                return False
+            _REFRESH_IN_FLIGHT = True
+
+        def worker() -> None:
+            global _REFRESH_IN_FLIGHT
+            try:
+                crypto_items = self._fetch_crypto_snapshot_items()
+                if not crypto_items:
+                    return
+                cached = self._load_cache()
+                existing = cached.get("items", []) if isinstance(cached, dict) else []
+                merged = [item for item in existing if item.get("group") != "crypto"]
+                merged.extend(crypto_items)
+                self._write_cache({
+                    **(cached if isinstance(cached, dict) else {}),
+                    "as_of": _utc_now_iso(),
+                    "source": cached.get("source", "mixed") if isinstance(cached, dict) else "mixed",
+                    "data_interval": cached.get("data_interval", _SNAPSHOT_INTRADAY_INTERVAL) if isinstance(cached, dict) else _SNAPSHOT_INTRADAY_INTERVAL,
+                    "items": merged,
+                })
+            except Exception:
+                logger.exception("Crypto background refresh failed")
+            finally:
+                with _REFRESH_LOCK:
+                    _REFRESH_IN_FLIGHT = False
+
+        threading.Thread(target=worker, name="crypto-market-refresh", daemon=True).start()
+        return True
 
     def history(self, *, symbol: str, period: str = "6mo", interval: str = "1d") -> dict[str, Any]:
         instrument = find_instrument(symbol)
@@ -130,8 +286,10 @@ class GlobalMarketFeedProducer:
                 "as_of": _utc_now_iso(),
             }
 
+        ttl = _history_cache_ttl_seconds(interval)
         cached = self._load_history_cache(instrument.symbol, period, interval)
-        if not self._is_cache_fresh(cached):
+        fresh = self._is_history_fresh(cached, ttl)
+        if not fresh:
             if instrument.data_source == "vnstock":
                 live = self._fetch_vnstock_history(instrument=instrument, period=period, interval=interval)
             else:
@@ -139,6 +297,7 @@ class GlobalMarketFeedProducer:
             if live["points"]:
                 self._write_history_cache(instrument.symbol, period, interval, live)
                 cached = live
+                fresh = True
 
         points = cached.get("points", []) if isinstance(cached, dict) else []
         return {
@@ -152,17 +311,24 @@ class GlobalMarketFeedProducer:
             "points": points,
             "source": instrument.data_source if instrument.data_source != "yahoo" else "yahoo_finance",
             "as_of": cached.get("as_of") if isinstance(cached, dict) else _utc_now_iso(),
-            "freshness": "fresh" if self._is_cache_fresh(cached) else "stale" if points else "degraded",
-            "stale_reason": None if self._is_cache_fresh(cached) else "history_live_feed_unavailable_using_cache" if points else "history_live_feed_unavailable_no_cache",
+            "freshness": "fresh" if fresh else "stale" if points else "degraded",
+            "stale_reason": None if fresh else "history_live_feed_unavailable_using_cache" if points else "history_live_feed_unavailable_no_cache",
         }
 
     def _fetch_yahoo_snapshot(self) -> dict[str, Any]:
         yahoo_instruments = [i for i in GLOBAL_MARKET_INSTRUMENTS if i.data_source == "yahoo"]
+        tickers = [instrument.yahoo_symbol for instrument in yahoo_instruments]
+        daily_frame = pd.DataFrame()
+        intraday_frame = pd.DataFrame()
         try:
             import yfinance as yf
 
-            tickers = [instrument.yahoo_symbol for instrument in yahoo_instruments]
-            frame = yf.download(
+            # Daily bars provide a stable previous close for the percentage
+            # change. Intraday bars provide the latest tradable quote and
+            # session high/low while the market is open. Yahoo may reject an
+            # intraday request for a symbol or during an outage, so it is
+            # deliberately independent from the daily fallback.
+            daily_frame = yf.download(
                 tickers=tickers,
                 period="5d",
                 interval="1d",
@@ -171,22 +337,40 @@ class GlobalMarketFeedProducer:
                 threads=True,
             )
         except Exception:
-            frame = pd.DataFrame()
+            daily_frame = pd.DataFrame()
+        try:
+            import yfinance as yf
+
+            intraday_frame = yf.download(
+                tickers=tickers,
+                period="1d",
+                interval=_SNAPSHOT_INTRADAY_INTERVAL,
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+            )
+        except Exception:
+            intraday_frame = pd.DataFrame()
 
         items: list[dict[str, Any]] = []
+        has_intraday = False
         for instrument in yahoo_instruments:
-            closes = _extract_close_series(frame, instrument.yahoo_symbol) if not frame.empty else pd.Series(dtype=float)
-            if closes.empty:
+            daily_closes = _extract_close_series(daily_frame, instrument.yahoo_symbol) if not daily_frame.empty else pd.Series(dtype=float)
+            intraday_closes = _extract_close_series(intraday_frame, instrument.yahoo_symbol) if not intraday_frame.empty else pd.Series(dtype=float)
+            quote_series = intraday_closes if not intraday_closes.empty else daily_closes
+            if quote_series.empty:
                 continue
-            previous = closes.iloc[-2] if len(closes) >= 2 else closes.iloc[-1]
-            current = closes.iloc[-1]
+            has_intraday = has_intraday or not intraday_closes.empty
+            previous = _previous_close(daily_closes, quote_series)
+            current = quote_series.iloc[-1]
             if not previous or pd.isna(previous) or pd.isna(current):
                 continue
             change = float(current) - float(previous)
             change_pct = (change / float(previous)) * 100 if float(previous) else 0.0
-            highs = _extract_field_series(frame, instrument.yahoo_symbol, "High") if not frame.empty else pd.Series(dtype=float)
-            lows = _extract_field_series(frame, instrument.yahoo_symbol, "Low") if not frame.empty else pd.Series(dtype=float)
-            volumes = _extract_field_series(frame, instrument.yahoo_symbol, "Volume") if not frame.empty else pd.Series(dtype=float)
+            quote_frame = intraday_frame if not intraday_closes.empty else daily_frame
+            highs = _extract_field_series(quote_frame, instrument.yahoo_symbol, "High") if not quote_frame.empty else pd.Series(dtype=float)
+            lows = _extract_field_series(quote_frame, instrument.yahoo_symbol, "Low") if not quote_frame.empty else pd.Series(dtype=float)
+            volumes = _extract_field_series(quote_frame, instrument.yahoo_symbol, "Volume") if not quote_frame.empty else pd.Series(dtype=float)
             items.append(
                 {
                     "symbol": instrument.symbol,
@@ -198,12 +382,15 @@ class GlobalMarketFeedProducer:
                     "change_pct": round(change_pct, 3),
                     "high_24h": round(float(highs.iloc[-1]), 6) if not highs.empty else None,
                     "low_24h": round(float(lows.iloc[-1]), 6) if not lows.empty else None,
-                    "volume_24h": round(float(volumes.iloc[-1]), 4) if not volumes.empty else None,
+                    # Intraday volume is the current session's accumulated
+                    # volume. Daily fallback keeps the old last-bar value.
+                    "volume_24h": round(float(volumes.sum() if not intraday_closes.empty else volumes.iloc[-1]), 4) if not volumes.empty else None,
                     "category": instrument.category,
                     "unit": instrument.unit,
                     "focus": instrument.focus,
                     "source": "yahoo_finance",
-                    "updated_at": _series_updated_at(closes),
+                    "data_interval": _SNAPSHOT_INTRADAY_INTERVAL if not intraday_closes.empty else "1d",
+                    "updated_at": _series_updated_at(quote_series),
                 }
             )
         items.extend(self._fetch_vnstock_snapshot_items())
@@ -211,13 +398,24 @@ class GlobalMarketFeedProducer:
         if crypto_items:
             items = [item for item in items if item.get("group") != "crypto"]
             items.extend(crypto_items)
-        return {"as_of": _utc_now_iso(), "source": "mixed", "items": items}
+        return {
+            "as_of": _utc_now_iso(),
+            "source": "mixed",
+            "data_interval": _SNAPSHOT_INTRADAY_INTERVAL if has_intraday else "1d",
+            "items": items,
+        }
 
     def _fetch_crypto_snapshot_items(self) -> list[dict[str, Any]]:
         """Use a market-data feed with 24h stats instead of daily-only crypto bars."""
         ids = {
-            "BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin",
-            "SOL": "solana", "XRP": "ripple", "DOGE": "dogecoin",
+            "BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "BNB": "binancecoin",
+            "XRP": "ripple", "USDC": "usd-coin", "SOL": "solana", "TRX": "tron",
+            "DOGE": "dogecoin", "LINK": "chainlink", "ADA": "cardano", "XLM": "stellar",
+            "NEAR": "near", "BCH": "bitcoin-cash", "UNI": "uniswap", "HBAR": "hedera-hashgraph",
+            "LTC": "litecoin", "AVAX": "avalanche-2", "SUI": "sui", "TON": "the-open-network",
+            "CRO": "crypto-com-chain", "SHIB": "shiba-inu", "DOT": "polkadot", "PEPE": "pepe",
+            "ICP": "internet-computer", "ARB": "arbitrum", "FIL": "filecoin", "APT": "aptos",
+            "OP": "optimism", "MKR": "maker", "INJ": "injective-protocol",
         }
         try:
             response = requests.get(
@@ -240,6 +438,11 @@ class GlobalMarketFeedProducer:
             return []
 
         by_id = {value: key for key, value in ids.items()}
+        canonical_names = {
+            instrument.symbol: instrument.name
+            for instrument in GLOBAL_MARKET_INSTRUMENTS
+            if instrument.group == "crypto"
+        }
         items: list[dict[str, Any]] = []
         for row in rows if isinstance(rows, list) else []:
             symbol = by_id.get(row.get("id"))
@@ -251,7 +454,7 @@ class GlobalMarketFeedProducer:
             sparkline = row.get("sparkline_in_7d", {}).get("price", [])
             items.append({
                 "symbol": symbol,
-                "name": row.get("name") or symbol,
+                "name": canonical_names.get(symbol) or row.get("name") or symbol,
                 "yahoo_symbol": f"{symbol}-USD",
                 "group": "crypto",
                 "price": round(price, 8),
@@ -266,6 +469,7 @@ class GlobalMarketFeedProducer:
                 "sparkline": [round(float(value), 8) for value in sparkline if _safe_float(value) is not None][-48:],
                 "focus": "24h market pulse",
                 "source": "coingecko",
+                "data_interval": "spot",
                 "updated_at": row.get("last_updated") or _utc_now_iso(),
             })
         return items
@@ -286,6 +490,9 @@ class GlobalMarketFeedProducer:
             current = float(closes.iloc[-1])
             change = current - previous
             change_pct = (change / previous) * 100 if previous else 0.0
+            highs = pd.to_numeric(frame["high"], errors="coerce").dropna() if "high" in frame.columns else pd.Series(dtype=float)
+            lows = pd.to_numeric(frame["low"], errors="coerce").dropna() if "low" in frame.columns else pd.Series(dtype=float)
+            volumes = pd.to_numeric(frame["volume"], errors="coerce").dropna() if "volume" in frame.columns else pd.Series(dtype=float)
             items.append(
                 {
                     "symbol": instrument.symbol,
@@ -295,12 +502,16 @@ class GlobalMarketFeedProducer:
                     "price": round(current, 6),
                     "change": round(change, 6),
                     "change_pct": round(change_pct, 3),
+                    "high_24h": round(float(highs.iloc[-1]), 6) if not highs.empty else None,
+                    "low_24h": round(float(lows.iloc[-1]), 6) if not lows.empty else None,
+                    "volume_24h": round(float(volumes.iloc[-1]), 4) if not volumes.empty else None,
                     "focus": instrument.focus,
-                    "source": "vnstock",
+                    "source": "entrade",
                     "updated_at": _utc_now_iso(),
                 }
             )
         return items
+
 
     def _fetch_yahoo_history(self, *, instrument: FeedInstrument, period: str, interval: str) -> dict[str, Any]:
         safe_period = _normalize_history_period(period, interval)
@@ -321,7 +532,6 @@ class GlobalMarketFeedProducer:
 
         normalized = _extract_ohlcv_frame(frame, instrument.yahoo_symbol)
         normalized = _resample_history_frame(normalized, interval)
-        closes = normalized["close"] if not normalized.empty and "close" in normalized.columns else pd.Series(dtype=float)
         points: list[dict[str, Any]] = []
         previous: float | None = None
         for index, row in normalized.tail(_history_point_limit(interval)).iterrows():
@@ -358,12 +568,23 @@ class GlobalMarketFeedProducer:
         # Indices (VNINDEX/VN30/HNXINDEX) are quoted in index points — don't scale.
         scale = 1000.0 if _is_vn_stock_equity(instrument) else 1.0
 
+        limit = _history_point_limit(interval)
+        sub = frame.tail(limit)
+        if sub.empty:
+            return {"as_of": _utc_now_iso(), "source": "vnstock", "points": []}
+
+        date_col = "time" if "time" in sub.columns else sub.columns[0]
+        raw_dates = sub[date_col].tolist()
+        raw_closes = sub["close"].tolist()
+        raw_opens = sub["open"].tolist() if "open" in sub.columns else raw_closes
+        raw_highs = sub["high"].tolist() if "high" in sub.columns else raw_closes
+        raw_lows = sub["low"].tolist() if "low" in sub.columns else raw_closes
+        raw_vols = sub["volume"].tolist() if "volume" in sub.columns else [0.0] * len(sub)
+
         points: list[dict[str, Any]] = []
         previous: float | None = None
-        date_col = "time" if "time" in frame.columns else frame.columns[0]
-        limit = _history_point_limit(interval)
-        for _, row in frame.tail(limit).iterrows():
-            close_val = row.get("close")
+        for i in range(len(sub)):
+            close_val = raw_closes[i]
             if close_val is None or (isinstance(close_val, float) and pd.isna(close_val)):
                 continue
             price = float(close_val) * scale
@@ -371,13 +592,13 @@ class GlobalMarketFeedProducer:
             previous = price
             points.append(
                 {
-                    "date": _timestamp_iso(row.get(date_col)),
+                    "date": _timestamp_iso(raw_dates[i]),
                     "price": round(price, 6),
-                    "open": round(float(row.get("open", close_val) or close_val) * scale, 6),
-                    "high": round(float(row.get("high", close_val) or close_val) * scale, 6),
-                    "low": round(float(row.get("low", close_val) or close_val) * scale, 6),
+                    "open": round(float(raw_opens[i] if raw_opens[i] is not None and not pd.isna(raw_opens[i]) else close_val) * scale, 6),
+                    "high": round(float(raw_highs[i] if raw_highs[i] is not None and not pd.isna(raw_highs[i]) else close_val) * scale, 6),
+                    "low": round(float(raw_lows[i] if raw_lows[i] is not None and not pd.isna(raw_lows[i]) else close_val) * scale, 6),
                     "close": round(price, 6),
-                    "volume": round(float(row.get("volume", 0.0) or 0.0), 4),
+                    "volume": round(float(raw_vols[i] if raw_vols[i] is not None and not pd.isna(raw_vols[i]) else 0.0), 4),
                     "change_pct": round(change_pct, 4),
                 }
             )
@@ -393,11 +614,22 @@ class GlobalMarketFeedProducer:
             return {}
 
     def _load_history_cache(self, symbol: str, period: str, interval: str) -> dict[str, Any]:
-        path = self.cache_dir / "history" / f"{symbol}_{period}_{interval}.json"
+        key = f"{symbol}_{period}_{interval}"
+        ttl = _history_cache_ttl_seconds(interval)
+        import time as _t
+        now = _t.time()
+        if key in _MEM_HISTORY_CACHE:
+            ts, payload = _MEM_HISTORY_CACHE[key]
+            if now - ts <= ttl and payload:
+                return payload
+
+        path = self.cache_dir / "history" / f"{key}.json"
         if not path.exists():
             return {}
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            _MEM_HISTORY_CACHE[key] = (now, payload)
+            return payload
         except Exception:
             return {}
 
@@ -406,8 +638,20 @@ class GlobalMarketFeedProducer:
         _atomic_write_json(path, payload)
 
     def _write_history_cache(self, symbol: str, period: str, interval: str, payload: dict[str, Any]) -> None:
-        path = self.cache_dir / "history" / f"{symbol}_{period}_{interval}.json"
+        key = f"{symbol}_{period}_{interval}"
+        import time as _t
+        _MEM_HISTORY_CACHE[key] = (_t.time(), payload)
+        path = self.cache_dir / "history" / f"{key}.json"
         _atomic_write_json(path, payload)
+
+    def _is_history_fresh(self, payload: dict[str, Any] | None, ttl_seconds: int) -> bool:
+        if not payload or not payload.get("as_of"):
+            return False
+        try:
+            as_of = datetime.fromisoformat(str(payload["as_of"]).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return datetime.now(timezone.utc) - as_of <= timedelta(seconds=ttl_seconds)
 
 
 
@@ -439,6 +683,26 @@ def _extract_close_series(frame: pd.DataFrame, yahoo_symbol: str) -> pd.Series:
         return pd.to_numeric(series, errors="coerce").dropna()
     except Exception:
         return pd.Series(dtype=float)
+
+
+def _previous_close(daily_closes: pd.Series, quote_series: pd.Series):
+    """Choose the prior session close for an intraday quote.
+
+    Yahoo sometimes returns a daily bar for the current session and sometimes
+    only the previous session (pre-market, after-hours, or a closed market).
+    Comparing dates prevents a two-session jump when the current daily bar is
+    absent, while retaining a sensible first-bar fallback for thin symbols.
+    """
+    if daily_closes.empty:
+        return quote_series.iloc[0]
+    try:
+        daily_date = pd.Timestamp(daily_closes.index[-1]).date()
+        quote_date = pd.Timestamp(quote_series.index[-1]).date()
+        if daily_date >= quote_date and len(daily_closes) >= 2:
+            return daily_closes.iloc[-2]
+    except (TypeError, ValueError, IndexError):
+        pass
+    return daily_closes.iloc[-1]
 
 
 def _extract_field_series(frame: pd.DataFrame, yahoo_symbol: str, field: str) -> pd.Series:
@@ -480,7 +744,7 @@ def _extract_ohlcv_frame(frame: pd.DataFrame, yahoo_symbol: str) -> pd.DataFrame
 
 
 def _normalize_history_period(period: str, interval: str) -> str:
-    safe_period = period if period in {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"} else "6mo"
+    safe_period = period if period in {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "3y", "5y", "10y", "max"} else "6mo"
     if interval == "1m" and safe_period not in {"1d", "5d"}:
         return "5d"
     if interval in {"5m", "15m", "30m"} and safe_period not in {"1d", "5d", "1mo"}:
@@ -500,6 +764,7 @@ _PERIOD_TO_DAYS = {
     "6mo": 200,
     "1y": 380,
     "2y": 760,
+    "3y": 1140,
     "5y": 1900,
     "10y": 3800,
     "max": 9000,  # vnstock historical depth ~ 2000-01-01
@@ -528,18 +793,97 @@ def _vnstock_interval(interval: str) -> str:
     return _VNSTOCK_INTERVAL_MAP.get(interval, "1D")
 
 
-def _fetch_vnstock_dataframe(symbol: str, *, days: int, interval: str) -> pd.DataFrame | None:
-    """Fetch VN OHLCV from vnstock.
+def _fetch_entrade_ohlcv(symbol: str, *, days: int = 5, interval: str = "1D") -> pd.DataFrame | None:
+    """Fetch VN index or stock OHLCV from Entrade (DNSE) chart API.
 
-    VN equities are only served by the VCI source in vnstock 4.x.
-    The MSN/KBS providers are international and have no VN coverage,
-    so we don't waste retry budget on them. The internal vnstock retry
-    decorator handles transient transport failures on VCI.
-
-    Wrapped in a rate-limiter (15 req/min, well under vnstock guest 20/min)
-    and a SystemExit shield so vnstock's "Process terminated" on rate-limit
-    does not crash the uvicorn worker.
+    Direct HTTP REST API without third-party dependencies or rate limits.
     """
+    sym_clean = symbol.upper().strip()
+    index_map = {
+        "VNINDEX": "VNINDEX",
+        "VN-INDEX": "VNINDEX",
+        "VN30": "VN30",
+        "HNXINDEX": "HNX",
+        "HNX-INDEX": "HNX",
+        "HNX": "HNX",
+        "HNXINDEX30": "HNX30",
+        "UPCOMINDEX": "UPCOM",
+        "UPCOM-INDEX": "UPCOM",
+        "UPCOM": "UPCOM",
+        "VN100": "VN100",
+    }
+    is_index = sym_clean in index_map
+    entrade_sym = index_map.get(sym_clean, sym_clean)
+    endpoint = "index" if is_index else "stock"
+
+    res_map = {
+        "1m": "1",
+        "5m": "5",
+        "15m": "15",
+        "30m": "30",
+        "1h": "1H",
+        "1H": "1H",
+        "4h": "1H",
+        "4H": "1H",
+        "1d": "1D",
+        "1D": "1D",
+        "1wk": "1W",
+        "1w": "1W",
+        "1W": "1W",
+        "1mo": "1W",
+        "1M": "1W",
+        "1y": "1W",
+    }
+    resolution = res_map.get(interval, res_map.get(interval.lower(), "1D"))
+
+    import time
+    now = int(time.time())
+    max_days_by_res = {
+        "1": 25,
+        "5": 100,
+        "15": 180,
+        "30": 365,
+        "1H": 2000,
+        "1D": 10000,
+        "1W": 10000,
+    }
+    effective_days = min(max(days, 5), max_days_by_res.get(resolution, 10000))
+    start = now - effective_days * 86400
+    url = f"https://services.entrade.com.vn/chart-api/v2/ohlcs/{endpoint}?resolution={resolution}&symbol={entrade_sym}&from={start}&to={now}"
+    try:
+        resp = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            timeout=8,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        t = data.get("t", [])
+        c = data.get("c", [])
+        if not t or not c:
+            return None
+        return pd.DataFrame({
+            "time": pd.to_datetime(t, unit="s"),
+            "open": data.get("o", c),
+            "high": data.get("h", c),
+            "low": data.get("l", c),
+            "close": c,
+            "volume": data.get("v", [0.0] * len(t)),
+        })
+    except Exception as exc:
+        logger.debug("Entrade OHLCV fetch failed for %s: %s", symbol, exc)
+        return None
+
+
+def _fetch_vnstock_dataframe(symbol: str, *, days: int, interval: str) -> pd.DataFrame | None:
+    """Fetch VN OHLCV from Entrade primary source with vnstock/VCI fallback."""
+    # 1. Primary: Entrade / DNSE fast public feed (no rate-limit lockout)
+    entrade_frame = _fetch_entrade_ohlcv(symbol, days=days, interval=interval)
+    if entrade_frame is not None and not entrade_frame.empty:
+        return entrade_frame
+
+    # 2. Secondary fallback: vnstock (if installed & within rate limit)
     from datetime import date, timedelta
 
     end = date.today()
@@ -573,6 +917,7 @@ def _fetch_vnstock_dataframe(symbol: str, *, days: int, interval: str) -> pd.Dat
         return None
 
     return None
+
 
 
 class _VnstockRateExceeded(RuntimeError):
@@ -660,13 +1005,14 @@ def _resample_history_frame(frame: pd.DataFrame, interval: str) -> pd.DataFrame:
 
 
 def _history_point_limit(interval: str) -> int:
-    if interval in {"1m", "5m", "15m", "30m"}:
-        return 1200
-    if interval in {"1h", "4h"}:
-        return 600
-    if interval in {"1wk", "1mo", "1y"}:
-        return 520
-    return 800
+    norm = interval.lower() if interval else "1d"
+    if norm in {"1m", "5m", "15m", "30m"}:
+        return 3000
+    if norm in {"1h", "4h"}:
+        return 2000
+    if norm in {"1wk", "1mo", "1y", "1w", "1m"}:
+        return 1500
+    return 4000
 
 
 def _series_updated_at(series: pd.Series) -> str:
@@ -721,7 +1067,7 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
-_VN_INDICES = frozenset({"VNINDEX", "VN30", "HNXINDEX", "HNXINDEX30", "UPCOMINDEX"})
+_VN_INDICES = frozenset({"VNINDEX", "VN30", "HNXINDEX", "HNXINDEX30", "UPCOMINDEX", "HNX", "UPCOM", "VN-INDEX", "HNX-INDEX", "UPCOM-INDEX", "VN100"})
 
 
 def _is_vn_stock_equity(instrument: FeedInstrument) -> bool:

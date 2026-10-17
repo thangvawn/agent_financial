@@ -1,13 +1,13 @@
-/* Hallmark · macrostructure: Financial analysis workbench · tone: dense/utilitarian · anchor hue: cyan
+/* Hallmark · macrostructure: Financial analysis workbench · tone: annotated research desk · anchor hue: terracotta
  * Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 · contrast: pass (40–41) · mobile: pass (34, 49–57)
  * design-system: global-terminal · designed-as-app · contrast: pass
  */
 .bctc-workspace {
-  --blue: oklch(0.685 0.169 237.5); --blue-dark: oklch(0.588 0.199 240); --blue-soft: oklch(0.685 0.169 237.5 / 0.12); --blue-ring: oklch(0.685 0.169 237.5 / 0.35);
+  --blue: #b65335; --blue-dark: #7f3025; --blue-soft: #f3ded5; --blue-ring: #d7a397;
   --muted: var(--ink-muted); --line-soft: var(--line-subtle);
-  --chart-cyan: #59b9cd; --chart-coral: #ff6556; --chart-green: #1fc47b;
-  --chart-yellow: #efc900; --chart-blue: #4169e1; --chart-red: #fb5965;
-  --chart-purple: #7668e9; --chart-teal: #13a7af; --chart-amber: #e3a923;
+  --chart-cyan: #80658d; --chart-coral: #c35a43; --chart-green: #3f765d;
+  --chart-yellow: #b58a32; --chart-blue: #5e6283; --chart-red: #b64c3e;
+  --chart-purple: #76527f; --chart-teal: #80658d; --chart-amber: #b58a32;
   --chart-magenta: #d34c8b; --chart-slate: #78889b; --positive: var(--pos);
   --negative: var(--neg); --warning-soft: var(--warn-soft); --success-soft: var(--pos-soft);
   width: 100%; min-width: 0; min-height: calc(100dvh - 56px); overflow-x: clip; color: var(--ink); background: var(--bg);
@@ -43,7 +43,7 @@
 .bctc-company-tabs button.is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: var(--blue); content: ""; }
 .bctc-stage { min-width: 0; padding: 18px clamp(12px, 2.4vw, 34px) 32px; }
 .bctc-report-window { width: 100%; min-width: 0; max-width: 1580px; margin: 0 auto; overflow: hidden; border: 1px solid #d7dce3; border-radius: 8px; background: #fff; box-shadow: 0 14px 40px rgb(31 41 55 / 11%); }
-.bctc-report-heading { display: flex; min-height: 84px; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%); }
+.bctc-report-heading { display: flex; min-height: 84px; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .bctc-report-heading > div:first-child { min-width: 0; }
 .bctc-report-kicker { display: block; margin-bottom: 3px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
 .bctc-report-heading h2 { margin: 0; color: #182230; font-size: 20px; line-height: 1.25; letter-spacing: -.015em; }
@@ -112,11 +112,11 @@
 .bctc-row-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bctc-report-table td { color: #263445; font-weight: 560; text-align: right; }
 .bctc-report-table td.is-negative { color: #d63f49; }
-.bctc-report-table tr.is-total :is(th,td) { color: #1455a0; background: #eef5ff; font-weight: 760; }
-.bctc-report-table tr.is-group :is(th,td) { color: #1759b2; background: #e7f0ff; font-weight: 780; }
+.bctc-report-table tr.is-total :is(th,td) { color: var(--blue); background: var(--blue-soft); font-weight: 760; }
+.bctc-report-table tr.is-group :is(th,td) { color: var(--blue); background: var(--blue-soft); font-weight: 780; }
 .bctc-report-table tbody tr:hover :is(th,td) { background: #f5f8fc; }
 .bctc-report-table tbody tr.is-total:hover :is(th,td) { background: #e5f0ff; }
-.bctc-report-table tbody tr.is-group:hover :is(th,td) { background: #dceaff; }
+.bctc-report-table tbody tr.is-group:hover :is(th,td) { background: var(--blue-soft); }
 .bctc-report-footer { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 18px; padding: 9px 16px; border-top: 1px solid var(--line); color: var(--muted); background: #f8fafc; font-size: 10px; }
 .bctc-report-footer span:first-child { display: inline-flex; align-items: center; gap: 6px; }
 .bctc-report-footer svg { width: 13px; color: var(--blue); }
@@ -235,8 +235,8 @@
 @media (prefers-reduced-motion: reduce) { .bctc-workspace * { animation-duration: .01ms !important; } }
 @keyframes bctc-spin { to { transform: rotate(360deg); } }
 
-/* Global Terminal parity layer
-   Reuses the same cyan accent, dark surfaces, compact workbench rhythm and geometry. */
+/* Research desk parity layer: paper surfaces, ink typography and one terracotta
+   signal color.  Semantic positive/warning/risk colors remain separate. */
 .bctc-company-bar {
   min-height: 64px;
   gap: 16px;
@@ -1155,3 +1155,72 @@
   .bctc-company-compare button { width: 100%; border-radius: var(--radius-md); }
   .bctc-evaluation-method > div { align-items: flex-start; flex-direction: column; }
 }
+
+.bctc-more-tabs { position: relative; display: flex; align-items: stretch; }
+.bctc-workspace .mp-desk__tabs { overflow: visible; }
+.bctc-more-tabs > button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; padding: 0 14px; border: 0; color: #64748b; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
+.bctc-more-tabs > button:hover,
+.bctc-more-tabs > button.is-active { color: var(--blue); background: var(--blue-soft); }
+.bctc-more-menu { position: absolute; top: calc(100% + 7px); right: 0; z-index: 20; display: grid; min-width: 190px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); box-shadow: var(--shadow-lg); }
+.bctc-more-menu button { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 10px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 11px; font-weight: 700; text-align: left; cursor: pointer; }
+.bctc-more-menu button:hover,
+.bctc-more-menu button.is-active { color: var(--blue); background: var(--blue-soft); }
+@media (max-width: 720px) {
+  .bctc-workspace .mp-desk__tabs { overflow: visible; flex-wrap: wrap; }
+  .bctc-more-menu { position: absolute; top: calc(100% + 7px); right: 0; bottom: auto; left: auto; }
+}
+
+/* Final scoped visual pass. This is deliberately last so the old cyan parity
+   rules cannot win the cascade over the research-desk palette. */
+.bctc-workspace {
+  --bg: #f1ede7;
+  --surface: #fffdf8;
+  --surface-alt: #eee9e1;
+  --ink: #27242a;
+  --ink-muted: #69636d;
+  --ink-subtle: #96909a;
+  --line: #ded8d0;
+  --line-strong: #bfb6ab;
+  --line-subtle: #ebe6df;
+  --blue: #b65335;
+  --blue-dark: #7f3025;
+  --blue-soft: #f3ded5;
+  --blue-ring: #d7a397;
+  --pos: #3f765d;
+  --pos-soft: #e7f0e8;
+  --neg: #b64c3e;
+  --warn: #9b6b1f;
+  --warn-soft: #f8efd9;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 5px;
+  --radius-xl: 6px;
+}
+.bctc-workspace .bctc-symbol-search,
+.bctc-workspace .bctc-report-window,
+.bctc-workspace .bctc-insight-surface,
+.bctc-workspace .bctc-chart-card { border-radius: 4px; box-shadow: none; }
+.bctc-workspace .bctc-logo { border-radius: 3px; color: var(--blue); background: var(--blue-soft); }
+.bctc-workspace .bctc-symbol-search { background: var(--surface); }
+.bctc-workspace .bctc-company-tabs button { border-radius: 3px; }
+.bctc-workspace .bctc-company-tabs button.is-active { border-color: transparent; color: var(--blue); background: transparent; }
+.bctc-workspace .bctc-company-tabs button.is-active::after { display: block; height: 2px; border-radius: 0; background: var(--blue); }
+.bctc-workspace .bctc-report-tabs button.is-active::after { border-radius: 0; }
+.bctc-workspace .bctc-report-table tr.is-total :is(th,td),
+.bctc-workspace .bctc-report-table tr.is-group :is(th,td) { color: var(--blue); background: var(--blue-soft); }
+.bctc-workspace .bctc-report-controls,
+.bctc-workspace .bctc-report-footer { background: var(--surface-alt); }
+.bctc-workspace .bctc-report-heading { background: var(--surface); }
+.bctc-workspace :is(.bctc-period-range, .bctc-report-controls select, .bctc-refresh, .bctc-export) { border-radius: 3px; }
+.bctc-workspace .bctc-export { color: #fffaf5; background: var(--blue); }
+.bctc-workspace .bctc-chart-bar,
+.bctc-workspace .bctc-health-list b { fill: var(--blue); background: var(--blue); }
+.bctc-workspace .bctc-chart-reading-guide i,
+.bctc-workspace .bctc-chart-card > footer i { background: var(--blue); }
+.bctc-workspace .bctc-company-compare button { border-radius: 3px; }
+.bctc-workspace .bctc-chip,
+.bctc-workspace .bctc-z-track { border-radius: 3px; }
+.bctc-workspace .bctc-company-facts > div { border-radius: 4px; }
+.bctc-workspace .bctc-company-tabs button:active { transform: none; }
+.bctc-workspace .bctc-more-menu { border-radius: 4px; box-shadow: none; }
+.bctc-workspace :is(button, input, select):focus-visible { outline-color: var(--blue); }

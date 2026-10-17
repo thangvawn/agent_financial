@@ -16,6 +16,7 @@ export default function LightweightChartPanel({
   scaleMode = 'normal',
   resetTrigger = 0,
   ariaLabel = 'Biểu đồ giá theo thời gian',
+  interval = '1d',
 }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
@@ -31,7 +32,21 @@ export default function LightweightChartPanel({
       || document.documentElement.closest('[data-theme="dark"]') != null
       || document.querySelector('[data-theme="dark"]') != null
   })()
-  const initialOptionsRef = useRef({ isDark, height })
+
+  const isIntraday = (() => {
+    const intrSet = new Set(['1m', '5m', '15m', '30m', '1h', '1H', '4h', '4H', '60m'])
+    if (intrSet.has(interval)) return true
+    if (points && points.length >= 2) {
+      const t0 = typeof points[0]?.date === 'string' ? new Date(points[0].date).getTime() : 0
+      const t1 = typeof points[1]?.date === 'string' ? new Date(points[1].date).getTime() : 0
+      if (t0 > 0 && t1 > 0 && Math.abs(t1 - t0) < 86400 * 1000) {
+        return true
+      }
+    }
+    return false
+  })()
+
+  const initialOptionsRef = useRef({ isDark, height, isIntraday })
 
   useEffect(() => {
     pointsRef.current = points
@@ -72,11 +87,11 @@ export default function LightweightChartPanel({
     // We intentionally create the chart ONCE — options updated separately.
   }, [])
 
-  // Apply theme + height changes without recreating the chart.
+  // Apply theme + height + intraday scale changes without recreating the chart.
   useEffect(() => {
     if (!chartRef.current) return
-    chartRef.current.applyOptions(buildChartOptions({ isDark, height }))
-  }, [isDark, height])
+    chartRef.current.applyOptions(buildChartOptions({ isDark, height, isIntraday }))
+  }, [isDark, height, isIntraday])
 
   // (Re)create series whenever mode flips OR shape of data demands it.
   useEffect(() => {
@@ -135,7 +150,7 @@ export default function LightweightChartPanel({
   return (
     <div className="gt-lwchart-shell">
       {latest ? <div className="gt-lwchart-legend" aria-live="polite">
-        <span>{formatLegendTime(latest.time)}</span>
+        <span>{formatLegendTime(latest.time, isIntraday)}</span>
         {mode === 'candle' ? <>
           <span>O <b>{formatLwPrice(latest.open)}</b></span>
           <span>H <b>{formatLwPrice(latest.high)}</b></span>
@@ -210,7 +225,7 @@ function toTimeValue(iso) {
   return Math.floor(d.getTime() / 1000)
 }
 
-function buildChartOptions({ isDark, height }) {
+function buildChartOptions({ isDark, height, isIntraday = false }) {
   const palette = themePalette(isDark)
   return {
     height,
@@ -238,7 +253,7 @@ function buildChartOptions({ isDark, height }) {
     },
     timeScale: {
       borderColor: palette.line,
-      timeVisible: true,
+      timeVisible: isIntraday,
       secondsVisible: false,
       rightOffset: 4,
       barSpacing: 6,
@@ -388,18 +403,25 @@ function latestLegend(points) {
   }
 }
 
-function formatLegendTime(time) {
+function formatLegendTime(time, isIntraday = false) {
   if (!time) return ''
   const date = typeof time === 'number'
     ? new Date(time * 1000)
     : new Date(`${time.year}-${time.month}-${time.day}`)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('vi-VN', {
+  if (isIntraday) {
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+  return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: 'numeric',
   })
 }
 

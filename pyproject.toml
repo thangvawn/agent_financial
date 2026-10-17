@@ -19,7 +19,10 @@ dependencies = [
   "eval-type-backport>=0.2",
   "shap>=0.44",
   "statsmodels>=0.14",
-  "scikit-learn>=1.4",
+  # Existing serialized HistGradientBoosting models were produced with 1.6.x.
+  # Keep the runtime in the same minor line until models are rebuilt with an
+  # explicit artifact compatibility manifest.
+  "scikit-learn>=1.6,<1.7",
   "arch>=7.0",
   "hmmlearn>=0.3",
   "pyarrow>=14.0",

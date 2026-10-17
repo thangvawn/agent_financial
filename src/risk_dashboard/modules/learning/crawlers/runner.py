@@ -19,6 +19,8 @@ SOURCE_MODULES: dict[str, str] = {
     "archive_org": "risk_dashboard.modules.learning.crawlers.sources.archive_org",
     "fed_imf_wb": "risk_dashboard.modules.learning.crawlers.sources.policy_papers",
     "mit_ocw": "risk_dashboard.modules.learning.crawlers.sources.mit_ocw",
+    "open_courses": "risk_dashboard.modules.learning.crawlers.sources.open_courses",
+    "curated_books": "risk_dashboard.modules.learning.crawlers.sources.curated_books",
     "youtube": "risk_dashboard.modules.learning.crawlers.sources.youtube_curated",
 }
 

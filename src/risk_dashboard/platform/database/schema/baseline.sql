@@ -225,6 +225,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
   region TEXT NOT NULL,
   category TEXT NOT NULL,
   url TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '',
   published_at TEXT NOT NULL,
   fetched_at TEXT NOT NULL,
   sort_ts INTEGER NOT NULL,
@@ -260,7 +261,9 @@ CREATE TABLE IF NOT EXISTS news_fetch_runs (
   successful_source_count INTEGER NOT NULL,
   article_count INTEGER NOT NULL,
   error_count INTEGER NOT NULL,
-  errors_json TEXT NOT NULL
+  errors_json TEXT NOT NULL,
+  conditional_request_count INTEGER NOT NULL DEFAULT 0,
+  not_modified_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_news_fetch_runs_completed_at ON news_fetch_runs(completed_at DESC);
@@ -1055,6 +1058,4 @@ CREATE INDEX IF NOT EXISTS idx_agentic_mem_items_expires
 CREATE VIEW IF NOT EXISTS agentic_core_runs AS SELECT * FROM agentic_runs;
 CREATE VIEW IF NOT EXISTS agentic_core_artifacts AS SELECT * FROM agentic_artifacts;
 CREATE VIEW IF NOT EXISTS agentic_core_action_proposals AS SELECT * FROM agentic_action_proposals;
-
-
 

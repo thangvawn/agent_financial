@@ -1,0 +1,194 @@
+/* Quanta Docs Sidebar styling */
+
+.qd-sidebar {
+  width: 290px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.35);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.qd-mode-switcher {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.qd-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.qd-mode-btn.is-active {
+  background: rgba(6, 182, 212, 0.18);
+  color: #a5f3fc;
+  border-color: rgba(6, 182, 212, 0.4);
+}
+
+.qd-nav-home {
+  padding: 0.4rem 0.65rem 0;
+}
+
+.qd-home-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qd-home-btn.is-active,
+.qd-home-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+}
+
+.qd-nav-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.65rem;
+}
+
+.qd-section-group {
+  margin-bottom: 0.5rem;
+}
+
+.qd-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.qd-section-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.qd-sec-icon {
+  color: #22d3ee;
+}
+
+.qd-sec-title {
+  flex: 1;
+  text-align: left;
+}
+
+.qd-lesson-list {
+  list-style: none;
+  padding: 0.15rem 0 0.15rem 1.25rem;
+  margin: 0;
+}
+
+.qd-lesson-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.78rem;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.qd-lesson-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.qd-lesson-item.is-active {
+  background: rgba(6, 182, 212, 0.15);
+  color: #67e8f9;
+  font-weight: 600;
+}
+
+.qd-lesson-time {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: 0.4rem;
+}
+
+/* Wiki in sidebar */
+.qd-wiki-header-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  margin-bottom: 0.35rem;
+}
+
+.qd-wiki-group {
+  margin-bottom: 0.65rem;
+}
+
+.qd-wiki-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: #d8b4fe;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.qd-wiki-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.qd-fn-tag {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #93c5fd;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.qd-fn-tag:hover,
+.qd-fn-tag.is-active {
+  background: rgba(14, 165, 233, 0.25);
+  color: #e0f2fe;
+  border-color: rgba(14, 165, 233, 0.5);
+}
+
+.qd-fn-tag--ns {
+  color: #a7f3d0;
+  border-color: rgba(16, 185, 129, 0.25);
+}

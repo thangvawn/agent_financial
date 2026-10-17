@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 def _calc_expires_at(updated_at_iso: str) -> str:
     try:
-        dt = datetime.fromisoformat(updated_at_iso)
+        normalized = updated_at_iso.strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(normalized)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
     except Exception as exc:
@@ -100,4 +101,3 @@ class LearningSummaryReader:
             expires_at=expires_at,
         )
         return (summary,)
-

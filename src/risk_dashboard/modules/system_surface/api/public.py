@@ -11,8 +11,6 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.data import cross_asset_prices as cross_asset_prices_mod
-from risk_dashboard.platform.model_runtime.registry import model_runtime_health
-from risk_dashboard.platform.runtime.panel_store import PanelUnavailableError, get_panel, panel_status
 from risk_dashboard.engines.quant.advanced_engine import (
     compute_garch_volatility,
     compute_market_regime,
@@ -20,6 +18,12 @@ from risk_dashboard.engines.quant.advanced_engine import (
 )
 from risk_dashboard.engines.quant.eod_pipeline import _get_cached_trained_model
 from risk_dashboard.engines.quant.xgb_engine import predict_horizons, prepare_features
+from risk_dashboard.platform.model_runtime.registry import model_runtime_health
+from risk_dashboard.platform.runtime.panel_store import (
+    PanelUnavailableError,
+    get_panel,
+    panel_status,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["System"])
@@ -31,9 +35,10 @@ def _dashboard_html() -> str:
     html_path = index_path if index_path.exists() else settings.legacy_dashboard_html
     html_content = html_path.read_text(encoding="utf-8")
     import time
+
     ts = int(time.time())
-    html_content = html_content.replace(".js\"", f".js?v={ts}\"")
-    html_content = html_content.replace(".css\"", f".css?v={ts}\"")
+    html_content = html_content.replace('.js"', f'.js?v={ts}"')
+    html_content = html_content.replace('.css"', f'.css?v={ts}"')
     return html_content
 
 
@@ -58,13 +63,57 @@ def _get_live_vnindex_dnse(default_val: float) -> tuple[float, int]:
 def health() -> dict:
     status = panel_status()
     model = model_runtime_health()
+    ready = bool(status["loaded"] and model["available"])
     return {
-        "status": "ok" if status["loaded"] else "degraded",
+        "status": "ok" if ready else "degraded",
+        "ready": ready,
         "checks": {
             "panel_loaded": status["loaded"],
             "model_available": model["available"],
         },
+        "panel": {
+            "rows": status["rows"],
+            "start_date": status["start_date"],
+            "end_date": status["end_date"],
+            "source_kind": status["source_kind"],
+            "error": status["error"],
+            "hint": status["hint"],
+        },
     }
+
+
+@router.get("/ready", tags=["System"])
+def readiness() -> dict:
+    """Return a load-balancer friendly readiness contract.
+
+    ``/health`` remains a liveness endpoint and stays HTTP 200 while the
+    service is starting.  Consumers that require quant data should use this
+    endpoint, which returns 503 until both the panel and local model are ready.
+    """
+    status = panel_status()
+    model = model_runtime_health()
+    ready = bool(status["loaded"] and model["available"])
+    payload = {
+        "status": "ready" if ready else "not_ready",
+        "ready": ready,
+        "checks": {
+            "panel_loaded": status["loaded"],
+            "model_available": model["available"],
+        },
+        "panel": {
+            "rows": status["rows"],
+            "source_kind": status["source_kind"],
+            "error": status["error"],
+            "hint": status["hint"],
+        },
+    }
+    if not ready:
+        return Response(
+            content=json.dumps(payload, ensure_ascii=False),
+            status_code=503,
+            media_type="application/json",
+        )
+    return payload
 
 
 @router.get("/favicon.ico", include_in_schema=False)
@@ -143,7 +192,9 @@ def dashboard_history(limit: int = 150):
     df = panel.copy()
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date")
-    trained_model, _ = _get_cached_trained_model(df, df["date"].max(), "skhgb-v4-hybrid", None, None, None)
+    trained_model, _ = _get_cached_trained_model(
+        df, df["date"].max(), "skhgb-v4-hybrid", None, None, None
+    )
     feat_df = prepare_features(df, vn30_panel=None).tail(limit)
 
     results = []
@@ -189,7 +240,9 @@ def dashboard_live():
     last_row["date"] = pd.to_datetime(market_time, unit="s")
     df = pd.concat([df, pd.DataFrame([last_row])], ignore_index=True)
 
-    trained_model, _ = _get_cached_trained_model(df, df["date"].max(), "skhgb-v4-hybrid", None, None, None)
+    trained_model, _ = _get_cached_trained_model(
+        df, df["date"].max(), "skhgb-v4-hybrid", None, None, None
+    )
     feat_df = prepare_features(df, vn30_panel=None)
     pred_row = feat_df.iloc[-1]
     _, _, _, _, score = predict_horizons(trained_model, pred_row)

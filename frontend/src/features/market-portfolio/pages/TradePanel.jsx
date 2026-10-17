@@ -7,6 +7,7 @@ import './market-portfolio-panels.css'
 export default function TradePanel({ sessionId }) {
   const [orders, setOrders] = useState([])
   const [form, setForm] = useState({ symbol: 'FPT', side: 'BUY', orderType: 'MP', quantity: 100, limitPrice: '' })
+  const [result, setResult] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -29,8 +30,10 @@ export default function TradePanel({ sessionId }) {
     event.preventDefault()
     setBusy(true)
     setError('')
+    setResult('')
     try {
-      await placeMpOrder(sessionId, form)
+      const placed = await placeMpOrder(sessionId, form)
+      setResult(`Đã gửi lệnh giấy ${form.symbol}. Trạng thái: ${placed.order?.status || placed.status || 'đã tiếp nhận'}. Xem vị thế đã khớp tại tab Danh mục.`)
       await reload()
     } catch (err) {
       setError(err.message)
@@ -56,7 +59,7 @@ export default function TradePanel({ sessionId }) {
     <section className="mp-panel">
       <header className="mp-panel__head">
         <h2>Luyện đặt lệnh</h2>
-        <p>MP mô phỏng khớp theo giá hiện tại. LO chỉ khớp khi giá đạt mức bạn đặt.</p>
+        <p>MP mô phỏng khớp theo snapshot bảng giá Việt Nam của hệ thống khi gửi lệnh. LO khớp nếu snapshot lúc gửi đáp ứng giá giới hạn.</p>
       </header>
       <p className="edu-inline-note">
         <strong>Trước khi đặt:</strong> xác định lý do, số lượng và mức lỗ có thể chấp nhận. Đây là lệnh giấy, không dùng tiền thật.
@@ -111,6 +114,7 @@ export default function TradePanel({ sessionId }) {
         </button>
       </form>
       {error ? <p className="mp-error" role="alert">{error}. Hãy kiểm tra dữ liệu và thử lại.</p> : null}
+      {result ? <p role="status">{result}</p> : null}
       <div className="mp-table-wrap">
         <table className="mp-table">
           <caption className="sr-only">Lịch sử lệnh mô phỏng</caption>

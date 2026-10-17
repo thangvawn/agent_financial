@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
@@ -74,9 +75,17 @@ def run_ingest_to_parquet(
     out_dir.mkdir(parents=True, exist_ok=True)
     iid = ingest_id or str(uuid.uuid4())
     panel = build_training_panel(market, macro, start, end)
+    if panel.empty:
+        raise ValueError("Training panel rỗng; không ghi artifact ingest không dùng được.")
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     pq_path = out_dir / f"panel_{ts}_{iid[:8]}.parquet"
-    panel.to_parquet(pq_path, index=False)
+    pq_tmp = pq_path.with_name(f".{pq_path.name}.tmp.{os.getpid()}")
+    try:
+        panel.to_parquet(pq_tmp, index=False)
+        os.replace(pq_tmp, pq_path)
+    except Exception:
+        pq_tmp.unlink(missing_ok=True)
+        raise
 
     manifest = IngestManifest(
         ingest_id=iid,
@@ -89,5 +98,11 @@ def run_ingest_to_parquet(
         columns=list(panel.columns),
     )
     man_path = out_dir / f"manifest_{ts}_{iid[:8]}.json"
-    man_path.write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
+    man_tmp = man_path.with_name(f".{man_path.name}.tmp.{os.getpid()}")
+    try:
+        man_tmp.write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
+        os.replace(man_tmp, man_path)
+    except Exception:
+        man_tmp.unlink(missing_ok=True)
+        raise
     return pq_path, man_path

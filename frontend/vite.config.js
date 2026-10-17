@@ -5,6 +5,23 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/dashboard-static/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three')) return 'vendor-three'
+            if (id.includes('lightweight-charts')) return 'vendor-charts'
+            if (id.includes('lucide-react')) return 'vendor-icons'
+            if (id.includes('framer-motion') || id.includes('animejs')) return 'vendor-motion'
+            if (id.includes('@tanstack/react-query')) return 'vendor-query'
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react'
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 650,
+  },
   server: {
     // Lắng nghe mọi interface — truy cập từ máy khác qua http://<IP-LAN>:5173
     host: true,

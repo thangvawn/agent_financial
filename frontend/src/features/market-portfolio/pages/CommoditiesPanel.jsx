@@ -4,7 +4,7 @@ import { fetchMpCommoditiesSnapshot } from '../services'
 
 const GROUPS = [
   ['all', 'Tất cả nhóm'], ['metals', 'Kim loại'], ['energy', 'Năng lượng'],
-  ['grains', 'Ngũ cốc'], ['raw_materials', 'Nguyên liệu'],
+  ['grains', 'Ngũ cốc'], ['livestock', 'Chăn nuôi'], ['raw_materials', 'Nguyên liệu'],
 ]
 
 function number(value, digits = 2) {
@@ -26,10 +26,22 @@ function Change({ value }) {
 function Sparkline({ row }) {
   const base = Number(row.price) || 1
   const change = Number(row.change_pct) || 0
-  const points = [base - change * .6, base - change * .25, base + change * .15, base + change * .4, base + change]
+  const up = change >= 0
+  const seed = [...String(row.symbol || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const pointCount = 18
+  const points = Array.from({ length: pointCount }, (_, idx) => {
+    const progress = idx / (pointCount - 1)
+    const drift = base - (change * 0.01 * base) * (1 - progress)
+    const wave = Math.sin(seed * 0.13 + idx * 1.4) * (Math.abs(change) * 0.003 * base || base * 0.002) * (1 - progress * 0.3)
+    return drift + wave
+  })
   const min = Math.min(...points), max = Math.max(...points), span = max - min || 1
-  const path = points.map((point, index) => `${index ? 'L' : 'M'} ${index * 25} ${28 - ((point - min) / span) * 23}`).join(' ')
-  return <svg className={`commodity-spark ${change >= 0 ? 'is-up' : 'is-down'}`} viewBox="0 0 100 32" preserveAspectRatio="none"><path d={path} vectorEffect="non-scaling-stroke" /></svg>
+  const path = points.map((point, index) => `${index ? 'L' : 'M'} ${((index / (pointCount - 1)) * 100).toFixed(1)} ${(28 - ((point - min) / span) * 24).toFixed(1)}`).join(' ')
+  return (
+    <svg className={`commodity-spark ${up ? 'is-up' : 'is-down'}`} viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+      <path d={path} fill="none" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
 }
 
 export default function CommoditiesPanel() {
@@ -79,15 +91,60 @@ export default function CommoditiesPanel() {
   return <section className="mp-panel commodity-page">
     <header className="commodity-head">
       <div><div className="commodity-kicker"><Box size={14} /> GLOBAL COMMODITIES / MARKET BOARD</div><h2>Thị trường hàng hóa</h2><p>Giá tham chiếu quốc tế, biến động và thanh khoản của các nhóm hàng hóa theo dõi.</p></div>
-      <div className="commodity-status"><span className={`gt-status-dot ${data?.freshness === 'fresh' ? 'is-live' : ''}`} /><span>{data?.freshness === 'fresh' ? 'FRESH SNAPSHOT' : 'CACHED SNAPSHOT'}</span><small>{data?.provider} · {data?.data_interval} · {data?.as_of ? new Date(data.as_of).toLocaleTimeString('vi-VN') : '—'}</small><button onClick={load} aria-label="Làm mới"><RefreshCw size={14} className={loading ? 'is-spinning' : ''} /></button></div>
+      <div className="commodity-status"><span className={`gt-status-dot ${data?.freshness === 'fresh' ? 'is-live' : ''}`} /><span>{data?.freshness === 'fresh' && data?.data_interval !== '1d' ? 'NEAR-LIVE FEED' : data?.freshness === 'fresh' ? 'DELAYED FEED' : 'CACHED FEED'}</span><small>{data?.provider} · {data?.data_interval || '1d'} · {data?.as_of ? new Date(data.as_of).toLocaleTimeString('vi-VN') : '—'}</small><button onClick={load} aria-label="Làm mới"><RefreshCw size={14} className={loading ? 'is-spinning' : ''} /></button></div>
     </header>
     <div className="commodity-summary"><div><span>Hợp đồng theo dõi</span><strong>{items.length}</strong></div><div><span>Đang tăng</span><strong className="is-up">{advancing}</strong></div><div><span>Đang giảm</span><strong className="is-down">{declining}</strong></div><div><span>Nguồn dữ liệu</span><strong className="commodity-source">{data?.source || '—'}</strong></div></div>
     <div className="commodity-layout">
       <main>
         <div className="commodity-toolbar"><div className="commodity-groups">{GROUPS.map(([key, label]) => <button key={key} className={group === key ? 'is-active' : ''} onClick={() => setGroup(key)}>{label}</button>)}</div><div className="commodity-tools"><label><Search size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm hàng hóa" /></label><label><SlidersHorizontal size={13} /><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="liquidity">Thanh khoản</option><option value="change">Tăng giá</option><option value="price">Giá</option></select></label></div></div>
-        <div className="commodity-table-wrap"><table className="commodity-table"><thead><tr><th>#</th><th>Mã hàng hóa</th><th>Giá</th><th>+/-%</th><th>Tổng KL</th><th>Biểu đồ</th><th>Đơn vị</th></tr></thead><tbody>{filtered.map((row, index) => <tr key={row.symbol} className={selectedRow?.symbol === row.symbol ? 'is-selected' : ''} onClick={() => setSelected(row.symbol)}><td className="commodity-rank">{index + 1}</td><td><div className="commodity-asset"><span>{row.symbol.slice(0, 1)}</span><div><strong>{row.symbol}</strong><small>{row.name}</small></div></div></td><td className="num commodity-price">{money(row.price)}</td><td className="num"><Change value={row.change_pct} /></td><td className="num commodity-muted">{row.volume_24h ? number(row.volume_24h, 0) : '—'}</td><td><Sparkline row={row} /></td><td className="commodity-muted">{row.unit || '—'}</td></tr>)}</tbody></table>{!filtered.length && <div className="commodity-table-empty">Không có dữ liệu trong nhóm này.</div>}</div>
+        <div className="commodity-table-wrap">
+          <table className="commodity-table">
+            <thead>
+              <tr><th>#</th><th>Mã hàng hóa</th><th>Giá</th><th>+/-%</th><th>Tổng KL</th><th>Biểu đồ</th><th>Đơn vị</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map((row, index) => {
+                const rowUp = Number(row.change_pct) >= 0
+                return (
+                  <tr key={row.symbol} className={selectedRow?.symbol === row.symbol ? 'is-selected' : ''} onClick={() => setSelected(row.symbol)}>
+                    <td className="commodity-rank">{index + 1}</td>
+                    <td>
+                      <div className="commodity-asset">
+                        <span>{row.symbol.slice(0, 1)}</span>
+                        <div>
+                          <strong className={rowUp ? 'is-up' : 'is-down'}>{row.symbol}</strong>
+                          <small>{row.name}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={`num commodity-price ${rowUp ? 'is-up' : 'is-down'}`}>{money(row.price)}</td>
+                    <td className="num"><Change value={row.change_pct} /></td>
+                    <td className="num commodity-muted">{row.volume_24h ? number(row.volume_24h, 0) : '—'}</td>
+                    <td><Sparkline row={row} /></td>
+                    <td className="commodity-muted">{row.unit || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {!filtered.length && <div className="commodity-table-empty">Không có dữ liệu trong nhóm này.</div>}
+        </div>
       </main>
-      <aside className="commodity-focus">{selectedRow ? <><div className="commodity-focus-top"><span className="commodity-kicker">SELECTED CONTRACT</span><span>{selectedRow.category?.replace('_', ' ')}</span></div><div className="commodity-focus-identity"><span>{selectedRow.symbol.slice(0, 1)}</span><div><h3>{selectedRow.name}</h3><small>{selectedRow.symbol} · {selectedRow.unit || '—'}</small></div></div><div className="commodity-focus-price">{money(selectedRow.price)} <Change value={selectedRow.change_pct} /></div><div className="commodity-focus-chart"><Sparkline row={selectedRow} /></div><div className="commodity-focus-grid"><div><span>Cao nhất</span><strong>{money(selectedRow.high_24h)}</strong></div><div><span>Thấp nhất</span><strong>{money(selectedRow.low_24h)}</strong></div><div><span>Khối lượng</span><strong>{selectedRow.volume_24h ? number(selectedRow.volume_24h, 0) : '—'}</strong></div><div><span>Provider</span><strong>{selectedRow.source || '—'}</strong></div></div><p className="commodity-note"><ArrowUpRight size={14} /> Dữ liệu được lưu vào bảng commodity_quotes</p></> : <div className="commodity-empty">Chưa có hàng hóa.</div>}</aside>
+      <aside className="commodity-focus">
+        {selectedRow ? (() => {
+          const focusUp = Number(selectedRow.change_pct) >= 0
+          return (
+            <>
+              <div className="commodity-focus-top"><span className="commodity-kicker">SELECTED CONTRACT</span><span>{selectedRow.category?.replace('_', ' ')}</span></div>
+              <div className="commodity-focus-identity"><span>{selectedRow.symbol.slice(0, 1)}</span><div><h3>{selectedRow.name}</h3><small className={focusUp ? 'is-up' : 'is-down'}>{selectedRow.symbol} · {selectedRow.unit || '—'}</small></div></div>
+              <div className={`commodity-focus-price ${focusUp ? 'is-up' : 'is-down'}`}>{money(selectedRow.price)} <Change value={selectedRow.change_pct} /></div>
+              <div className="commodity-focus-chart"><Sparkline row={selectedRow} /></div>
+              <div className="commodity-focus-grid"><div><span>Cao nhất</span><strong>{money(selectedRow.high_24h)}</strong></div><div><span>Thấp nhất</span><strong>{money(selectedRow.low_24h)}</strong></div><div><span>Khối lượng</span><strong>{selectedRow.volume_24h ? number(selectedRow.volume_24h, 0) : '—'}</strong></div><div><span>Provider</span><strong>{selectedRow.source || '—'}</strong></div></div>
+              <p className="commodity-note"><ArrowUpRight size={14} /> Dữ liệu được lưu vào bảng commodity_quotes</p>
+            </>
+          )
+        })() : <div className="commodity-empty">Chưa có hàng hóa.</div>}
+      </aside>
     </div>
   </section>
 }

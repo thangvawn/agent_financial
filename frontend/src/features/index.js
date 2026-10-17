@@ -8,7 +8,7 @@ export { default as NewsEconCalendarPage } from './news/pages/NewsEconCalendarPa
 export { default as GuidedInvestingPage } from './bctc/pages/GuidedInvestingPage.jsx'
 export { default as FinancialRatioPage } from './bctc/pages/FinancialRatioPage.jsx'
 export { default as LearningHomePage } from './learn-hub/pages/LearningHomePage.jsx'
+export { default as MockExamRoomPage } from './learn-hub/pages/MockExamRoomPage.jsx'
 export { default as LearnHubPage } from './learn-hub/pages/LearnHubPage.jsx'
 export { default as ProLabPage } from './simulation-lab/pages/ProLabPage.jsx'
 export { default as ProLabBacktestStudioPage } from './simulation-lab/pages/ProLabBacktestStudioPage.jsx'
-

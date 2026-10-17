@@ -1,0 +1,80 @@
+/* Page Skeleton Loader — Fintech Minimal */
+.page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-height: 60vh;
+  padding: 1.25rem 0;
+  animation: pageSkeletonFadeIn 0.2s ease-out;
+}
+
+.page-skeleton__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-skeleton__title {
+  width: 200px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.page-skeleton__pill {
+  width: 110px;
+  height: 24px;
+  border-radius: var(--radius-pill, 9999px);
+}
+
+.page-skeleton__grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .page-skeleton__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.page-skeleton__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.page-skeleton__card {
+  width: 100%;
+  height: 180px;
+  border-radius: var(--radius-md, 10px);
+}
+
+.page-skeleton__card--main {
+  height: 380px;
+}
+
+.page-skeleton__shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: pageSkeletonShimmer 1.5s infinite;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@keyframes pageSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pageSkeletonFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

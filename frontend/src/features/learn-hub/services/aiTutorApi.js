@@ -53,6 +53,7 @@ export async function sendTutorMessage({
   surface = 'learn',
   currentSurfaceId,
   knowledgeLevel = 'beginner',
+  videoTimeSeconds,
 }) {
   const idemp = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
   const res = await fetch(`/api/v1/public/ai-tutor/conversations/${encodeURIComponent(conversationId)}/messages`, {
@@ -64,6 +65,7 @@ export async function sendTutorMessage({
       current_surface_id: currentSurfaceId || null,
       knowledge_level: knowledgeLevel,
       locale: 'vi-VN',
+      ...(Number.isFinite(videoTimeSeconds) ? { video_time_seconds: videoTimeSeconds } : {}),
       idempotency_key: idemp,
     }),
   })
@@ -84,4 +86,3 @@ export async function submitTutorFeedback({ sessionId, messageId, conversationId
   })
   return expectJson(res)
 }
-

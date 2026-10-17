@@ -3,7 +3,16 @@ const cache = new Map()
 async function expectJson(response) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
-    const message = payload?.detail || payload?.message || `Request failed: ${response.status}`
+    const detail = payload?.detail
+    if (typeof detail === 'string') throw new Error(detail)
+    if (detail?.message) {
+      const failedTickers = Array.isArray(detail.errors)
+        ? detail.errors.map((item) => item?.ticker).filter(Boolean)
+        : []
+      const suffix = failedTickers.length ? ` (${failedTickers.join(', ')} không tải được)` : ''
+      throw new Error(`${detail.message}${suffix}`)
+    }
+    const message = payload?.message || `Request failed: ${response.status}`
     throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
   }
   return payload
@@ -81,6 +90,77 @@ export async function fetchCompanyFinancialWorkspace(
     `/financials/${encodeURIComponent(symbol)}/company-workspace?${params.toString()}`,
     refresh,
   )
+}
+
+export async function runFinancialScenario(
+  ticker,
+  {
+    period = '',
+    revenueGrowthPct = 5,
+    grossMarginPct = null,
+    taxRatePct = 20,
+    operatingExpenseGrowthPct = 3,
+  } = {},
+) {
+  const symbol = String(ticker || '').trim().toUpperCase()
+  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/scenario`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...(period ? { period } : {}),
+      revenue_growth_pct: Number(revenueGrowthPct),
+      ...(grossMarginPct === null || grossMarginPct === '' ? {} : { gross_margin_pct: Number(grossMarginPct) }),
+      tax_rate_pct: Number(taxRatePct),
+      operating_expense_growth_pct: Number(operatingExpenseGrowthPct),
+    }),
+  })
+  return expectJson(response)
+}
+
+export async function fetchFinancialWorkbookModel(ticker, sessionId = '') {
+  const symbol = String(ticker || '').trim().toUpperCase()
+  const headers = sessionId ? { 'X-Session-ID': sessionId } : undefined
+  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/model`, { headers })
+  if (response.status === 404) return null
+  return expectJson(response)
+}
+
+export async function saveFinancialWorkbookModel(ticker, model, sessionId = '') {
+  const symbol = String(ticker || '').trim().toUpperCase()
+  const headers = { 'Content-Type': 'application/json' }
+  if (sessionId) headers['X-Session-ID'] = sessionId
+  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/model`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(model),
+  })
+  return expectJson(response)
+}
+
+export async function runBctcPracticeLab({ tickers = [], datasets = [], periodMode = 'quarter', period = '', limit = 12 } = {}) {
+  const normalizedTickers = [...new Set((tickers || []).map((ticker) => String(ticker || '').trim().toUpperCase()).filter(Boolean))]
+  if (normalizedTickers.length > 8) throw new Error('Phòng thực hành nhận tối đa 8 mã trong một lần chạy.')
+  if (!['quarter', 'year'].includes(periodMode)) throw new Error('Chọn tần suất theo quý hoặc theo năm.')
+  const response = await fetch('/financials/practice-lab', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tickers: normalizedTickers,
+      datasets,
+      period_mode: periodMode,
+      ...(period ? { period } : {}),
+      limit,
+    }),
+  })
+  return expectJson(response)
+}
+
+export function clearFinancialsApiCache() {
+  cache.clear()
+}
+
+export async function fetchCachedFinancialTickers() {
+  return fetchWithCache('financials_cached_tickers', '/financials/cached-tickers')
 }
 
 export async function fetchCompanyMarketContext(ticker) {
@@ -257,4 +337,3 @@ export async function deleteBctcMemo(memoId) {
   })
   return expectJson(response)
 }
-

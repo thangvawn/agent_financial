@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -306,8 +308,31 @@ def get_derivatives_snapshot() -> dict:
 def get_crypto_snapshot() -> dict:
     from risk_dashboard.modules.data_hub.application.global_market_feed import GlobalMarketFeedProducer
     try:
-        feed = GlobalMarketFeedProducer().snapshot()
+        producer = GlobalMarketFeedProducer()
+        feed = producer.snapshot(read_only=True)
         crypto = feed.get("groups", {}).get("crypto", [])
+        # The top-level snapshot timestamp can be fresh while a provider
+        # group is still carrying its previous quote.  Crypto has its own
+        # `last_updated` timestamp, so use the oldest quote age to decide
+        # whether a background refresh is needed.
+        try:
+            refresh_interval_seconds = max(int(os.getenv("GLOBAL_MARKET_INTERVAL_SEC", "60")), 30)
+        except (TypeError, ValueError):
+            refresh_interval_seconds = 60
+        # CoinGecko's `last_updated` can lag the request by one or two
+        # minutes. Allow that provider delay before scheduling another full
+        # refresh, otherwise a stale provider timestamp would cause a refresh
+        # on every browser poll.
+        quote_stale_after_seconds = max(refresh_interval_seconds * 3, 180)
+        crypto_is_old = bool(crypto) and any(
+            _quote_age_seconds(item.get("updated_at")) > quote_stale_after_seconds
+            for item in crypto
+        )
+        refresh_started = False
+        if feed.get("freshness") != "fresh":
+            refresh_started = producer.refresh_in_background()
+        elif crypto_is_old:
+            refresh_started = producer.refresh_crypto_in_background()
         priority = {"BTC-USD": 0, "ETH-USD": 1, "BNB-USD": 2, "SOL-USD": 3, "XRP-USD": 4, "ADA-USD": 5}
         crypto.sort(key=lambda x: priority.get(x.get("symbol", ""), 99))
         return {
@@ -315,11 +340,25 @@ def get_crypto_snapshot() -> dict:
             "source": feed.get("source"),
             "freshness": feed.get("freshness"),
             "stale_reason": feed.get("stale_reason"),
+            "refresh_interval_seconds": refresh_interval_seconds,
+            "refresh_requested": refresh_started,
             "total": len(crypto),
             "items": crypto
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _quote_age_seconds(value: object) -> float:
+    if not value:
+        return float("inf")
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds())
+    except (TypeError, ValueError, OverflowError):
+        return float("inf")
 
 
 @router.get("/market-data/commodities/snapshot")

@@ -19,6 +19,9 @@ CREATE INDEX IF NOT EXISTS idx_agentic_runs_account_created
   ON agentic_runs(account_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agentic_runs_idempotency
   ON agentic_runs(account_id, idempotency_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agentic_runs_account_idempotency_unique
+  ON agentic_runs(account_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS agentic_steps (
   step_id TEXT PRIMARY KEY,

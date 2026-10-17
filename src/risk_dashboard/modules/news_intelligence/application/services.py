@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -16,13 +18,23 @@ from risk_dashboard.modules.news_intelligence.application.rss_producer import (
     NewsRssProducer,
 )
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle, utc_now_iso
+from risk_dashboard.modules.news_intelligence.domain.scoring import calculate_importance
+from risk_dashboard.modules.news_intelligence.domain.text import contains_keyword, normalize_text
+from risk_dashboard.modules.news_intelligence.domain.time import parse_utc_datetime
 from risk_dashboard.modules.news_intelligence.safety.news_policy import (
     build_data_quality_block,
     build_safety_block,
 )
 from risk_dashboard.platform.database import open_app_state_db
 
-NEWS_CACHE_TTL_SECONDS = 600
+# RSS sources are polled frequently enough for the News surface to feel live,
+# while the persisted cache still prevents every browser request from fanning
+# out into a full source refresh.  The frontend polls more frequently than this
+# value; only the first request after the TTL performs the refresh.
+try:
+    NEWS_CACHE_TTL_SECONDS = max(15, int(os.getenv("NEWS_CACHE_TTL_SECONDS", "60")))
+except ValueError:
+    NEWS_CACHE_TTL_SECONDS = 60
 NEWS_PRESETS: dict[str, dict[str, str]] = {
     "balanced": {},
     "vietnam": {"region": "VN"},
@@ -55,9 +67,35 @@ class NewsIntelligenceService:
         importance: str | None = None,
     ) -> dict[str, Any]:
         selected_filters = _resolve_filters(region=region, source_group=source_group, preset=preset)
+        refresh_failed = False
+        importance_filter = (
+            importance.strip().lower()
+            if importance and importance.strip().lower() != "all"
+            else ""
+        )
+        has_scoped_view = any(
+            (
+                category and category.strip().lower() != "all",
+                (query or "").strip(),
+                selected_filters["region"],
+                selected_filters["source_group"],
+                sentiment and sentiment.strip().lower() != "all",
+                impact_level and impact_level.strip().lower() != "all",
+                importance_filter,
+            )
+        )
         with open_app_state_db() as conn:
             if force or self._needs_refresh(conn):
-                self._refresh(conn)
+                conn.execute("SAVEPOINT news_feed_refresh")
+                try:
+                    self._refresh(conn)
+                except Exception:  # noqa: BLE001 - stale cache is safer than a blank dashboard.
+                    conn.execute("ROLLBACK TO SAVEPOINT news_feed_refresh")
+                    conn.execute("RELEASE SAVEPOINT news_feed_refresh")
+                    refresh_failed = True
+                    logger.exception("News refresh failed; serving the last persisted feed")
+                else:
+                    conn.execute("RELEASE SAVEPOINT news_feed_refresh")
             articles = self._list_articles(
                 conn,
                 category=category,
@@ -68,25 +106,46 @@ class NewsIntelligenceService:
                 source_group=selected_filters["source_group"],
                 sentiment=sentiment,
                 impact_level=impact_level,
-                importance=importance,
+                # Re-score before applying the importance filter so a score
+                # change caused by cluster breadth cannot leak an article into
+                # the wrong label.
+                importance=None if importance_filter else importance,
             )
             latest_run = self._latest_run(conn)
+            clusters = cluster_articles(articles, limit=20)
+            if _apply_cluster_scores(conn, articles, clusters, persist=not has_scoped_view):
+                articles.sort(key=_article_rank_key)
+                clusters = cluster_articles(articles, limit=20)
+                if latest_run and not has_scoped_view:
+                    rebuild_current_snapshots(conn, source_run_id=latest_run.get("run_id"))
+            if importance_filter:
+                articles = [article for article in articles if article.importance_label == importance_filter]
+                clusters = cluster_articles(articles, limit=20)
 
         freshness = _freshness(latest_run)
         source_count = int(latest_run.get("source_count") or 0) if latest_run else 0
         successful_source_count = int(latest_run.get("successful_source_count") or 0) if latest_run else 0
+        http_cache = {
+            "conditional_request_count": int(latest_run.get("conditional_request_count") or 0) if latest_run else 0,
+            "not_modified_count": int(latest_run.get("not_modified_count") or 0) if latest_run else 0,
+        }
 
-        clusters = cluster_articles(articles, limit=20)
         today_brief = _build_today_brief(articles, clusters, limit=5)
         pulse = _pulse(articles, clusters, freshness, source_count, successful_source_count)
+        stale_reason = _stale_reason(
+            freshness,
+            refresh_failed=refresh_failed,
+            has_cache=bool(articles),
+        )
 
         return {
             "as_of": utc_now_iso(),
             "freshness": freshness,
             "confidence_label": "moderate" if articles else "limited",
-            "stale_reason": None if freshness == "fresh" else "news_feed_cache_stale_or_unavailable",
+            "stale_reason": stale_reason,
             "source_count": source_count,
             "successful_source_count": successful_source_count,
+            "http_cache": http_cache,
             "selected_filters": selected_filters,
             "available_filters": _available_filters(),
             "articles": [_article_payload(article) for article in articles[:limit]],
@@ -97,7 +156,7 @@ class NewsIntelligenceService:
                 freshness=freshness,
                 source_count=source_count,
                 successful_source_count=successful_source_count,
-                stale_reason=None if freshness == "fresh" else "news_feed_cache_stale_or_unavailable",
+                stale_reason=stale_reason,
                 confidence_label="moderate" if articles else "limited",
             ),
             "safety": build_safety_block(),
@@ -166,6 +225,10 @@ class NewsIntelligenceService:
 
     def save_article(self, *, user_id: str, article_id: str, note: str = "") -> None:
         with open_app_state_db() as conn:
+            if not conn.execute(
+                "SELECT 1 FROM news_articles WHERE article_id = ?", (article_id,)
+            ).fetchone():
+                raise ValueError("Article not found")
             conn.execute(
                 """
                 INSERT INTO saved_news (user_id, article_id, note, saved_at)
@@ -272,20 +335,17 @@ class NewsIntelligenceService:
         return [dict(row) for row in rows]
 
     def refresh(self) -> dict[str, Any]:
-        with open_app_state_db() as conn:
-            self._refresh(conn)
-        return self.get_feed(force=False)
+        return self.get_feed(force=True)
 
     def _needs_refresh(self, conn: sqlite3.Connection) -> bool:
         latest = self._latest_run(conn)
         if not latest:
             return True
-        completed_at = str(latest["completed_at"])
-        try:
-            age = datetime.now(timezone.utc) - datetime.fromisoformat(completed_at)
-        except ValueError:
+        completed_at = parse_utc_datetime(latest.get("completed_at"))
+        if completed_at is None:
             return True
-        return age.total_seconds() > NEWS_CACHE_TTL_SECONDS
+        age_seconds = max(0.0, (datetime.now(timezone.utc) - completed_at).total_seconds())
+        return age_seconds > NEWS_CACHE_TTL_SECONDS
 
     def _refresh(self, conn: sqlite3.Connection) -> None:
         started_at = utc_now_iso()
@@ -299,8 +359,9 @@ class NewsIntelligenceService:
             """
             INSERT INTO news_fetch_runs (
               run_id, started_at, completed_at, source_count, successful_source_count,
-              article_count, error_count, errors_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              article_count, error_count, errors_json, conditional_request_count,
+              not_modified_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id,
@@ -311,12 +372,20 @@ class NewsIntelligenceService:
                 len(articles),
                 len(meta.get("errors") or []),
                 json.dumps(meta.get("errors") or [], ensure_ascii=False),
+                int(meta.get("conditional_request_source_count") or 0),
+                int(meta.get("not_modified_source_count") or 0),
             ),
         )
 
-        # Update source health records
+        # Update the actual producer catalogue.  This matters for tests,
+        # deployments with a regional feed set, and future custom providers.
         error_source_ids = {e["source_id"] for e in (meta.get("errors") or []) if "source_id" in e}
-        for source in DEFAULT_NEWS_SOURCES:
+        configured_sources = tuple(getattr(self.producer, "sources", ()) or ())
+        source_catalog = configured_sources or DEFAULT_NEWS_SOURCES
+        source_ids = set(meta.get("source_ids") or ())
+        if source_ids:
+            source_catalog = tuple(source for source in source_catalog if source.source_id in source_ids)
+        for source in source_catalog:
             if source.source_id in error_source_ids:
                 conn.execute(
                     """
@@ -351,14 +420,14 @@ class NewsIntelligenceService:
             """
             INSERT INTO news_articles (
               article_id, headline, summary, source, source_id, source_tier, source_flag,
-              region, category, url, published_at, fetched_at, sort_ts, priority,
+              region, category, url, image_url, published_at, fetched_at, sort_ts, priority,
               sentiment, impact, tickers_json, language, threat_level, threat_category,
               threat_confidence,
               importance_score, importance_label, importance_breakdown_json,
               source_mix, content_hash,
               affected_markets_json, affected_sectors_json,
               what_to_monitor_json, learn_links_json, related_entities_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(article_id) DO UPDATE SET
               headline=excluded.headline,
@@ -368,6 +437,7 @@ class NewsIntelligenceService:
               source_flag=excluded.source_flag,
               region=excluded.region,
               category=excluded.category,
+              image_url=CASE WHEN excluded.image_url <> '' THEN excluded.image_url ELSE news_articles.image_url END,
               published_at=excluded.published_at,
               fetched_at=excluded.fetched_at,
               sort_ts=excluded.sort_ts,
@@ -401,6 +471,7 @@ class NewsIntelligenceService:
                 article.region,
                 article.category,
                 article.url,
+                article.image_url,
                 article.published_at,
                 article.fetched_at,
                 article.sort_ts,
@@ -479,7 +550,9 @@ class NewsIntelligenceService:
             )
             needle = f"%{query_text}%"
             params.extend([needle] * 12)
-        params.append(limit)
+        # Fetch a small overage so syndication duplicates do not consume the
+        # entire requested page before deduplication.
+        params.append(min(500, max(limit + 20, limit * 3)))
         # Main feed ranks important items first; recency/source tie-breakers keep ordering deterministic.
         rows = conn.execute(
             f"""
@@ -490,17 +563,119 @@ class NewsIntelligenceService:
             """,
             params,
         ).fetchall()
-        return [_article_from_row(row) for row in rows]
+        articles = [_article_from_row(row) for row in rows]
+        return _deduplicate_articles(articles)[:limit]
 
     def _latest_run(self, conn: sqlite3.Connection) -> dict[str, Any] | None:
-        row = conn.execute(
-            """
-            SELECT * FROM news_fetch_runs
-            ORDER BY completed_at DESC
-            LIMIT 1
-            """
-        ).fetchone()
-        return dict(row) if row else None
+        rows = conn.execute("SELECT * FROM news_fetch_runs").fetchall()
+        if not rows:
+            return None
+        # ISO UTC strings sort lexically, but legacy rows can contain offsets
+        # or naive timestamps.  Parse before choosing the newest run.
+        return dict(max(rows, key=lambda row: parse_utc_datetime(row["completed_at"]) or datetime.min.replace(tzinfo=timezone.utc)))
+
+
+def _article_rank_key(article: NewsArticle) -> tuple[int, int, int, str]:
+    return (-article.importance_score, -article.sort_ts, article.source_tier, article.article_id)
+
+
+def _headline_dedupe_key(article: NewsArticle) -> str:
+    normalized = re.sub(r"[^\w]+", " ", normalize_text(article.headline)).strip()
+    # Very short/generic headlines are recurring market labels rather than a
+    # reliable identity, so only use a key when it carries enough information.
+    if len(normalized) < 20 or len(normalized.split()) < 4:
+        return ""
+    return f"{article.category}:{article.sort_ts // 86400}:{normalized}"
+
+
+def _deduplicate_articles(articles: list[NewsArticle]) -> list[NewsArticle]:
+    """Collapse syndicated copies while preserving the best ranked source."""
+
+    seen_hashes: set[str] = set()
+    seen_headlines: set[str] = set()
+    unique: list[NewsArticle] = []
+    for article in articles:
+        content_hash = (article.content_hash or "").strip()
+        headline_key = _headline_dedupe_key(article)
+        if content_hash and content_hash in seen_hashes:
+            continue
+        if headline_key and headline_key in seen_headlines:
+            continue
+        if content_hash:
+            seen_hashes.add(content_hash)
+        if headline_key:
+            seen_headlines.add(headline_key)
+        unique.append(article)
+    return unique
+
+
+def _apply_cluster_scores(
+    conn: sqlite3.Connection,
+    articles: list[NewsArticle],
+    clusters: list,
+    *,
+    persist: bool,
+) -> bool:
+    """Re-score articles with observed cluster breadth, optionally persisting it."""
+
+    now = datetime.now(timezone.utc)
+    changed = False
+    for cluster in clusters:
+        cluster_size = len(cluster.articles)
+        # A singleton already carries the producer's canonical score.  Only
+        # clustered events need a context adjustment; preserving singleton
+        # values also keeps custom producers' explicit classifications intact.
+        if cluster_size < 2:
+            continue
+        for article in cluster.articles:
+            published_at = parse_utc_datetime(article.published_at)
+            age_minutes = 60.0 if published_at is None else max(
+                0.0, (now - published_at).total_seconds() / 60
+            )
+            result = calculate_importance(
+                headline=article.headline,
+                summary=article.summary,
+                source_tier=article.source_tier,
+                impact=article.impact,
+                sentiment=article.sentiment,
+                threat_level=article.threat_level,
+                age_minutes=age_minutes,
+                cluster_size=cluster_size,
+                is_duplicate=False,
+            )
+            if (
+                article.importance_score == result.score
+                and article.importance_label == result.label
+                and article.importance_breakdown == result.breakdown.to_dict()
+            ):
+                continue
+            article.importance_score = result.score
+            article.importance_label = result.label
+            article.importance_breakdown = result.breakdown.to_dict()
+            if persist:
+                conn.execute(
+                    """
+                    UPDATE news_articles
+                    SET importance_score = ?, importance_label = ?, importance_breakdown_json = ?
+                    WHERE article_id = ?
+                    """,
+                    (
+                        result.score,
+                        result.label,
+                        json.dumps(result.breakdown.to_dict(), ensure_ascii=False),
+                        article.article_id,
+                    ),
+                )
+            changed = True
+    return changed
+
+
+def _safe_json(value: object, fallback: Any) -> Any:
+    try:
+        decoded = json.loads(value or "")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return fallback
+    return decoded
 
 
 def _article_from_row(row: sqlite3.Row) -> NewsArticle:
@@ -515,38 +690,62 @@ def _article_from_row(row: sqlite3.Row) -> NewsArticle:
         region=row["region"],
         category=row["category"],
         url=row["url"],
+        image_url=row["image_url"] if "image_url" in row.keys() else "",
         published_at=row["published_at"],
         fetched_at=row["fetched_at"],
         sort_ts=int(row["sort_ts"]),
         priority=int(row["priority"]),
         sentiment=row["sentiment"],
         impact=row["impact"],
-        tickers=json.loads(row["tickers_json"] or "[]"),
+        tickers=_safe_json(row["tickers_json"], []),
         language=row["language"],
         threat_level=row["threat_level"],
         threat_category=row["threat_category"],
         threat_confidence=float(row["threat_confidence"] or 0),
         importance_score=int(row["importance_score"] or 0) if "importance_score" in row.keys() else 0,
         importance_label=row["importance_label"] if "importance_label" in row.keys() else "noise",
-        importance_breakdown=json.loads(row["importance_breakdown_json"] or "{}") if "importance_breakdown_json" in row.keys() else {},
+        importance_breakdown=_safe_json(row["importance_breakdown_json"], {}) if "importance_breakdown_json" in row.keys() else {},
         source_mix=row["source_mix"] if "source_mix" in row.keys() else "",
         content_hash=row["content_hash"] if "content_hash" in row.keys() else "",
-        affected_markets=json.loads(row["affected_markets_json"] or "[]") if "affected_markets_json" in row.keys() else [],
-        affected_sectors=json.loads(row["affected_sectors_json"] or "[]") if "affected_sectors_json" in row.keys() else [],
-        what_to_monitor=json.loads(row["what_to_monitor_json"] or "[]") if "what_to_monitor_json" in row.keys() else [],
-        learn_links=json.loads(row["learn_links_json"] or "[]") if "learn_links_json" in row.keys() else [],
-        related_entities=json.loads(row["related_entities_json"] or "[]") if "related_entities_json" in row.keys() else [],
+        affected_markets=_safe_json(row["affected_markets_json"], []) if "affected_markets_json" in row.keys() else [],
+        affected_sectors=_safe_json(row["affected_sectors_json"], []) if "affected_sectors_json" in row.keys() else [],
+        what_to_monitor=_safe_json(row["what_to_monitor_json"], []) if "what_to_monitor_json" in row.keys() else [],
+        learn_links=_safe_json(row["learn_links_json"], []) if "learn_links_json" in row.keys() else [],
+        related_entities=_safe_json(row["related_entities_json"], []) if "related_entities_json" in row.keys() else [],
     )
 
 
 def _freshness(latest_run: dict[str, Any] | None) -> str:
     if not latest_run:
         return "degraded"
-    try:
-        age = datetime.now(timezone.utc) - datetime.fromisoformat(str(latest_run["completed_at"]))
-    except ValueError:
+    completed_at = parse_utc_datetime(latest_run.get("completed_at"))
+    if completed_at is None:
         return "degraded"
-    return "fresh" if age.total_seconds() <= NEWS_CACHE_TTL_SECONDS else "stale"
+    age_seconds = max(0.0, (datetime.now(timezone.utc) - completed_at).total_seconds())
+    source_count = int(latest_run.get("source_count") or 0)
+    successful_count = int(latest_run.get("successful_source_count") or 0)
+    if source_count > 0 and successful_count == 0:
+        return "degraded"
+    return "fresh" if age_seconds <= NEWS_CACHE_TTL_SECONDS else "stale"
+
+
+def _stale_reason(
+    freshness: str,
+    *,
+    refresh_failed: bool = False,
+    has_cache: bool = True,
+) -> str | None:
+    if refresh_failed:
+        return (
+            "news_refresh_failed_using_persisted_cache"
+            if has_cache
+            else "news_refresh_failed_no_cache"
+        )
+    if freshness == "degraded":
+        return "news_sources_unavailable_or_timestamp_invalid"
+    if freshness == "stale":
+        return "news_feed_cache_stale_or_unavailable"
+    return None
 
 
 def _resolve_filters(*, region: str | None, source_group: str | None, preset: str | None) -> dict[str, str]:
@@ -606,6 +805,12 @@ def _build_today_brief(
     # Sort by importance score descending
     ranked = sorted(articles, key=lambda a: a.importance_score, reverse=True)
 
+    cluster_by_article = {
+        article.article_id: cluster.cluster_id
+        for cluster in clusters
+        for article in cluster.articles
+    }
+    seen_clusters: set[str] = set()
     # Track categories used for diversity
     seen_categories: dict[str, int] = {}
     seen_headlines: set[str] = set()
@@ -618,11 +823,16 @@ def _build_today_brief(
         cat_count = seen_categories.get(article.category, 0)
         if cat_count >= 2:
             continue
+        cluster_id = cluster_by_article.get(article.article_id)
+        if cluster_id and cluster_id in seen_clusters:
+            continue
         # Skip very similar headlines (simple dedup)
         headline_key = article.headline[:60].lower()
         if headline_key in seen_headlines:
             continue
         seen_headlines.add(headline_key)
+        if cluster_id:
+            seen_clusters.add(cluster_id)
         seen_categories[article.category] = cat_count + 1
 
         brief.append({
@@ -706,13 +916,17 @@ def _pulse(
 def _top_drivers(articles: list[NewsArticle]) -> list[dict[str, Any]]:
     """Extract top-driving topics from articles."""
     keyword_counts: dict[str, int] = {}
-    driver_keywords = {"fed", "inflation", "oil", "gold", "bitcoin", "rate", "tariff", "earnings", "war", "china", "ecb", "recession", "usd", "vn-index", "crypto"}
+    driver_keywords = (
+        "fed", "inflation", "oil", "gold", "bitcoin", "rate", "tariff", "earnings",
+        "war", "china", "ecb", "recession", "usd", "vn-index", "crypto",
+        "lạm phát", "lãi suất", "tỷ giá", "ngân hàng", "chứng khoán",
+    )
     for article in articles:
-        text = f"{article.headline} {article.summary}".lower()
+        text = f"{article.headline} {article.summary}"
         for kw in driver_keywords:
-            if kw in text:
+            if contains_keyword(text, kw):
                 keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
-    sorted_drivers = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
+    sorted_drivers = sorted(keyword_counts.items(), key=lambda item: (-item[1], item[0]))
     return [{"label": kw, "count": count} for kw, count in sorted_drivers[:6]]
 
 

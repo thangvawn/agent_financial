@@ -3,9 +3,9 @@
    Theme: Midnight Trading Desk (Glassmorphism & Technical Data)
    ============================================================ */
 
-/* Force Outfit and JetBrains Mono typography on all dark-mode authenticated views */
+/* Force Inter and JetBrains Mono typography on all dark-mode authenticated views */
 [data-theme="dark"] {
-  --font-sans: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
   font-family: var(--font-sans);
 }

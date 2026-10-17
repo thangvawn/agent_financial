@@ -10,7 +10,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from risk_dashboard.modules.news_intelligence.domain.enums import LEARN_CONCEPTS, MONITOR_INDICATORS
+from risk_dashboard.modules.news_intelligence.domain.enums import LEARN_CONCEPTS
+from risk_dashboard.modules.news_intelligence.domain.text import contains_keyword, count_keywords
 
 
 @dataclass
@@ -123,7 +124,7 @@ def _match_keywords(text: str, keyword_map: dict[str, tuple[str, ...]], *, limit
     """Match text against keyword groups, return matched group names."""
     matches: list[tuple[str, int]] = []
     for label, keywords in keyword_map.items():
-        hit_count = sum(1 for kw in keywords if kw in text)
+        hit_count = count_keywords(text, keywords)
         if hit_count > 0:
             matches.append((label, hit_count))
     matches.sort(key=lambda x: x[1], reverse=True)
@@ -136,7 +137,7 @@ def _extract_entities(text: str) -> list[dict[str, str]]:
     seen: set[str] = set()
     for entity_type, patterns in _ENTITY_PATTERNS.items():
         for pattern in patterns:
-            if pattern in text and pattern not in seen:
+            if contains_keyword(text, pattern) and pattern not in seen:
                 seen.add(pattern)
                 entities.append({"type": entity_type, "name": pattern, "confidence": "rule_based"})
     # Also extract uppercase tickers (2-5 chars)

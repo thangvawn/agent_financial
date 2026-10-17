@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { NAV_FLOW } from '../../app/productRegistry'
+import { prefetchView } from '../../app/pagePreloader'
 import { trackAnalyticsEvent } from '../analytics/trackEvent'
 import NorthstarLogo from '../components/NorthstarLogo'
 
@@ -90,7 +91,10 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
             <div
               key={item.id}
               className="connected-nav__tab-wrapper"
-              onMouseEnter={() => setHoveredTab(item.id)}
+              onMouseEnter={() => {
+                setHoveredTab(item.id)
+                prefetchView(item.id)
+              }}
               onMouseLeave={() => setHoveredTab(null)}
             >
               <motion.button

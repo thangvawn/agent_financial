@@ -130,6 +130,7 @@ class ConversationService:
                 surface=request.surface or conv.surface,
                 user_query=clean_content,
                 resource_id=request.current_surface_id or conv.context_id,
+                video_time_seconds=request.video_time_seconds,
             )
 
             # Save assistant message
@@ -190,4 +191,3 @@ class ConversationService:
             trace_id=msg.trace_id,
             created_at=msg.created_at,
         )
-

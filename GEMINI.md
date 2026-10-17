@@ -6,6 +6,8 @@ Bạn là AI Quản lý Kiến trúc, Kế hoạch và Chiến lược cao cấp
 - `.ai/rules/` — Các quy tắc phát triển.
 - `.ai/SKILLS-CATALOG.md` — Danh mục kỹ năng.
 - `.ai/rules/skill-domain-routing.md` — Bảng tra cứu skill.
+- `.ai/memory/` — Bộ nhớ ngữ cảnh & quyết định kiến trúc dài hạn (ADR).
+- Tra cứu nhanh AST quan hệ code: `python3 scripts/codegraph_explore.py <tên_hàm/symbol>` trước khi dùng grep.
 
 ---
 

@@ -11,7 +11,7 @@ from risk_dashboard.modules.agentic_core.application.artifact_service import Art
 from risk_dashboard.modules.agentic_core.application.graph import run_graph
 from risk_dashboard.modules.agentic_core.application.kill_switch import KillSwitchActiveError
 from risk_dashboard.modules.agentic_core.application.memory_service import MemoryService
-from risk_dashboard.modules.agentic_core.application.run_service import RunService
+from risk_dashboard.modules.agentic_core.application.run_service import IdempotencyConflictError, RunService
 from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticActionRepository, AgenticArtifactRepository
 from risk_dashboard.modules.agentic_core.schemas.artifact import AgentArtifact
 from risk_dashboard.modules.agentic_core.schemas.requests import AgentRunRequestV1, AgentRunResponseV1, EditMemoryRequest
@@ -38,6 +38,8 @@ async def create_agentic_run(request: AgentRunRequestV1, principal: AuthPrincipa
     _check_auth(principal)
     try:
         return await _run_service.create_and_execute_run(request=request, principal=principal, run_graph_fn=run_graph)
+    except IdempotencyConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except KillSwitchActiveError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
     except Exception as exc:

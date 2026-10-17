@@ -1,0 +1,187 @@
+/* Multi-Chart & Tearsheet Styles (< 200 lines) */
+
+/* Multi-Panel Chart */
+.simlab-chart-wrapper {
+  background: #08111e;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.simlab-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #142032;
+}
+
+.simlab-source-pill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.simlab-source-pill.real {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.simlab-source-pill.mock {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.simlab-chart-main {
+  width: 100%;
+  height: 300px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.simlab-chart-sub {
+  width: 100%;
+  height: 110px;
+  margin-top: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Tearsheet Metrics */
+.simlab-tearsheet {
+  background: #08111e;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tearsheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tearsheet-title-group h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  color: #f1f5f9;
+}
+
+.tearsheet-badge {
+  font-size: 0.7rem;
+  background: #14233c;
+  color: #38bdf8;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.tearsheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+.tearsheet-metric-card {
+  background: #050b14;
+  border: 1px solid #172437;
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #f1f5f9;
+}
+
+.metric-sub {
+  font-size: 0.68rem;
+  color: #475569;
+}
+
+.tearsheet-metric-card.profit .metric-value { color: #10b981; }
+.tearsheet-metric-card.loss .metric-value { color: #ef4444; }
+.tearsheet-metric-card.accent .metric-value { color: #06b6d4; }
+
+/* Trade Log Table */
+.trades-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.trades-toolbar h4 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.filter-pills {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.filter-pills button {
+  background: #060e1a;
+  border: 1px solid #1e293b;
+  color: #64748b;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.filter-pills button.active {
+  background: #1e293b;
+  color: #38bdf8;
+  border-color: #38bdf8;
+}
+
+.trades-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #172437;
+  border-radius: 6px;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+.trades-table th {
+  background: #0c1726;
+  color: #94a3b8;
+  padding: 0.5rem 0.6rem;
+  font-weight: 600;
+}
+
+.trades-table td {
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid #142032;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.profit-text { color: #10b981; font-weight: 600; }
+.loss-text { color: #ef4444; font-weight: 600; }

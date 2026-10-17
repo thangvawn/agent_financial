@@ -66,6 +66,7 @@ class TutorGraph:
         surface: str,
         user_query: str,
         resource_id: str | None = None,
+        video_time_seconds: float | None = None,
         trace_id: str | None = None,
     ) -> SendMessageResponse:
         start_time = time.time()
@@ -100,7 +101,8 @@ class TutorGraph:
         # 1. Specialist execution with server-side envelope grant enforcement
         if intent in {"learn", "checkpoint"}:
             raw_result = await self.learning_specialist.handle(
-                intent=intent, user_query=user_query, resource_id=resource_id, envelope=envelope
+                intent=intent, user_query=user_query, resource_id=resource_id,
+                video_time_seconds=video_time_seconds, envelope=envelope
             )
         elif intent == "quant":
             raw_result = await self.quant_specialist.handle(

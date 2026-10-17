@@ -167,6 +167,7 @@ def _ensure_schema_compatibility(conn: sqlite3.Connection) -> None:
         for row in conn.execute("PRAGMA table_info(news_articles)").fetchall()
     }
     _news_migrations = [
+        ("image_url", "ALTER TABLE news_articles ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"),
         ("importance_score", "ALTER TABLE news_articles ADD COLUMN importance_score INTEGER NOT NULL DEFAULT 0"),
         ("importance_label", "ALTER TABLE news_articles ADD COLUMN importance_label TEXT NOT NULL DEFAULT 'noise'"),
         ("importance_breakdown_json", "ALTER TABLE news_articles ADD COLUMN importance_breakdown_json TEXT NOT NULL DEFAULT '{}'"),
@@ -185,6 +186,20 @@ def _ensure_schema_compatibility(conn: sqlite3.Connection) -> None:
     if news_cols:
         _normalize_news_articles_timestamps(conn)
 
+    # Conditional RSS requests are persisted for operational visibility.  The
+    # compatibility path keeps existing app_state.db files readable without a
+    # destructive rebuild when the baseline schema gains these counters.
+    news_run_cols = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(news_fetch_runs)").fetchall()
+    }
+    for col_name, sql in (
+        ("conditional_request_count", "ALTER TABLE news_fetch_runs ADD COLUMN conditional_request_count INTEGER NOT NULL DEFAULT 0"),
+        ("not_modified_count", "ALTER TABLE news_fetch_runs ADD COLUMN not_modified_count INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if news_run_cols and col_name not in news_run_cols:
+            conn.execute(sql)
+
 
 def reset_app_state_tables() -> None:
     with open_app_state_db() as conn:
@@ -201,6 +216,9 @@ def reset_app_state_tables() -> None:
             DELETE FROM learning_agent_checkpoints;
             DELETE FROM learning_verified_events;
             DELETE FROM learning_progress_receipts;
+            DELETE FROM learning_video_checkpoints;
+            DELETE FROM learning_video_quizzes;
+            DELETE FROM learning_video_transcripts;
             DELETE FROM learning_fts_index;
             DELETE FROM news_highlight_snapshots;
             DELETE FROM news_articles;
@@ -256,4 +274,3 @@ def reset_app_state_tables() -> None:
             """
         )
         conn.commit()
-

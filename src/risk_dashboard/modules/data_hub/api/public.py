@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException, Query
 
 from risk_dashboard.modules.data_hub.application.services import DataHubService
@@ -24,8 +27,11 @@ def get_data_hub_topic(topic: str) -> dict:
 
 
 @router.get("/global-terminal")
-def get_global_terminal(view: str = "dashboard") -> dict:
-    return DataHubService().get_global_terminal(view=view)
+def get_global_terminal(
+    view: str = "dashboard",
+    refresh: bool = Query(False, description="Force one provider refresh for an explicit user action."),
+) -> dict:
+    return DataHubService().get_global_terminal(view=view, force_refresh=refresh)
 
 
 @router.get("/instruments/{symbol}/history")
@@ -49,7 +55,13 @@ def get_vn_snapshot(
     exchange: str | None = Query(None, pattern="^(HOSE|HSX|HNX|UPCOM)$"),
     search: str | None = Query(None, max_length=12),
     limit: int = Query(50, ge=1, le=500),
+    refresh: bool = Query(False, description="Request a non-blocking provider refresh."),
 ) -> dict:
+    if refresh:
+        # Do not make an interactive browser request wait on vnstock. The
+        # current cache is returned immediately and the next poll observes
+        # the newly written snapshot if the provider succeeds.
+        _vn_market.refresh_in_background()
     payload = _vn_market.snapshot()
     items = payload.get("items", []) or []
 
@@ -118,12 +130,48 @@ def get_vn_snapshot(
         needle = search.strip().upper()
         items.sort(key=lambda x: 0 if (x.get("symbol") or "").upper() == needle else 1)
 
+    last_success_at = payload.get("last_success_at") or payload.get("as_of")
+    age_seconds = _age_seconds(last_success_at)
+    in_market_hours = _is_vn_market_hours()
+    refresh_interval = max(
+        int(os.getenv("VN_MARKET_INTERVAL_FAST_SEC", "12")) if in_market_hours
+        else int(os.getenv("VN_MARKET_INTERVAL_SLOW_SEC", "300")),
+        5 if in_market_hours else 60,
+    )
     return {
         "as_of": payload.get("as_of"),
+        "last_success_at": last_success_at,
+        "age_seconds": age_seconds,
         "source": payload.get("source"),
         "freshness": payload.get("freshness"),
+        "stale_reason": payload.get("stale_reason"),
+        "market_session": "open" if in_market_hours else "closed",
+        "refresh_interval_seconds": refresh_interval,
+        "refresh_requested": refresh,
         "total": payload.get("count", len(payload.get("items", []) or [])),
         "returned": min(limit, len(items)),
         "market_summary": market_summary,
         "items": items[:limit],
     }
+
+
+def _age_seconds(value: object) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return max(0, int((datetime.now(timezone.utc) - parsed).total_seconds()))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _is_vn_market_hours() -> bool:
+    """Return the scheduler's broad weekday warm-up/trading window in ICT."""
+    now = datetime.now(timezone.utc) + timedelta(hours=7)
+    if now.weekday() >= 5:
+        return False
+    opening = now.replace(hour=8, minute=50, second=0, microsecond=0)
+    closing = now.replace(hour=15, minute=10, second=0, microsecond=0)
+    return opening <= now <= closing

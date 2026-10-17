@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import sys
 import json
-from datetime import datetime, timezone
-from collections.abc import Iterable
-from typing import Any
+import math
 import os
+import re
+import sys
+import unicodedata
 import uuid
+from collections.abc import Iterable
+from datetime import datetime, timezone
+from typing import Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, UploadFile, Form, File, Depends, Header
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from pydantic import BaseModel, Field, field_validator
 
 from risk_dashboard.modules.auth.application.dependencies import resolve_principal
 from risk_dashboard.modules.auth.application.scope_resolver import BASE_SCOPES
@@ -38,17 +41,195 @@ def resolve_bctc_upload_principal(
     )
 
 
-from risk_dashboard.data.financials import FinancialDataError, get_financial_dataset, import_financial_dataset
-from risk_dashboard.engines.quant.balance_sheet_strength import BalanceSheetDataError, build_balance_sheet_strength
+from risk_dashboard.data.financials import (
+    FinancialDataError,
+    get_financial_dataset,
+    import_financial_dataset,
+)
+from risk_dashboard.engines.quant.balance_sheet_strength import (
+    BalanceSheetDataError,
+    build_balance_sheet_strength,
+)
 from risk_dashboard.engines.quant.financial_analysis import analyze_financial_dataset
 from risk_dashboard.engines.quant.financial_quality_charts import build_financial_quality_charts
-from risk_dashboard.schemas.financials import FinancialDataset, FinancialImportRequest, FinancialPeriodData
+from risk_dashboard.modules.financials_product.application import (
+    build_company_financial_workspace,
+    build_financial_scenario,
+)
 from risk_dashboard.platform.database import open_app_state_db
-from risk_dashboard.modules.financials_product.application import build_company_financial_workspace
+from risk_dashboard.schemas.financials import (
+    FinancialDataset,
+    FinancialImportRequest,
+    FinancialPeriodData,
+)
 
 router = APIRouter(tags=["Financials"])
 
 MAX_FINANCIAL_UPLOAD_BYTES = 20 * 1024 * 1024
+
+
+def _normalize_upload_header(value: object) -> str:
+    """Normalize Vietnamese/English CSV headers without changing their meaning."""
+
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(character for character in text if not unicodedata.combining(character))
+    text = text.casefold().replace("_", " ")
+    return " ".join(text.split())
+
+
+def _parse_upload_number(raw: object, *, field: str, row_number: int) -> float | None:
+    """Parse common financial number formats and keep blanks as missing.
+
+    Uploads are user-provided evidence. A malformed value must fail with a row
+    reference instead of silently becoming zero, because zero would alter every
+    downstream ratio and scenario result.
+    """
+
+    if raw is None:
+        return None
+    text = str(raw).replace("\u00a0", " ").strip()
+    if not text or text in {"-", "—", "–", "n/a", "na", "null"}:
+        return None
+
+    negative = text.startswith("(") and text.endswith(")")
+    if negative:
+        text = text[1:-1].strip()
+    text = text.replace(" ", "").replace("₫", "").replace("đ", "").replace("Đ", "")
+    text = text.replace("%", "").replace("−", "-")
+    if text.casefold().startswith("q") and text[1:].isdigit():
+        text = text[1:]
+    if not text:
+        return None
+
+    # Accept both 1,234.56 and 1.234,56. A lone comma followed by three
+    # digits is treated as a thousands separator; otherwise it is decimal.
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        chunks = text.split(",")
+        text = "".join(chunks) if len(chunks[-1]) == 3 and all(chunk.isdigit() for chunk in chunks) else text.replace(",", ".")
+    elif "." in text:
+        chunks = text.split(".")
+        if len(chunks) > 1 and len(chunks[-1]) == 3 and len(chunks[0]) <= 3 and all(chunk.isdigit() for chunk in chunks):
+            text = "".join(chunks)
+
+    try:
+        value = float(text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Dòng {row_number}, trường '{field}': số không hợp lệ '{raw}'.") from exc
+    if not math.isfinite(value):
+        raise ValueError(f"Dòng {row_number}, trường '{field}': số phải hữu hạn.")
+    return -value if negative else value
+
+
+def _upload_column_mapping(fieldnames: list[str]) -> dict[str, str]:
+    """Map common BCTC labels to canonical ``FinancialPeriodData`` fields."""
+
+    aliases: dict[str, tuple[str, ...]] = {
+        "ticker": ("cp", "ma cp", "ticker", "symbol"),
+        "year": ("nam", "year", "financial year"),
+        "quarter": ("ky", "quy", "quarter", "q"),
+        "revenue": ("doanh thu thuan", "doanh thu", "revenue", "net revenue"),
+        "gross_profit": ("lai gop", "loi nhuan gop", "gross profit"),
+        "operating_profit": ("lai lo tu hoat dong kinh doanh", "loi nhuan hoat dong", "operating profit", "operating income"),
+        "net_income": ("loi nhuan sau thue", "lnst", "net income", "net profit"),
+        "total_assets": ("tong cong tai san", "tong tai san", "total assets"),
+        "total_liabilities": ("no phai tra", "tong no phai tra", "total liabilities"),
+        "equity": ("von chu so huu", "von chu", "equity", "shareholders equity"),
+        "cash": ("tien va tuong duong tien", "tien mat", "cash", "cash equivalents"),
+        "short_term_debt": ("no vay ngan han", "vay ngan han", "short term debt"),
+        "long_term_debt": ("no vay dai han", "vay dai han", "long term debt"),
+        "current_assets": ("tai san ngan han", "current assets"),
+        "current_liabilities": ("no ngan han", "current liabilities"),
+        "inventory": ("hang ton kho", "inventory"),
+        "receivables": ("cac khoan phai thu", "phai thu", "receivables", "accounts receivable"),
+        "operating_cash_flow": ("hoat dong sxkd", "luu chuyen tien te rong tu cac hoat dong sxkd", "operating cash flow", "cfo"),
+        "investing_cash_flow": ("luu chuyen tu hoat dong dau tu", "investing cash flow", "cfi"),
+        "financing_cash_flow": ("luu chuyen tien tu hoat dong tai chinh", "financing cash flow", "cff"),
+        "capex": ("mua sam tscd", "chi dau tu tai san co dinh", "capital expenditure", "capex"),
+    }
+    mapping: dict[str, str] = {}
+    for field in fieldnames:
+        normalized = _normalize_upload_header(field)
+        for canonical, candidates in aliases.items():
+            if any(candidate == normalized or (len(candidate) > 1 and candidate in normalized) for candidate in candidates):
+                mapping.setdefault(canonical, field)
+                break
+    return mapping
+
+
+_UPLOAD_METRIC_ALIASES: dict[str, tuple[str, ...]] = {
+    "revenue": ("doanh thu thuan", "doanh thu", "revenue", "net revenue"),
+    "gross_profit": ("lai gop", "loi nhuan gop", "gross profit"),
+    "operating_profit": ("lai lo tu hoat dong kinh doanh", "loi nhuan hoat dong", "operating profit", "operating income"),
+    "net_income": ("loi nhuan sau thue", "lnst", "net income", "net profit"),
+    "total_assets": ("tong cong tai san", "tong tai san", "total assets"),
+    "total_liabilities": ("no phai tra", "tong no phai tra", "total liabilities"),
+    "equity": ("von chu so huu", "von chu", "equity", "shareholders equity"),
+    "cash": ("tien va tuong duong tien", "tien mat", "cash", "cash equivalents"),
+    "short_term_debt": ("no vay ngan han", "vay ngan han", "short term debt"),
+    "long_term_debt": ("no vay dai han", "vay dai han", "long term debt"),
+    "current_assets": ("tai san ngan han", "current assets"),
+    "current_liabilities": ("no ngan han", "current liabilities"),
+    "inventory": ("hang ton kho", "inventory"),
+    "receivables": ("cac khoan phai thu", "phai thu", "receivables", "accounts receivable"),
+    "operating_cash_flow": ("hoat dong sxkd", "luu chuyen tien te rong tu cac hoat dong sxkd", "operating cash flow", "cfo"),
+    "investing_cash_flow": ("luu chuyen tu hoat dong dau tu", "investing cash flow", "cfi"),
+    "financing_cash_flow": ("luu chuyen tien tu hoat dong tai chinh", "financing cash flow", "cff"),
+    "capex": ("mua sam tscd", "chi dau tu tai san co dinh", "capital expenditure", "capex"),
+}
+
+
+def _upload_metric_key(value: object) -> str | None:
+    normalized = _normalize_upload_header(value)
+    for canonical, candidates in _UPLOAD_METRIC_ALIASES.items():
+        if any(candidate == normalized or (len(candidate) > 1 and candidate in normalized) for candidate in candidates):
+            return canonical
+    return None
+
+
+def _wide_period_header(value: object) -> tuple[str, int, int | None] | None:
+    """Parse a matrix CSV header such as ``2024`` or ``2024-Q3``."""
+
+    text = str(value or "").strip().upper().replace(" ", "")
+    match = re.fullmatch(r"((?:19|20)\d{2})(?:[-/]?Q([1-4]))?", text)
+    if not match:
+        return None
+    year = int(match.group(1))
+    quarter = int(match.group(2)) if match.group(2) else None
+    return (f"{year}-Q{quarter}" if quarter else str(year), year, quarter)
+
+
+def _workbook_owner(principal: AuthPrincipal, session_id: str | None) -> str:
+    """Resolve a bounded storage owner without trusting client account IDs."""
+
+    owner = principal.account_id if not principal.is_anonymous else (session_id or principal.session_id)
+    owner = str(owner or "").strip()
+    if not owner or len(owner) > 160 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,159}", owner):
+        raise HTTPException(status_code=400, detail="Phiên BCTC không hợp lệ.")
+    return owner
+
+
+def _workbook_key(ticker: str, owner: str) -> str:
+    normalized = ticker.upper().strip()
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9._-]{0,19}", normalized):
+        raise HTTPException(status_code=422, detail="Mã doanh nghiệp không hợp lệ.")
+    return f"bctc_workbook_v1:{owner}:{normalized}"
+
+
+def _read_saved_workbook(key: str) -> dict[str, Any] | None:
+    with open_app_state_db() as conn:
+        row = conn.execute("SELECT value FROM app_kv WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return None
+    try:
+        payload = json.loads(row["value"])
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="Dữ liệu workbook đã lưu không hợp lệ.") from exc
+    return payload if isinstance(payload, dict) else None
 
 
 class StudentIncomeStatementNoteRequest(BaseModel):
@@ -57,6 +238,58 @@ class StudentIncomeStatementNoteRequest(BaseModel):
     period: str = Field(..., min_length=2, max_length=40)
     note_content: str = Field(..., min_length=1, max_length=4000)
     related_metrics: list[str] = Field(default_factory=list, max_length=20)
+
+
+class PracticeLabRequest(BaseModel):
+    """Input for the deterministic BCTC practice and comparison workflow."""
+
+    tickers: list[str] = Field(default_factory=list, max_length=8)
+    datasets: list[FinancialDataset] = Field(default_factory=list, max_length=8)
+    period_mode: Literal["quarter", "year"] = "quarter"
+    period: str | None = Field(default=None, min_length=2, max_length=32)
+    limit: int = Field(default=12, ge=4, le=20)
+
+
+class FinancialScenarioRequest(BaseModel):
+    """Bounded assumptions for the workbook's deterministic what-if panel."""
+
+    period: str | None = Field(default=None, min_length=2, max_length=32)
+    revenue_growth_pct: float = Field(default=5.0, ge=-100, le=500)
+    gross_margin_pct: float | None = Field(default=None, ge=0, le=100)
+    tax_rate_pct: float = Field(default=20.0, ge=0, le=100)
+    operating_expense_growth_pct: float = Field(default=3.0, ge=-100, le=500)
+
+    @field_validator(
+        "revenue_growth_pct",
+        "gross_margin_pct",
+        "tax_rate_pct",
+        "operating_expense_growth_pct",
+    )
+    @classmethod
+    def reject_non_finite(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
+            raise ValueError("scenario assumptions must be finite")
+        return value
+
+
+class FinancialWorkbookSaveRequest(BaseModel):
+    """Small, versioned workbook state persisted for a student's session."""
+
+    expected_revision: int = Field(default=0, ge=0, le=1_000_000)
+    active_tab: Literal["income", "balance", "cash_flow", "ratios", "model", "notes"] = "income"
+    formula: str = Field(default="", max_length=500)
+    assumptions: dict[str, float] = Field(default_factory=dict)
+    notes: str = Field(default="", max_length=10_000)
+
+    @field_validator("assumptions")
+    @classmethod
+    def validate_assumptions(cls, value: dict[str, float]) -> dict[str, float]:
+        if len(value) > 20:
+            raise ValueError("workbook assumptions must contain at most 20 fields")
+        for key, number in value.items():
+            if not isinstance(key, str) or len(key) > 64 or not math.isfinite(number):
+                raise ValueError("workbook assumptions must contain finite named numbers")
+        return value
 
 SECTION_ALIASES = {
     "overview": "overview",
@@ -110,6 +343,141 @@ def financials_status() -> dict[str, object]:
             "Có thể import cache JSON chuẩn hóa nếu provider live thất bại.",
         ],
     }
+
+
+@router.post("/financials/practice-lab", tags=["Financials"])
+def financial_practice_lab(req: PracticeLabRequest) -> dict[str, Any]:
+    """Run the raw-data → ratios → insights → peer-ranking practice flow.
+
+    ``datasets`` is useful for an imported/uploaded exercise because it keeps
+    the calculation reproducible.  ``tickers`` resolves the same normalized
+    datasets from the configured provider/cache.  Failed ticker loads are
+    reported in ``errors`` so a healthy comparison can still render when one
+    optional peer is unavailable.
+    """
+    from risk_dashboard.modules.financials_product.application import build_practice_lab
+
+    datasets: list[FinancialDataset] = []
+    for dataset in req.datasets:
+        if dataset.ticker not in {item.ticker for item in datasets} and len(datasets) < 8:
+            datasets.append(dataset)
+    errors: list[dict[str, str]] = []
+    seen = {dataset.ticker for dataset in datasets}
+    for raw_ticker in req.tickers:
+        if len(datasets) >= 8:
+            break
+        ticker = raw_ticker.strip().upper()
+        if not ticker or ticker in seen:
+            continue
+        try:
+            dataset = get_financial_dataset(ticker, refresh=False)
+        except FinancialDataError as exc:
+            errors.append({
+                "ticker": ticker,
+                "message": exc.message,
+                "hint": exc.hint or (exc.notes[0] if exc.notes else "Nguồn dữ liệu chưa sẵn sàng."),
+            })
+            continue
+        datasets.append(dataset)
+        seen.add(dataset.ticker)
+
+    if not datasets:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Cần ít nhất một dataset hoặc mã cổ phiếu hợp lệ để chạy phòng thực hành.",
+                "errors": errors,
+            },
+        )
+    try:
+        result = build_practice_lab(
+            datasets,
+            period_mode=req.period_mode,
+            period=req.period,
+            limit=req.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    result["errors"] = errors
+    return result
+
+
+@router.post("/financials/{ticker}/scenario", tags=["Financials"])
+def financial_scenario(ticker: str, req: FinancialScenarioRequest) -> dict[str, Any]:
+    """Run the bounded What-if projection used by the BCTC Lab workbook."""
+
+    dataset = _load_dataset_or_503(ticker, refresh=False)
+    try:
+        return build_financial_scenario(
+            dataset,
+            period=req.period,
+            revenue_growth_pct=req.revenue_growth_pct,
+            gross_margin_pct=req.gross_margin_pct,
+            tax_rate_pct=req.tax_rate_pct,
+            operating_expense_growth_pct=req.operating_expense_growth_pct,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/financials/{ticker}/model", tags=["Financials"])
+def get_financial_workbook_model(
+    ticker: str,
+    session_id: str | None = Header(default=None, alias="X-Session-ID"),
+    principal: AuthPrincipal = Depends(resolve_bctc_upload_principal),
+) -> dict[str, Any]:
+    """Load a student's BCTC workbook state from the shared app database."""
+
+    owner = _workbook_owner(principal, session_id)
+    saved = _read_saved_workbook(_workbook_key(ticker, owner))
+    if saved is None:
+        raise HTTPException(status_code=404, detail="Chưa có workbook được lưu cho phiên này.")
+    return {"ok": True, "model": saved}
+
+
+@router.post("/financials/{ticker}/model", tags=["Financials"])
+def save_financial_workbook_model(
+    ticker: str,
+    req: FinancialWorkbookSaveRequest,
+    session_id: str | None = Header(default=None, alias="X-Session-ID"),
+    principal: AuthPrincipal = Depends(resolve_bctc_upload_principal),
+) -> dict[str, Any]:
+    """Persist workbook inputs with an optimistic revision guard.
+
+    The workbook stores student-authored assumptions and notes only. Reported
+    financial data is always reloaded from the canonical dataset endpoint.
+    """
+
+    owner = _workbook_owner(principal, session_id)
+    key = _workbook_key(ticker, owner)
+    current = _read_saved_workbook(key)
+    current_revision = int((current or {}).get("revision", 0))
+    if req.expected_revision != current_revision:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Workbook đã được cập nhật ở phiên khác.",
+                "current_revision": current_revision,
+            },
+        )
+
+    saved = {
+        **req.model_dump(mode="json"),
+        "schema_version": "1.0",
+        "ticker": ticker.upper().strip(),
+        "owner": owner,
+        "revision": current_revision + 1,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    with open_app_state_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO app_kv(key, value) VALUES(?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, json.dumps(saved, ensure_ascii=False, separators=(",", ":"))),
+        )
+    return {"ok": True, "model": saved}
 
 
 @router.get("/financials/{ticker}/analysis", tags=["Financials"])
@@ -334,7 +702,11 @@ def financial_import(req: FinancialImportRequest):
 @router.get("/financials/upload/supported-types", tags=["Financials"])
 def get_supported_types():
     return {
-        "accept": [".pdf", ".xlsx", ".xls", ".csv", ".docx", ".png", ".jpg", ".jpeg"]
+        # Upload storage accepts these source documents so an extraction
+        # pipeline can be added later. The current deterministic parser is CSV.
+        "accept": [".pdf", ".xlsx", ".xls", ".csv", ".docx", ".png", ".jpg", ".jpeg"],
+        "analysis_available": [".csv"],
+        "analysis_deferred": [".pdf", ".xlsx", ".xls", ".docx", ".png", ".jpg", ".jpeg"],
     }
 
 
@@ -465,85 +837,119 @@ def analyze_uploaded_file(
         )
     
     periods_data = []
-    
-    if ext == ".csv":
-        import csv
-        with open(file_path, "r", encoding="utf-8-sig") as csvfile:
-            reader = csv.DictReader(csvfile)
-            fieldnames = reader.fieldnames or []
-            mapping = {}
-            for field in fieldnames:
-                normalized = field.strip().lower()
-                if normalized in ("cp", "mã cp", "ticker"):
-                    mapping["ticker"] = field
-                elif normalized in ("năm", "year"):
-                    mapping["year"] = field
-                elif normalized in ("kỳ", "quý", "quarter"):
-                    mapping["quarter"] = field
-                elif "doanh thu" in normalized or "revenue" in normalized:
-                    mapping["revenue"] = field
-                elif "lợi nhuận sau thuế" in normalized or "lnst" in normalized or "net income" in normalized or "net_income" in normalized:
-                    mapping["net_income"] = field
-                elif "tổng tài sản" in normalized or "tổng cộng tài sản" in normalized or "total_assets" in normalized or "total assets" in normalized:
-                    mapping["total_assets"] = field
-                elif "nợ phải trả" in normalized or "total_liabilities" in normalized or "liabilities" in normalized:
-                    mapping["total_liabilities"] = field
-                elif "vốn chủ sở hữu" in normalized or "equity" in normalized:
-                    mapping["equity"] = field
-                elif "hoạt động sxkd" in normalized or "cfo" in normalized or "operating_cash_flow" in normalized:
-                    mapping["operating_cash_flow"] = field
-                    
-            row_ticker = None
-            for row in reader:
-                ticker_val = row.get(mapping.get("ticker", "CP"))
-                if ticker_val:
-                    row_ticker = ticker_val.strip().upper()
-                
-                year_val = int(row.get(mapping.get("year", "Năm")) or 0)
-                raw_q = str(row.get(mapping.get("quarter", "Kỳ")) or "").upper().replace("Q", "").strip()
-                quarter_val = int(raw_q) if raw_q.isdigit() else 0
-                
-                period_label = f"{year_val}-Q{quarter_val}" if quarter_val else f"{year_val}"
-                
-                period_data = FinancialPeriodData(
-                    period=period_label,
-                    year=year_val,
-                    quarter=quarter_val,
-                    revenue=float(row.get(mapping.get("revenue"), 0) or 0) if mapping.get("revenue") else None,
-                    net_income=float(row.get(mapping.get("net_income"), 0) or 0) if mapping.get("net_income") else None,
-                    total_assets=float(row.get(mapping.get("total_assets"), 0) or 0) if mapping.get("total_assets") else None,
-                    total_liabilities=float(row.get(mapping.get("total_liabilities"), 0) or 0) if mapping.get("total_liabilities") else None,
-                    equity=float(row.get(mapping.get("equity"), 0) or 0) if mapping.get("equity") else None,
-                    operating_cash_flow=float(row.get(mapping.get("operating_cash_flow"), 0) or 0) if mapping.get("operating_cash_flow") else None,
-                )
-                periods_data.append(period_data)
-                
-            dataset_ticker = metadata.get("ticker") or row_ticker or "UNKNOWN"
-    else:
-        dataset_ticker = metadata.get("ticker") or "UNKNOWN"
-        period_label = metadata.get("period") or "2025-Q4"
-        year_val, quarter_val = None, None
-        if "-" in period_label:
-            parts = period_label.split("-Q")
-            if len(parts) == 2:
-                try:
-                    year_val = int(parts[0])
-                    quarter_val = int(parts[1])
-                except ValueError:
-                    pass
-        periods_data = [
-            FinancialPeriodData(
-                period=period_label,
-                year=year_val,
-                quarter=quarter_val,
-                revenue=1000.0,
-                net_income=150.0,
-                total_assets=2000.0,
-                total_liabilities=800.0,
-                equity=1200.0,
-                operating_cash_flow=210.0
-            )
+
+    import csv
+
+    with open(file_path, "r", encoding="utf-8-sig", newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        fieldnames = [field for field in (reader.fieldnames or []) if field]
+        if not fieldnames:
+            raise HTTPException(status_code=422, detail="CSV không có hàng tiêu đề.")
+
+        mapping = _upload_column_mapping(fieldnames)
+        wide_periods = [
+            (field, parsed)
+            for field in fieldnames
+            if (parsed := _wide_period_header(field)) is not None
         ]
+        metric_field = next(
+            (
+                field
+                for field in fieldnames
+                if _normalize_upload_header(field)
+                in {"metric", "line item", "item", "chi tieu", "khoan muc", "chi tieu tai chinh"}
+            ),
+            None,
+        )
+        wide_mode = "year" not in mapping and bool(wide_periods) and metric_field is not None
+        missing_period_fields = [field for field in ("year",) if field not in mapping and not wide_mode]
+        if missing_period_fields:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "CSV thiếu cột kỳ báo cáo bắt buộc.",
+                    "missing_fields": missing_period_fields,
+                    "accepted_shapes": [
+                        "Một dòng cho mỗi kỳ: year, quarter, revenue, net_income",
+                        "Ma trận: metric, 2023, 2024, 2025",
+                    ],
+                },
+            )
+
+        row_ticker: str | None = None
+        row_errors: list[str] = []
+        seen_periods: set[str] = set()
+        if wide_mode:
+            wide_values: dict[str, dict[str, float | None]] = {}
+            wide_period_meta = {parsed[0]: parsed for _, parsed in wide_periods}
+            seen_metric_periods: set[tuple[str, str]] = set()
+            for row_number, row in enumerate(reader, start=2):
+                metric = _upload_metric_key(row.get(metric_field))
+                if metric is None:
+                    continue
+                for period_field, (period_label, year_val, quarter_val) in wide_periods:
+                    try:
+                        metric_period = (metric, period_label)
+                        if metric_period in seen_metric_periods:
+                            raise ValueError(f"Dòng {row_number}: chỉ tiêu '{metric}' bị lặp ở kỳ '{period_label}'.")
+                        seen_metric_periods.add(metric_period)
+                        value = _parse_upload_number(
+                            row.get(period_field), field=period_field, row_number=row_number
+                        )
+                        wide_values.setdefault(period_label, {})[metric] = value
+                    except (ValueError, TypeError) as exc:
+                        row_errors.append(str(exc))
+            for period_label, values in wide_values.items():
+                _, year_val, quarter_val = wide_period_meta[period_label]
+                periods_data.append(
+                    FinancialPeriodData(
+                        period=period_label,
+                        year=year_val,
+                        quarter=quarter_val,
+                        **values,
+                    )
+                )
+        else:
+            for row_number, row in enumerate(reader, start=2):
+                try:
+                    raw_year = _parse_upload_number(row.get(mapping["year"]), field=mapping["year"], row_number=row_number)
+                    if raw_year is None or raw_year != int(raw_year) or not 1900 <= int(raw_year) <= 2100:
+                        raise ValueError(f"Dòng {row_number}, trường '{mapping['year']}': năm phải là số nguyên từ 1900 đến 2100.")
+                    year_val = int(raw_year)
+
+                    parsed_quarter = _parse_upload_number(row.get(mapping["quarter"]), field=mapping.get("quarter", "quarter"), row_number=row_number) if mapping.get("quarter") else None
+                    if parsed_quarter is not None and (parsed_quarter != int(parsed_quarter) or int(parsed_quarter) not in {1, 2, 3, 4}):
+                        raise ValueError(f"Dòng {row_number}, trường '{mapping.get('quarter', 'quarter')}': quý phải là 1, 2, 3 hoặc 4.")
+                    quarter_val = int(parsed_quarter) if parsed_quarter is not None else None
+                    period_label = f"{year_val}-Q{quarter_val}" if quarter_val else str(year_val)
+                    if period_label in seen_periods:
+                        raise ValueError(f"Dòng {row_number}: kỳ '{period_label}' bị lặp.")
+                    seen_periods.add(period_label)
+
+                    ticker_value = str(row.get(mapping["ticker"]) or "").strip().upper() if mapping.get("ticker") else ""
+                    if ticker_value:
+                        if row_ticker and ticker_value != row_ticker:
+                            raise ValueError(f"Dòng {row_number}: mã CP '{ticker_value}' khác mã '{row_ticker}' ở các dòng trước.")
+                        row_ticker = ticker_value
+
+                    values: dict[str, float | None] = {}
+                    for canonical, source_field in mapping.items():
+                        if canonical in {"ticker", "year", "quarter"}:
+                            continue
+                        values[canonical] = _parse_upload_number(row.get(source_field), field=source_field, row_number=row_number)
+
+                    periods_data.append(FinancialPeriodData(period=period_label, year=year_val, quarter=quarter_val, **values))
+                except (ValueError, TypeError) as exc:
+                    row_errors.append(str(exc))
+
+        if row_errors:
+            raise HTTPException(status_code=422, detail={"message": "CSV có dữ liệu không hợp lệ.", "errors": row_errors[:50]})
+        if not periods_data:
+            raise HTTPException(status_code=422, detail="CSV không có dòng dữ liệu hợp lệ.")
+
+        dataset_ticker = (metadata.get("ticker") or row_ticker or "UNKNOWN").upper().strip()
+        if row_ticker and metadata.get("ticker") and dataset_ticker != metadata["ticker"].upper().strip():
+            raise HTTPException(status_code=422, detail="Mã CP trong CSV không khớp với mã đã chọn khi tải lên.")
         
     dataset = FinancialDataset(
         ticker=dataset_ticker,
@@ -1204,7 +1610,9 @@ def _income_data_quality(periods: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _income_formulas() -> list[dict[str, Any]]:
-    from risk_dashboard.modules.financials_product.domain.formula_registry import list_approved_formulas
+    from risk_dashboard.modules.financials_product.domain.formula_registry import (
+        list_approved_formulas,
+    )
     return [
         {
             "id": f.formula_id,
@@ -1740,4 +2148,3 @@ def _safe_pct(value: Any, base: Any) -> float | None:
     if value is None or base in (None, 0):
         return None
     return (float(value) / abs(float(base))) * 100
-

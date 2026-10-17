@@ -1,13 +1,23 @@
 {
   "mcpServers": {
-    "codegraph": {
-      "type": "stdio",
-      "command": "codegraph",
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp", "--browser", "chrome"]
+    },
+    "sqlite": {
+      "command": "uvx",
       "args": [
-        "serve",
-        "--mcp",
-        "--path",
-        "/Users/miutue/CodingProject/agent_financial"
+        "mcp-server-sqlite",
+        "--db-path",
+        "data/db/northstar.db"
       ]
     }
   }

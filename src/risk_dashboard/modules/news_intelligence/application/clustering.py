@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-import re
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle
-
+from risk_dashboard.modules.news_intelligence.domain.text import tokens
 
 STOP_WORDS = {
     "the",
@@ -22,6 +22,24 @@ STOP_WORDS = {
     "over",
     "after",
     "amid",
+    # Common Vietnamese connective words (stored accentless because tokens
+    # are normalised before matching).
+    "va",
+    "cua",
+    "cho",
+    "voi",
+    "tu",
+    "trong",
+    "khi",
+    "sau",
+    "truoc",
+    "thi",
+    "la",
+    "duoc",
+    "cac",
+    "mot",
+    "tang",
+    "giam",
 }
 
 
@@ -64,11 +82,18 @@ def cluster_articles(articles: list[NewsArticle], *, limit: int = 20) -> list[Ne
         article_tokens = _tokens(article.headline)
         placed = False
         for cluster in clusters:
-            lead = cluster[0]
-            if abs(article.sort_ts - lead.sort_ts) > 24 * 3600:
-                continue
-            threshold = 0.22 if article.category == lead.category else 0.32
-            if _jaccard(article_tokens, _tokens(lead.headline)) >= threshold:
+            # Compare against all members instead of only the first lead.  A
+            # wire headline and a local-language rewrite can be connected via
+            # a third article even when neither matches the first headline.
+            related = False
+            for member in cluster:
+                if abs(article.sort_ts - member.sort_ts) > 24 * 3600:
+                    continue
+                threshold = 0.22 if article.category == member.category else 0.32
+                if _jaccard(article_tokens, _tokens(member.headline)) >= threshold:
+                    related = True
+                    break
+            if related:
                 cluster.append(article)
                 placed = True
                 break
@@ -91,7 +116,7 @@ def cluster_articles(articles: list[NewsArticle], *, limit: int = 20) -> list[Ne
 
 
 def _tokens(text: str) -> set[str]:
-    return {token for token in re.findall(r"[a-zA-Z0-9]+", text.lower()) if len(token) > 2 and token not in STOP_WORDS}
+    return {token for token in tokens(text) if len(token) > 2 and token not in STOP_WORDS}
 
 
 def _jaccard(left: set[str], right: set[str]) -> float:
@@ -106,14 +131,21 @@ def _cluster_id(articles: list[NewsArticle]) -> str:
 
 
 def _topic_label(headline: str) -> str:
-    tokens = list(_tokens(headline))
-    return " ".join(tokens[:4]) if tokens else "market update"
+    # Counter plus lexical tie-break makes the label stable across Python
+    # processes; set iteration previously caused topic labels to flicker.
+    counts = Counter(_tokens(headline))
+    ranked = sorted(counts, key=lambda token: (-counts[token], token))
+    return " ".join(ranked[:4]) if ranked else "market update"
 
 
 def _velocity(articles: list[NewsArticle]) -> str:
-    if len(articles) >= 3:
+    if not articles:
+        return "single"
+    timestamps = sorted(article.sort_ts for article in articles)
+    span_hours = (timestamps[-1] - timestamps[0]) / 3600
+    if len(articles) >= 3 and (span_hours <= 6 or len(articles) >= 4 and span_hours <= 24):
         return "fast"
-    if len(articles) == 2:
+    if len(articles) >= 2 and span_hours <= 48:
         return "building"
     return "single"
 

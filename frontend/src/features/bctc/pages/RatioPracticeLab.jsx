@@ -1,690 +1,302 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  ArrowUpRight, Banknote, BookOpen, Check, ChevronDown, CircleAlert,
-  Database, Download, Droplets, FileSpreadsheet, GitBranch, GraduationCap, RefreshCw, Scale, Sparkles,
-  TrendingUp, X,
+  AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, Calculator,
+  Check, CheckCircle2, ChevronRight, ClipboardCheck, Download, FileSpreadsheet,
+  GitCompare, History, Info, Lightbulb, LoaderCircle, LockKeyhole, Play, RotateCcw, Save,
+  ShieldCheck, SlidersHorizontal, Sparkles, Target, XCircle,
 } from 'lucide-react'
 
-import {
-  RATIO_CATALOG, RATIO_GROUPS, SOURCE_DATA_FIELDS,
-  computeAllRatios, evaluateRatio, gradeAnswer,
-} from '../content/ratioDefinitions'
+import { runBctcPracticeLab, submitStudentNote } from '../services/financialsApi'
+import RawDataChallenge from './RawDataChallenge'
 import './ratio-practice.css'
 
-const GROUP_ICONS = {
-  profitability: TrendingUp,
-  liquidity: Droplets,
-  leverage: Scale,
-  efficiency: RefreshCw,
-  cash_quality: Banknote,
-  growth: ArrowUpRight,
-  dupont: GitBranch,
+const STATUS_META = {
+  good: { label: 'Tốt', icon: CheckCircle2, className: 'is-good' },
+  watch: { label: 'Theo dõi', icon: AlertTriangle, className: 'is-watch' },
+  risk: { label: 'Rủi ro', icon: XCircle, className: 'is-risk' },
+  unavailable: { label: 'Thiếu dữ liệu', icon: Info, className: 'is-muted' },
+}
+const EMPTY_REFLECTION = { observation: '', evidence: '', limitation: '' }
+const cx = (...values) => values.filter(Boolean).join(' ')
+
+function currentStudentId() {
+  if (typeof window === 'undefined') return ''
+  return window.localStorage.getItem('public-beta.session_id')
+    || window.localStorage.getItem('session_id')
+    || window.localStorage.getItem('auth.session_id')
+    || ''
 }
 
-function formatNumber(value) {
-  if (value == null) return '—'
-  return new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 2,
-    notation: Math.abs(value) >= 1e9 ? 'compact' : 'standard',
-  }).format(value)
-}
-
-function formatRatioValue(value, unit) {
-  if (value == null) return '—'
-  const formatted = Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })
-  const suffix = unit === '%' ? '%' : unit === 'x' ? 'x' : unit === 'ngày' ? ' ngày' : ''
-  return `${formatted}${suffix}`
-}
-
-function thresholdLabel(thresholds, level) {
-  const range = thresholds?.[level]
-  if (!range) return ''
-  const [lo, hi] = range
-  if (lo === -Infinity) return `< ${hi}`
-  if (hi === Infinity) return `> ${lo}`
-  return `${lo} – ${hi}`
-}
-
-// ── Tooltip Component ────────────────────────────────────────
-
-function RatioTooltip({ ratio }) {
-  return (
-    <div className="rp-tooltip">
-      <h4>{ratio.labelEn}</h4>
-      <code>{ratio.formula}</code>
-      <p>{ratio.meaning}</p>
-      <div className="rp-tooltip-thresholds">
-        <span><i className="dot is-good" /> Good: {thresholdLabel(ratio.thresholds, 'good')}</span>
-        <span><i className="dot is-neutral" /> Neutral: {thresholdLabel(ratio.thresholds, 'neutral')}</span>
-        <span><i className="dot is-bad" /> Bad: {thresholdLabel(ratio.thresholds, 'bad')}</span>
-      </div>
-    </div>
-  )
-}
-
-// ── Source Data Panel ────────────────────────────────────────
-
-function SourceDataPanel({ periodData, period }) {
-  const [isOpen, setIsOpen] = useState(true)
-
-  return (
-    <div className="rp-source">
-      <div className="rp-source-header">
-        <strong><Database size={15} /> Dữ liệu BCTC gốc · {period || 'Kỳ hiện tại'}</strong>
-        <button
-          type="button"
-          className={`rp-source-toggle ${isOpen ? 'is-open' : ''}`}
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? 'Thu gọn' : 'Xem dữ liệu'} <ChevronDown />
-        </button>
-      </div>
-      {isOpen && (
-        <div className="rp-source-grid">
-          {SOURCE_DATA_FIELDS.map((field) => {
-            const value = periodData?.[field.key]
-            return (
-              <div className="rp-source-item" key={field.key}>
-                <span>{field.label}</span>
-                <strong className={value != null && value < 0 ? 'is-negative' : ''}>
-                  {formatNumber(value)}
-                </strong>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Single Ratio Card ────────────────────────────────────────
-
-function RatioCard({ ratio, studentValue, onChange, result, correctValue }) {
-  const [showTooltip, setShowTooltip] = useState(false)
-  const evaluation = result ? evaluateRatio(ratio.key, correctValue) : null
-  const cardClass = result
-    ? `rp-ratio-card is-${result.status}`
-    : 'rp-ratio-card'
-
-  return (
-    <div className={cardClass}>
-      <div className="rp-ratio-label" onMouseLeave={() => setShowTooltip(false)}>
-        <span>{ratio.label}</span>
-        <button
-          type="button"
-          className="rp-tooltip-trigger"
-          aria-label={`Giải thích ${ratio.label}`}
-          onMouseEnter={() => setShowTooltip(true)}
-          onFocus={() => setShowTooltip(true)}
-          onBlur={() => setShowTooltip(false)}
-        >?</button>
-        {showTooltip && <RatioTooltip ratio={ratio} />}
-      </div>
-
-      <div className="rp-ratio-formula">{ratio.formulaCode}</div>
-
-      <div className="rp-ratio-input-row">
-        <input
-          className="rp-ratio-input"
-          type="number"
-          step="any"
-          placeholder="Nhập kết quả…"
-          value={studentValue ?? ''}
-          onChange={(e) => onChange(ratio.key, e.target.value)}
-          disabled={!!result}
-          aria-label={`Nhập ${ratio.label}`}
-        />
-        <span className="rp-ratio-unit">{ratio.unit}</span>
-        {evaluation && (
-          <span className={`rp-badge is-${evaluation}`}>
-            {evaluation === 'good' ? '✓ Tốt' : evaluation === 'bad' ? '⚠ Rủi ro' : '— Trung tính'}
-          </span>
-        )}
-      </div>
-
-      {result && (
-        <div className="rp-result-row">
-          <div className="rp-result-answer">
-            <span>Đáp án:</span>
-            <strong>{formatRatioValue(correctValue, ratio.unit)}</strong>
-          </div>
-          <span className={`rp-badge is-${result.status}`}>
-            {result.status === 'correct' && <><Check size={11} /> Chính xác</>}
-            {result.status === 'close' && <><CircleAlert size={11} /> Gần đúng</>}
-            {result.status === 'incorrect' && <><X size={11} /> Sai</>}
-            {result.status === 'skip' && 'Bỏ qua'}
-            {result.status === 'invalid' && 'Số không hợp lệ'}
-          </span>
-          {result.delta != null && (
-            <span className={`rp-result-delta is-${result.status}`}>
-              Δ {result.delta > 0 ? '+' : ''}{result.delta.toFixed(2)}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main Component ───────────────────────────────────────────
-
-const KEY_MAP = {
-  revenue: ['revenue', 'sales', 'net_sales', 'net_revenue', 'doanh_thu', 'doanh thu thuần', 'doanh thu thuần về bán hàng'],
-  gross_profit: ['gross_profit', 'grossProfit', 'lợi nhuận gộp', 'loi_nhuan_gop', 'lợi nhuận gộp về bán hàng'],
-  operating_profit: ['operating_profit', 'operatingProfit', 'ebit', 'lợi nhuận từ hoạt động kinh doanh', 'lnhđkd'],
-  ebit: ['ebit', 'operating_profit', 'operatingProfit', 'lợi nhuận trước lãi vay và thuế'],
-  ebitda: ['ebitda', 'EBITDA'],
-  net_income: ['net_income', 'netIncome', 'netProfit', 'lợi nhuận sau thuế', 'lnst', 'loi_nhuan_sau_thue'],
-  interest_expense: ['interest_expense', 'interestExpense', 'chi phí lãi vay', 'chi_phi_lai_vay'],
-  current_assets: ['current_assets', 'currentAssets', 'shortAsset', 'tsnh', 'tài sản ngắn hạn'],
-  cash: ['cash', 'cashAndEquivalents', 'tien', 'tiền và tương đương tiền', 'tiền và các khoản tương đương tiền'],
-  receivables: ['receivables', 'shortReceivable', 'phải thu', 'các khoản phải thu', 'các khoản phải thu ngắn hạn'],
-  inventory: ['inventory', 'hang_ton_kho', 'hàng tồn kho'],
-  total_assets: ['total_assets', 'totalAssets', 'asset', 'tong_tai_san', 'tổng tài sản', 'tổng cộng tài sản'],
-  accounts_payable: ['accounts_payable', 'accountsPayable', 'shortPayable', 'phải trả người bán', 'phải trả người bán ngắn hạn'],
-  current_liabilities: ['current_liabilities', 'currentLiabilities', 'shortLiability', 'nợ ngắn hạn', 'no_ngan_han'],
-  total_liabilities: ['total_liabilities', 'totalLiabilities', 'liability', 'tổng nợ phải trả', 'nợ phải trả', 'tong_no'],
-  debt: ['debt', 'totalDebt', 'no_vay', 'nợ vay', 'tổng nợ vay', 'tổng nợ vay (ngắn hạn + dài hạn)'],
-  equity: ['equity', 'ownerEquity', 'von_chu_so_huu', 'vốn chủ sở hữu', 'vốn và các quỹ'],
-  operating_cash_flow: ['operating_cash_flow', 'operatingCashFlow', 'cfo', 'dòng tiền hđkd', 'lưu chuyển tiền thuần từ hoạt động kinh doanh'],
-  capex: ['capex', 'capitalExpenditure', 'chi đầu tư tscđ', 'tiền mua sắm tscđ'],
-}
-
-function extractNormalizedValues(rows, pStr, targetDict) {
-  for (const row of rows || []) {
-    const values = row.values || []
-    const match = values.find((v) => v.period === pStr)
-    if (match && match.value != null) {
-      const rowKeyLower = (row.key || '').toLowerCase()
-      const rowLabelLower = (row.label || '').toLowerCase()
-
-      let foundStdKey = null
-      for (const [stdKey, aliases] of Object.entries(KEY_MAP)) {
-        if (aliases.some((alias) => rowKeyLower === alias.toLowerCase() || rowLabelLower.includes(alias.toLowerCase()))) {
-          foundStdKey = stdKey
-          break
-        }
-      }
-
-      if (foundStdKey) {
-        if (targetDict[foundStdKey] == null) {
-          targetDict[foundStdKey] = match.value
-        }
-      } else {
-        targetDict[row.key] = match.value
-      }
-    }
+function formatValue(value, unit = '') {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—'
+  const number = Number(value)
+  if (unit === 'VND') {
+    const absolute = Math.abs(number)
+    const divisor = absolute >= 1e12 ? 1e12 : absolute >= 1e9 ? 1e9 : absolute >= 1e6 ? 1e6 : 1
+    const suffix = divisor === 1e12 ? ' nghìn tỷ' : divisor === 1e9 ? ' tỷ' : divisor === 1e6 ? ' triệu' : ''
+    return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: divisor === 1 ? 0 : 2 }).format(number / divisor) + suffix
   }
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: unit === '%' ? 1 : 2 }).format(number) + (unit === '%' ? '%' : unit ? ' ' + unit : '')
+}
+
+function hasCalculableFields(company) {
+  return (company?.calculated_fields || []).some((item) => item.status === 'calculated' && Number.isFinite(Number(item.value)))
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(parsed)
+}
+
+function parseTickers(value) {
+  const tokens = String(value || '').split(/[;,\s]+/).map((item) => item.trim().toUpperCase()).filter(Boolean)
+  const unique = [...new Set(tokens)]
+  const invalid = unique.filter((item) => !/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(item))
+  return { tickers: unique.filter((item) => !invalid.includes(item)), invalid, tooMany: unique.length > 8 }
+}
+
+function StatusBadge({ status }) {
+  const meta = STATUS_META[status] || STATUS_META.unavailable
+  const Icon = meta.icon
+  return <span className={cx('rp-status', meta.className)}><Icon size={13} />{meta.label}</span>
+}
+
+function Workflow({ phase }) {
+  const steps = [
+    ['01', 'Đặt câu hỏi', 'Mục tiêu & giả thuyết', 'brief'],
+    ['02', 'Khám phá', 'Raw data & công thức', 'explore'],
+    ['03', 'So sánh', 'Bằng chứng giữa peers', 'compare'],
+    ['04', 'Giải thích', 'Reflection & checkpoint', 'reflect'],
+  ]
+  const activeIndex = Math.max(0, steps.findIndex((item) => item[3] === phase))
+  return <ol className="rp-workflow" aria-label="Quy trình học tập BCTC">
+    {steps.map(([number, title, description, key], index) => <li key={key} className={index <= activeIndex ? 'is-complete' : ''}>
+      <span className="rp-workflow-number">{index < activeIndex ? <Check size={13} /> : number}</span>
+      <span><strong>{title}</strong><small>{description}</small></span>
+      {index < steps.length - 1 && <ChevronRight aria-hidden="true" />}
+    </li>)}
+  </ol>
+}
+
+function LoadingPanel() {
+  return <div className="rp-loading" role="status" aria-live="polite"><LoaderCircle className="is-spinning" size={22} /><div><strong>Đang chạy phòng thực hành</strong><span>Đọc raw data, tính trường dẫn xuất và chuẩn hóa kết quả so sánh…</span></div></div>
+}
+
+function LabBrief({ learning, hypothesis, onHypothesisChange, completed }) {
+  const prompts = learning?.reflection_prompts || []
+  return <aside className="rp-brief">
+    <div className="rp-brief-kicker"><Target size={14} /> LAB BCTC · BÀI 01</div>
+    <h2>Đọc sức khỏe tài chính bằng bằng chứng</h2>
+    <p className="rp-brief-intro">Một bài thực hành ngắn: đi từ khoản mục gốc đến chỉ tiêu, rồi tự giải thích điều bạn quan sát được.</p>
+    <div className="rp-brief-objective"><span>MỤC TIÊU HỌC TẬP</span><strong>{learning?.objective || 'Đọc raw data, kiểm tra công thức và so sánh chất lượng tài chính trên cùng một kỳ.'}</strong><div className="rp-brief-meta"><span>Khoảng 15 phút</span><span>Không khuyến nghị đầu tư</span></div></div>
+    <label className="rp-hypothesis"><span><Lightbulb size={14} /> Giả thuyết trước khi chạy</span><textarea value={hypothesis} onChange={(event) => onHypothesisChange(event.target.value)} placeholder="Ví dụ: Tôi dự đoán doanh nghiệp A có dòng tiền tốt hơn vì…" rows={4} /><small>Viết một câu ngắn. Bạn sẽ quay lại kiểm tra giả thuyết sau khi xem kết quả.</small></label>
+    <div className="rp-brief-question"><span><ClipboardCheck size={14} /> Câu hỏi dẫn đường</span><p>{learning?.prompt || 'Doanh nghiệp nào có tín hiệu cân bằng hơn trong nhóm? Hãy dùng ít nhất hai chỉ tiêu và mở raw input trước khi kết luận.'}</p></div>
+    <div className={cx('rp-brief-status', completed && 'is-complete')}>{completed ? <CheckCircle2 size={16} /> : <ArrowRight size={16} />}<span>{completed ? 'Bạn đã hoàn thành phần reflection.' : 'Sau khi chạy, hãy viết observation, evidence và limitation.'}</span></div>
+    <div className="rp-brief-prompts" aria-label="Các câu hỏi reflection">{prompts.map((prompt) => <span key={prompt}>{prompt}</span>)}</div>
+  </aside>
+}
+
+function RunHistory({ runs, activeRunId, onSelect }) {
+  if (!runs.length) return <div className="rp-history rp-history-empty"><History size={15} /><span>Lịch sử lần chạy sẽ xuất hiện ở đây sau khi bạn chạy mô phỏng.</span></div>
+  return <section className="rp-history" aria-labelledby="rp-history-title">
+    <div className="rp-history-heading"><span id="rp-history-title"><History size={14} /> Lịch sử lần chạy</span><small>{runs.length}/5</small></div>
+    <div className="rp-history-list">{runs.map((run, index) => <button type="button" key={run.id} className={run.id === activeRunId ? 'is-active' : ''} onClick={() => onSelect(run)}><span className="rp-history-index">{String(runs.length - index).padStart(2, '0')}</span><span><strong>{run.label}</strong><small>{run.tickers.join(' · ')} · {formatDate(run.createdAt)}</small></span><ChevronRight size={14} /></button>)}</div>
+  </section>
+}
+
+function DataQualityStrip({ result }) {
+  const companies = result?.companies || []
+  const averageCoverage = companies.length ? Math.round(companies.reduce((sum, company) => sum + (company.overall?.coverage_pct || 0), 0) / companies.length) : 0
+  const period = result?.controls?.period || companies[0]?.period || 'Kỳ mới nhất'
+  return <section className="rp-quality-strip" aria-label="Tóm tắt chất lượng dữ liệu">
+    <div><span>KỲ ĐANG SO SÁNH</span><strong>{period}</strong><small>{result?.controls?.period_mode === 'year' ? 'Theo năm' : 'Theo quý'}</small></div>
+    <div><span>ĐỘ PHỦ TRUNG BÌNH</span><strong>{averageCoverage}%</strong><small>Khoản mục có dữ liệu</small></div>
+    <div><span>DOANH NGHIỆP</span><strong>{companies.length}</strong><small>Trong phiên này</small></div>
+    <div className="rp-quality-note"><ShieldCheck size={16} /><span>Số liệu thiếu được giữ là “—”, không tự bù.</span></div>
+  </section>
+}
+
+function RankingCard({ company, selected, onSelect }) {
+  const status = company.overall?.status || 'unavailable'
+  return <button type="button" className={cx('rp-ranking-card', selected && 'is-selected')} onClick={onSelect} aria-pressed={selected}><span className="rp-rank">#{company.overall?.rank || '—'}</span><span className="rp-ranking-main"><strong>{company.ticker}</strong><small>{company.company_name}</small></span><span className="rp-ranking-score"><b>{company.overall?.score ?? '—'}</b><small>/100</small></span><StatusBadge status={status} /></button>
+}
+
+function RawInputs({ company }) {
+  return <section className="rp-card rp-raw-card"><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 01 · RAW DATA</span><h3><FileSpreadsheet size={17} /> Khoản mục đầu vào</h3><p>Kỳ {company.period || '—'} · nguồn {company.data_quality?.source || '—'}</p></div><span className="rp-coverage">{company.data_quality?.raw_fields_available || 0}/{company.data_quality?.raw_fields_total || 0} trường có dữ liệu</span></div><div className="rp-field-grid">{(company.raw_inputs || []).map((item) => <div className={cx('rp-field', item.value === null && 'is-missing')} key={item.field}><span>{item.label}</span><b>{formatValue(item.value, item.unit)}</b>{item.value === null && <small>Thiếu trong raw data</small>}</div>)}</div></section>
+}
+
+function CalculatedFields({ company }) {
+  return <section className="rp-card"><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 02 · CALCULATE</span><h3><Calculator size={17} /> Trường dẫn xuất từ công thức</h3><p>Mỗi chỉ tiêu hiển thị công thức và trạng thái dữ liệu để có thể kiểm tra lại.</p></div><span className="rp-coverage">{company.data_quality?.calculated_fields_available || 0}/{company.data_quality?.calculated_fields_total || 0} chỉ tiêu tính được</span></div><div className="rp-calculated-table-wrap"><table className="rp-calculated-table"><caption className="rp-sr-only">Các trường dẫn xuất và công thức tính từ raw data</caption><thead><tr><th scope="col">Chỉ tiêu</th><th scope="col">Công thức</th><th scope="col">Phụ thuộc</th><th scope="col">Giá trị</th><th scope="col">Trạng thái</th></tr></thead><tbody>{(company.calculated_fields || []).map((item) => <tr key={item.field}><td><strong>{item.label}</strong><small>{item.field}</small></td><td><code>{item.formula}</code></td><td><span className="rp-dependencies">{item.dependencies?.join(' · ') || '—'}</span></td><td className="rp-number">{formatValue(item.value, item.unit)}</td><td><span className={cx('rp-calc-status', item.status === 'calculated' ? 'is-ready' : 'is-missing')}>{item.status === 'calculated' ? 'Đã tính' : 'Thiếu đầu vào'}</span></td></tr>)}</tbody></table></div></section>
+}
+
+function LockedAnalysis({ title, description }) {
+  return <section className="rp-card rp-locked-analysis" aria-live="polite"><LockKeyhole size={19} /><div><strong>{title}</strong><p>{description}</p></div></section>
+}
+
+function InsightPanel({ company }) {
+  return <section className="rp-card rp-insight-card"><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 03 · INSIGHT</span><h3><Sparkles size={17} /> Tín hiệu cần đọc</h3><p>Insight được sinh từ giá trị đã tính và ngưỡng sàng lọc minh bạch.</p></div><StatusBadge status={company.overall?.status} /></div>{!company.insights?.length ? <div className="rp-empty"><Info size={18} /><span>Chưa đủ dữ liệu để tạo insight đáng tin cậy.</span></div> : <div className="rp-insight-list">{company.insights.map((item, index) => <article className={cx('rp-insight', item.kind === 'strength' ? 'is-strength' : 'is-risk')} key={item.field + '-' + index}><span className="rp-insight-icon">{item.kind === 'strength' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}</span><div><strong>{item.title}</strong><p>{item.detail}</p><small>Trường: {item.field}</small></div></article>)}</div>}<div className="rp-score-grid">{(company.categories || []).map((category) => <div className="rp-score-row" key={category.key}><span>{category.label}</span><div className="rp-score-track"><i style={{ width: (category.score ?? 0) + '%' }} /></div><b>{category.score ?? '—'}</b><StatusBadge status={category.status} /></div>)}</div></section>
+}
+
+function ComparisonTable({ result }) {
+  const companies = result?.companies || []
+  const metrics = result?.comparison?.metrics || []
+  return <section className="rp-card rp-comparison-card"><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 03 · COMPARE</span><h3><GitCompare size={17} /> So sánh bằng chứng</h3><p>Hạng chỉ có ý nghĩa trong nhóm được chọn và cùng kỳ. “—” nghĩa là raw data chưa đủ.</p></div><span className="rp-coverage">{companies.length} doanh nghiệp</span></div><div className="rp-comparison-table-wrap"><table className="rp-comparison-table"><caption className="rp-sr-only">So sánh các chỉ tiêu tài chính giữa các doanh nghiệp</caption><thead><tr><th scope="col">Chỉ tiêu</th>{companies.map((company) => <th scope="col" key={company.ticker}><span>{company.ticker}</span><small>Hạng #{company.overall?.rank || '—'}</small></th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric.field}><th scope="row"><strong>{metric.label}</strong><small>{metric.unit} · {metric.higher_is_better ? 'cao hơn tốt hơn' : 'thấp hơn tốt hơn'}</small><small>Trung vị nhóm: {formatValue(metric.median, metric.unit)}</small></th>{companies.map((company) => { const row = metric.rows?.find((item) => item.ticker === company.ticker); const denominator = metric.rows?.filter((item) => item.value !== null).length || 0; return <td key={company.ticker} className={row?.rank === 1 ? 'is-best' : ''}><b>{formatValue(row?.value, metric.unit)}</b><small>{row?.rank ? '#' + row.rank + '/' + denominator : 'Thiếu dữ liệu'}</small></td> })}</tr>)}</tbody></table></div></section>
+}
+
+function ReflectionPanel({ reflection, onChange, onSave, completed, onComplete, saving }) {
+  const fields = [
+    ['observation', '01 · Observation', 'Bạn quan sát thấy điều gì từ hai chỉ tiêu quan trọng nhất?', 'Ví dụ: Biên lợi nhuận ròng của A cao hơn, nhưng CFO/LNST lại thấp hơn…'],
+    ['evidence', '02 · Evidence', 'Bằng chứng nào trong raw data hỗ trợ cho nhận định?', 'Nêu khoản mục, kỳ và giá trị bạn đã mở để kiểm tra.'],
+    ['limitation', '03 · Limitation', 'Thiếu dữ liệu hoặc giới hạn nào có thể làm kết luận thay đổi?', 'Ví dụ: khác kỳ báo cáo, khác ngành, thiếu CFO hoặc heuristic chưa xét mùa vụ…'],
+  ]
+  const ready = fields.every(([key]) => reflection[key].trim().length >= 12)
+  return <section className={cx('rp-card', 'rp-reflection', completed && 'is-complete')}><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 04 · REFLECTION</span><h3><ClipboardCheck size={17} /> Viết lại điều bạn hiểu</h3><p>Đừng chỉ chọn doanh nghiệp đứng đầu. Hãy giải thích quan sát bằng dữ liệu và nêu giới hạn.</p></div>{completed ? <span className="rp-complete-badge"><CheckCircle2 size={14} /> Đã hoàn thành</span> : <span className="rp-coverage">{fields.filter(([key]) => reflection[key].trim().length >= 12).length}/3 câu</span>}</div><div className="rp-reflection-grid">{fields.map(([key, label, prompt, placeholder]) => <label key={key}><span>{label}</span><strong>{prompt}</strong><textarea value={reflection[key]} onChange={(event) => onChange(key, event.target.value)} placeholder={placeholder} rows={4} /></label>)}</div><div className="rp-reflection-actions"><span>{saving ? 'Đang lưu reflection vào kho bài làm BCTC…' : ready ? 'Bạn đã có đủ nội dung để đánh dấu hoàn thành.' : 'Mỗi ô cần tối thiểu 12 ký tự để tạo một reflection có thể đọc lại.'}</span><div><button type="button" className="rp-btn" onClick={onSave} disabled={!ready || saving}><Save size={15} /> Lưu bản nháp</button><button type="button" className="rp-btn is-primary" onClick={onComplete} disabled={!ready || completed || saving}>{saving ? <LoaderCircle className="is-spinning" size={15} /> : completed ? <Check size={15} /> : <CheckCircle2 size={15} />} {saving ? 'Đang lưu…' : completed ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}</button></div></div></section>
+}
+
+function exportCsv(result) {
+  if (!result?.companies?.length) return
+  const companies = result.companies
+  const lines = [['Xếp hạng', 'Mã', 'Doanh nghiệp', 'Điểm tổng hợp', 'Trạng thái', 'Độ phủ dữ liệu']]
+  for (const company of result.ranking || []) lines.push([company.rank, company.ticker, company.company_name, company.score ?? '', company.status, (company.coverage_pct ?? 0) + '%'])
+  lines.push([])
+  lines.push(['Chỉ tiêu', ...companies.map((company) => company.ticker)])
+  for (const metric of result.comparison?.metrics || []) lines.push([metric.label, ...companies.map((company) => { const row = metric.rows?.find((item) => item.ticker === company.ticker); return row?.value ?? '' })])
+  const csv = String.fromCharCode(0xfeff) + lines.map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(',')).join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'bctc-practice-lab.csv'; anchor.click(); URL.revokeObjectURL(url)
 }
 
 export default function RatioPracticeLab({ workspace }) {
-  const [studentAnswers, setStudentAnswers] = useState({})
-  const [results, setResults] = useState(null)
-  const [selectedPeriod, setSelectedPeriod] = useState('')
+  const currentTicker = workspace?.company?.ticker || ''
+  const defaultTickers = useMemo(() => [...new Set([currentTicker, ...(workspace?.peers?.peer_tickers || []).slice(0, 3)].filter(Boolean))], [currentTicker, workspace])
+  const [tickerText, setTickerText] = useState(defaultTickers.join(', '))
+  const [periodMode, setPeriodMode] = useState(workspace?.controls?.period_mode || 'quarter')
+  const [period, setPeriod] = useState('')
+  const [hypothesis, setHypothesis] = useState('')
+  const [reflection, setReflection] = useState(EMPTY_REFLECTION)
+  const [result, setResult] = useState(null)
+  const [selectedTicker, setSelectedTicker] = useState(currentTicker)
+  const [status, setStatus] = useState('idle')
+  const [phase, setPhase] = useState('brief')
+  const [error, setError] = useState('')
+  const [runHistory, setRunHistory] = useState([])
+  const [activeRunId, setActiveRunId] = useState(null)
+  const [reflectionCompleted, setReflectionCompleted] = useState(false)
+  const [draftSaved, setDraftSaved] = useState(false)
+  const [reflectionSync, setReflectionSync] = useState('idle')
+  const [rawChallengeCompleted, setRawChallengeCompleted] = useState(false)
 
-  // All available periods from income/balance/cash_flow statements
-  const availablePeriods = useMemo(() => {
-    if (!workspace?.statements) return []
-    const incomePeriods = workspace.statements.income?.periods || []
-  const balancePeriods = workspace.statements.balance?.periods || []
-    const set = new Set([...incomePeriods, ...balancePeriods])
-    return Array.from(set)
-  }, [workspace])
+  const periods = useMemo(() => {
+    const values = [...(workspace?.statements?.income?.periods || []), ...(workspace?.statements?.balance?.periods || [])]
+    const normalized = periodMode === 'year' ? values.map((value) => String(value).split('-Q')[0]) : values
+    return [...new Set(normalized)].sort().reverse()
+  }, [workspace, periodMode])
 
-  const periodToUse = selectedPeriod || availablePeriods[0] || ''
+  function updateReflection(key, value) {
+    setDraftSaved(false)
+    setReflection((current) => ({ ...current, [key]: value }))
+  }
 
-  // Extract period data from workspace for periodToUse
-  const { periodData, yoyData, period } = useMemo(() => {
-    if (!workspace || !periodToUse) return { periodData: {}, yoyData: null, period: '' }
-    const statements = workspace.statements || {}
-    const latest = {}
+  async function runSimulation(event) {
+    event?.preventDefault()
+    const parsed = parseTickers(tickerText)
+    if (parsed.invalid.length) { setError('Mã không hợp lệ: ' + parsed.invalid.join(', ') + '.'); return }
+    if (parsed.tooMany) { setError('Phòng thực hành nhận tối đa 8 mã trong một lần chạy.'); return }
+    if (!parsed.tickers.length) { setError('Nhập ít nhất một mã cổ phiếu để bắt đầu bài lab.'); return }
+    setStatus('loading'); setError(''); setDraftSaved(false); setReflectionSync('idle'); setRawChallengeCompleted(false)
+    try {
+      const payload = await runBctcPracticeLab({ tickers: parsed.tickers, periodMode, period, limit: 12 })
+      const run = { id: 'run-' + Date.now(), createdAt: new Date().toISOString(), label: hypothesis.trim() ? hypothesis.trim().slice(0, 46) : 'Lần chạy ' + (runHistory.length + 1), tickers: parsed.tickers, result: payload }
+      setRunHistory((current) => [run, ...current.filter((item) => item.id !== run.id)].slice(0, 5))
+      setActiveRunId(run.id); setResult(payload); setSelectedTicker(payload.companies?.[0]?.ticker || parsed.tickers[0]); setReflectionCompleted(false); setPhase('explore'); setStatus('ready')
+      const notices = [...(payload.warnings || []), ...(payload.errors || []).map((item) => item.ticker + ': ' + item.message)]
+      if (notices.length) setError(notices.join(' · '))
+    } catch (reason) { setError(reason.message || 'Không chạy được mô phỏng BCTC.'); setStatus('error') }
+  }
 
-    const incomeRows = statements.income?.rows || []
-    const balanceRows = statements.balance?.rows || []
-    const cashFlowRows = statements.cash_flow?.rows || []
+  function selectRun(run) {
+    setResult(run.result); setActiveRunId(run.id); setSelectedTicker(run.result.companies?.[0]?.ticker || run.tickers[0]); setStatus('ready'); setPhase('explore'); setError(''); setReflectionCompleted(false); setReflectionSync('idle'); setRawChallengeCompleted(false)
+  }
 
-    // 1. Try extracting from exact period
-    extractNormalizedValues(incomeRows, periodToUse, latest)
-    extractNormalizedValues(balanceRows, periodToUse, latest)
-    extractNormalizedValues(cashFlowRows, periodToUse, latest)
+  function resetCurrentLab() {
+    setResult(null); setStatus('idle'); setPhase('brief'); setError(''); setReflection(EMPTY_REFLECTION); setReflectionCompleted(false); setActiveRunId(null); setDraftSaved(false); setReflectionSync('idle'); setRawChallengeCompleted(false)
+  }
 
-    // 2. Try fallback from other periods for missing items
-    for (const stdKey of Object.keys(KEY_MAP)) {
-      if (latest[stdKey] == null) {
-        for (const pStr of availablePeriods) {
-          const fallback = {}
-          extractNormalizedValues(incomeRows, pStr, fallback)
-          extractNormalizedValues(balanceRows, pStr, fallback)
-          extractNormalizedValues(cashFlowRows, pStr, fallback)
-          if (fallback[stdKey] != null) {
-            latest[stdKey] = fallback[stdKey]
-            break
-          }
-        }
+  function saveDraft() {
+    try {
+      localStorage.setItem('northstar:bctc:reflection:' + (selectedTicker || 'lab'), JSON.stringify({ reflection, hypothesis, updatedAt: new Date().toISOString() }))
+      setDraftSaved(true)
+    } catch { setError('Không lưu được bản nháp trên thiết bị này.') }
+  }
+
+  async function completeReflection() {
+    const fields = Object.values(reflection)
+    if (fields.some((value) => String(value || '').trim().length < 12) || reflectionCompleted) return
+
+    // Keep the local completion path available for anonymous/offline learners. When a
+    // session exists, also persist the reflection through the existing BCTC notes API
+    // so instructors and Learn Hub progress can use the evidence later.
+    const studentId = currentStudentId()
+    const companyId = selectedCompany?.ticker || selectedTicker || currentTicker
+    const periodValue = result?.controls?.period || selectedCompany?.period || period || 'latest'
+    const content = [
+      hypothesis.trim() ? `Giả thuyết: ${hypothesis.trim()}` : '',
+      `Quan sát: ${reflection.observation.trim()}`,
+      `Bằng chứng: ${reflection.evidence.trim()}`,
+      `Giới hạn: ${reflection.limitation.trim()}`,
+    ].filter(Boolean).join('\n\n')
+    const relatedMetrics = [
+      ...(selectedCompany?.raw_inputs || []).map((item) => item.field),
+      ...(selectedCompany?.calculated_fields || []).map((item) => item.field),
+    ].filter(Boolean).slice(0, 20)
+
+    // Always keep a device-local recovery copy before attempting network sync.
+    // This covers anonymous learners and a temporary API outage alike.
+    try {
+      localStorage.setItem('northstar:bctc:reflection:' + (selectedTicker || 'lab'), JSON.stringify({ reflection, hypothesis, updatedAt: new Date().toISOString() }))
+    } catch {
+      // The completion itself can still be recorded in memory when storage is unavailable.
+    }
+    setReflectionSync(studentId ? 'saving' : 'local')
+    if (studentId && companyId) {
+      try {
+        await submitStudentNote({
+          student_id: studentId,
+          company_id: companyId,
+          period: String(periodValue),
+          note_content: content,
+          related_metrics: relatedMetrics,
+        })
+        setReflectionSync('saved')
+      } catch {
+        // A transient API failure must not discard a student's completed work. The
+        // local draft remains the recovery path and the UI explains that sync is pending.
+        setReflectionSync('pending')
       }
     }
-    for (const metric of workspace.headline_metrics || []) {
-      if (metric.value != null && !(metric.key in latest)) {
-        latest[metric.key] = metric.value
-      }
-    }
-
-    // 4. Smart baseline estimation so ALL 19 source fields have valid numbers
-    if (latest.revenue == null) latest.revenue = 53312900000
-    if (latest.net_income == null) latest.net_income = Math.round(latest.revenue * 0.15)
-    if (latest.gross_profit == null) latest.gross_profit = Math.round(latest.revenue * 0.28)
-    if (latest.cost_of_goods_sold == null) latest.cost_of_goods_sold = latest.revenue - latest.gross_profit
-    if (latest.operating_profit == null) latest.operating_profit = Math.round(latest.gross_profit * 0.65)
-    if (latest.ebit == null) latest.ebit = latest.operating_profit
-    if (latest.ebitda == null) latest.ebitda = Math.round(latest.operating_profit * 1.18)
-    if (latest.operating_cash_flow == null) latest.operating_cash_flow = Math.round(latest.net_income * 1.08)
-    if (latest.capex == null) latest.capex = Math.round(latest.operating_cash_flow * 0.35)
-
-    if (latest.total_assets == null) latest.total_assets = Math.round(latest.revenue * 1.8)
-    if (latest.equity == null) latest.equity = Math.round(latest.total_assets * 0.52)
-    if (latest.total_liabilities == null) latest.total_liabilities = latest.total_assets - latest.equity
-    if (latest.current_assets == null) latest.current_assets = Math.round(latest.total_assets * 0.45)
-    if (latest.current_liabilities == null) latest.current_liabilities = Math.round(latest.total_liabilities * 0.6)
-    if (latest.cash == null) latest.cash = Math.round(latest.current_assets * 0.25)
-    if (latest.receivables == null) latest.receivables = Math.round(latest.current_assets * 0.35)
-    if (latest.inventory == null) latest.inventory = Math.round(latest.current_assets * 0.30)
-    if (latest.accounts_payable == null) latest.accounts_payable = Math.round(latest.current_liabilities * 0.4)
-    if (latest.debt == null) {
-      const sDebt = latest.short_term_debt || 0
-      const lDebt = latest.long_term_debt || 0
-      latest.debt = (sDebt || lDebt) ? (sDebt + lDebt) : Math.round(latest.total_liabilities * 0.65)
-    }
-    if (latest.interest_expense == null) latest.interest_expense = Math.round(latest.debt * 0.065 / 4)
-
-    if (periodToUse && periodToUse.includes('-Q')) {
-      latest.quarter = parseInt(periodToUse.split('-Q')[1], 10)
-    }
-
-    // YoY period lookup
-    let yoy = null
-    let yoyPeriodStr = null
-    if (!periodToUse.includes('-Q')) {
-      const yr = parseInt(periodToUse, 10)
-      yoyPeriodStr = String(yr - 1)
-    } else {
-      const [yr, q] = periodToUse.split('-Q')
-      yoyPeriodStr = `${parseInt(yr, 10) - 1}-Q${q}`
-    }
-    if (yoyPeriodStr) {
-      yoy = {}
-      extractNormalizedValues(incomeRows, yoyPeriodStr, yoy)
-      extractNormalizedValues(balanceRows, yoyPeriodStr, yoy)
-      extractNormalizedValues(cashFlowRows, yoyPeriodStr, yoy)
-      if (yoy.revenue == null) yoy.revenue = Math.round(latest.revenue * 0.9)
-      if (yoy.net_income == null) yoy.net_income = Math.round(latest.net_income * 0.85)
-      if (yoy.gross_profit == null) yoy.gross_profit = Math.round(latest.gross_profit * 0.88)
-    }
-
-    return { periodData: latest, yoyData: yoy, period: periodToUse }
-  }, [workspace, periodToUse, availablePeriods])
-
-  // Compute correct answers
-  const correctAnswers = useMemo(() => computeAllRatios(periodData, yoyData), [periodData, yoyData])
-
-  // Available ratios (only those computable)
-  const availableRatios = useMemo(() => {
-    return RATIO_CATALOG.filter((r) => correctAnswers[r.key] != null)
-  }, [correctAnswers])
-
-  const handleAnswerChange = useCallback((key, value) => {
-    setStudentAnswers((prev) => ({ ...prev, [key]: value === '' ? undefined : value }))
-  }, [])
-
-  function handleSubmit() {
-    const graded = {}
-    for (const ratio of availableRatios) {
-      graded[ratio.key] = gradeAnswer(studentAnswers[ratio.key], correctAnswers[ratio.key], ratio.unit)
-    }
-    setResults(graded)
+    setReflectionCompleted(true)
+    setPhase('reflect')
   }
 
-  function handleAutoFill() {
-    const filled = {}
-    for (const ratio of availableRatios) {
-      const correctVal = correctAnswers[ratio.key]
-      if (correctVal != null) {
-        filled[ratio.key] = correctVal.toString()
-      }
-    }
-    setStudentAnswers(filled)
-  }
+  const selectedCompany = result?.companies?.find((item) => item.ticker === selectedTicker) || result?.companies?.[0]
+  const analysisUnlocked = !selectedCompany || !hasCalculableFields(selectedCompany) || rawChallengeCompleted
+  const completed = reflectionCompleted
 
-  function handleReset() {
-    setStudentAnswers({})
-    setResults(null)
-  }
-
-  // Summary stats
-  const stats = useMemo(() => {
-    if (!results) return null
-    const entries = Object.values(results)
-    return {
-      total: entries.length,
-      correct: entries.filter((r) => r.status === 'correct').length,
-      close: entries.filter((r) => r.status === 'close').length,
-      incorrect: entries.filter((r) => r.status === 'incorrect').length,
-      skipped: entries.filter((r) => r.status === 'skip').length,
-    }
-  }, [results])
-
-  const answeredCount = Object.keys(studentAnswers).filter((k) => studentAnswers[k] != null && studentAnswers[k] !== '').length
-
-  if (!workspace) {
-    return (
-      <div className="rp-lab">
-        <div className="rp-header">
-          <div>
-            <span className="rp-kicker">PHÒNG THỰC HÀNH CHỈ SỐ TÀI CHÍNH</span>
-            <h2>Đang tải dữ liệu…</h2>
-            <p>Vui lòng chờ hệ thống đồng bộ báo cáo tài chính.</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="rp-lab">
-      {/* Header */}
-      <div className="rp-header">
-        <div>
-          <span className="rp-kicker">PHÒNG THỰC HÀNH CHỈ SỐ TÀI CHÍNH</span>
-          <h2>
-            <GraduationCap size={20} style={{ verticalAlign: 'text-bottom', marginRight: 8, color: 'var(--accent)' }} />
-            {workspace?.company?.name || workspace?.company?.ticker || '—'}
-          </h2>
-          <p>
-            Tự tính toán {availableRatios.length} / {RATIO_CATALOG.length} chỉ số tài chính từ dữ liệu BCTC thật ·
-            Kỳ {period} · 7 nhóm phân tích
-          </p>
-        </div>
-
-        <div className="rp-header-actions">
-          {/* Period Selection Dropdown */}
-          {availablePeriods.length > 0 && (
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--ink-muted)' }}>
-              <span>Kỳ BCTC:</span>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => {
-                  setSelectedPeriod(e.target.value)
-                  setStudentAnswers({})
-                  setResults(null)
-                }}
-                style={{
-                  height: 36, padding: '0 10px', borderRadius: 6, border: '1px solid var(--line-strong)',
-                  background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontWeight: 700, cursor: 'pointer'
-                }}
-              >
-                {availablePeriods.map((p) => (
-                  <option key={p} value={p}>Kỳ {p}</option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {/* Test Auto-fill Button */}
-          <button
-            type="button"
-            className="rp-btn"
-            title="Tự động điền đáp án mẫu để test hệ thống"
-            onClick={handleAutoFill}
-          >
-            <Sparkles size={14} style={{ color: 'var(--accent)' }} /> Điền đáp án mẫu
-          </button>
-
-          {results ? (
-            <button type="button" className="rp-btn" onClick={handleReset}>
-              <RefreshCw size={14} /> Làm lại
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="rp-btn is-primary"
-              onClick={handleSubmit}
-              disabled={answeredCount === 0}
-            >
-              <Check size={14} /> Kiểm tra đáp án ({answeredCount}/{availableRatios.length})
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="rp-progress">
-        <div
-          className="rp-progress-fill"
-          style={{ width: `${results ? 100 : (answeredCount / Math.max(availableRatios.length, 1)) * 100}%` }}
-        />
-      </div>
-
-      {/* Summary stats (after submit) */}
-      {stats && (
-        <div className="rp-summary">
-          <div className="rp-stat">
-            <span className="rp-stat-value is-good">{stats.correct}</span>
-            <span className="rp-stat-label">Chính xác</span>
-          </div>
-          <div className="rp-stat">
-            <span className="rp-stat-value" style={{ color: 'var(--warn)' }}>{stats.close}</span>
-            <span className="rp-stat-label">Gần đúng</span>
-          </div>
-          <div className="rp-stat">
-            <span className="rp-stat-value is-bad">{stats.incorrect}</span>
-            <span className="rp-stat-label">Sai</span>
-          </div>
-          <div className="rp-stat">
-            <span className="rp-stat-value">{stats.skipped}</span>
-            <span className="rp-stat-label">Bỏ qua</span>
-          </div>
-          <div className="rp-stat" style={{ marginLeft: 'auto' }}>
-            <span className="rp-stat-label">Điểm:</span>
-            <span className={`rp-stat-value ${(stats.correct + stats.close * 0.5) / stats.total >= 0.7 ? 'is-good' : 'is-bad'}`}>
-              {Math.round(((stats.correct + stats.close * 0.5) / stats.total) * 100)}%
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Source Data */}
-      <SourceDataPanel periodData={periodData} period={period} />
-
-      {/* Ratio Groups */}
-      <div className="rp-groups">
-        {RATIO_GROUPS.map((group) => {
-          const groupRatios = availableRatios.filter((r) => r.group === group.key)
-          if (!groupRatios.length) return null
-          const Icon = GROUP_ICONS[group.key] || BookOpen
-          return (
-            <div className="rp-group" key={group.key}>
-              <div className="rp-group-header">
-                <div className="rp-group-icon"><Icon /></div>
-                <h3>{group.label} <small style={{ fontWeight: 400, color: 'var(--ink-muted)', fontSize: 11 }}>({group.labelEn})</small></h3>
-                <span className="rp-group-count">{groupRatios.length} chỉ số</span>
-              </div>
-              {group.description && <p style={{ margin: '0 0 12px', color: 'var(--ink-muted)', fontSize: 11 }}>{group.description}</p>}
-
-              {/* DuPont equation display */}
-              {group.key === 'dupont' && (
-                <div className="rp-dupont-equation">
-                  <strong>ROE</strong> <span>=</span>
-                  <strong>Biên LN ròng</strong> <span>×</span>
-                  <strong>Vòng quay TS</strong> <span>×</span>
-                  <strong>Đòn bẩy TC</strong>
-                  {results && correctAnswers.dupont_npm != null && (
-                    <>
-                      <span style={{ margin: '0 8px', color: 'var(--ink-subtle)' }}>→</span>
-                      <span>{(correctAnswers.dupont_npm || 0).toFixed(3)}</span>
-                      <span>×</span>
-                      <span>{(correctAnswers.dupont_at || 0).toFixed(3)}</span>
-                      <span>×</span>
-                      <span>{(correctAnswers.dupont_em || 0).toFixed(3)}</span>
-                      <span>=</span>
-                      <strong style={{ color: 'var(--accent)' }}>
-                        {(((correctAnswers.dupont_npm || 0) * (correctAnswers.dupont_at || 0) * (correctAnswers.dupont_em || 0)) * 100).toFixed(2)}%
-                      </strong>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="rp-ratio-grid">
-                {groupRatios.map((ratio) => (
-                  <RatioCard
-                    key={ratio.key}
-                    ratio={ratio}
-                    studentValue={studentAnswers[ratio.key]}
-                    onChange={handleAnswerChange}
-                    result={results?.[ratio.key]}
-                    correctValue={correctAnswers[ratio.key]}
-                  />
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Detailed Results Summary Table */}
-      {results && (
-        <DetailedResultsTable
-          availableRatios={availableRatios}
-          studentAnswers={studentAnswers}
-          correctAnswers={correctAnswers}
-          results={results}
-          companyName={workspace?.company?.name || workspace?.company?.ticker || 'HPG'}
-          period={period}
-        />
-      )}
-
-      {/* Footer */}
-      <div className="rp-footer">
-        <span>
-          <BookOpen size={12} style={{ verticalAlign: 'text-bottom', marginRight: 4 }} />
-          Nguồn: {workspace?.data_provenance?.provider || '—'} · Dữ liệu phục vụ học tập, không phải khuyến nghị đầu tư.
-        </span>
-        <span>{availableRatios.length} / {RATIO_CATALOG.length} chỉ số có đủ dữ liệu</span>
-      </div>
+  return <div className="rp-lab">
+    <Workflow phase={phase} />
+    <div className="rp-lab-layout">
+      <LabBrief learning={result?.learning} hypothesis={hypothesis} onHypothesisChange={setHypothesis} completed={completed} />
+      <main className="rp-lab-main">
+        <form className="rp-controls" onSubmit={runSimulation}><label className="rp-control-field rp-control-wide"><span><SlidersHorizontal size={14} /> Mã dùng cho thí nghiệm</span><input aria-label="Các mã cổ phiếu so sánh" value={tickerText} onChange={(event) => setTickerText(event.target.value.toUpperCase())} placeholder="FPT, HPG, VCB" /><small>Tối đa 8 mã · phân tách bằng dấu phẩy hoặc khoảng trắng</small></label><label className="rp-control-field"><span>Tần suất</span><select value={periodMode} onChange={(event) => { setPeriodMode(event.target.value); setPeriod('') }}><option value="quarter">Theo quý</option><option value="year">Theo năm</option></select><small>So sánh cùng loại kỳ</small></label><label className="rp-control-field"><span>Kỳ cụ thể <em>(tùy chọn)</em></span><select value={period} onChange={(event) => setPeriod(event.target.value)}><option value="">Mới nhất</option>{periods.map((item) => <option value={item} key={item}>{item}</option>)}</select><small>Bỏ trống để lấy kỳ mới nhất</small></label><button type="submit" className="rp-control-run" disabled={status === 'loading'}>{status === 'loading' ? <LoaderCircle className="is-spinning" size={15} /> : <Play size={15} />} Chạy lab</button></form>
+        {error && <div className="rp-alert" role="alert"><AlertTriangle size={17} /><span>{error}</span></div>}
+        {draftSaved && <div className="rp-saved-note" role="status"><Check size={15} /> Bản nháp reflection đã lưu trên thiết bị này.</div>}
+        {status === 'loading' && <LoadingPanel />}
+        {status === 'error' && <section className="rp-error-state"><div className="rp-start-icon"><AlertTriangle size={21} /></div><div><span className="rp-eyebrow">KHÔNG THỂ CHẠY PHIÊN</span><h2>Kiểm tra mã hoặc nguồn dữ liệu rồi thử lại.</h2><p>Phiên học chưa tạo kết quả. Các lần chạy trước trong lịch sử vẫn được giữ nguyên.</p><button type="button" className="rp-btn is-primary" onClick={runSimulation}><RotateCcw size={15} /> Thử lại</button></div></section>}
+        {status === 'idle' && <section className="rp-start-card"><div className="rp-start-icon"><Play size={21} /></div><div><span className="rp-eyebrow">SẴN SÀNG BẮT ĐẦU</span><h2>Thiết lập giả thuyết trước khi xem kết quả</h2><p>Nhập một hoặc nhiều mã ở trên, viết dự đoán ngắn ở cột bên trái rồi chạy bài lab. Hệ thống không tự bù số thiếu.</p><button type="button" className="rp-btn is-primary" onClick={runSimulation}><Play size={15} /> Chạy phiên đầu tiên <ArrowRight size={15} /></button></div></section>}
+        {status === 'ready' && result && <><DataQualityStrip result={result} /><section className="rp-card rp-ranking"><div className="rp-section-heading"><div><span className="rp-eyebrow">BƯỚC 03 · SO SÁNH</span><h3><ShieldCheck size={17} /> Chọn doanh nghiệp để đọc sâu</h3><p>Điểm tổng hợp là heuristic dùng cho bài học. Hãy ưu tiên mở raw input, công thức và coverage.</p></div><span className="rp-methodology"><Info size={14} /> {result.methodology?.score}</span></div><div className="rp-ranking-grid">{[...(result.companies || [])].sort((a, b) => (a.overall?.rank ?? 999) - (b.overall?.rank ?? 999)).map((company) => <RankingCard key={company.ticker} company={company} selected={selectedCompany?.ticker === company.ticker} onSelect={() => { setSelectedTicker(company.ticker); setRawChallengeCompleted(false); setPhase('explore') }} />)}</div></section>{selectedCompany && <><RawInputs company={selectedCompany} /><RawDataChallenge key={`${selectedCompany.ticker}-${selectedCompany.period || result.controls?.period || 'latest'}`} company={selectedCompany} onComplete={setRawChallengeCompleted} />{analysisUnlocked ? <><CalculatedFields company={selectedCompany} /><InsightPanel company={selectedCompany} /></> : <LockedAnalysis title="Phân tích dẫn xuất đang được khóa" description="Hoàn thành phần tự tính từ raw data để mở đáp án, insight và cách so sánh." />}</>}{analysisUnlocked ? <ComparisonTable result={result} /> : <LockedAnalysis title="Bảng so sánh sẽ mở sau bài tính" description="Bạn vẫn có thể xem raw input và công thức; các giá trị dẫn xuất sẽ hiện sau khi hoàn thành challenge." />}<ReflectionPanel reflection={reflection} onChange={updateReflection} onSave={saveDraft} completed={completed} saving={reflectionSync === 'saving'} onComplete={completeReflection} />{reflectionSync !== 'idle' && <div className={cx('rp-saved-note', reflectionSync === 'pending' ? 'is-warning' : '')} role="status"><Check size={15} />{reflectionSync === 'saving' ? 'Đang đồng bộ reflection lên kho bài làm BCTC…' : reflectionSync === 'saved' ? 'Reflection đã được lưu vào kho bài làm BCTC.' : reflectionSync === 'pending' ? 'Đã đánh dấu hoàn thành trên thiết bị; đồng bộ máy chủ sẽ thử lại khi bạn lưu bản nháp.' : 'Reflection đã lưu trên thiết bị này.'}</div>}<section className="rp-card rp-note"><BookOpen size={17} /><div><strong>Cách đọc kết quả</strong><p>Đọc coverage trước khi kết luận. Hạng #1 chỉ có nghĩa là tốt nhất trong nhóm đang chọn; hãy kiểm tra kỳ, ngành, raw input và giới hạn của heuristic.</p></div></section></>}
+      </main>
     </div>
-  )
-}
-
-// ── Detailed Results Summary Table Component ────────────────
-
-function DetailedResultsTable({ availableRatios, studentAnswers, correctAnswers, results, companyName, period }) {
-  const exportCsvReport = () => {
-    const lines = [
-      ['STT', 'Tên chỉ số', 'Công thức', 'Bài làm SV', 'Đáp án hệ thống', 'Sai lệch Δ', 'Trạng thái', 'Đánh giá sức khỏe BCTC', 'Ý nghĩa chỉ số']
-    ]
-    availableRatios.forEach((ratio, index) => {
-      const studentVal = studentAnswers[ratio.key] != null ? `${studentAnswers[ratio.key]}${ratio.unit}` : 'Bỏ qua'
-      const correctVal = formatRatioValue(correctAnswers[ratio.key], ratio.unit)
-      const res = results[ratio.key] || {}
-      const delta = res.delta != null ? res.delta.toFixed(2) : '—'
-      const statusText = res.status === 'correct' ? 'Chính xác' : res.status === 'close' ? 'Gần đúng' : res.status === 'incorrect' ? 'Sai' : 'Bỏ qua'
-      const evalText = evaluateRatio(ratio.key, correctAnswers[ratio.key])
-      lines.push([
-        index + 1,
-        ratio.label,
-        ratio.formula,
-        studentVal,
-        correctVal,
-        delta,
-        statusText,
-        evalText === 'good' ? 'Tốt' : evalText === 'bad' ? 'Rủi ro' : 'Trung tính',
-        ratio.meaning
-      ])
-    })
-
-    const csvContent = '\uFEFF' + lines.map(row => row.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `Ket_qua_thuc_hanh_${companyName}_${period}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  return (
-    <div className="rp-detailed-results-section">
-      <div className="rp-detailed-header">
-        <div>
-          <h3>
-            <FileSpreadsheet size={18} style={{ color: 'var(--accent)' }} /> Bảng Tổng Hợp Đáp Án Mẫu Chi Tiết & Đánh Giá Sức Khỏe BCTC
-          </h3>
-          <p>So sánh toàn bộ {availableRatios.length} chỉ số giữa bài làm của sinh viên và đáp án chuẩn từ BCTC thực tế ({period})</p>
-        </div>
-        <button type="button" className="rp-btn" onClick={exportCsvReport}>
-          <Download size={14} /> Xuất bảng kết quả (CSV)
-        </button>
-      </div>
-
-      <div className="rp-results-table-wrapper">
-        <table className="rp-results-table">
-          <thead>
-            <tr>
-              <th style={{ width: 40, textAlign: 'center' }}>#</th>
-              <th>Chỉ số tài chính</th>
-              <th>Công thức chuẩn</th>
-              <th style={{ textAlign: 'right' }}>Bài làm SV</th>
-              <th style={{ textAlign: 'right' }}>Đáp án chuẩn</th>
-              <th style={{ textAlign: 'center' }}>Sai lệch Δ</th>
-              <th style={{ textAlign: 'center' }}>Kết quả</th>
-              <th style={{ textAlign: 'center' }}>Sức khỏe BCTC</th>
-            </tr>
-          </thead>
-          <tbody>
-            {availableRatios.map((ratio, index) => {
-              const res = results[ratio.key] || {}
-              const evalStatus = evaluateRatio(ratio.key, correctAnswers[ratio.key])
-              const studentVal = studentAnswers[ratio.key]
-              return (
-                <tr key={ratio.key}>
-                  <td style={{ color: 'var(--ink-muted)', textAlign: 'center' }}>{index + 1}</td>
-                  <td>
-                    <strong>{ratio.label}</strong>
-                    <small className="rp-subtext">{ratio.labelEn}</small>
-                  </td>
-                  <td><code className="rp-table-code">{ratio.formula}</code></td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                    {studentVal != null ? `${studentVal}${ratio.unit}` : <span style={{ color: 'var(--ink-subtle)' }}>—</span>}
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
-                    {formatRatioValue(correctAnswers[ratio.key], ratio.unit)}
-                  </td>
-                  <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {res.delta != null ? (
-                      <span style={{ color: res.status === 'correct' ? 'var(--pos)' : res.status === 'close' ? 'var(--warn)' : 'var(--neg)' }}>
-                        {res.delta > 0 ? '+' : ''}{res.delta.toFixed(2)}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className={`rp-badge is-${res.status}`}>
-                      {res.status === 'correct' && <><Check size={11} /> Chính xác</>}
-                      {res.status === 'close' && <><CircleAlert size={11} /> Gần đúng</>}
-                      {res.status === 'incorrect' && <><X size={11} /> Sai</>}
-                      {res.status === 'skip' && 'Bỏ qua'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className={`rp-badge is-${evalStatus}`}>
-                      {evalStatus === 'good' ? '✓ Tốt' : evalStatus === 'bad' ? '⚠ Rủi ro' : '— Trung tính'}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
+    <footer className="rp-lab-footer"><RunHistory runs={runHistory} activeRunId={activeRunId} onSelect={selectRun} /><div className="rp-footer-actions"><button type="button" className="rp-btn" onClick={() => exportCsv(result)} disabled={!result || !analysisUnlocked} title={analysisUnlocked ? 'Xuất kết quả phiên học' : 'Hoàn thành Raw Data Challenge để mở xuất dữ liệu'}><Download size={15} /> Xuất CSV</button><button type="button" className="rp-btn" onClick={resetCurrentLab}><RotateCcw size={15} /> Đặt lại phiên</button></div></footer>
+  </div>
 }

@@ -12,8 +12,23 @@ from risk_dashboard.platform.runtime.panel_store import startup_initialize_runti
 logger = logging.getLogger(__name__)
 
 
+def _configure_yfinance_cache() -> None:
+    try:
+        import os
+        import tempfile
+        import yfinance as yf
+
+        tz_dir = os.path.join(tempfile.gettempdir(), "py-yfinance")
+        os.makedirs(tz_dir, exist_ok=True)
+        yf.set_tz_cache_location(tz_dir)
+    except Exception:
+        pass
+
+
 def on_startup() -> None:
+    _configure_yfinance_cache()
     startup_initialize_runtime(logger=logger)
     start_analytics_scheduler(logger=logger)
     start_vn_market_scheduler(logger=logger)
     start_telegram_news_scheduler(logger=logger)
+

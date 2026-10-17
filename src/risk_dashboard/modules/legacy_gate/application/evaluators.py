@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import Any
 
+from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.modules.legacy_gate.domain.entities import (
     GateCheckItem,
     LegacyModuleBaselineReport,
@@ -247,7 +247,10 @@ def build_baseline_report(
             module_slug=module_slug,
         )
 
-    root = base_dir or Path("/home/nhattu/WorkSpace/MyProjects/agent_financial")
+    # Resolve from the installed application rather than a developer-specific
+    # absolute path.  This keeps the gate report usable in Docker, CI and
+    # local checkouts with different workspace locations.
+    root = base_dir or get_settings().project_root
     mod_dir = root / "src" / "risk_dashboard" / "modules" / module_slug
 
     if not mod_dir.exists():
@@ -301,9 +304,12 @@ def build_baseline_report(
 
     # 4. Identify Identity Debt Notes (session_id usage)
     identity_debt: list[str] = [
-        f"{module_slug}/api/public.py accepts client-supplied session_id as user identifier (violates Module 01 AuthPrincipal P0)",
-        f"Requires migration from session_id query/body parameters to server-resolved account_id via AuthPrincipal",
-        f"Database schema for {module_slug} retains session_id/user_id foreign keys instead of account_id",
+        f"{module_slug}/api/public.py accepts client-supplied session_id as user "
+        "identifier (violates Module 01 AuthPrincipal P0)",
+        "Requires migration from session_id query/body parameters to server-resolved "
+        "account_id via AuthPrincipal",
+        f"Database schema for {module_slug} retains session_id/user_id foreign keys "
+        "instead of account_id",
     ]
 
     return LegacyModuleBaselineReport(
@@ -321,4 +327,3 @@ def build_baseline_report(
         captured_at=utc_now_iso(),
         identity_debt_notes=tuple(identity_debt),
     )
-

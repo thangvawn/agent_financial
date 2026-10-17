@@ -15,7 +15,10 @@ def _now() -> str:
 
 
 def sync_commodity_snapshot() -> dict[str, Any]:
-    feed = GlobalMarketFeedProducer().snapshot()
+    producer = GlobalMarketFeedProducer()
+    feed = producer.snapshot(read_only=True)
+    if feed.get("freshness") != "fresh":
+        producer.refresh_in_background()
     items = list(feed.get("groups", {}).get("commodities", []))
     as_of = feed.get("as_of") or _now()
     freshness = feed.get("freshness") or "degraded"
@@ -88,7 +91,7 @@ def sync_commodity_snapshot() -> dict[str, Any]:
         "as_of": as_of,
         "source": feed.get("source", "yahoo_finance"),
         "provider": "yahoo_finance",
-        "data_interval": "1d",
+        "data_interval": feed.get("data_interval") or "1d",
         "freshness": freshness,
         "stale_reason": feed.get("stale_reason"),
         "total": len(items),

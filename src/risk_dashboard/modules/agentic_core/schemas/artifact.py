@@ -17,6 +17,9 @@ class AgentArtifact(BaseModel):
     account_id: str
     authoring_run_id: str
     source_refs: tuple[ResourceRef, ...] = ()
+    # Human-readable answer persisted alongside structured claims.  Older
+    # artifacts deserialize with the empty default.
+    content: str = ""
     claims: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     review_status: str = "draft"

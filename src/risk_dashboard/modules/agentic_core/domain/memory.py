@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 PROHIBITED_PATTERNS = [
@@ -14,8 +14,21 @@ PROHIBITED_PATTERNS = [
     re.compile(r"bank balance|account balance|private report", re.IGNORECASE),
 ]
 
-VALID_PROVENANCES = {"user_stated", "user_approved_plan", "deterministic_checkpoint"}
-VALID_MEMORY_TYPES = {"preference", "goal", "plan", "mastery", "misconception"}
+VALID_PROVENANCES = {
+    "user_stated",
+    "user_explicit",  # compatibility alias for the consented user-rights API
+    "user_approved_plan",
+    "deterministic_checkpoint",
+}
+VALID_MEMORY_TYPES = {
+    "preference",
+    "user_preference",  # compatibility alias
+    "goal",
+    "plan",
+    "mastery",
+    "misconception",
+    "market_insight",  # compatibility alias; retained as an explicit user note
+}
 
 
 class MemoryItem(BaseModel):

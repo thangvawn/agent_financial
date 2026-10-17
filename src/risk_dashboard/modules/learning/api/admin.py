@@ -14,11 +14,22 @@ def _retired() -> HTTPException:
     return HTTPException(
         status_code=410,
         detail=RETIREMENT_DETAIL,
-        headers={"X-Legacy-Learning-Cms": "retired", "X-Primary-Admin-Surface": "content_ops_admin"},
+        headers={
+            "X-Legacy-Learning-Cms": "retired",
+            "X-Primary-Admin-Surface": "content_ops_admin",
+        },
     )
 
 
-@router.api_route("", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-@router.api_route("/{legacy_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route(
+    "",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+@router.api_route(
+    "/{legacy_path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
 def retired_learning_cms(_: Request, legacy_path: str = ""):
     raise _retired()

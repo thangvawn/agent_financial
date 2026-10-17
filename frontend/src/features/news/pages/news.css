@@ -38,18 +38,21 @@ body:has(.app-shell--news) {
 .news-desk {
   --accent-ink: var(--bg-deep);
   width: 100%;
-  max-width: 1560px;
-  min-height: 100dvh;
-  margin: 0 auto;
-  padding: 32px clamp(24px, 4vw, 56px) 48px;
+  max-width: none;
+  min-height: calc(100dvh - var(--connected-nav-safe-area));
+  margin: 0;
+  padding: 12px clamp(16px, 2vw, 32px) 40px;
+  box-sizing: border-box;
   overflow-x: clip;
   color: var(--ink);
   font-family: var(--font-sans);
 }
 
 .app-shell--news .surface-panel > .news-desk {
-  max-width: 1560px !important;
-  padding: 32px clamp(24px, 4vw, 56px) 48px !important;
+  width: 100%;
+  max-width: none !important;
+  min-height: calc(100dvh - var(--connected-nav-safe-area));
+  padding: 12px clamp(16px, 2vw, 32px) 40px !important;
 }
 
 .animate-fadeIn { animation: news-fade-in var(--t-base) var(--ease) both; }

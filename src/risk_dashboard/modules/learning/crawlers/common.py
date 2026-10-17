@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS learning_courses (
   level TEXT,
   duration_minutes INTEGER,
   topics_json TEXT NOT NULL DEFAULT '[]',
+  sections_json TEXT,
   tier TEXT,
   published_at TEXT,
   fetched_at TEXT NOT NULL,
@@ -232,7 +233,7 @@ class ResourceRow:
 _COURSE_COLUMNS = (
     "course_id", "source", "external_id", "title", "provider", "instructor",
     "description", "url", "thumbnail_url", "language", "level",
-    "duration_minutes", "topics_json", "tier", "published_at", "fetched_at", "is_active",
+    "duration_minutes", "topics_json", "sections_json", "tier", "published_at", "fetched_at", "is_active",
 )
 _VIDEO_COLUMNS = (
     "video_id", "source", "external_id", "title", "channel", "channel_id",

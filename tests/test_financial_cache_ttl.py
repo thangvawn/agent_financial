@@ -21,7 +21,7 @@ def test_bctc_cache_ttl_freshness(tmp_path: Path, monkeypatch):
     )
     save_financial_dataset(dataset)
 
-    with patch("risk_dashboard.data.financials._attempt_vnstock_fetch") as mock_fetch:
+    with patch("risk_dashboard.data.financials._fetch_direct_statements") as mock_fetch:
         result = get_financial_dataset("VIC", max_cache_age_seconds=86400)
         assert result.ticker == "VIC"
         assert result.periods[0].revenue == 100.0
@@ -48,7 +48,7 @@ def test_bctc_cache_ttl_expiration_triggers_fetch(tmp_path: Path, monkeypatch):
         periods=[FinancialPeriodData(period="2025-Q4", year=2025, quarter=4, revenue=250.0)],
     )
 
-    with patch("risk_dashboard.data.financials._attempt_vnstock_fetch", return_value=new_dataset) as mock_fetch:
+    with patch("risk_dashboard.data.financials._fetch_direct_statements", return_value=new_dataset) as mock_fetch:
         result = get_financial_dataset("VNM", max_cache_age_seconds=86400)
         assert result.periods[0].revenue == 250.0
         mock_fetch.assert_called_once_with("VNM")

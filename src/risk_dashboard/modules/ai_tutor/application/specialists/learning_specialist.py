@@ -21,6 +21,9 @@ from risk_dashboard.modules.ai_tutor.infrastructure.adapters.learning_adapter im
     LearningQuizContextTool,
 )
 from risk_dashboard.modules.ai_tutor.schemas.conversation import CitationRef, ToolCallRef
+from risk_dashboard.modules.learning.application.video_agent_service import (
+    VideoLearningAgentService,
+)
 from risk_dashboard.platform.ai_runtime.contracts import ModelMessage, ModelSettings, ModelTask
 from risk_dashboard.platform.ai_runtime.factory import get_default_provider
 from risk_dashboard.platform.ai_runtime.provider import LLMProvider
@@ -34,11 +37,13 @@ class LearningSpecialist:
         lesson_tool: LearningLessonContextTool | None = None,
         quiz_tool: LearningQuizContextTool | None = None,
         progress_tool: LearningProgressTool | None = None,
+        video_agent: VideoLearningAgentService | None = None,
         provider: LLMProvider | None = None,
     ) -> None:
         self.lesson_tool = lesson_tool or LearningLessonContextTool()
         self.quiz_tool = quiz_tool or LearningQuizContextTool()
         self.progress_tool = progress_tool or LearningProgressTool()
+        self.video_agent = video_agent or VideoLearningAgentService()
         self.provider = provider
 
     def _get_provider(self) -> LLMProvider | None:
@@ -55,6 +60,7 @@ class LearningSpecialist:
         intent: str,
         user_query: str,
         resource_id: str | None = None,
+        video_time_seconds: float | None = None,
         envelope: TrustedExecutionEnvelope | None = None,
         grant: ToolGrant | None = None,
     ) -> dict[str, Any]:
@@ -131,6 +137,85 @@ class LearningSpecialist:
                 "next_action": "Suy luận và chọn đáp án phù hợp để hoàn thành bài kiểm tra.",
                 "tool_calls": tuple(tool_calls),
             }
+
+        # Playback-aware questions use the video transcript agent. This branch
+        # is intentionally after the quiz branch so a learner asking for an
+        # answer still receives the existing zero-leakage Socratic response.
+        if video_time_seconds is not None and video_time_seconds > 0 and target_res:
+            try:
+                video_reply = self.video_agent.ask(
+                    target_res,
+                    question=user_query,
+                    current_time_seconds=video_time_seconds,
+                )
+                for citation in video_reply.citations:
+                    citations.append(
+                        CitationRef(
+                            source_type="lesson",
+                            source_id=f"{video_reply.lesson_id}:{citation.segment_id}",
+                            label=f"Video {citation.label}",
+                        )
+                    )
+                answer = video_reply.answer
+                provider = self._get_provider()
+                if provider is not None and video_reply.grounded:
+                    try:
+                        context = [
+                            {
+                                "timestamp": citation.label,
+                                "text": citation.text,
+                            }
+                            for citation in video_reply.citations
+                        ]
+                        task = ModelTask(
+                            task_type="ai_tutor_video_question",
+                            system_instructions_ref="ai_tutor_learning_v1",
+                            messages=(
+                                ModelMessage(
+                                    role="system",
+                                    content=(
+                                        "Bạn là gia sư tài chính. Chỉ được trả lời bằng các đoạn transcript được cung cấp; "
+                                        "không suy đoán, không thêm số liệu ngoài nguồn. Trả lời bằng tiếng Việt, xưng em và gọi người dùng là anh. "
+                                        "Nếu nguồn không đủ, nói rõ chưa đủ dữ kiện."
+                                    ),
+                                ),
+                                ModelMessage(
+                                    role="user",
+                                    content=json.dumps(
+                                        {"question": user_query, "transcript_context": context},
+                                        ensure_ascii=False,
+                                    ),
+                                ),
+                            ),
+                            settings=ModelSettings(temperature=0.1, max_output_tokens=450, response_format="text"),
+                            correlation_id=envelope.run_id if envelope else f"video_{uuid4().hex[:8]}",
+                            deadline_seconds=12.0,
+                        )
+                        generated = await provider.generate(task)
+                        if generated and generated.text:
+                            answer = generated.text.strip()
+                    except Exception as exc:
+                        logger.info("LLM video answer failed, using extractive response: %s", exc)
+                tool_calls.append(
+                    ToolCallRef(
+                        tool_name="learning.video_agent.ask",
+                        status="success",
+                        summary="Đã truy xuất transcript quanh mốc video hiện tại",
+                    )
+                )
+                return {
+                    "answer": answer,
+                    "citations": tuple(citations),
+                    "numeric_claims": (),
+                    "evidence": {"lesson_id": video_reply.lesson_id, "grounded": video_reply.grounded},
+                    "assumptions": ("Câu trả lời chỉ dựa trên transcript hiện có của video.",),
+                    "limitations": tuple(video_reply.limitations),
+                    "check_question": "Anh có muốn chỉ rõ một mốc thời gian khác để em giải thích tiếp không?",
+                    "next_action": "Tiếp tục xem video và đặt câu hỏi gắn với mốc đang học.",
+                    "tool_calls": tuple(tool_calls),
+                }
+            except (KeyError, ValueError) as exc:
+                logger.info("Video context unavailable, falling back to lesson context: %s", exc)
 
         # Lesson explanation flow
         lesson_ev = await self.lesson_tool.execute(active_grant, lesson_id=target_res)

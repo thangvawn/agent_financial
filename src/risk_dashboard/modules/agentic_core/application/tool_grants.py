@@ -71,4 +71,3 @@ def validate_grant(grant: ToolGrant, *, run_id: str, tool_id: str) -> bool:
         return now_utc < expiry_dt
     except (ValueError, TypeError):
         return False
-

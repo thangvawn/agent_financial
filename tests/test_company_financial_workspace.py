@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from risk_dashboard.modules.financials_product.application import build_company_financial_workspace
+from risk_dashboard.modules.financials_product.application.company_workspace import _derive_period
 from risk_dashboard.schemas.financials import FinancialDataset
 
 
@@ -101,3 +102,20 @@ def test_company_evaluation_uses_peer_median_as_evidence():
     assert roe["peer_median"] == 5.0
     assert roe["peer_count"] == 4
     assert any("peers" in item for item in roe["evidence"])
+
+
+def test_workspace_does_not_impute_missing_operands_for_derived_metrics():
+    source = _fixture_dataset().periods[0].model_dump(mode="json")
+
+    missing_capex = _derive_period({**source, "capex": None})
+    assert missing_capex["free_cash_flow"] is None
+    assert missing_capex["fcf_margin_pct"] is None
+
+    missing_inventory = _derive_period({**source, "inventory": None})
+    assert missing_inventory["quick_ratio"] is None
+
+    missing_invested_capital_input = _derive_period({**source, "cash": None})
+    assert missing_invested_capital_input["roic_pct"] is None
+
+    missing_net_debt_input = _derive_period({**source, "debt": None})
+    assert missing_net_debt_input["net_debt_to_ebitda"] is None

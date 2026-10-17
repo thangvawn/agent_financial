@@ -36,6 +36,7 @@ class NewsArticle:
     published_at: str
     fetched_at: str
     sort_ts: int
+    image_url: str = ""
     priority: int = 3
     sentiment: str = "neutral"
     impact: str = "medium"
@@ -71,6 +72,7 @@ class NewsArticle:
             "region": self.region,
             "category": self.category,
             "url": self.url,
+            "image_url": self.image_url,
             "published_at": self.published_at,
             "fetched_at": self.fetched_at,
             "sort_ts": self.sort_ts,

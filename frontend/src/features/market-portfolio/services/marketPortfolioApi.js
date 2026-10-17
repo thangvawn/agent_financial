@@ -93,8 +93,12 @@ export async function fetchMpDerivativesSnapshot() {
   return expectJson(response)
 }
 
-export async function fetchMpCryptoSnapshot() {
-  const response = await fetch(`${BASE}/market-data/crypto/snapshot`)
+export async function fetchMpCryptoSnapshot({ signal } = {}) {
+  const response = await fetch(`${BASE}/market-data/crypto/snapshot`, {
+    signal,
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  })
   return expectJson(response)
 }
 

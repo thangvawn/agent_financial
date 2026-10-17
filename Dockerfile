@@ -42,7 +42,7 @@ RUN pip install --no-deps -e .
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 RUN groupadd -r app && useradd -r -g app -d /app app && \
-    mkdir -p data/models data/cache data/financials/cache && \
+    mkdir -p data/models data/cache data/financials/cache .cache/py-yfinance && \
     chown -R app:app /app
 
 USER app

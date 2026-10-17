@@ -7,63 +7,57 @@ import {
   isYouTubeUrl,
   toYouTubeEmbed,
 } from '../content/courseCatalogData'
+import CoursePlayerTabContent from './CoursePlayerTabContent'
+import CourseVideoPlayer from './CourseVideoPlayer'
 import LessonSidebar from './LessonSidebar'
-import LearnTutorPanel from './LearnTutorPanel'
-import CourseCheckpointTab from '../components/CourseCheckpointTab'
 
-const STORAGE_KEY = 'northstar.learn-hub.progress'
-
-function readProgress() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+function progressKey(sessionId) {
+  return `northstar.learn-hub.progress:${sessionId || 'anonymous'}`
 }
-
-function writeProgress(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch { /* noop */ }
+function readProgress(sessionId) {
+  try { return JSON.parse(localStorage.getItem(progressKey(sessionId)) || '{}') } catch { return {} }
+}
+function writeProgress(sessionId, data) {
+  try { localStorage.setItem(progressKey(sessionId), JSON.stringify(data)) } catch { /* noop */ }
 }
 
 const PLAYER_TABS = [
   ['overview', 'Tổng quan'],
+  ['video-agent', '🤖 Video Agent'],
   ['checkpoint', '🎯 Mốc kiểm tra'],
   ['tutor', '🎓 AI Gia Sư'],
   ['notes', 'Ghi chú'],
   ['resources', 'Tài liệu'],
 ]
 
-export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
-  const course = findCourseById(courseId)
+export default function CoursePlayerPage({ courseId, course: initialCourse, sessionId, onBack }) {
+  const course = initialCourse || findCourseById(courseId)
   const allLessons = course ? getAllLessons(course) : []
   const [activeLessonId, setActiveLessonId] = useState(() => allLessons[0]?.lesson_id || '')
-  const [completedSet, setCompletedSet] = useState(() => new Set(readProgress()[courseId] || []))
+  const [completedSet, setCompletedSet] = useState(() => new Set(readProgress(sessionId)[courseId] || []))
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [videoErrorLesson, setVideoErrorLesson] = useState(null)
+  const [currentTimeSeconds, setCurrentTimeSeconds] = useState(0)
+
+  const selectLesson = (lessonId) => {
+    setCurrentTimeSeconds(0)
+    setActiveLessonId(lessonId)
+  }
   const videoRef = useRef(null)
 
   const handleTabKeyDown = (e, currentId) => {
     const tabIds = PLAYER_TABS.map(([id]) => id)
     const idx = tabIds.indexOf(currentId)
-    if (e.key === 'ArrowRight') {
+    const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+    if (delta !== 0) {
       e.preventDefault()
-      const nextId = tabIds[(idx + 1) % tabIds.length]
+      const nextId = tabIds[(idx + delta + tabIds.length) % tabIds.length]
       setActiveTab(nextId)
       document.getElementById(`lhp-tab-${nextId}`)?.focus()
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      const prevId = tabIds[(idx - 1 + tabIds.length) % tabIds.length]
-      setActiveTab(prevId)
-      document.getElementById(`lhp-tab-${prevId}`)?.focus()
-    } else if (e.key === 'Home') {
-      e.preventDefault()
-      setActiveTab(tabIds[0])
-      document.getElementById(`lhp-tab-${tabIds[0]}`)?.focus()
-    } else if (e.key === 'End') {
-      e.preventDefault()
-      setActiveTab(tabIds[tabIds.length - 1])
-      document.getElementById(`lhp-tab-${tabIds[tabIds.length - 1]}`)?.focus()
     }
   }
 
-  const videoError = videoErrorLesson === activeLessonId
   const activeLesson = allLessons.find((l) => l.lesson_id === activeLessonId) || allLessons[0]
   const activeIndex = findLessonIndex(course, activeLessonId)
   const isYouTube = isYouTubeUrl(activeLesson?.video_url)
@@ -80,9 +74,9 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
     setCompletedSet((prev) => {
       const next = new Set(prev)
       next.add(lessonId)
-      const saved = readProgress()
+      const saved = readProgress(sessionId)
       saved[courseId] = [...next]
-      writeProgress(saved)
+      writeProgress(sessionId, saved)
       return next
     })
   }
@@ -90,7 +84,7 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
   const handleVideoEnded = () => {
     markComplete(activeLessonId)
     if (activeIndex + 1 < allLessons.length) {
-      setActiveLessonId(allLessons[activeIndex + 1].lesson_id)
+      selectLesson(allLessons[activeIndex + 1].lesson_id)
     }
   }
 
@@ -110,67 +104,38 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
       <header className="lhp-header">
         <button type="button" className="lhp-back" onClick={onBack}>← Quay lại</button>
         <h1 className="lhp-header__title">{course.title}</h1>
-        <button type="button" className="lhp-sidebar-toggle" onClick={() => setSidebarOpen((v) => !v)}>
-          Mục lục
-        </button>
+        <button type="button" className="lhp-sidebar-toggle" onClick={() => setSidebarOpen((v) => !v)}>Mục lục</button>
       </header>
 
       <div className={`lhp-workspace ${sidebarOpen ? '' : 'lhp-workspace--no-sidebar'}`}>
         <div className="lhp-main">
-          <div className="lhp-player-wrap">
-            {isYouTube && youtubeEmbed ? (
-              <iframe
-                key={activeLessonId}
-                className="lhp-player lhp-player--youtube"
-                src={youtubeEmbed}
-                title={activeLesson?.title || course.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            ) : videoError ? (
-              <div className="lhp-player lhp-player--placeholder">
-                <p>Không phát được video trong app</p>
-                {activeLesson?.video_url ? (
-                  <a className="lhc-btn lhc-btn--primary" href={activeLesson.video_url} target="_blank" rel="noreferrer">
-                    Mở trên YouTube
-                  </a>
-                ) : null}
-              </div>
-            ) : (
-              <video
-                ref={videoRef}
-                className="lhp-player"
-                controls
-                src={activeLesson?.video_url || ''}
-                onEnded={handleVideoEnded}
-                onError={() => setVideoErrorLesson(activeLessonId)}
-              />
-            )}
-          </div>
+          <CourseVideoPlayer
+            activeLessonId={activeLessonId}
+            activeLesson={activeLesson}
+            courseTitle={course.title}
+            isYouTube={isYouTube}
+            youtubeEmbed={youtubeEmbed}
+            videoError={videoErrorLesson === activeLessonId}
+            videoRef={videoRef}
+            onVideoEnded={handleVideoEnded}
+            onVideoError={() => setVideoErrorLesson(activeLessonId)}
+            onTimeUpdate={(event) => setCurrentTimeSeconds(event.currentTarget.currentTime)}
+          />
 
           <div className="lhp-lesson-info">
             <span className="lhp-lesson-info__num">Bài {activeIndex + 1}/{allLessons.length}</span>
             <h2 className="lhp-lesson-info__title">{activeLesson?.title}</h2>
             <div className="lhp-lesson-info__actions">
               {isYouTube && activeLesson?.video_url ? (
-                <a className="lhc-btn lhc-btn--outline" href={activeLesson.video_url} target="_blank" rel="noreferrer">
-                  Mở YouTube
-                </a>
+                <a className="lhc-btn lhc-btn--outline" href={activeLesson.video_url} target="_blank" rel="noreferrer">Mở YouTube</a>
               ) : null}
               {!completedSet.has(activeLessonId) ? (
-                <button type="button" className="lhc-btn lhc-btn--outline" onClick={() => markComplete(activeLessonId)}>
-                  Đánh dấu hoàn thành
-                </button>
+                <button type="button" className="lhc-btn lhc-btn--outline" onClick={() => markComplete(activeLessonId)}>Đánh dấu hoàn thành</button>
               ) : (
                 <span className="lhp-lesson-done-badge">✓ Đã hoàn thành</span>
               )}
               {activeIndex + 1 < allLessons.length ? (
-                <button
-                  type="button"
-                  className="lhc-btn lhc-btn--primary"
-                  onClick={() => setActiveLessonId(allLessons[activeIndex + 1].lesson_id)}
-                >
+                <button type="button" className="lhc-btn lhc-btn--primary" onClick={() => selectLesson(allLessons[activeIndex + 1].lesson_id)}>
                   Bài tiếp theo →
                 </button>
               ) : null}
@@ -196,61 +161,18 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
             ))}
           </div>
 
-          <div
-            id={`lhp-panel-${activeTab}`}
-            className="lhp-tab-content"
-            role="tabpanel"
-            aria-labelledby={`lhp-tab-${activeTab}`}
-          >
-            {activeTab === 'checkpoint' ? (
-              <CourseCheckpointTab
-                lessonId={activeLessonId}
-                sessionId={sessionId}
-                onCompleteLesson={(id) => {
-                  setCompletedSet((prev) => {
-                    const next = new Set(prev)
-                    next.add(id)
-                    writeProgress({ ...readProgress(), [courseId]: Array.from(next) })
-                    return next
-                  })
-                }}
-              />
-            ) : null}
-            {activeTab === 'tutor' ? (
-              <LearnTutorPanel courseId={courseId} lessonId={activeLessonId} sessionId={sessionId} />
-            ) : null}
-            {activeTab === 'overview' ? (
-              <div className="lhp-overview">
-                <h3>Về khóa học</h3>
-                <p>{course.description}</p>
-                <div className="lhp-overview__meta">
-                  <span>Giảng viên: <strong>{course.instructor}</strong></span>
-                  <span>Độ khó: <strong>{course.difficulty}</strong></span>
-                  <span>Thời lượng: <strong>{course.total_duration}</strong></span>
-                </div>
-                <h3>Tiến độ</h3>
-                <div className="lhp-overview__progress">
-                  <div className="lhc-card__progress-bar lhp-overview__bar">
-                    <div
-                      className="lhc-card__progress-fill"
-                      style={{ width: `${allLessons.length ? (completedSet.size / allLessons.length * 100) : 0}%` }}
-                    />
-                  </div>
-                  <span>{completedSet.size}/{allLessons.length} bài đã hoàn thành</span>
-                </div>
-              </div>
-            ) : null}
-            {activeTab === 'notes' ? (
-              <p className="lhp-notes__placeholder">Ghi chú bài học đang phát triển.</p>
-            ) : null}
-            {activeTab === 'resources' ? (
-              activeLesson?.video_url ? (
-                <p>Nguồn: <a href={activeLesson.video_url} target="_blank" rel="noreferrer">{activeLesson.video_url}</a></p>
-              ) : (
-                <p className="lhp-notes__placeholder">Chưa có tài liệu đính kèm.</p>
-              )
-            ) : null}
-          </div>
+          <CoursePlayerTabContent
+            activeTab={activeTab}
+            course={course}
+            courseId={courseId}
+            activeLesson={activeLesson}
+            activeLessonId={activeLessonId}
+            sessionId={sessionId}
+            completedSet={completedSet}
+            allLessons={allLessons}
+            onCompleteCheckpoint={(id) => markComplete(id)}
+            currentTimeSeconds={currentTimeSeconds}
+          />
         </div>
 
         {sidebarOpen ? (
@@ -258,7 +180,7 @@ export default function CoursePlayerPage({ courseId, sessionId, onBack }) {
             course={course}
             activeLessonId={activeLessonId}
             completedSet={completedSet}
-            onSelectLesson={setActiveLessonId}
+            onSelectLesson={selectLesson}
             onClose={() => setSidebarOpen(false)}
           />
         ) : null}

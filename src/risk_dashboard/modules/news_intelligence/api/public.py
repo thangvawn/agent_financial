@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from risk_dashboard.modules.news_intelligence.application.finnhub_desk import (
@@ -61,11 +62,14 @@ def get_news_highlights(
 def get_article_detail(article_id: str) -> dict:
     detail = NewsIntelligenceService().get_article_detail(article_id)
     if not detail:
-        return {
-            "error": "Article not found",
-            "article_id": article_id,
-            "safety": build_safety_block(),
-        }
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "Article not found",
+                "article_id": article_id,
+                "safety": build_safety_block(),
+            },
+        )
     return detail
 
 
@@ -127,7 +131,17 @@ def get_news_pulse(
 @router.post("/articles/{article_id}/save")
 def save_news(article_id: str, req: SaveNewsRequest) -> dict:
     svc = NewsIntelligenceService()
-    svc.save_article(user_id=req.user_id, article_id=article_id, note=req.note)
+    try:
+        svc.save_article(user_id=req.user_id, article_id=article_id, note=req.note)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": str(exc),
+                "article_id": article_id,
+                "safety": build_safety_block(),
+            },
+        )
     return {"saved": True, "article_id": article_id, "safety": build_safety_block()}
 
 

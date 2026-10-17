@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle
 from risk_dashboard.modules.news_intelligence.domain.impact import map_impact
 from risk_dashboard.modules.news_intelligence.domain.scoring import calculate_importance
-
+from risk_dashboard.modules.news_intelligence.domain.text import (
+    contains_keyword,
+    count_keywords,
+    normalize_text,
+)
+from risk_dashboard.modules.news_intelligence.domain.time import parse_utc_datetime
 
 POSITIVE_WORDS = {
     "gain",
@@ -41,9 +46,25 @@ HIGH_PRIORITY_WORDS = {"fed", "rate", "inflation", "war", "oil", "tariff", "earn
 SYSTEMIC_RISK_WORDS = {"crisis", "default", "bank run", "sanction", "invasion", "recession", "liquidity"}
 TICKER_RE = re.compile(r"\b[A-Z]{2,5}\b")
 
+VIETNAMESE_MARKERS = {
+    "thi truong",
+    "ngan hang",
+    "chung khoan",
+    "lai suat",
+    "lam phat",
+    "ty gia",
+    "doanh nghiep",
+    "kinh te",
+    "tang truong",
+    "viet nam",
+    "co phieu",
+    "bat dong san",
+    "dau tu",
+}
+
 
 def enrich_article(article: NewsArticle) -> NewsArticle:
-    text = f"{article.headline} {article.summary}".lower()
+    text = f"{article.headline} {article.summary}"
     article.language = _detect_language(text)
     article.priority = _priority(text, article.source_tier)
     article.sentiment = _sentiment(text)
@@ -55,10 +76,13 @@ def enrich_article(article: NewsArticle) -> NewsArticle:
     article.source_mix = getattr(article, "source_mix", "") or ""
 
     # ── Importance scoring ──
-    try:
-        age_minutes = (datetime.now(timezone.utc) - datetime.fromisoformat(article.published_at)).total_seconds() / 60
-    except (ValueError, TypeError):
+    published_at = parse_utc_datetime(article.published_at)
+    if published_at is None:
         age_minutes = 60.0
+    else:
+        # Clock skew from a publisher must not make a future article more
+        # valuable than a genuinely fresh one.
+        age_minutes = max(0.0, (datetime.now(timezone.utc) - published_at).total_seconds() / 60)
     importance = calculate_importance(
         headline=article.headline,
         summary=article.summary,
@@ -85,18 +109,21 @@ def enrich_article(article: NewsArticle) -> NewsArticle:
 
 def _detect_language(text: str) -> str:
     vietnamese_marks = ("đ", "ă", "â", "ê", "ô", "ơ", "ư")
-    return "vi" if any(mark in text for mark in vietnamese_marks) else "en"
+    normalized = normalize_text(text)
+    return "vi" if any(mark in text.lower() for mark in vietnamese_marks) or any(
+        contains_keyword(normalized, marker) for marker in VIETNAMESE_MARKERS
+    ) else "en"
 
 
 def _priority(text: str, source_tier: int) -> int:
     score = 2 if source_tier <= 2 else 1
-    score += sum(1 for word in HIGH_PRIORITY_WORDS if word in text)
+    score += count_keywords(text, HIGH_PRIORITY_WORDS)
     return max(1, min(5, score))
 
 
 def _sentiment(text: str) -> str:
-    positive = sum(1 for word in POSITIVE_WORDS if word in text)
-    negative = sum(1 for word in NEGATIVE_WORDS if word in text)
+    positive = count_keywords(text, POSITIVE_WORDS)
+    negative = count_keywords(text, NEGATIVE_WORDS)
     if positive > negative + 1:
         return "positive"
     if negative > positive + 1:
@@ -113,15 +140,15 @@ def _impact(priority: int, source_tier: int) -> str:
 
 
 def _refine_category(default: str, text: str) -> str:
-    if any(word in text for word in ("fed", "ecb", "rate", "inflation", "cpi", "gdp", "imf")):
+    if any(contains_keyword(text, word) for word in ("fed", "ecb", "rate", "rates", "inflation", "cpi", "gdp", "imf", "lãi suất", "lạm phát")):
         return "macro"
-    if any(word in text for word in ("oil", "gold", "copper", "commodity", "brent", "wti")):
+    if any(contains_keyword(text, word) for word in ("oil", "gold", "copper", "commodity", "brent", "wti", "dầu", "vàng")):
         return "commodities"
-    if any(word in text for word in ("bitcoin", "crypto", "ethereum", "stablecoin")):
+    if any(contains_keyword(text, word) for word in ("bitcoin", "crypto", "ethereum", "stablecoin")):
         return "crypto"
-    if any(word in text for word in ("earnings", "stocks", "shares", "market", "nasdaq", "s&p")):
+    if any(contains_keyword(text, word) for word in ("earnings", "stocks", "shares", "market", "nasdaq", "s&p", "cổ phiếu", "chứng khoán")):
         return "markets"
-    if any(word in text for word in ("sec", "regulator", "lawsuit", "fine")):
+    if any(contains_keyword(text, word) for word in ("sec", "regulator", "lawsuit", "fine", "pháp lý")):
         return "regulation"
     return default
 
@@ -133,7 +160,7 @@ def _extract_tickers(headline: str) -> list[str]:
 
 
 def _threat(text: str) -> tuple[str, str | None, float]:
-    hits = [word for word in SYSTEMIC_RISK_WORDS if word in text]
+    hits = [word for word in SYSTEMIC_RISK_WORDS if contains_keyword(text, word)]
     if not hits:
         return "normal", None, 0.0
     if len(hits) >= 2:

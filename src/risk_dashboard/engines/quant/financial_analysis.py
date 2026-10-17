@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Iterable
 
 from risk_dashboard.schemas.financials import (
@@ -25,19 +26,26 @@ _BANK_INDUSTRIES = frozenset({
 def _safe_div(numerator: float | None, denominator: float | None) -> float | None:
     if numerator is None or denominator is None or denominator == 0:
         return None
-    return numerator / denominator
+    if not math.isfinite(numerator) or not math.isfinite(denominator):
+        return None
+    result = numerator / denominator
+    return result if math.isfinite(result) else None
 
 
 def _to_pct(value: float | None) -> float | None:
-    if value is None:
+    if value is None or not math.isfinite(value):
         return None
-    return value * 100
+    result = value * 100
+    return result if math.isfinite(result) else None
 
 
 def _growth_pct(current: float | None, previous: float | None) -> float | None:
     if current is None or previous is None or previous == 0:
         return None
-    return ((current - previous) / abs(previous)) * 100
+    if not math.isfinite(current) or not math.isfinite(previous):
+        return None
+    result = ((current - previous) / abs(previous)) * 100
+    return result if math.isfinite(result) else None
 
 
 def _sort_periods(periods: Iterable[FinancialPeriodData]) -> list[FinancialPeriodData]:
@@ -94,7 +102,7 @@ def _ttm_sum(periods: list[FinancialPeriodData], attr: str) -> float | None:
         if match is None:
             return None
         v = getattr(match, attr, None)
-        if v is None:
+        if v is None or not math.isfinite(v):
             return None
         values.append(v)
     return sum(values)
@@ -300,12 +308,16 @@ def _build_snapshot(
 
     # ROIC = NOPAT / Invested Capital (skip if IC <= 0)
     nopat = current.operating_profit * 0.8 if current.operating_profit is not None else None
-    raw_ic = (current.equity or 0) + (current.debt or 0) - (current.cash or 0)
-    invested_capital = raw_ic if raw_ic > 0 else None
+    raw_ic = (
+        current.equity + current.debt - current.cash
+        if current.equity is not None and current.debt is not None and current.cash is not None
+        else None
+    )
+    invested_capital = raw_ic if raw_ic is not None and raw_ic > 0 else None
     roic = _safe_div(nopat, invested_capital)
 
     debt_to_equity = _safe_div(current.debt, current.equity)
-    net_debt = (current.debt or 0) - (current.cash or 0)
+    net_debt = current.debt - current.cash if current.debt is not None and current.cash is not None else None
     net_debt_to_ebitda = _safe_div(net_debt, current.ebitda) if current.ebitda is not None else None
 
     current_ratio = _safe_div(current.current_assets, current.current_liabilities)
@@ -319,14 +331,14 @@ def _build_snapshot(
 
     ocf_to_net_income = _safe_div(current.operating_cash_flow, current.net_income)
     fcf = (
-        current.operating_cash_flow - abs(current.capex or 0)
-        if current.operating_cash_flow is not None
+        current.operating_cash_flow - abs(current.capex)
+        if current.operating_cash_flow is not None and current.capex is not None
         else None
     )
     fcf_margin = _safe_div(fcf, current.revenue)
 
     quarterly_rev = current.revenue
-    daily_rev = quarterly_rev / 90 if quarterly_rev else None
+    daily_rev = quarterly_rev / 90 if quarterly_rev is not None else None
     cogs = (quarterly_rev - (current.gross_profit or 0)) if quarterly_rev is not None and current.gross_profit is not None else None
     daily_cogs = cogs / 90 if cogs is not None and cogs > 0 else None
     inventory_days = _safe_div(current.inventory, daily_cogs)
@@ -462,7 +474,9 @@ def _build_flags(
     for p in periods[:4]:
         ocf = p.operating_cash_flow
         if ocf is not None:
-            fcf_val = ocf - abs(p.capex or 0)
+            if p.capex is None:
+                break
+            fcf_val = ocf - abs(p.capex)
             if fcf_val < 0:
                 fcf_negative_streak += 1
             else:

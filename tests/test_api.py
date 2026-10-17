@@ -1,7 +1,5 @@
-from datetime import date
 from unittest import mock
 
-import pandas as pd
 from fastapi.testclient import TestClient
 
 from risk_dashboard.api.main import app, set_panel_for_testing
@@ -16,6 +14,49 @@ def test_health():
     assert "checks" in body
     assert "panel_loaded" in body["checks"]
     assert "model_available" in body["checks"]
+    assert "ready" in body
+    assert "panel" in body
+
+
+def test_readiness_returns_503_when_runtime_is_not_ready():
+    c = TestClient(app)
+    r = c.get("/ready")
+    assert r.status_code in (200, 503)
+    body = r.json()
+    assert body["ready"] is (r.status_code == 200)
+    assert body["status"] in ("ready", "not_ready")
+
+
+def test_panel_admin_requires_dedicated_key(monkeypatch):
+    monkeypatch.delenv("ADMIN_SYSTEM_KEY", raising=False)
+    monkeypatch.delenv("API_SECRET_KEY", raising=False)
+    c = TestClient(app)
+    payload = {"records": [{"date": "2024-01-01", "vn_index": 1000, "volume": 1}]}
+    assert c.post("/admin/load-panel", json=payload).status_code == 503
+
+    monkeypatch.setenv("ADMIN_SYSTEM_KEY", "panel-secret")
+    assert (
+        c.post(
+            "/admin/load-panel", json=payload, headers={"X-Admin-System-Key": "wrong"}
+        ).status_code
+        == 401
+    )
+    loaded = c.post(
+        "/admin/load-panel", json=payload, headers={"X-Admin-System-Key": "panel-secret"}
+    )
+    assert loaded.status_code == 200
+    assert loaded.json() == {"ok": True, "rows": 1, "source_kind": "admin_upload"}
+
+
+def test_panel_admin_rejects_invalid_schema(monkeypatch):
+    monkeypatch.setenv("ADMIN_SYSTEM_KEY", "panel-secret")
+    c = TestClient(app)
+    response = c.post(
+        "/admin/load-panel",
+        headers={"X-Admin-System-Key": "panel-secret"},
+        json={"records": [{"date": "not-a-date", "vn_index": 1000}]},
+    )
+    assert response.status_code == 422
 
 
 def test_eod_requires_panel(synthetic_panel):

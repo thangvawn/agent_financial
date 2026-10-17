@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any
 
 import re
 
 from pydantic import BaseModel, Field, field_validator
+
+
+_PERIOD_AMOUNT_FIELDS = (
+    "revenue", "gross_profit", "operating_profit", "ebit", "ebitda", "net_income",
+    "total_assets", "total_liabilities", "equity", "cash", "short_term_investments",
+    "debt", "short_term_debt", "long_term_debt", "current_assets", "current_liabilities",
+    "non_current_liabilities", "inventory", "receivables", "fixed_assets",
+    "investment_properties", "long_term_investments", "other_assets", "accounts_payable",
+    "retained_earnings", "minority_interest", "operating_cash_flow", "investing_cash_flow",
+    "financing_cash_flow", "capex",
+)
 
 
 class FinancialPeriodData(BaseModel):
@@ -43,6 +55,20 @@ class FinancialPeriodData(BaseModel):
     investing_cash_flow: float | None = None
     financing_cash_flow: float | None = None
     capex: float | None = None
+
+    @field_validator(*_PERIOD_AMOUNT_FIELDS)
+    @classmethod
+    def reject_non_finite_amounts(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
+            raise ValueError("financial amounts must be finite")
+        return value
+
+    @field_validator("quarter")
+    @classmethod
+    def validate_quarter(cls, value: int | None) -> int | None:
+        if value is not None and value not in {1, 2, 3, 4}:
+            raise ValueError("quarter must be between 1 and 4")
+        return value
 
 
 class FinancialDataset(BaseModel):

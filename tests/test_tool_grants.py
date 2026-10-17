@@ -185,10 +185,12 @@ def test_domain_tools_execute_with_valid_grants() -> None:
     res_bctc = asyncio.run(bctc_tool.execute(grant))
     assert res_bctc["tool_id"] == "bctc.resolve_line_item"
     assert res_bctc["ticker"] == "FPT"
-    assert res_bctc["value"] == "52618"
+    # The adapter must expose the current resolver value, not an old hardcoded
+    # fixture.  The exact amount changes with the checked-in financial cache.
+    assert float(res_bctc["value"]) > 0
+    assert res_bctc["unit"] == "VND"
 
     learn_tool = LearningGetLessonContextTool()
     res_learn = asyncio.run(learn_tool.execute(grant))
     assert res_learn["tool_id"] == "learning.get_lesson_context"
     assert res_learn["lesson_id"] == "quant_101"
-

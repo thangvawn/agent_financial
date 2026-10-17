@@ -1,2 +1,3 @@
-// Compatibility route: the old mocked guided-investing screen was retired.
-export { default } from './BctcAnalysisWorkspace'
+// Main BCTC product surface. The research workspace remains available from
+// the Lab's "Báo cáo chi tiết" view for existing workflows.
+export { default } from './BctcLabPage'

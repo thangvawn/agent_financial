@@ -13,7 +13,7 @@ from risk_dashboard.platform.security.access_control import get_token_scopes, sc
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
+PUBLIC_PATHS = {"/health", "/ready", "/docs", "/redoc", "/openapi.json"}
 PUBLIC_PATH_PREFIXES = ("/api/v1/public/auth/", "/api/me/", "/api/v1/public/")
 
 

@@ -1,0 +1,218 @@
+/* Quanta Simulation Lab - Studio Layout System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+.quanta-simulation-lab {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #050b14;
+  color: #f1f5f9;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+.simlab-main-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.5rem 2rem;
+  gap: 1.25rem;
+}
+
+/* Header & Controls */
+.simlab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: #091220;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  gap: 1.5rem;
+}
+
+.simlab-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.simlab-branding {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.branding-icon {
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  padding: 0.4rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.branding-text h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.branding-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+}
+
+.simlab-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.simlab-select {
+  background: #0b1526;
+  border: 1px solid #1e293b;
+  color: #f1f5f9;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.simlab-select:hover {
+  border-color: #06b6d4;
+}
+
+/* Nav Pills */
+.mode-nav-pill {
+  display: flex;
+  background: #060e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-btn:hover {
+  color: #ffffff;
+}
+
+.mode-btn.active {
+  background: #1e293b;
+  color: #38bdf8;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Header Right Buttons */
+.simlab-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.copilot-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copilot-action-btn:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #38bdf8;
+}
+
+.run-backtest-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #059669, #10b981);
+  border: none;
+  color: #ffffff;
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.run-backtest-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.run-backtest-btn.running {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.kbd-shortcut {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Studio 2-Column Split Layout */
+.studio-split-view {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .studio-split-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+.studio-left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.studio-right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}

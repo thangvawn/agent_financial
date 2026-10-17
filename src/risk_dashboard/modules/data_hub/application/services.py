@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from datetime import datetime, timezone
 from typing import Any
 
 from risk_dashboard.modules.data_hub.application.global_market_feed import GlobalMarketFeedProducer
@@ -8,10 +10,10 @@ from risk_dashboard.modules.news_intelligence.application.services import NewsIn
 
 
 GLOBAL_TOPIC_POLICIES: tuple[TopicPolicy, ...] = (
-    TopicPolicy("global:indices", ttl_seconds=300, min_interval_seconds=60, priority=10, source="yahoo_finance"),
-    TopicPolicy("global:fx:majors", ttl_seconds=300, min_interval_seconds=60, priority=8, source="yahoo_finance"),
-    TopicPolicy("global:commodities", ttl_seconds=300, min_interval_seconds=60, priority=8, source="yahoo_finance"),
-    TopicPolicy("global:crypto", ttl_seconds=300, min_interval_seconds=60, priority=7, source="yahoo_finance"),
+    TopicPolicy("global:indices", ttl_seconds=120, min_interval_seconds=30, priority=10, source="yahoo_finance"),
+    TopicPolicy("global:fx:majors", ttl_seconds=120, min_interval_seconds=30, priority=8, source="yahoo_finance"),
+    TopicPolicy("global:commodities", ttl_seconds=120, min_interval_seconds=30, priority=8, source="yahoo_finance"),
+    TopicPolicy("global:crypto", ttl_seconds=120, min_interval_seconds=30, priority=7, source="coingecko"),
     TopicPolicy("global:market_pulse", ttl_seconds=180, min_interval_seconds=30, priority=12, source="derived"),
     TopicPolicy("global:news:pulse", ttl_seconds=600, min_interval_seconds=120, priority=4, source="editorial_context"),
 )
@@ -24,6 +26,14 @@ TERMINAL_VIEWS: dict[str, dict[str, Any]] = {
     },
     "markets": {
         "label": "Markets",
+        "visible_widget_keys": ["global_indices", "market_pulse", "global_snapshot", "market_news", "chart"],
+        "default_symbol": "SPX",
+    },
+    # Frontend market-portfolio uses the Vietnamese tab id `indices` while
+    # the original terminal route used `markets`; keep both names valid so
+    # the expanded index board receives the correct terminal metadata.
+    "indices": {
+        "label": "Indices",
         "visible_widget_keys": ["global_indices", "market_pulse", "global_snapshot", "market_news", "chart"],
         "default_symbol": "SPX",
     },
@@ -72,16 +82,34 @@ class DataHubService:
     def get_topic(self, topic: str) -> TopicSnapshot | None:
         return next((snapshot for snapshot in self._build_snapshots() if snapshot.topic == topic), None)
 
-    def get_global_terminal(self, *, view: str = "dashboard") -> dict[str, Any]:
+    def get_global_terminal(self, *, view: str = "dashboard", force_refresh: bool = False) -> dict[str, Any]:
         active_view = view if view in TERMINAL_VIEWS else "dashboard"
         view_config = TERMINAL_VIEWS[active_view]
-        snapshots = {snapshot.topic: snapshot for snapshot in self._build_snapshots()}
+        if force_refresh:
+            # Return the current snapshot immediately while the provider call
+            # runs in the background. The next browser poll observes the new
+            # cache without making the refresh button wait on yfinance.
+            GlobalMarketFeedProducer().refresh_in_background()
+        snapshots = {snapshot.topic: snapshot for snapshot in self._build_snapshots(cache_only=force_refresh)}
         indices = snapshots["global:indices"].payload["items"]
         fx = snapshots["global:fx:majors"].payload["items"]
         commodities = snapshots["global:commodities"].payload["items"]
         crypto = snapshots["global:crypto"].payload["items"]
         pulse = _build_market_pulse(indices=indices, crypto=crypto, commodities=commodities)
         news = snapshots["global:news:pulse"].payload["items"]
+        market_as_of = snapshots["global:indices"].last_success_at or utc_now_iso()
+        feed_freshness = snapshots["global:indices"].freshness
+        # The browser uses this value to align its polling cadence with the
+        # producer scheduler.  Polling faster than the provider/cache can
+        # refresh only repeats identical reads and causes avoidable renders.
+        try:
+            refresh_interval_seconds = max(int(os.getenv("GLOBAL_MARKET_INTERVAL_SEC", "60")), 15)
+        except (TypeError, ValueError):
+            refresh_interval_seconds = 60
+        # Reads from the shared cache are cheap. Crypto trades continuously,
+        # so its terminal view checks that cache more often while the backend
+        # provider refresh remains rate-limited by the global interval.
+        poll_interval_seconds = 15 if active_view == "crypto" else refresh_interval_seconds
 
         return {
             "terminal": {
@@ -91,7 +119,13 @@ class DataHubService:
                 "active_view": active_view,
                 "visible_widget_keys": view_config["visible_widget_keys"],
                 "default_symbol": view_config["default_symbol"],
-                "as_of": utc_now_iso(),
+                # This is the last successful provider snapshot timestamp,
+                # rather than the HTTP response timestamp. Individual widgets
+                # also carry their own quote `updated_at` for mixed feeds.
+                "as_of": market_as_of,
+                "freshness": feed_freshness,
+                "refresh_interval_seconds": refresh_interval_seconds,
+                "poll_interval_seconds": poll_interval_seconds,
                 "status": "ready",
             },
             "navigation": {
@@ -135,9 +169,27 @@ class DataHubService:
         ttl = _cache_ttl_for_interval(interval)
         return GlobalMarketFeedProducer(max_cache_age_seconds=ttl).history(symbol=symbol, period=period, interval=interval)
 
-    def _build_snapshots(self) -> tuple[TopicSnapshot, ...]:
+    def _build_snapshots(self, *, cache_only: bool = False) -> tuple[TopicSnapshot, ...]:
         now = utc_now_iso()
-        feed = GlobalMarketFeedProducer().snapshot()
+        producer = GlobalMarketFeedProducer()
+        try:
+            feed = producer.snapshot(read_only=True)
+        except TypeError as exc:
+            # Keep compatibility with lightweight test doubles and older
+            # providers that predate the read-only cache path.
+            if "read_only" not in str(exc):
+                raise
+            feed = producer.snapshot()
+        if not cache_only:
+            if feed.get("freshness") != "fresh":
+                producer.refresh_in_background()
+            elif _has_stale_crypto_quotes(feed.get("groups", {}).get("crypto", [])):
+                # A fresh Yahoo snapshot must not hide an old CoinGecko
+                # group. Refresh only crypto so the next poll can pick up the
+                # new prices without waiting on another full provider read.
+                refresh_crypto = getattr(producer, "refresh_crypto_in_background", None)
+                if callable(refresh_crypto):
+                    refresh_crypto()
         news_feed = NewsIntelligenceService().get_feed(limit=40)
         groups = feed.get("groups", {})
         payload_by_topic = {
@@ -187,6 +239,30 @@ class DataHubService:
                 )
             )
         return tuple(snapshots)
+
+
+def _has_stale_crypto_quotes(items: list[dict[str, Any]]) -> bool:
+    if not items:
+        return False
+    try:
+        refresh_interval = max(int(os.getenv("GLOBAL_MARKET_INTERVAL_SEC", "60")), 30)
+    except (TypeError, ValueError):
+        refresh_interval = 60
+    stale_after = max(refresh_interval * 3, 180)
+    now = datetime.now(timezone.utc)
+    for item in items:
+        value = item.get("updated_at")
+        if not value:
+            return True
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            if (now - parsed).total_seconds() > stale_after:
+                return True
+        except (TypeError, ValueError, OverflowError):
+            return True
+    return False
 
 
 def _build_market_pulse(*, indices: list[dict[str, Any]], crypto: list[dict[str, Any]], commodities: list[dict[str, Any]]) -> dict[str, Any]:

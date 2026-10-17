@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from risk_dashboard.modules.news_intelligence.domain.text import normalize_text
+
 NEWS_TIMEZONE = "Asia/Ho_Chi_Minh"
 PERIODS = ("day", "week", "month")
 _LOCAL_TZ = ZoneInfo(NEWS_TIMEZONE)
@@ -153,12 +155,17 @@ def _select_items(conn: sqlite3.Connection, window: PeriodWindow, *, limit: int)
 
 
 def _headline_key(headline: str) -> str:
-    normalized = "".join(char if char.isalnum() else " " for char in headline.casefold())
+    normalized = "".join(char if char.isalnum() else " " for char in normalize_text(headline))
     return " ".join(normalized.split())
 
 
 def _item_payload(row: sqlite3.Row) -> dict:
-    markets = json.loads(row["affected_markets_json"] or "[]")
+    try:
+        markets = json.loads(row["affected_markets_json"] or "[]")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        markets = []
+    if not isinstance(markets, list):
+        markets = []
     importance = str(row["importance_label"])
     category = str(row["category"])
     sentiment = str(row["sentiment"])
@@ -182,5 +189,10 @@ def _item_payload(row: sqlite3.Row) -> dict:
 
 def _snapshot_from_row(row: sqlite3.Row) -> dict:
     payload = dict(row)
-    payload["items"] = json.loads(payload.pop("items_json") or "[]")
+    raw_items = payload.pop("items_json")
+    try:
+        items = json.loads(raw_items or "[]")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        items = []
+    payload["items"] = items if isinstance(items, list) else []
     return payload

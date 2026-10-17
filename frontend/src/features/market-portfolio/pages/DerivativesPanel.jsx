@@ -95,14 +95,14 @@ export default function DerivativesPanel() {
             <tbody>
               {data.items.map((row) => {
                 const priceClass = getPriceClass(row.price, row.ref, row.ceil, row.floor)
-                const changeClass = row.change == null ? '' : row.change >= 0 ? 'is-pos' : 'is-neg'
-                const basisClass = row.basis == null ? '' : row.basis >= 0 ? 'is-pos' : 'is-neg'
+                const changeClass = row.change == null ? '' : row.change > 0 ? 'is-pos' : row.change < 0 ? 'is-neg' : 'is-ref'
+                const basisClass = row.basis == null ? '' : row.basis > 0 ? 'is-pos' : row.basis < 0 ? 'is-neg' : 'is-ref'
 
                 return (
                   <tr key={row.symbol} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', textAlign: 'right' }} className="gt-priceboard-row">
-                    <td style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '13px', color: 'var(--ink)' }}>
+                    <td style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '13px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span>{row.symbol}</span>
+                        <span className={changeClass}>{row.symbol}</span>
                         <span style={{ fontSize: '10px', color: 'var(--ink-subtle)', fontWeight: '400' }}>{row.name}</span>
                       </div>
                     </td>

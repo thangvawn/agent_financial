@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from risk_dashboard.modules.agentic_core.infrastructure.repositories import AgenticRunRepository
 from risk_dashboard.modules.agentic_core.schemas.runs import AgentRun
@@ -208,6 +208,18 @@ class CreateRunRequest(BaseModel):
     formula_id: str | None = None
     query: str | None = None
     test_inject_unsupported_claim: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_workspace_fields(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+        normalized = dict(values)
+        if "skill_id" not in normalized and normalized.get("skill"):
+            normalized["skill_id"] = normalized["skill"]
+        if "ticker" not in normalized and normalized.get("symbol"):
+            normalized["ticker"] = normalized["symbol"]
+        return normalized
 
 
 @router.post("/runs")
@@ -459,7 +471,11 @@ def get_bctc_run(
 # S6 & G5: Evidence Memo Endpoints (T14, T23, T24, T25, T32, T40, T41)
 # ==============================================================================
 class CreateMemoPayload(BaseModel):
-    subject: str
+    subject: str | None = None
+    # Compatibility fields accepted by the earlier BCTC workspace contract.
+    title: str | None = None
+    symbol: str | None = None
+    period: str | None = None
     scope: str = "public"
     report_refs: list[dict[str, Any]] = Field(default_factory=list)
     evidence_rows: list[dict[str, Any]] = Field(default_factory=list)
@@ -484,6 +500,7 @@ def create_bctc_memo(
             response.headers["Cache-Control"] = "no-store"
             return _IDEMPOTENT_MEMOS[cache_key]
 
+    subject = payload.subject or payload.title or "BCTC evidence memo"
     parsed_refs = [ProvenanceRef.model_validate(r) for r in payload.report_refs]
     parsed_rows: list[EvidenceRow] = []
     for r in payload.evidence_rows:
@@ -519,12 +536,40 @@ def create_bctc_memo(
                     )
                 )
             else:
-                parsed_rows.append(EvidenceRow.model_validate(r))
+                # Accept the compact workspace row shape while normalizing it
+                # to the typed provenance contract before persistence.
+                raw_value = r.get("value") if isinstance(r, dict) else None
+                if isinstance(raw_value, dict) and "raw" in raw_value:
+                    citation = r.get("citation") or {}
+                    unit = str(raw_value.get("unit") or "VND")
+                    unit = {"ty_vnd": "VND_bn", "tỷ_vnd": "VND_bn"}.get(unit.lower(), unit)
+                    provenance = ProvenanceRef(
+                        report_id=str(citation.get("document_id") or "workspace-report"),
+                        revision_id=str(citation.get("revision_id") or "workspace-revision"),
+                        period=str(payload.period or "unknown"),
+                        source=str(citation.get("source") or "user_upload"),
+                        fetched_at=str(citation.get("fetched_at") or "1970-01-01T00:00:00Z"),
+                    )
+                    parsed_rows.append(
+                        EvidenceRow(
+                            claim=str(r.get("claim") or "BCTC claim"),
+                            kind=r.get("kind", "fact"),
+                            value=NumericValue(
+                                value=float(raw_value.get("raw") or 0),
+                                unit=unit,
+                                calculation_status="ok",
+                                provenance=provenance,
+                            ),
+                            citation=provenance,
+                        )
+                    )
+                else:
+                    parsed_rows.append(EvidenceRow.model_validate(r))
 
     service = MemoService()
     memo = service.create_memo(
         account_id=principal.account_id,
-        subject=payload.subject,
+        subject=subject,
         report_refs=parsed_refs,
         scope=payload.scope,
         evidence_rows=parsed_rows,

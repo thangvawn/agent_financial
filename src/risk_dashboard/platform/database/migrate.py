@@ -247,6 +247,41 @@ CREATE VIRTUAL TABLE IF NOT EXISTS learning_fts_index USING fts5(
   title,
   content
 );
+
+CREATE TABLE IF NOT EXISTS learning_video_transcripts (
+  lesson_id TEXT NOT NULL,
+  source_key TEXT NOT NULL,
+  status TEXT NOT NULL,
+  source TEXT NOT NULL,
+  language TEXT NOT NULL,
+  transcript_hash TEXT NOT NULL,
+  segments_json TEXT NOT NULL,
+  duration_seconds REAL NOT NULL DEFAULT 0,
+  warnings_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (lesson_id, source_key)
+);
+CREATE INDEX IF NOT EXISTS idx_learning_video_transcripts_hash
+  ON learning_video_transcripts(transcript_hash);
+CREATE TABLE IF NOT EXISTS learning_video_quizzes (
+  lesson_id TEXT NOT NULL,
+  transcript_hash TEXT NOT NULL,
+  questions_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (lesson_id, transcript_hash)
+);
+CREATE TABLE IF NOT EXISTS learning_video_checkpoints (
+  checkpoint_id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  lesson_id TEXT NOT NULL,
+  transcript_hash TEXT NOT NULL,
+  question_json TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_video_checkpoints_account
+  ON learning_video_checkpoints(account_id, lesson_id);
 """
 
 BCTC_EVIDENCE_MEMOS_SQL = """
@@ -519,6 +554,44 @@ def _apply_ai_tutor_migration(conn) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_feedback_message_id ON ai_feedback(message_id)")
 
 
+COMPANY_FINANCIALS_SQL = """
+CREATE TABLE IF NOT EXISTS company_financial_datasets (
+  ticker TEXT PRIMARY KEY,
+  periods_count INTEGER NOT NULL,
+  latest_period TEXT,
+  latest_revenue REAL,
+  latest_net_income REAL,
+  dataset_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS company_financial_periods (
+  ticker TEXT NOT NULL,
+  period TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  quarter INTEGER,
+  revenue REAL,
+  gross_profit REAL,
+  operating_profit REAL,
+  net_income REAL,
+  total_assets REAL,
+  total_liabilities REAL,
+  equity REAL,
+  cash REAL,
+  short_term_debt REAL,
+  long_term_debt REAL,
+  operating_cash_flow REAL,
+  investing_cash_flow REAL,
+  financing_cash_flow REAL,
+  raw_json TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (ticker, period)
+);
+CREATE INDEX IF NOT EXISTS idx_financial_periods_ticker ON company_financial_periods(ticker);
+CREATE INDEX IF NOT EXISTS idx_financial_periods_time ON company_financial_periods(year DESC, quarter DESC);
+"""
+
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
@@ -537,6 +610,8 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("015_home_journey", HOME_JOURNEY_SQL),
     ("016_agentic_core", AGENTIC_CORE_SQL),
     ("017_agentic_memory_retention", ""),
+    ("018_learning_video_agent", ""),
+    ("019_company_financials", COMPANY_FINANCIALS_SQL),
 ]
 
 
@@ -600,6 +675,8 @@ def apply_migrations(conn) -> list[str]:
         ("015_home_journey", HOME_JOURNEY_SQL),
         ("016_agentic_core", AGENTIC_CORE_SQL),
         ("017_agentic_memory_retention", ""),
+        ("018_learning_video_agent", ""),
+        ("019_company_financials", COMPANY_FINANCIALS_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:
@@ -608,6 +685,8 @@ def apply_migrations(conn) -> list[str]:
             _apply_ai_tutor_migration(conn)
         elif mid == "017_agentic_memory_retention":
             _apply_retention_migration(conn)
+        elif mid == "018_learning_video_agent":
+            conn.executescript(LEARNING_AGENT_SQL)
         else:
             conn.executescript(sql)
         conn.execute(
@@ -618,4 +697,3 @@ def apply_migrations(conn) -> list[str]:
         applied.add(mid)
     conn.commit()
     return newly
-

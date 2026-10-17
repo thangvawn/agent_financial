@@ -54,10 +54,9 @@ from risk_dashboard.engines.quant.backtest import run_vn_portfolio_backtest
 
 def is_pro_lab_local_test_open() -> bool:
     explicit = os.getenv("PRO_LAB_LOCAL_TEST_OPEN", "").strip().lower()
-    mode = os.getenv("MODE", "").strip().lower()
-    if explicit in {"1", "true", "yes", "on"}:
-        return True
-    return mode in {"development", "dev", "local", "test"}
+    # A generic development mode must never silently bypass Pro Lab auth.  The
+    # bypass is intentionally opt-in and must be visible in the environment.
+    return explicit in {"1", "true", "yes", "on"}
 
 
 class GetProLabTeaser:

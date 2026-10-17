@@ -34,6 +34,7 @@ class ArticleRef(StrictBaseModel):
     article_id: str
     headline: str
     summary: str
+    image_url: str | None = None
     source: SourceRef
     published_at: str
     fetched_at: str
@@ -108,4 +109,3 @@ class NewsEvidenceBriefArtifact(StrictBaseModel):
     version: int = Field(ge=1)
     created_at: str
     expires_at: str
-

@@ -19,6 +19,7 @@ Tài liệu này giúp người mới **clone repo và chạy được** (Docker
 - [Lệnh thường dùng (Makefile)](#lệnh-thường-dùng-makefile)
 - [Tests & chất lượng code](#tests--chất-lượng-code)
 - [API & CLI (tham khảo)](#api--cli-tham-khảo)
+- [Video Learning Agent](#video-learning-agent)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
 - [Đẩy code lên Git (gợi ý)](#đẩy-code-lên-git-gợi-ý)
@@ -59,6 +60,8 @@ cp .env.example .env
 ```
 
 Chỉnh tối thiểu `OPENAI_API_KEY` nếu cần chat AI (xem [Biến môi trường](#biến-môi-trường-env)).
+Đặt `API_SECRET_KEY` cho API dùng chung; nếu cần nạp panel qua endpoint quản trị trong
+môi trường local không bật API key, đặt thêm `ADMIN_SYSTEM_KEY`.
 
 ### 2. Build và chạy
 
@@ -72,7 +75,10 @@ docker compose logs -f app frontend
 
 ### 3. Nạp dữ liệu panel (bắt buộc để dashboard không 503)
 
-Image Docker cài extra `auto` (macro tự động); lệnh crawl VN cần **`vnstock`** — cách đơn giản là chạy **một lần trên máy host** (dùng chung thư mục `./data` với container):
+Image Docker cài extra `auto` (macro tự động). DataHub market feed trong container
+không phụ thuộc `vnstock`: nó ưu tiên `vnstock` nếu có và tự fallback sang HTTP
+public của VCI để lấy listing/order book. Lệnh crawl panel lịch sử vẫn cần
+**`vnstock`**, nên chạy **một lần trên máy host** (dùng chung thư mục `./data` với container):
 
 ```bash
 python -m venv .venv
@@ -94,12 +100,47 @@ docker compose restart app
 | [http://localhost:8000/dashboard](http://localhost:8000/dashboard) | Dashboard React (do backend phục vụ) |
 | [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger |
 | [http://localhost:8000/health](http://localhost:8000/health) | Health check |
+| [http://localhost:8000/ready](http://localhost:8000/ready) | Readiness (503 khi panel/model chưa sẵn sàng) |
 
 Tắt stack:
 
 ```bash
 docker compose down
 ```
+
+### Dữ liệu thị trường VN realtime
+
+VN market feed chạy nền khi backend khởi động. Trong giờ giao dịch, quote board
+được làm mới mặc định mỗi 12 giây; ngoài giờ, chu kỳ mặc định là 5 phút. Listing
+được làm mới mỗi 6 giờ và các lịch sử phổ biến được prefetch theo chu kỳ riêng.
+
+API `/api/v1/public/data-hub/vn-market/snapshot` dùng chiến lược
+stale-while-revalidate: nếu cache vừa hết TTL, API trả snapshot thành công gần
+nhất ngay lập tức và thực hiện refresh nền, tránh để request người dùng chờ
+provider. Trong Docker, provider fallback là VCI HTTP; nếu máy đã cài vnstock,
+vnstock được ưu tiên. Cache JSON được ghi theo cơ chế atomic replace nên process
+đang đọc không thấy file nửa chừng.
+
+Trang Global Terminal tự đọc snapshot mỗi 15 giây khi tab đang mở, tự backoff khi
+API lỗi, dừng polling khi tab bị ẩn và đồng bộ ngay khi quay lại. Nút làm mới gửi
+`refresh=true` để yêu cầu một refresh nền không khóa request. API trả thêm
+`last_success_at`, `age_seconds`, `freshness`, `market_session` và
+`refresh_interval_seconds` để giao diện không gắn nhãn live cho cache cũ.
+
+Có thể điều chỉnh bằng các biến `VN_MARKET_INTERVAL_FAST_SEC`,
+`VN_MARKET_INTERVAL_SLOW_SEC`, `VN_MARKET_UNIVERSE_INTERVAL_SEC`,
+`VN_MARKET_PREFETCH_INTERVAL_SEC` và `GLOBAL_MARKET_INTERVAL_SEC` trong `.env`.
+Cross-asset trên Global Terminal (vàng, dầu, chỉ số và FX) dùng quote intraday
+5 phút từ Yahoo Finance khi provider có dữ liệu; crypto dùng spot 24 giờ từ
+CoinGecko. `GLOBAL_MARKET_INTERVAL_SEC` mặc định là 60 giây và
+`GLOBAL_MARKET_CACHE_TTL_SEC` mặc định là 75 giây. Mỗi item giữ
+`updated_at`, `data_interval` và `source` riêng để UI phân biệt quote mới,
+quote trễ và cache fallback. Đây là near-realtime theo độ trễ của provider
+miễn phí, không phải tick-by-tick exchange feed; muốn tick realtime cần thay
+provider bằng WebSocket/paid market-data feed.
+Đặt
+`ENABLE_VN_MARKET_SCHEDULER=0` khi chạy worker chỉ phục vụ test hoặc khi có
+worker ingest riêng.
 
 `./data` được **mount** vào container — cache/model trong `data/` (theo `.gitignore`) vẫn nằm trên máy bạn.
 
@@ -251,6 +292,28 @@ make fmt
 - **API đầy đủ:** khi server chạy, mở Swagger tại `/docs`.
 - **CLI chính:** `risk-fetch-universe`, `risk-eod-ingest`, `risk-train-model`, `risk-fetch-financials`, … (khai báo trong `pyproject.toml` → `[project.scripts]`).
 
+### BCTC Practice Lab
+
+Tab **Thực hành chỉ số** mô phỏng đường đi có thể kiểm chứng từ khoản mục raw
+đến trường dẫn xuất, insight và xếp hạng nhiều doanh nghiệp. API nhận mã đã có
+trong cache/provider hoặc nhận trực tiếp một hay nhiều `FinancialDataset` để
+chạy bài tập tái lập:
+
+```bash
+curl -X POST http://localhost:8000/financials/practice-lab \
+  -H "Content-Type: application/json" \
+  -d '{"tickers":["FPT","HPG"],"period_mode":"quarter","limit":12}'
+```
+
+Kết quả gồm `raw_inputs`, `calculated_fields` (công thức và dependencies),
+`insights`, `categories`, `ranking`, `comparison.metrics` và `data_quality`.
+Trường thiếu được giữ là `null`, loại khỏi điểm và hạ `confidence`; hệ thống
+không tự bù số ước lượng. Điểm tổng hợp là heuristic giáo dục có trọng số
+(sinh lời 20%, tăng trưởng 15%, hiệu quả 15%, thanh khoản 15%, đòn bẩy 15%,
+chất lượng dòng tiền 20%). Khi có nhiều mã, hệ thống tự chọn kỳ chung mới
+nhất; nếu không có kỳ chung, response trả `warnings` để người học biết cần
+kiểm tra mốc thời gian. Kết quả không phải khuyến nghị đầu tư.
+
 Ví dụ `curl` nhanh:
 
 ```bash
@@ -259,6 +322,30 @@ curl -X POST http://localhost:8000/eod/run \
   -H "Content-Type: application/json" \
   -d '{"as_of": "2026-03-29"}'
 ```
+
+### Agent runs: input, bằng chứng và retry an toàn
+
+Agent nhận nội dung công việc qua `task_input` (hoặc alias tương thích
+`input_parameters`) và các `resource_refs`. Dữ liệu này được cách ly trước khi
+gửi tới model; tool read-only được cấp grant theo scope và reviewer chỉ phát
+hành claim có `evidence_refs` hợp lệ. Có thể dùng `idempotency_key` dài tối
+thiểu 8 ký tự để retry mà không chạy graph/tool lần hai:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/public/agentic/runs \
+  -H "Authorization: Bearer <session_id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operation": "bctc.resolve_line_item",
+    "surface": "bctc_workspace",
+    "task_input": {"symbol": "VCB", "line_item": "revenue"},
+    "idempotency_key": "vcb-revenue-2026-01"
+  }'
+```
+
+Provider giả chỉ được dùng khi đặt `AGENTIC_ALLOW_FAKE_PROVIDER=1` trong môi
+trường phát triển offline. Nếu thiếu `GEMINI_API_KEY` ở môi trường thật, run
+được ghi nhận là failed thay vì âm thầm trả dữ liệu giả.
 
 ---
 
@@ -289,13 +376,14 @@ Chi tiết quy ước đặt file xem [docs/STRUCTURE.md](docs/STRUCTURE.md).
 
 | Hiện tượng | Hướng xử lý |
 |------------|-------------|
-| `Panel not loaded` / `503` | Chạy `risk-fetch-universe` (hoặc ingest khác) để có dữ liệu trong `data/cache/`, restart backend |
+| `Panel not loaded` / `/ready` trả `503` | Chạy `risk-fetch-universe` (hoặc ingest khác) để có dữ liệu trong `data/cache/`, sau đó kiểm tra lại `/health` và `/ready` |
+| `POST /admin/load-panel` trả `401/503` | Gửi `X-API-Key` nếu đã đặt `API_SECRET_KEY`, hoặc gửi `X-Admin-System-Key` sau khi đặt `ADMIN_SYSTEM_KEY` |
 | `OPENAI_API_KEY not set` | Điền vào `.env` nếu cần chat LLM |
 | `port 8000 already in use` | `lsof -i :8000` (macOS/Linux) rồi dừng process, hoặc đổi port uvicorn/Docker |
 | Docker không lên | Bật Docker Desktop; `docker compose logs app` |
 | Frontend trắng | Với chỉ backend: cần `make build` hoặc image Docker đã build frontend |
 | `ModuleNotFoundError` | `pip install -e ".[dev,auto]"` trong đúng venv |
-| `vnstock` / mạng lỗi | Thử lại sau; hoặc dùng CSV + `risk-eod-ingest` |
+| `vnstock` / VCI / mạng lỗi | API vẫn trả snapshot cache kèm `freshness=stale`; kiểm tra `stale_reason`, thử lại sau, hoặc dùng CSV + `risk-eod-ingest` |
 
 ---
 
@@ -316,3 +404,27 @@ Người khác clone về chỉ cần làm theo [Cách 1](#cách-1--docker-khuy�
 - `data/learning_assets/videos/`, `audios/`, `books/`, `images/`
 
 URL phục vụ tĩnh (khi backend chạy), ví dụ: `/learning-assets/videos/<tên-file>.mp4`. Chi tiết cấu trúc thư mục xem comment trong repo / `.gitignore` (`learning_assets`).
+
+## Video Learning Agent
+
+Trong màn hình trình phát bài học, tab **Video Agent** chuẩn bị transcript, tạo checkpoint trắc nghiệm và trả lời câu hỏi theo mốc video. Agent ưu tiên phụ đề YouTube công khai; nếu video không có phụ đề, hệ thống dùng transcript do Content Ops/người dạy cung cấp hoặc nội dung bài học đã xuất bản làm fallback. Transcript và ngân hàng câu hỏi được cache theo `lesson_id` + hash nội dung để không gọi lại provider không cần thiết.
+
+Các endpoint công khai (đều nhận `session_id` hoặc Bearer session giống Learning API):
+
+```text
+POST /api/v1/public/learning/lessons/{lesson_id}/video-agent/prepare
+GET  /api/v1/public/learning/lessons/{lesson_id}/video-agent
+GET  /api/v1/public/learning/lessons/{lesson_id}/video-agent/checkpoint
+POST /api/v1/public/learning/lessons/{lesson_id}/video-agent/checkpoint/grade
+POST /api/v1/public/learning/lessons/{lesson_id}/video-agent/ask
+```
+
+Ví dụ chuẩn bị bằng transcript do giảng viên cung cấp:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/public/learning/lessons/money-basics-101/video-agent/prepare \
+  -H 'Content-Type: application/json' \
+  -d '{"transcript_text":"Dòng tiền là phần còn lại sau chi tiêu. Quỹ dự phòng giúp giảm áp lực thanh khoản."}'
+```
+
+Checkpoint chỉ trả prompt và các lựa chọn; `correct_answer`/đáp án nội bộ không bao giờ được serialize trước khi chấm. Khi chấm, checkpoint được ràng buộc với tài khoản và hết hạn sau 15 phút. Câu trả lời ngoài transcript sẽ được từ chối có giải thích thay vì suy đoán. Vì phụ đề YouTube phụ thuộc quyền truy cập của video, nên video không có captions cần được nhập transcript qua Content Ops hoặc request `prepare`.

@@ -15,7 +15,7 @@ const QUICK_PROMPTS = [
   { label: '🛡️ Rủi ro định lượng (VaR)', text: 'Tính toán chỉ số VaR 95% và CVaR 1 ngày của danh mục.' },
 ]
 
-export default function LearnTutorPanel({ courseId, lessonId, sessionId }) {
+export default function LearnTutorPanel({ courseId, lessonId, sessionId, videoTimeSeconds }) {
   const contextKey = `${courseId || ''}:${lessonId || ''}:${sessionId || ''}`
   const [conversationsByContext, setConversationsByContext] = useState({})
   const [inputText, setInputText] = useState('')
@@ -202,6 +202,7 @@ export default function LearnTutorPanel({ courseId, lessonId, sessionId }) {
         content: text,
         surface: 'learn',
         currentSurfaceId: lessonId,
+        videoTimeSeconds,
       })
 
       const asstMsg = {

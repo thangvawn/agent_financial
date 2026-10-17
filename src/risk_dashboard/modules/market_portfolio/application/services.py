@@ -5,7 +5,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from risk_dashboard.modules.market_portfolio.application.fills import apply_fill, resolve_fill_price
-from risk_dashboard.modules.market_portfolio.application.pricing import quote_last_price, quote_map
+from risk_dashboard.modules.market_portfolio.application.pricing import (
+    quote_details_map,
+    quote_last_price,
+    quote_map,
+)
 from risk_dashboard.modules.market_portfolio.domain.entities import PaperOrder, STARTING_CASH
 from risk_dashboard.modules.market_portfolio.infrastructure.repository import MarketPortfolioRepository
 
@@ -37,13 +41,19 @@ class MarketPortfolioService:
 
     def list_watchlist(self, session_id: str) -> list[dict[str, Any]]:
         items = self.repo.list_watchlist(session_id)
-        prices = quote_map([i.symbol for i in items])
+        quotes = quote_details_map([i.symbol for i in items])
         return [
             {
                 "item_id": i.item_id,
                 "symbol": i.symbol,
                 "label": i.label,
-                "price": prices.get(i.symbol),
+                "name": quotes.get(i.symbol, {}).get("name") or i.label,
+                "exchange": quotes.get(i.symbol, {}).get("exchange"),
+                "price": quotes.get(i.symbol, {}).get("price"),
+                "change": quotes.get(i.symbol, {}).get("change"),
+                "change_pct": quotes.get(i.symbol, {}).get("change_pct"),
+                "market_cap": quotes.get(i.symbol, {}).get("market_cap"),
+                "volume": quotes.get(i.symbol, {}).get("volume"),
                 "created_at": i.created_at,
             }
             for i in items
@@ -51,11 +61,19 @@ class MarketPortfolioService:
 
     def add_watchlist(self, session_id: str, symbol: str, label: str = "") -> dict[str, Any]:
         item = self.repo.add_watchlist(session_id, symbol, label)
+        quotes = quote_details_map([item.symbol])
+        q = quotes.get(item.symbol, {})
         return {
             "item_id": item.item_id,
             "symbol": item.symbol,
             "label": item.label,
-            "price": quote_last_price(item.symbol),
+            "name": q.get("name") or item.label,
+            "exchange": q.get("exchange"),
+            "price": q.get("price") if q.get("price") is not None else quote_last_price(item.symbol),
+            "change": q.get("change"),
+            "change_pct": q.get("change_pct"),
+            "market_cap": q.get("market_cap"),
+            "volume": q.get("volume"),
             "created_at": item.created_at,
         }
 

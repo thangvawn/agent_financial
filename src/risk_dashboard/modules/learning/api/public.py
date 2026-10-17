@@ -11,6 +11,7 @@ from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 from risk_dashboard.modules.learning.application.checkpoint_service import LearningCheckpointService
+from risk_dashboard.modules.learning.application.video_agent_service import VideoLearningAgentService
 from risk_dashboard.modules.learning.application.services import (
     CompleteLearningLesson,
     GetContextRecommendation,
@@ -39,6 +40,16 @@ from risk_dashboard.modules.learning.schemas.responses import (
     LearningLessonResponse,
     LearningQuizSubmitResponse,
 )
+from risk_dashboard.modules.learning.schemas.video_agent import (
+    VideoAgentAskRequest,
+    VideoAgentAskResponse,
+    VideoAgentCheckpointResponse,
+    VideoAgentGradeRequest,
+    VideoAgentGradeResponse,
+    VideoAgentPrepareRequest,
+    VideoAgentPrepareResponse,
+    VideoAgentStatusResponse,
+)
 
 router = APIRouter(prefix="/learning")
 
@@ -49,6 +60,10 @@ def _repo() -> SqliteLearningHomeRepository:
 
 def _catalog() -> SqliteLearningCatalog:
     return SqliteLearningCatalog()
+
+
+def _video_agent() -> VideoLearningAgentService:
+    return VideoLearningAgentService(catalog=_catalog())
 
 
 VIDEO_EXTENSIONS = {
@@ -167,6 +182,104 @@ def get_learning_lesson(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+
+
+@router.get("/lessons/{lesson_id}/video-agent", response_model=VideoAgentStatusResponse, tags=["Learning"])
+def get_video_agent_status(
+    lesson_id: str,
+    source_url: str | None = Query(default=None, max_length=2_048),
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> VideoAgentStatusResponse:
+    """Return transcript/quiz preparation status without triggering a network fetch."""
+    _ = principal
+    try:
+        return _video_agent().status(lesson_id, source_url=source_url)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/lessons/{lesson_id}/video-agent/prepare", response_model=VideoAgentPrepareResponse, tags=["Learning"])
+def prepare_video_agent(
+    lesson_id: str,
+    req: VideoAgentPrepareRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> VideoAgentPrepareResponse:
+    """Fetch/normalize an authorized transcript and generate a cached quiz bank."""
+    _ = principal
+    try:
+        return _video_agent().prepare(
+            lesson_id,
+            source_url=str(req.source_url) if req.source_url else None,
+            transcript_text=req.transcript_text,
+            language=req.language,
+            force_refresh=req.force_refresh,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/lessons/{lesson_id}/video-agent/checkpoint", response_model=VideoAgentCheckpointResponse, tags=["Learning"])
+def create_video_agent_checkpoint(
+    lesson_id: str,
+    source_url: str | None = Query(default=None, max_length=2_048),
+    current_time_seconds: float = Query(default=0, ge=0, le=86_400),
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> VideoAgentCheckpointResponse:
+    try:
+        return _video_agent().create_checkpoint(
+            principal.account_id,
+            lesson_id,
+            source_url=source_url,
+            current_time_seconds=current_time_seconds,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/lessons/{lesson_id}/video-agent/checkpoint/grade", response_model=VideoAgentGradeResponse, tags=["Learning"])
+def grade_video_agent_checkpoint(
+    lesson_id: str,
+    req: VideoAgentGradeRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> VideoAgentGradeResponse:
+    try:
+        result = _video_agent().grade(principal.account_id, req.checkpoint_id, req.response)
+        if result.lesson_id != lesson_id:
+            raise HTTPException(status_code=400, detail="Checkpoint không thuộc bài học này.")
+        return result
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/lessons/{lesson_id}/video-agent/ask", response_model=VideoAgentAskResponse, tags=["Learning"])
+def ask_video_agent(
+    lesson_id: str,
+    req: VideoAgentAskRequest,
+    principal: AuthPrincipal = Depends(resolve_surface_principal),
+) -> VideoAgentAskResponse:
+    try:
+        return _video_agent().ask(
+            lesson_id,
+            question=req.question,
+            source_url=str(req.source_url) if req.source_url else None,
+            current_time_seconds=req.current_time_seconds,
+            window_seconds=req.window_seconds,
+            language=req.language,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Lesson not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/lessons/{lesson_id}/quiz", response_model=LearningQuizSubmitResponse, tags=["Learning"])
