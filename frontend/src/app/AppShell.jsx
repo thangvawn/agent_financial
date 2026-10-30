@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { trackAnalyticsEvent } from '../shared/analytics/trackEvent'
 import ConnectedWorkspaceNav from '../shared/navigation/ConnectedWorkspaceNav'
 import NavBar from './NavBar'
+import { logoutSession } from '../features/auth/services/sessionLifecycle'
 import AppShellRoutes from './AppShellRoutes'
 
 const LazyNewsEconCalendarEmbed = lazy(() => import('../features/news/pages/NewsEconCalendarPage.jsx'))
@@ -39,6 +40,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   const [learningFocus, setLearningFocus] = useState({ tab: 'courses', search: '' })
   const [proLabBacktestContext, setProLabBacktestContext] = useState({ selectedBlueprintId: '', workspace: null, accessToken: '' })
   const [pendingPostAuthView, setPendingPostAuthView] = useState('')
+  const [logoutError, setLogoutError] = useState('')
   const previousViewRef = useRef('')
 
   useEffect(() => {
@@ -146,13 +148,15 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
     openProLab: () => openProtectedView('pro_lab'),
     openLogin: () => setView('auth_login'),
     openRegister: () => setView('auth_register'),
-    openLogout: () => {
-      window.localStorage.removeItem('public-beta.session_id')
-      window.localStorage.removeItem('public-beta.user_profile')
-      window.localStorage.removeItem('public-beta.view')
-      setSessionId('')
-      setPendingPostAuthView('')
-      setView('home', { replace: true })
+    openLogout: async () => {
+      setLogoutError('')
+      try {
+        await logoutSession()
+        setSessionId('')
+        setPendingPostAuthView('')
+        setProLabBacktestContext({ selectedBlueprintId: '', workspace: null, accessToken: '' })
+        setView('home', { replace: true })
+      } catch (error) { setLogoutError(error.message) }
     },
   }
 
@@ -193,6 +197,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       <div className="app-shell__frame">
         <NavBar renderedView={view} tone={tone} sessionId={sessionId} onNavigateHome={() => setView('home')} onOpenTerminal={() => openProtectedView('global_terminal')} />
         <main className="app-shell__content">
+          {logoutError && <p role="alert">{logoutError}</p>}
           <ConnectedWorkspaceNav currentView={view} sessionId={sessionId} actions={connectedNavActions} showTabs={Boolean(sessionId)} />
           <motion.div
             key={view}

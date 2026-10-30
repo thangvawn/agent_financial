@@ -85,19 +85,9 @@ def resolve_surface_principal(
     if session_id:
         sessions_repo = SqliteAccountSessionRepository()
         session = sessions_repo.get(session_id=session_id)
-        if session and session.status == "active":
-            accounts_repo = SqliteAccountRepository()
-            account = accounts_repo.get_by_id(account_id=session.account_id)
-            if account:
-                consent = SqliteAccountConsentRepository().get(account_id=account.account_id)
-                return AuthPrincipal(
-                    account_id=account.account_id,
-                    session_id=session.session_id,
-                    assurance=_determine_assurance(session.created_at),
-                    scopes=resolve_scopes(tier="community", role="user"),
-                    consent=consent,
-                    resolved_at=utc_now_iso(),
-                )
+        if session is not None or session_id.startswith("sess_"):
+            # All account credentials share expiry, revocation and account checks.
+            return resolve_principal(authorization=f"Bearer {session_id}")
 
         # Legacy test session or anonymous
         return AuthPrincipal(

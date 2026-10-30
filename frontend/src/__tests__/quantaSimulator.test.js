@@ -83,7 +83,7 @@ test('Quanta Backtest Simulator Engine', async (t) => {
 
     assert.ok(res);
     assert.ok(res.metrics);
-    assert.ok(typeof res.metrics.sharpeRatio === 'number');
+    assert.ok(res.metrics.sharpeRatio === null || Number.isFinite(res.metrics.sharpeRatio));
     assert.ok(typeof res.metrics.winRate === 'number');
     assert.ok(typeof res.metrics.maxDrawdown === 'number');
     assert.ok(res.metrics.finalEquity > 0);
@@ -99,7 +99,7 @@ test('Quanta Real Market Data Adapter Contract', async (t) => {
       { date: '2026-03-26T02:00:00+00:00', open: 69050, high: 69050, low: 66540, close: 66540, volume: 9743400 },
       { date: '2026-03-27T02:00:00+00:00', open: 66810, high: 68420, low: 66350, close: 68250, volume: 9080300 },
     ];
-    const bars = mapPointsToOHLCBars(rawPoints);
+    const bars = mapPointsToOHLCBars(rawPoints, '1d');
     assert.equal(bars.length, 2);
     assert.equal(bars[0].time, '2026-03-26');
     assert.equal(bars[0].close, 66540);

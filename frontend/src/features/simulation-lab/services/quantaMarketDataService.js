@@ -1,80 +1,26 @@
-import { fetchInstrumentHistory } from '../../market-portfolio/services/dataHubApi.js';
-import { generateSyntheticOHLCV } from '../utils/quantaBacktestSimulator.js';
-
-export function mapPointsToOHLCBars(points = []) {
-  if (!Array.isArray(points) || points.length === 0) return [];
-
-  return points
-    .filter((p) => p && (p.date || p.time) && (p.close !== undefined || p.price !== undefined))
-    .map((p) => {
-      const rawDate = p.date || p.time || '';
-      const timeStr = String(rawDate).split('T')[0];
-      const closeVal = Number(p.close ?? p.price ?? 0);
-      const openVal = Number(p.open ?? p.price ?? closeVal);
-      const highVal = Number(p.high ?? Math.max(openVal, closeVal));
-      const lowVal = Number(p.low ?? Math.min(openVal, closeVal));
-      const volumeVal = Number(p.volume ?? 0);
-
-      return {
-        time: timeStr,
-        open: Math.round(openVal),
-        high: Math.round(highVal),
-        low: Math.round(lowVal),
-        close: Math.round(closeVal),
-        volume: Math.round(volumeVal),
-      };
-    })
-    .filter((b) => b.time && b.close > 0)
-    .sort((a, b) => (a.time > b.time ? 1 : -1));
+import { fetchInstrumentHistory } from '../../market-portfolio/services/dataHubApi.js'
+export function mapPointsToOHLCBars(points = [], interval = '1h') {
+  if(!Array.isArray(points)) return []
+  const bars=points.map(point=>{
+    if(!point) return null
+    const raw=point.date ?? point.time
+    const ms=typeof raw==='number'?(raw>1e12?raw:raw*1000):Date.parse(raw)
+    if(!Number.isFinite(ms)) return null
+    const close=Number(point.close ?? point.price),open=Number(point.open ?? close)
+    const high=Number(point.high ?? Math.max(open,close)),low=Number(point.low ?? Math.min(open,close))
+    if(![open,high,low,close].every(v=>Number.isFinite(v)&&v>0)||high<Math.max(open,close)||low>Math.min(open,close)) return null
+    return {time:interval==='1h'?Math.floor(ms/1000):new Date(ms).toISOString().slice(0,10),open,high,low,close,volume:Number(point.volume)||0}
+  }).filter(Boolean).sort((a,b)=>a.time>b.time?1:a.time<b.time?-1:0)
+  if(bars.some((bar,i)=>i>0&&bar.time===bars[i-1].time)) throw new Error('Nguồn trả nến trùng thời gian; chưa thể mô phỏng.')
+  return bars
+}
+export async function loadQuantaMarketBars(ticker='FPT',period='1y',interval='1d') {
+  const rawData=await fetchInstrumentHistory(ticker,{period,interval})
+  const bars=mapPointsToOHLCBars(rawData?.points,interval)
+  if(!bars.length) throw new Error('Không có dữ liệu lịch sử cho mã và khoảng thời gian đã chọn.')
+  const source=rawData.source || 'unknown'
+  return {bars,source,asOf:rawData.as_of || null,isReal:!['synthetic','demo','unknown'].includes(source),count:bars.length,
+    ticker:ticker.toUpperCase(),firstDate:formatTime(bars[0].time),lastDate:formatTime(bars.at(-1).time),period,interval}
 }
 
-const PERIOD_DAYS_MAP = {
-  '3mo': 65,
-  '6mo': 130,
-  '1y': 250,
-  '2y': 500,
-  '3y': 750,
-  '5y': 1250,
-  '10y': 2500,
-  'max': 3500,
-};
-
-export async function loadQuantaMarketBars(ticker = 'FPT', period = '1y', interval = '1d') {
-  try {
-    const rawData = await fetchInstrumentHistory(ticker, { period, interval });
-    if (rawData && Array.isArray(rawData.points) && rawData.points.length >= 10) {
-      const bars = mapPointsToOHLCBars(rawData.points);
-      if (bars.length >= 10) {
-        return {
-          bars,
-          source: rawData.source || 'vnstock',
-          asOf: rawData.as_of || new Date().toISOString(),
-          isReal: true,
-          count: bars.length,
-          ticker: ticker.toUpperCase(),
-          firstDate: bars[0]?.time,
-          lastDate: bars[bars.length - 1]?.time,
-          period,
-          interval,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn(`[QuantaData] Khong the tai data that cho ${ticker}, dung fallback:`, err?.message);
-  }
-
-  const fallbackCount = PERIOD_DAYS_MAP[period] || 250;
-  const fallbackBars = generateSyntheticOHLCV(ticker, fallbackCount);
-  return {
-    bars: fallbackBars,
-    source: 'synthetic',
-    asOf: new Date().toISOString(),
-    isReal: false,
-    count: fallbackBars.length,
-    ticker: ticker.toUpperCase(),
-    firstDate: fallbackBars[0]?.time,
-    lastDate: fallbackBars[fallbackBars.length - 1]?.time,
-    period,
-    interval,
-  };
-}
+const formatTime = value => typeof value === 'number' ? new Date(value*1000).toISOString() : value

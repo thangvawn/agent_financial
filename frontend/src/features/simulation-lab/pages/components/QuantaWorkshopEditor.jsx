@@ -26,7 +26,7 @@ export default function QuantaWorkshopEditor({ code, onChange, onApplyPreset, on
           <Code2 size={15} className="text-cyan-400" />
           <span className="text-xs font-semibold text-slate-200">Quanta Story Script</span>
           <span className={`simlab-status-badge ${isSyntaxValid ? 'is-valid' : 'is-warning'}`}>
-            {isSyntaxValid ? 'Cú pháp hợp lệ' : 'Cần khối act/score'}
+            {isSyntaxValid ? 'Đã có các khối chính' : 'Cần khối act/score'}
           </span>
         </div>
 

@@ -1,3 +1,4 @@
+import { useWorkbookModel } from '../hooks/useWorkbookModel'
 import { useEffect, useRef, useState } from 'react'
 import {
   BarChart3, BookOpen, Calculator, Check, CheckCircle2, ChevronDown, ChevronLeft,
@@ -11,9 +12,7 @@ import BctcAnalysisWorkspace from './BctcAnalysisWorkspace'
 import { useFinancialWorkflow } from '../../../shared/context/FinancialWorkflowContext'
 import {
   fetchCompanyFinancialWorkspace,
-  fetchFinancialWorkbookModel,
   runFinancialScenario,
-  saveFinancialWorkbookModel,
   uploadFinancialStatement,
 } from '../services/financialsApi'
 import { findRowWithAliases } from '../utils/statementMapper'
@@ -331,19 +330,16 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   const [loadNonce, setLoadNonce] = useState(0)
   const [error, setError] = useState('')
   const [activeView, setActiveView] = useState('workbook')
-  const [activeTab, setActiveTab] = useState('income')
   const [rightTab, setRightTab] = useState('assistant')
   const [selectedCell, setSelectedCell] = useState('net_margin_pct:2025')
   const [selected, setSelected] = useState({ key: 'net_margin_pct', label: 'Net Margin', period: '', value: null, unit: '%' })
-  const [formula, setFormula] = useState('=NET_INCOME / REVENUE')
   const [mode, setMode] = useState('actual')
-  const [scenario, setScenario] = useState({ revenueGrowthPct: '5', grossMarginPct: '45', taxRatePct: '20', operatingExpenseGrowthPct: '3' })
   const [scenarioResult, setScenarioResult] = useState(null)
   const [scenarioStatus, setScenarioStatus] = useState('idle')
-  const [modelRevision, setModelRevision] = useState(0)
-  const [notes, setNotes] = useState('')
   const [notice, setNotice] = useState('')
   const [modelSessionId] = useState(localWorkbookSessionId)
+  const workbook = useWorkbookModel(ticker, sessionId || modelSessionId)
+  const { active_tab: activeTab, setActiveTab, formula, setFormula, assumptions: scenario, setScenario, notes, setNotes } = workbook
   const uploadRef = useRef(null)
   const analyticsRef = useRef(null)
 
@@ -363,34 +359,11 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   }, [ticker, periodMode, loadNonce])
 
   useEffect(() => {
-    let cancelled = false
-    const ownerSession = sessionId || modelSessionId
-    fetchFinancialWorkbookModel(ticker, ownerSession)
-      .then((payload) => {
-        if (cancelled || !payload?.model) return
-        const saved = payload.model
-        setModelRevision(Number(saved.revision) || 0)
-        if (saved.formula) setFormula(saved.formula)
-        if (saved.active_tab) setActiveTab(saved.active_tab)
-        if (typeof saved.notes === 'string') setNotes(saved.notes)
-        if (saved.assumptions) {
-          setScenario((current) => ({
-            ...current,
-            ...Object.fromEntries(Object.entries(saved.assumptions).map(([key, value]) => [key, String(value)])),
-          }))
-        }
-      })
-      .catch(() => {
-        if (cancelled) return
-        try {
-          const local = JSON.parse(window.localStorage.getItem(`northstar:bctc:model:${ticker}`) || 'null')
-          if (local?.formula) setFormula(local.formula)
-          if (local?.scenario) setScenario((current) => ({ ...current, ...local.scenario }))
-          if (typeof local?.notes === 'string') setNotes(local.notes)
-        } catch { /* localStorage may be unavailable in a private context */ }
-      })
-    return () => { cancelled = true }
-  }, [ticker, sessionId, modelSessionId])
+    setSelectedCell('')
+    setSelected({ key: 'net_margin_pct', label: 'Net Margin', period: '', value: null, unit: '%' })
+    setScenarioResult(null)
+    setNotice('')
+  }, [ticker, sessionId])
 
   const period = selected.period || latestPeriod(workspace)
 
@@ -409,28 +382,8 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   }
 
   async function saveModel() {
-    const assumptions = Object.fromEntries(
-      Object.entries(scenario)
-        .map(([key, value]) => [key, Number(value)])
-        .filter(([, value]) => Number.isFinite(value)),
-    )
-    const payload = {
-      expected_revision: modelRevision,
-      active_tab: activeTab,
-      formula,
-      assumptions,
-      notes,
-    }
-    try {
-      const result = await saveFinancialWorkbookModel(ticker, payload, sessionId || modelSessionId)
-      setModelRevision(Number(result?.model?.revision) || modelRevision + 1)
-      setNotice('Mô hình đã lưu vào phiên học.')
-    } catch {
-      try {
-        localStorage.setItem(`northstar:bctc:model:${ticker}`, JSON.stringify({ ticker, owner: sessionId || modelSessionId, scenario, formula, notes, updatedAt: new Date().toISOString() }))
-        setNotice('Máy chủ chưa sẵn sàng; mô hình đã lưu cục bộ trên thiết bị này.')
-      } catch { setNotice('Không thể lưu mô hình trên thiết bị này.') }
-    }
+    try { const message = await workbook.save(); if (message) setNotice(message) }
+    catch (reason) { setNotice(reason.message || 'Không thể lưu workbook.') }
   }
 
   async function shareModel() {
@@ -468,7 +421,7 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
       <label className="bcl-top-select"><span>Năm tài chính</span><select value={periodMode} onChange={(event) => { setStatus('loading'); setPeriodMode(event.target.value) }}><option value="year">Theo năm</option><option value="quarter">Theo quý</option></select></label>
       <label className="bcl-top-select"><span>Đơn vị</span><select value={unit} onChange={(event) => setUnit(event.target.value)}><option value="billion">VND (Tỷ)</option><option value="million">VND (Triệu)</option><option value="raw">VND</option></select></label>
       <div className="bcl-mode-switch" role="group" aria-label="Chế độ workbook">{[['actual', 'Actual'], ['forecast', 'Forecast'], ['scenario', 'Scenario']].map(([key, label]) => <button type="button" className={mode === key ? 'is-active' : ''} key={key} onClick={() => { if (key === 'actual') setMode('actual'); else { runScenario(key); analyticsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } }}>{label}</button>)}</div>
-      <div className="bcl-top-actions"><button type="button" onClick={saveModel}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button><button type="button" aria-label="Thêm"><MoreHorizontal size={17} /></button></div>
+      <div className="bcl-top-actions"><button type="button" onClick={saveModel} disabled={workbook.loading || workbook.saving || Boolean(workbook.error)}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button><button type="button" aria-label="Thêm"><MoreHorizontal size={17} /></button></div>
     </header>
     <div className="bcl-layout">
       <aside className="bcl-sidebar">
@@ -491,6 +444,7 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
       </aside>
       <section className="bcl-main">
         <div className="bcl-workbook-tabs" role="tablist" aria-label="BCTC statements">{WORKBOOK_TABS.map(([key, label]) => <button type="button" role="tab" aria-selected={activeTab === key} className={activeTab === key ? 'is-active' : ''} key={key} onClick={() => setActiveTab(key)}>{label}</button>)}</div>
+        {workbook.error && <p role="alert">{workbook.error}</p>}
         {notice && <div className="bcl-notice" role="status"><Check size={14} /> {notice}<button type="button" aria-label="Đóng thông báo" onClick={() => setNotice('')}><X size={14} /></button></div>}
         {error && <div className="bcl-error" role="alert">{error}<button type="button" onClick={() => { setError(''); setStatus('loading'); setLoadNonce((value) => value + 1) }}>Thử lại</button></div>}
         {status === 'loading' && <div className="bcl-loading"><CloudUpload className="is-spinning" size={22} /> Đang đồng bộ dữ liệu BCTC…</div>}

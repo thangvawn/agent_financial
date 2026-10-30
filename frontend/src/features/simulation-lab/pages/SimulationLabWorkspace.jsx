@@ -32,6 +32,8 @@ export default function SimulationLabWorkspace() {
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
   const [marketSourceInfo, setMarketSourceInfo] = useState(null);
+  const [error, setError] = useState('');
+  const requestRef = useRef(0);
   const currentBarsRef = useRef([]);
 
   useEffect(() => {
@@ -45,40 +47,32 @@ export default function SimulationLabWorkspace() {
   }, [workflow.activeTicker, workflow.preloadedStrategyCode]);
 
   const executeBacktestWithBars = useCallback((bars) => {
-    setIsRunning(true);
-    const parsed = parseQuantaParams(quantaCode);
-    const res = runDeterministicBacktest(quantaCode, parsed, bars);
-    setSimulationResult(res);
-    setIsRunning(false);
-  }, [quantaCode]);
-
-  const loadDataAndRun = useCallback(async () => {
-    setIsRunning(true);
-    const feed = await loadQuantaMarketBars(ticker, period, interval);
-    currentBarsRef.current = feed.bars;
-    setMarketSourceInfo({
-      source: feed.source,
-      isReal: feed.isReal,
-      count: feed.count,
-      ticker: feed.ticker,
-      firstDate: feed.firstDate,
-      lastDate: feed.lastDate,
-      interval,
-      period,
-    });
-    executeBacktestWithBars(feed.bars);
-  }, [ticker, period, interval, executeBacktestWithBars]);
+    setError(''); setSimulationResult(null);
+    try {
+      setSimulationResult(runDeterministicBacktest(quantaCode, parseQuantaParams(quantaCode), bars, { interval }));
+    } catch (reason) { setError(reason.message); }
+    finally { setIsRunning(false); }
+  }, [quantaCode, interval]);
 
   useEffect(() => {
-    loadDataAndRun();
-  }, [loadDataAndRun]);
+    const request = ++requestRef.current;
+    let cancelled = false;
+    setIsRunning(true); setError(''); setSimulationResult(null); setMarketSourceInfo(null);
+    currentBarsRef.current = [];
+    loadQuantaMarketBars(ticker, period, interval).then(feed => {
+      if (cancelled || request !== requestRef.current) return;
+      currentBarsRef.current = feed.bars;
+      setMarketSourceInfo(feed);
+      executeBacktestWithBars(feed.bars);
+    }).catch(reason => {
+      if (!cancelled && request === requestRef.current) { setError(reason.message); setIsRunning(false); }
+    });
+    return () => { cancelled = true; };
+  }, [ticker, period, interval, executeBacktestWithBars]);
 
   const handleManualReRun = () => {
-    if (currentBarsRef.current.length > 0) {
-      executeBacktestWithBars(currentBarsRef.current);
-    } else {
-      loadDataAndRun();
-    }
+    setIsRunning(true);
+    executeBacktestWithBars(currentBarsRef.current);
   };
 
   const handleLoadBlueprint = (bp) => {
@@ -107,6 +101,8 @@ export default function SimulationLabWorkspace() {
         onOpenBlueprintModal={() => setIsBlueprintModalOpen(true)}
       />
 
+      {error && <p role="alert" className="simlab-error">{error}</p>}
+      <p className="simlab-assumptions">Mô phỏng: tín hiệu cuối nến, khớp ở giá mở cửa nến kế tiếp; lô 100 cp, phí mua 0,15%, phí và thuế bán 0,25%; chưa tính trượt giá. Giữ ít nhất hai phiên có dữ liệu trước khi bán. Dữ liệu tuần chỉ kiểm tra tại các phiên quan sát được.</p>
       <main className="simlab-main-workspace">
         {mode === 'studio' && (
           <div className="studio-split-view">

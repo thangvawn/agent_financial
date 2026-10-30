@@ -4,16 +4,17 @@ async function expectJson(response) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     const detail = payload?.detail
-    if (typeof detail === 'string') throw new Error(detail)
+    const failure = message => Object.assign(new Error(message), { status: response.status, detail })
+    if (typeof detail === 'string') throw failure(detail)
     if (detail?.message) {
       const failedTickers = Array.isArray(detail.errors)
         ? detail.errors.map((item) => item?.ticker).filter(Boolean)
         : []
       const suffix = failedTickers.length ? ` (${failedTickers.join(', ')} không tải được)` : ''
-      throw new Error(`${detail.message}${suffix}`)
+      throw failure(`${detail.message}${suffix}`)
     }
     const message = payload?.message || `Request failed: ${response.status}`
-    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+    throw failure(typeof message === 'string' ? message : JSON.stringify(message))
   }
   return payload
 }

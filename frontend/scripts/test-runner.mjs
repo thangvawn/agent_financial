@@ -41,7 +41,4 @@ testStream.on('error', () => {
   process.exit(1)
 })
 
-testStream.on('end', () => {
-  // If failed tests exist, exit with 1
-})
-
+testStream.on('test:fail', () => { process.exitCode = 1 })

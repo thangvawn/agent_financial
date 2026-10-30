@@ -27,21 +27,21 @@ export default function SimLabTearsheet({ metrics, trades = [] }) {
     },
     {
       label: 'CAGR (Hàng năm)',
-      val: `${(metrics.cagr || 0) >= 0 ? '+' : ''}${metrics.cagr?.toFixed(2)}%`,
+      val: metrics.cagr == null ? '—' : `${metrics.cagr >= 0 ? '+' : ''}${metrics.cagr.toFixed(2)}%`,
       cls: (metrics.cagr || 0) >= 0 ? 'profit' : 'loss',
       sub: 'Tăng trưởng kép',
     },
     {
       label: 'Sharpe Ratio',
-      val: metrics.sharpeRatio?.toFixed(2) || '0.00',
+      val: metrics.sharpeRatio?.toFixed(2) ?? '—',
       cls: (metrics.sharpeRatio || 0) >= 1 ? 'accent' : '',
-      sub: 'Rf = 4.5% (VN 10Y)',
+      sub: 'Giả định Rf = 4,5%/năm; — nếu không xác định',
     },
     {
       label: 'Sortino Ratio',
-      val: metrics.sortinoRatio?.toFixed(2) || '0.00',
+      val: metrics.sortinoRatio?.toFixed(2) ?? '—',
       cls: (metrics.sortinoRatio || 0) >= 1.5 ? 'accent' : '',
-      sub: 'Chỉ đo Downside Vol',
+      sub: 'Độ lệch giảm so với Rf giả định',
     },
     {
       label: 'Max Drawdown (MDD)',
@@ -57,13 +57,13 @@ export default function SimLabTearsheet({ metrics, trades = [] }) {
     },
     {
       label: 'Profit Factor',
-      val: metrics.profitFactor?.toFixed(2) || '0.00',
+      val: metrics.profitFactor?.toFixed(2) ?? '—',
       cls: (metrics.profitFactor || 0) >= 1.5 ? 'profit' : '',
       sub: 'Tổng lãi / Tổng lỗ',
     },
     {
       label: 'Kỳ hạn nắm giữ TB',
-      val: `${metrics.avgHoldingDays || 0} ngày`,
+      val: `${(metrics.avgHoldingDays || 0).toFixed(1)} ngày`,
       cls: '',
       sub: 'Quy tắc T+2 thị trường VN',
     },
@@ -143,9 +143,9 @@ export default function SimLabTearsheet({ metrics, trades = [] }) {
                   return (
                     <tr key={idx} className={isWin ? 'win-row' : 'loss-row'}>
                       <td>#{t.id || idx + 1}</td>
-                      <td>{t.entryDate}</td>
+                      <td>{typeof t.entryDate === 'number' ? new Date(t.entryDate * 1000).toISOString().slice(0,16).replace('T',' ') : t.entryDate}</td>
                       <td>{t.entryPrice?.toLocaleString('vi-VN')} đ</td>
-                      <td>{t.exitDate || 'Đang giữ'}</td>
+                      <td>{typeof t.exitDate === 'number' ? new Date(t.exitDate * 1000).toISOString().slice(0,16).replace('T',' ') : t.exitDate || 'Đang giữ'}</td>
                       <td>{t.exitPrice ? `${t.exitPrice.toLocaleString('vi-VN')} đ` : '-'}</td>
                       <td>{t.volume?.toLocaleString('vi-VN')} cp</td>
                       <td className={isWin ? 'profit-text' : 'loss-text'}>

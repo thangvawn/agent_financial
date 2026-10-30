@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { logoutSession } from './sessionLifecycle'
 
 const SESSION_KEY = 'public-beta.session_id'
 const USER_KEY = 'public-beta.user_profile'
@@ -134,18 +135,7 @@ export function useAuth() {
     }
   }, [])
 
-  const logout = useCallback(async () => {
-    const sessionId = (typeof window !== 'undefined' && window.localStorage.getItem(SESSION_KEY)) || ''
-    clearSession()
-    if (!sessionId) return
-    try {
-      await postJson('/api/v1/public/auth/logout', {}, {
-        Authorization: `Bearer ${sessionId}`,
-      })
-    } catch {
-      /* Session may already be invalid; local cleanup remains idempotent. */
-    }
-  }, [])
+  const logout = useCallback(() => logoutSession(), [])
 
   const getStoredSession = useCallback(() => {
     try {

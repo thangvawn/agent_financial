@@ -11,7 +11,7 @@ test('R03 different strategy rules produce different trades', () => {
   assert.notDeepEqual(run(QUANTA_STRATEGY_PRESETS[2].code).trades, run(QUANTA_STRATEGY_PRESETS[3].code).trades)
 })
 test('R03 unsupported strategy must fail instead of running EMA', () => {
-  assert.throws(() => run('strategy "bad"\ndetect:\n  x = unsupported(close)\nact:\n  when x:\n    enter long with wnav 5pct'), /hỗ trợ|cú pháp|không hợp lệ/i)
+  assert.throws(() => run('strategy "bad"\ndetect:\n  x = unsupported(close)\nact:\n  when x:\n    enter long with wnav 5pct\n  when position.is_long:\n    close long'), /hỗ trợ|cú pháp|không hợp lệ/i)
 })
 test('R04 flat equity has undefined risk ratios', () => {
   const flat = bars.map(b => ({ ...b, open: 100000, high: 100000, low: 100000, close: 100000 }))

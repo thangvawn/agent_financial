@@ -48,7 +48,7 @@ test('Quanta Today Actionable Signal Engine Contract', async (t) => {
     const bars = generateSyntheticOHLCV('FPT', 60);
     const signal = computeTodaySignal({
       bars,
-      params: { fast_len: 21, slow_len: 55 },
+      params: { fast_len: 21, slow_len: 55, stop_loss_pct: 6, take_profit_pct: 12 },
       trades: [],
     });
 

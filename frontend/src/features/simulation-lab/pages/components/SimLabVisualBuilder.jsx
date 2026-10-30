@@ -9,38 +9,24 @@ export default function SimLabVisualBuilder({ onApplyToQuantaCode }) {
   const [positionSize, setPositionSize] = useState(30);
 
   const handleSyncToDSL = () => {
-    const generatedDSL = `strategy:
-  name: "Visual Custom Strategy"
-  description: "Chiến lược sinh tự động từ Visual Builder"
-
-universe:
-  symbols: ["VN30"]
-  liquidity_min: "10B"
-
+    const generatedDSL = `strategy "Visual Custom Strategy"
 params:
   fast_period: ${fastPeriod}
   slow_period: ${slowPeriod}
   take_profit_pct: ${takeProfit}
   stop_loss_pct: ${stopLoss}
   trailing_stop: ${trailing}
-
-entry:
-  when:
-    - "EMA(fast_period) crosses_above EMA(slow_period)"
-    - "volume > SMA(volume, 20) * 1.2"
-  action: "BUY_MARKET"
-  allocation: "${positionSize}%"
-
-exit:
-  when:
-    - "gain >= take_profit_pct"
-    - "loss >= stop_loss_pct"
-    - "drawdown_from_peak >= trailing_stop"
-  action: "SELL_MARKET"
-
-risk:
-  max_portfolio_risk: "2%"
-  settlement_rule: "T+2"
+  position_size: ${positionSize}
+detect:
+  fast = ema(market.close, fast_period)
+  slow = ema(market.close, slow_period)
+  average_volume = sma(market.volume, 20)
+  long_setup = fast crossover slow and market.volume > average_volume * 1.2
+act:
+  when long_setup and not position.is_long:
+    enter long with wnav position_size
+  when position.is_long and (gain >= take_profit_pct or loss >= stop_loss_pct or drawdown_from_peak >= trailing_stop):
+    close long
 `;
     if (onApplyToQuantaCode) {
       onApplyToQuantaCode(generatedDSL);
