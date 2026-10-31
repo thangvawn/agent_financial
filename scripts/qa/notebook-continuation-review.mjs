@@ -147,7 +147,14 @@ try{
     }),'Many page tabs stay in one row and the active page remains visible')
     await page.keyboard.insertText('\nGhi thêm từ điện thoại.')
     assert.equal(await joined(),longText+'\nGhi thêm từ điện thoại.')
-    await page.screenshot({path:`${out}/continued-mobile.png`,fullPage:true})
+    await page.waitForTimeout(200)
+    const mobilePosition=await page.locator('.br-notes__scroll').evaluate(scroll=>{
+      const input=document.activeElement,rect=input.getBoundingClientRect(),viewport=scroll.getBoundingClientRect()
+      return {top:rect.top,bottom:rect.bottom,viewTop:viewport.top,viewBottom:viewport.bottom}
+    })
+    assert.ok(mobilePosition.top<mobilePosition.viewBottom && mobilePosition.bottom>mobilePosition.viewTop,'The focused A4 page must remain visible after typing')
+    // Full-page capture can resize this fixed workspace and move its inner scroll.
+    await page.screenshot({path:`${out}/continued-mobile.png`})
   })
   await step('mobile-touch-at-bottom-adds-one-empty-page',async()=>{
     await reset()
