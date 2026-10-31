@@ -39,6 +39,21 @@ const longText=Array.from({length:58},(_,i)=>`Dòng ${i+1}: Khả năng lựa ch
 try{
   await page.goto(origin+'/dashboard-static/learn')
   await page.getByRole('tab',{name:'Sách & Tài liệu',exact:true}).click();await open()
+  await step('a4-paper-ratio-through-split-focus-and-mobile-layouts',async()=>{
+    async function assertA4() {
+      const box=await papers().first().boundingBox()
+      assert.ok(Math.abs(box.height/box.width-297/210)<.005,`Expected A4 portrait, got ${box.width} × ${box.height}`)
+      const text=await inputs().first().boundingBox()
+      assert.ok(Math.abs(text.height-(box.height-2))<2,'Writing area follows the full paper height')
+    }
+    await assertA4()
+    await page.getByRole('tab',{name:'Ghi chú',exact:true}).click();await assertA4()
+    assert.ok((await papers().first().boundingBox()).height>1100,'Full A4 note page is taller than the previous 620px paper')
+    await page.setViewportSize({width:390,height:844});await assertA4()
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))
+    await page.setViewportSize({width:1600,height:1000})
+    await page.getByRole('tab',{name:'Song song',exact:true}).click()
+  })
   await step('scroll-adds-one-page-without-stealing-focus-or-layout',async()=>{
     await page.waitForTimeout(400);assert.equal(await papers().count(),1)
     await inputs().first().fill('Ý chính ban đầu.')
