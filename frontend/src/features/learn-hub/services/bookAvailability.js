@@ -13,13 +13,29 @@ export function cachedBookCheck(key) {
   return entry && entry.expires>Date.now() ? entry.result : null
 }
 export function clearBookCheck(key) {cache.delete(key)}
+export function matchesBookFormat(book, format, availability) {
+  if (format === 'all') return true
+  const source = resolveBookSource(book)
+  const isSupplement = ['notes', 'sample'].includes(source.contentRole)
+  if (format === 'notes') return isSupplement
+  if (format !== 'pdf' || isSupplement) return false
+  const kind = availability?.status === 'ready' ? availability.kind : source.kind
+  return kind === 'pdf'
+}
+function bookPriority(book) {
+  const source = resolveBookSource(book)
+  if (source.contentRole === 'sample') return 5
+  if (source.contentRole === 'notes') return 4
+  if (source.kind === 'pdf') return source.isLocalAsset ? 0 : 1
+  return source.kind === 'archive' ? 2 : 3
+}
 export function mergeBookCatalog(books) {
   const seen=new Set()
   return books.filter(Boolean).filter(book=>{
     const key=bookSourceKey(book)
     if (seen.has(key)) return false
     seen.add(key);return true
-  }).sort((a,b)=>Number(resolveBookSource(b).isLocalAsset)-Number(resolveBookSource(a).isLocalAsset))
+  }).sort((a,b)=>bookPriority(a)-bookPriority(b))
 }
 function signalWithTimeout(signal,ms) {
   return signal ? AbortSignal.any([signal,AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms)

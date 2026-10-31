@@ -1,0 +1,44 @@
+[
+  {
+    "title": "Principles of Finance 2e",
+    "url": "https://assets.openstax.org/oscms-prodcms/media/documents/Principles_of_Finance_2e_-_WEB_.pdf",
+    "landing_url": "https://openstax.org/details/books/principles-finance-2e",
+    "filename": "openstax-principles-finance-2e.pdf",
+    "size": 30902513,
+    "sha256": "7d942df1aaf2fc3edcc7f681955cdabecdd0d4e4c754469f0bea159461a6ad79",
+    "cover_url": "https://assets.openstax.org/oscms-prodcms/media/documents/principles_of_finance_2e_web_card.svg",
+    "pages": 629,
+    "license": "CC BY-NC-SA 4.0",
+    "publisher": "OpenStax, Rice University",
+    "downloaded_on": "2026-10-31",
+    "modified": false
+  },
+  {
+    "title": "Principles of Macroeconomics 3e",
+    "url": "https://assets.openstax.org/oscms-prodcms/media/documents/principles-macroeconomics-3e_-_WEB.pdf",
+    "landing_url": "https://openstax.org/details/books/principles-macroeconomics-3e",
+    "filename": "openstax-principles-macroeconomics-3e.pdf",
+    "size": 33585123,
+    "sha256": "c1ac3049ae23c7463c8071ff3de22b6df80de1107db8a43980e0f1935a1e5815",
+    "cover_url": "https://assets.openstax.org/oscms-prodcms/media/documents/principles-macroeconomics-3e-web-card.svg",
+    "pages": 635,
+    "license": "CC BY-NC-SA 4.0",
+    "publisher": "OpenStax, Rice University",
+    "downloaded_on": "2026-10-31",
+    "modified": false
+  },
+  {
+    "title": "Principles of Microeconomics 3e",
+    "url": "https://assets.openstax.org/oscms-prodcms/media/documents/principles-microeconomics-3e_-_WEB.pdf",
+    "landing_url": "https://openstax.org/details/books/principles-microeconomics-3e",
+    "filename": "openstax-principles-microeconomics-3e.pdf",
+    "size": 29247593,
+    "sha256": "65a1856faa91d5fdef9c630928029c6e4e188a9580d9128fcbc9138c4f4a583f",
+    "cover_url": "https://assets.openstax.org/oscms-prodcms/media/documents/principles-microeconomics-3e-web-card.svg",
+    "pages": 595,
+    "license": "CC BY-NC-SA 4.0",
+    "publisher": "OpenStax, Rice University",
+    "downloaded_on": "2026-10-31",
+    "modified": false
+  }
+]

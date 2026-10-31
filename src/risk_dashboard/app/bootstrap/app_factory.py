@@ -42,6 +42,15 @@ class SPAStaticFiles(StaticFiles):
             raise
 
 
+class LearningAssetStaticFiles(StaticFiles):
+    """Serve user assets first, then assets shipped with the frontend."""
+
+    def __init__(self, *, directory: Path, bundled_directories: tuple[Path, ...]):
+        super().__init__(directory=directory)
+        # Keep Starlette's path traversal/symlink checks and HTTP Range handling.
+        self.all_directories.extend(path for path in bundled_directories if path.is_dir())
+
+
 def create_app() -> FastAPI:
     load_dotenv()
     settings = get_settings()
@@ -61,7 +70,17 @@ def create_app() -> FastAPI:
     if settings.frontend_dist.exists():
         app.mount("/dashboard-static", SPAStaticFiles(directory=settings.frontend_dist), name="dashboard-static")
     settings.learning_assets_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/learning-assets", StaticFiles(directory=settings.learning_assets_dir), name="learning-assets")
+    app.mount(
+        "/learning-assets",
+        LearningAssetStaticFiles(
+            directory=settings.learning_assets_dir,
+            bundled_directories=(
+                settings.frontend_dist / "learning-assets",
+                settings.project_root / "frontend" / "public" / "learning-assets",
+            ),
+        ),
+        name="learning-assets",
+    )
 
     for module in get_enabled_modules(feature_flags):
         if module.public_router is not None:

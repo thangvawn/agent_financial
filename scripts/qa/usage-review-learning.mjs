@@ -27,7 +27,7 @@ async function register(name){const r=await context.request.post(`${origin}/api/
 const a=await register('LearningA')
 await context.addInitScript(({a})=>{if(!sessionStorage.getItem('qa-init')){localStorage.setItem('public-beta.session_id',a.session_id);localStorage.setItem('public-beta.user_profile',JSON.stringify(a.profile));sessionStorage.setItem('qa-init','1')}},{a})
 async function step(name,fn){try{await fn();result.passes.push(name);console.log('PASS',name)}catch(e){result.findings.push({step:name,error:e.message});console.log('OBSERVED',name,e.message);await page.screenshot({path:`${out}/${name}.png`,fullPage:true})}}
-async function sample(){await page.getByRole('tab',{name:'Sách & Tài liệu',exact:true}).click();await page.getByRole('heading',{name:'Northstar Sample Reader',exact:true}).click();await page.getByRole('button',{name:'Xong',exact:true}).waitFor()}
+async function sample(){await page.getByRole('tab',{name:'Sách & Tài liệu',exact:true}).click();await page.getByLabel('Loại bản đọc').selectOption('notes');await page.getByRole('button',{name:'Northstar Sample Reader',exact:true}).click();await page.getByRole('button',{name:'Xong',exact:true}).waitFor()}
 try{
  await page.goto(`${origin}/dashboard-static/learn`)
  await step('course-filter-bookmark',async()=>{
@@ -45,7 +45,7 @@ try{
   await page.getByPlaceholder('Ghi chú khi đọc… ý chính, câu hỏi, số liệu cần nhớ.').first().fill('QA personal reading note')
   await page.getByRole('button',{name:'Lưu',exact:true}).click()
   await page.getByRole('button',{name:'Xong',exact:true}).click()
-  await page.getByRole('heading',{name:'Northstar Sample Reader',exact:true}).click()
+  await page.getByLabel('Loại bản đọc').selectOption('notes');await page.getByRole('button',{name:'Northstar Sample Reader',exact:true}).click()
   assert.equal(await page.getByPlaceholder('Ghi chú khi đọc… ý chính, câu hỏi, số liệu cần nhớ.').first().inputValue(),'QA personal reading note')
   await page.getByRole('button',{name:'Xong',exact:true}).click()
  })

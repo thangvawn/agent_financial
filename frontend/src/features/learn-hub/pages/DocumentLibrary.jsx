@@ -1,8 +1,9 @@
-import {bookSourceKey,mergeBookCatalog,cachedBookCheck} from '../services/bookAvailability'
+import {bookSourceKey,mergeBookCatalog,cachedBookCheck,matchesBookFormat} from '../services/bookAvailability'
 import {useLibrarySourceChecks} from '../hooks/useBookAvailability'
 import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, FileText, Layers, Search, Sparkles } from 'lucide-react'
 
+import { FULL_PDF_BOOKS } from '../content/fullPdfBooks'
 import { DEMO_BOOKS, normalizeDbBook } from '../content/courseCatalogData'
 import { DOCUMENT_FOLDERS, DOCUMENT_TYPES, matchesFolder, normalizeDbPaper } from '../content/paperCatalogData'
 import { fetchLearningCatalog } from '../services/learningApi'
@@ -17,12 +18,13 @@ export default function DocumentLibrary({ onOpenBook }) {
   const [books, setBooks] = useState([])
   const [papers, setPapers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [docType, setDocType] = useState('all')
+  const [docType, setDocType] = useState('book')
   const [activeFolderId, setActiveFolderId] = useState('all')
   const [search, setSearch] = useState('')
   const [selectedTakeawayBook, setSelectedTakeawayBook] = useState(null)
   const [selectedPaper, setSelectedPaper] = useState(null)
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [bookFormat, setBookFormat] = useState('pdf')
   const [page, setPage] = useState(0)
   const [scan, setScan] = useState({all:false,startedAt:0})
   const [catalogNotice, setCatalogNotice] = useState('')
@@ -38,7 +40,7 @@ export default function DocumentLibrary({ onOpenBook }) {
       const rawBooks = Array.isArray(resBooks?.items) && resBooks.items.length > 0
         ? resBooks.items.map(normalizeDbBook).filter(Boolean)
         : []
-      const combinedBooks = mergeBookCatalog([...rawBooks, ...DEMO_BOOKS])
+      const combinedBooks = mergeBookCatalog([...FULL_PDF_BOOKS, ...rawBooks, ...DEMO_BOOKS])
       if(resBooks.warning || resPapers.warning) setCatalogNotice('Chưa tải được đầy đủ catalog. Các tài liệu có sẵn vẫn được hiển thị và kiểm tra nguồn.')
       setBooks(combinedBooks.map((b) => ({ ...b, type: 'book' })))
 
@@ -52,7 +54,8 @@ export default function DocumentLibrary({ onOpenBook }) {
   }, [])
 
   const folderCounts = useMemo(() => {
-    const pool = docType === 'book' ? books : docType === 'paper' ? papers : [...books, ...papers]
+    const formatBooks = books.filter(book => matchesBookFormat(book, bookFormat, displayChecks[bookSourceKey(book)] || cachedBookCheck(bookSourceKey(book))))
+    const pool = docType === 'book' ? formatBooks : docType === 'paper' ? papers : [...formatBooks, ...papers]
     const counts = { all: pool.length }
     for (const f of DOCUMENT_FOLDERS) {
       if (f.id !== 'all') {
@@ -60,10 +63,11 @@ export default function DocumentLibrary({ onOpenBook }) {
       }
     }
     return counts
-  }, [books, papers, docType])
+  }, [books, papers, docType, bookFormat, displayChecks])
 
   const filteredItems = useMemo(() => {
-    let pool = docType === 'book' ? books : docType === 'paper' ? papers : [...books, ...papers]
+    const formatBooks = books.filter(book => matchesBookFormat(book, bookFormat, displayChecks[bookSourceKey(book)] || cachedBookCheck(bookSourceKey(book))))
+    let pool = docType === 'book' ? formatBooks : docType === 'paper' ? papers : [...formatBooks, ...papers]
     if(sourceFilter!=='all') pool=pool.filter(item=>item.type==='book' && (displayChecks[bookSourceKey(item)]?.status || cachedBookCheck(bookSourceKey(item))?.status || 'unchecked')===sourceFilter)
     if (activeFolderId !== 'all') {
       pool = pool.filter((it) => matchesFolder(it, activeFolderId))
@@ -75,22 +79,22 @@ export default function DocumentLibrary({ onOpenBook }) {
       )
     }
     return pool
-  }, [books, papers, docType, activeFolderId, search, sourceFilter, displayChecks])
+  }, [books, papers, docType, activeFolderId, search, sourceFilter, displayChecks, bookFormat])
 
-  const filterScope=`${docType}:${activeFolderId}:${search}:${sourceFilter}`
+  const filterScope=`${docType}:${activeFolderId}:${search}:${sourceFilter}:${bookFormat}`
   const [lastFilterScope,setLastFilterScope]=useState(filterScope)
   if(lastFilterScope!==filterScope){setLastFilterScope(filterScope);setPage(0)}
   const pageCount=Math.max(1,Math.ceil(filteredItems.length/12))
   const currentPage=Math.min(page,pageCount-1)
   const visibleItems=useMemo(()=>filteredItems.slice(currentPage*12,currentPage*12+12),[filteredItems,currentPage])
-  const targets=scan.all ? books : visibleItems.filter(item=>item.type==='book')
+  const targets=scan.all || (bookFormat==='pdf' && docType!=='paper') ? books : visibleItems.filter(item=>item.type==='book')
   const completed=books.filter(book=>Date.parse(displayChecks[bookSourceKey(book)]?.checked_at || '')>=scan.startedAt).length
   const scanning=scan.all && completed<books.length
   const checks=useLibrarySourceChecks(targets,{enabled:!scan.all || scanning,force:scan.all,runKey:scan.startedAt})
   // Derive the filterable snapshot without re-starting a batch when results arrive.
   if(checks!==displayChecks)setDisplayChecks(checks)
   const checked=books.filter(book=>checks[bookSourceKey(book)] || cachedBookCheck(bookSourceKey(book))).length
-  const readable=books.filter(book=>(checks[bookSourceKey(book)] || cachedBookCheck(bookSourceKey(book)))?.status==='ready').length
+  const readable=books.filter(book=>{const check=checks[bookSourceKey(book)] || cachedBookCheck(bookSourceKey(book));return check?.status==='ready' && matchesBookFormat(book,'pdf',check)}).length
 
   const currentFolder = DOCUMENT_FOLDERS.find((f) => f.id === activeFolderId) || DOCUMENT_FOLDERS[0]
 
@@ -104,7 +108,7 @@ export default function DocumentLibrary({ onOpenBook }) {
             <span className="lh-section__count">{filteredItems.length}</span>
           </h2>
           <p className="lh-section__subtitle" style={{ marginTop: '0.25rem' }}>
-            Tìm học liệu theo chủ đề và xem trạng thái nguồn trước khi đọc.
+            Mở sách PDF toàn văn, đọc và tải về. Chọn loại bản đọc để xem thêm tài liệu khác.
           </p>
         </div>
         <div className="lh-doc-library__stats">
@@ -154,7 +158,10 @@ export default function DocumentLibrary({ onOpenBook }) {
       </div>
 
       <div className="lh-source-toolbar">
-        <div><strong>{readable} sách đọc được</strong><span> · Đã kiểm tra {checked}/{books.length} nguồn sách</span><p>Tự kiểm tra sách trên trang đang xem. Các trạng thái chỉ phản ánh lần kiểm tra gần nhất.</p></div>
+        <div><strong>{readable} PDF toàn văn đọc được</strong><span> · Đã kiểm tra {checked}/{books.length} nguồn sách</span><p>Đang xác định bản PDF trong danh mục. Trạng thái phản ánh lần kiểm tra gần nhất.</p></div>
+        {docType!=='paper' && <label>Loại bản đọc <select value={bookFormat} onChange={event=>setBookFormat(event.target.value)} aria-label="Loại bản đọc">
+          <option value="pdf">PDF toàn văn</option><option value="notes">Ghi chú & tài liệu mẫu</option><option value="all">Tất cả định dạng</option>
+        </select></label>}
         <label>Trạng thái sách <select value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)} aria-label="Lọc trạng thái nguồn sách">
           <option value="all">Tất cả</option><option value="ready">Đã kiểm tra · đọc được</option><option value="missing">Không còn tại nguồn</option><option value="restricted">Hạn chế truy cập</option><option value="unavailable">Tạm chưa kết nối</option><option value="invalid">Nguồn không hợp lệ</option><option value="load_failed">Chưa mở được tài liệu</option><option value="external">Xem tại nguồn</option><option value="too_large">Trên 40 MB · mở tại nguồn</option><option value="unchecked">Chưa kiểm tra</option>
         </select></label>
@@ -175,11 +182,11 @@ export default function DocumentLibrary({ onOpenBook }) {
             <div className="lh-empty-state"><p>Đang đồng bộ dữ liệu thư viện...</p></div>
           ) : filteredItems.length === 0 ? (
             <div className="lh-empty-state">
-              <p>Không tìm thấy tài liệu nào trong thư mục <strong>"{currentFolder.label}"</strong> phù hợp.</p>
+              <p>{bookFormat==='pdf' && docType!=='paper' ? 'Chưa có PDF phù hợp. Bạn có thể kiểm tra lại nguồn hoặc chọn Tất cả định dạng. ' : ''}Không tìm thấy tài liệu nào trong thư mục <strong>"{currentFolder.label}"</strong> phù hợp.</p>
               <button
                 type="button"
                 className="lhc-btn lhc-btn--outline"
-                onClick={() => { setSearch(''); setActiveFolderId('all'); setDocType('all'); setSourceFilter('all') }}
+                onClick={() => { setSearch(''); setActiveFolderId('all'); setDocType('book'); setSourceFilter('all'); setBookFormat('pdf') }}
                 style={{ marginTop: '0.75rem' }}
               >
                 Đặt lại tất cả bộ lọc

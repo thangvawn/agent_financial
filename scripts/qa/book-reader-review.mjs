@@ -43,12 +43,13 @@ const response=await context.request.post(`${origin}/api/v1/public/auth/register
 assert.equal(response.status(),200);const account=await response.json()
 await context.addInitScript(({account})=>{if(window!==window.top)return;localStorage.setItem('public-beta.session_id',account.session_id);localStorage.setItem('public-beta.user_profile',JSON.stringify(account.profile))},{account})
 const search=page.getByLabel('Tìm sách và tài liệu')
-async function open(title){await search.fill(title);await page.getByRole('button',{name:title,exact:true}).click();await page.getByRole('button',{name:'Xong',exact:true}).waitFor()}
-async function close(){await page.getByRole('button',{name:'Xong',exact:true}).click()}
+async function open(title){await page.getByLabel('Loại bản đọc').selectOption('all');await search.fill(title);await page.getByRole('button',{name:title,exact:true}).click();await page.getByRole('button',{name:'Xong',exact:true}).waitFor()}
+async function close(){await page.getByRole('button',{name:'Xong',exact:true}).click();await page.getByLabel('Loại bản đọc').selectOption('all')}
 async function step(name,fn){try{await fn();result.passes.push(name);console.log('PASS',name)}catch(error){result.failures.push({name,error:error.message});console.log('FAIL',name,error.message);await page.screenshot({path:`${out}/failure-${name}.png`,fullPage:true});throw error}}
 try{
  await page.goto(`${origin}/dashboard-static/learn`)
  await page.getByRole('tab',{name:'Sách & Tài liệu',exact:true}).click()
+ await page.getByLabel('Loại bản đọc').selectOption('all')
  await step('automatic-check-deduplicate-paginate',async()=>{
   await page.getByRole('heading',{name:'QA missing book',exact:true}).waitFor()
   await page.locator('[data-book-id="missing"] .book-source-badge--missing').waitFor()
@@ -56,7 +57,7 @@ try{
   assert.equal(await page.locator('.lh-book-card').count(),12)
   assert.ok(maxActive<=3,`Concurrent checks: ${maxActive}`)
   await page.getByRole('button',{name:'Trang sau',exact:true}).click()
-  await page.getByText('Trang 2/2',{exact:true}).waitFor()
+  await page.getByText(/^Trang 2\//).waitFor()
   await page.getByRole('button',{name:'Trang trước',exact:true}).click()
  })
  await step('full-audit-and-source-filters',async()=>{
