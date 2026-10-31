@@ -1,5 +1,6 @@
 import {ArrowLeft,BookOpen,Box,Check,Columns2,Eraser,ExternalLink,ImagePlus,NotebookPen,PenLine,Plus,Save,Type} from 'lucide-react'
 import ReaderDeskScene from './ReaderDeskScene'
+import {useEffect,useRef} from 'react'
 
 const MODES = [['type','Gõ',Type],['draw','Vẽ',PenLine],['erase','Tẩy',Eraser]]
 
@@ -112,9 +113,19 @@ export function NotePageStrip({
   onSelect,
   onTitleChange,
 }) {
+  const stripRef = useRef(null)
+  useEffect(() => {
+    const strip = stripRef.current
+    const active = strip?.querySelector('[aria-selected="true"]')
+    if (!active) return
+    const bounds = strip.getBoundingClientRect()
+    const tab = active.getBoundingClientRect()
+    if (tab.left < bounds.left) strip.scrollLeft += tab.left - bounds.left
+    else if (tab.right > bounds.right) strip.scrollLeft += tab.right - bounds.right
+  }, [activePageId, pages.length])
   return (
     <div className="br-pages">
-      <div className="br-pages__strip" role="tablist" aria-label="Trang ghi chú">
+      <div ref={stripRef} className="br-pages__strip" role="tablist" aria-label="Trang ghi chú">
         {pages.map((page, index) => (
           <button
             key={page.id}

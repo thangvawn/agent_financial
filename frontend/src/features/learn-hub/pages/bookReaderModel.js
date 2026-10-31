@@ -45,6 +45,76 @@ export function hydrateNotebookPages(payload) {
   })]
 }
 
+// The DOM supplies the fit measurement so wrapped lines use the actual paper width.
+export function paginateNotebookText(text, fits) {
+  if (!text || fits(text)) return [text]
+  const letters = Array.from(text)
+  const chunks = []
+  let start = 0
+  while (start < letters.length) {
+    let low = 0
+    let high = letters.length - start
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      if (fits(letters.slice(start, start + middle).join(''))) low = middle
+      else high = middle - 1
+    }
+    // A hidden/unmeasurable paper must never drop text or loop indefinitely.
+    if (!low) { chunks.push(letters.slice(start).join('')); break }
+    let end = start + low
+    if (end < letters.length) {
+      const minimum = start + Math.floor(low * .65)
+      let boundary = -1
+      // Prefer a complete line/paragraph, then a word boundary for wrapped prose.
+      for (const separator of [/\n/u, /\s/u]) {
+        for (let index = end - 1; index >= minimum; index--) {
+          if (separator.test(letters[index])) { boundary = index + 1; break }
+        }
+        if (boundary > start) break
+      }
+      if (boundary > start) end = boundary
+    }
+    chunks.push(letters.slice(start, end).join(''))
+    start = end
+  }
+  return chunks
+}
+
+export function continueNotebookText(pages, pageId, chunks) {
+  const index = pages.findIndex(page => page.id === pageId)
+  if (index < 0 || !chunks.length) return { pages, pageIds: [] }
+  const updatedAt = new Date().toISOString()
+  const continuation = [{ ...pages[index], noteText: chunks[0], updatedAt }]
+  let nextIndex = index + 1
+  let added = 0
+  for (const noteText of chunks.slice(1)) {
+    const next = pages[nextIndex]
+    const empty = next && !next.noteText && !next.drawingDataUrl && !next.images?.length
+    if (empty) {
+      continuation.push({ ...next, noteText, updatedAt })
+      nextIndex++
+    } else {
+      added++
+      continuation.push(createNotebookPage({ title: `Trang ${pages.length + added}`, noteText }))
+    }
+  }
+  return {
+    pages: [...pages.slice(0, index), ...continuation, ...pages.slice(nextIndex)],
+    pageIds: continuation.map(page => page.id),
+  }
+}
+
+export function locateNotebookCaret(chunks, position) {
+  let offset = Math.max(0, position)
+  for (let index = 0; index < chunks.length; index++) {
+    if (offset < chunks[index].length || index === chunks.length - 1) {
+      return { index, offset: Math.min(offset, chunks[index].length) }
+    }
+    offset -= chunks[index].length
+  }
+  return { index: 0, offset: 0 }
+}
+
 export function safeJsonParse(value) {
   if (!value) return null
   try {

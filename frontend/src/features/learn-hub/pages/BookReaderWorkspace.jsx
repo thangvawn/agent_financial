@@ -48,6 +48,10 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
     handleImageUpload,
     handleSelectPage,
     handleAddPage,
+    prepareNextPage,
+    handleTextOverflow,
+    continuationMessage,
+    notesScrollProps,
     saveReaderState,
     setActivePageId,
     setPageElementRef,
@@ -114,7 +118,7 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
             className="br-hidden"
           />
 
-          <div className="br-notes__scroll">
+          <div className="br-notes__scroll" {...notesScrollProps} tabIndex={0} aria-label="Các trang ghi chú">
             {pages.map((page, index) => (
               <NotePaper
                 key={page.id}
@@ -129,6 +133,8 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
                 setPageRef={(node) => setPageElementRef(page.id, node)}
                 onActivate={() => setActivePageId(page.id)}
                 onTextChange={(noteText) => updatePageById(page.id, { noteText })}
+                onTextOverflow={(chunks, selection) => handleTextOverflow(page.id, chunks, selection)}
+                onNeedNextPage={() => prepareNextPage(page.id)}
                 onDrawingChange={(drawingDataUrl) => updatePageById(page.id, { drawingDataUrl })}
                 onImageChange={(imageIndex, patch) => updatePageById(page.id, (pageItem) => ({
                   images: normalizeNoteImages(pageItem.images).map((image, idx) => (
@@ -145,7 +151,9 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
             <button type="button" className="br-notes__add" onClick={handleAddPage}>
               + Thêm trang ghi chú
             </button>
+            <p className="br-notes__continuation-hint">Cuộn xuống cuối hoặc viết hết trang để tự thêm giấy.</p>
           </div>
+          <span className="br-continuation-status" role="status" aria-live="polite">{continuationMessage}</span>
           </>
         )}
       />

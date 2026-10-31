@@ -122,7 +122,8 @@
 .br-studio .br-tools .br-btn { font-size: 10px; padding: 6px 8px; min-height: 31px; background: transparent; }
 .br-studio .br-tools__ink, .br-studio .br-tools__range { font-size: 11px; color: var(--studio-muted); }
 .br-studio .br-pages { padding: 9px 16px; gap: 12px; background: #192729; border-block: 1px solid var(--studio-border); }
-.br-studio .br-pages__strip { max-width: 50%; scrollbar-width: thin; }
+.br-studio .br-pages__strip { max-width: 50%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.br-studio .br-pages__strip button { flex-shrink: 0; }
 .br-studio .br-pages__strip button { width: 28px; height: 28px; background: #223538; border-color: var(--studio-border); border-radius: 5px; font-size: 11px; color: var(--studio-muted); box-shadow: none; }
 .br-studio .br-pages__strip button.is-on { background: #9acbb7; color: #173f31; border-color: #b7dcca; }
 .br-studio .br-pages__title { color: #e6eeea; font-size: 12px; font-weight: 500; padding: 3px 0; border-radius: 3px; }
@@ -137,6 +138,10 @@
 .br-studio .br-paper__badge { left: 8px; top: 9px; font-size: 8px; background: #e4ebdf; color: #42604a; }
 .br-studio .br-notes__add { color: #b4cbbf; border-color: #5f7567; border-radius: 8px; font-size: 12px; padding: 12px; }
 .br-studio .br-notes__add:hover { color: #e1f5e6; background: #395747; }
+.br-studio .br-notes__scroll { overflow-anchor: none; }
+.br-studio .br-notes__scroll:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: -3px; }
+.br-studio .br-notes__continuation-hint { margin: -8px 0 0; color: #b4cbbf; font-size: 11px; text-align: center; }
+.br-continuation-status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .br-studio .br-workspace-footer { display: flex; justify-content: space-between; gap: 12px; padding: 10px 27px 12px; font-size: 10px; color: #9bb4a7; flex-shrink: 0; }
 .br-studio .br-study { background: #19292a; }
 .br-studio .br-study__concept-title, .br-studio .br-study__prompt-tip { color: var(--studio-accent); }

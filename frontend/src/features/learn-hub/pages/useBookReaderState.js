@@ -1,25 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   composeNoteHtml,
+  continueNotebookText,
   createNoteImage,
   createNotebookPage,
   fileToDataUrl,
   hydrateNotebookPages,
+  locateNotebookCaret,
   normalizeNoteImages,
   readerStorageKey,
   safeJsonParse,
 } from './bookReaderModel'
+import {notebookCaretTop} from './notePaperLayout'
 
 export function useBookReaderState({ book, sessionId }) {
   const uploadInputRef = useRef(null)
   const pageElementRefs = useRef(new Map())
   const pageBadgeTimerRef = useRef(null)
+  const notesScrollRef = useRef(null)
+  const scrollIntentRef = useRef(0)
+  const lastScrollTopRef = useRef(0)
+  const lastAppendRef = useRef('')
+  const touchYRef = useRef(0)
+  const pendingCaretRef = useRef(null)
 
   const [pages, setPages] = useState(() => [createNotebookPage({ title: 'Trang 1' })])
   const [activePageId, setActivePageId] = useState('')
   const [scrollTargetPageId, setScrollTargetPageId] = useState('')
   const [visiblePageBadgeId, setVisiblePageBadgeId] = useState('')
   const [savedAt, setSavedAt] = useState('')
+  const [continuationMessage, setContinuationMessage] = useState('')
   const [editorMode, setEditorMode] = useState('type')
   const [drawColor, setDrawColor] = useState('#0d6d62')
   const [drawSize, setDrawSize] = useState(2.2)
@@ -60,10 +70,27 @@ export function useBookReaderState({ book, sessionId }) {
 
   useEffect(() => {
     if (!scrollTargetPageId) return
-    window.requestAnimationFrame(() => {
-      pageElementRefs.current.get(scrollTargetPageId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const frame = window.requestAnimationFrame(() => {
+      const paper = pageElementRefs.current.get(scrollTargetPageId)
+      const caret = pendingCaretRef.current
+      scrollIntentRef.current = 0
+      if (caret?.pageId === scrollTargetPageId && paper) {
+        const input = paper.querySelector('textarea')
+        const scroll = notesScrollRef.current
+        if (input && scroll) {
+          input.focus({ preventScroll: true })
+          input.setSelectionRange(caret.start, caret.end)
+          const top = input.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop
+          scroll.scrollTop = Math.max(0, top + notebookCaretTop(input, caret.end) - scroll.clientHeight / 2)
+        }
+        pendingCaretRef.current = null
+      } else {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        paper?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+      }
       setScrollTargetPageId('')
     })
+    return () => window.cancelAnimationFrame(frame)
   }, [scrollTargetPageId])
 
   useEffect(() => () => {
@@ -135,23 +162,76 @@ export function useBookReaderState({ book, sessionId }) {
   }
 
   function handleAddPage() {
-    let createdId = ''
+    const created = createNotebookPage({ title: `Trang ${pages.length + 1}` })
     setPages((current) => {
-      const created = createNotebookPage({ title: `Trang ${current.length + 1}` })
-      createdId = created.id
       const idx = current.findIndex((page) => page.id === resolvedActivePageId)
       if (idx < 0) return [...current, created]
       const next = [...current]
       next.splice(idx + 1, 0, created)
       return next
     })
-    if (createdId) {
-      setActivePageId(createdId)
-      setScrollTargetPageId(createdId)
-      revealPageBadge(createdId)
-    }
+    setActivePageId(created.id)
+    setScrollTargetPageId(created.id)
+    revealPageBadge(created.id)
     setEditorMode('type')
     setPanel('notes')
+  }
+
+  function prepareNextPage(pageId = pages.at(-1)?.id) {
+    if (!pageId || pages.at(-1)?.id !== pageId || lastAppendRef.current === pageId) return
+    lastAppendRef.current = pageId
+    scrollIntentRef.current = 0
+    const created = createNotebookPage({ title: `Trang ${pages.length + 1}` })
+    setPages(current => current.at(-1)?.id === pageId ? [...current, created] : current)
+    setContinuationMessage(`Đã thêm trang ${pages.length + 1}. Tiếp tục ghi chú bên dưới.`)
+    // Appending ahead must not move focus, the current page or the PDF/notes layout.
+  }
+
+  function appendAtBottom(element) {
+    if (!element?.clientHeight || element.scrollHeight - element.scrollTop - element.clientHeight > 100) return
+    prepareNextPage()
+  }
+
+  function handleNotesScroll(event) {
+    const element = event.currentTarget
+    const downward = element.scrollTop > lastScrollTopRef.current
+    lastScrollTopRef.current = element.scrollTop
+    if (downward && performance.now() < scrollIntentRef.current) appendAtBottom(element)
+  }
+
+  function handleNotesWheel(event) {
+    if (event.deltaY <= 0) return
+    scrollIntentRef.current = performance.now() + 800
+    appendAtBottom(event.currentTarget)
+  }
+
+  function handleNotesKey(event) {
+    if (event.target.matches('textarea,input,select') || !['ArrowDown','PageDown','End',' '].includes(event.key)) return
+    scrollIntentRef.current = performance.now() + 800
+    appendAtBottom(event.currentTarget)
+  }
+
+  function handleNotesTouch(event) {
+    const y = event.touches[0]?.clientY
+    if (y < touchYRef.current) {
+      scrollIntentRef.current = performance.now() + 800
+      appendAtBottom(event.currentTarget)
+    }
+    touchYRef.current = y
+  }
+
+  function handleTextOverflow(pageId, chunks, selection) {
+    const result = continueNotebookText(pages, pageId, chunks)
+    if (!result.pageIds.length) return
+    const caret = locateNotebookCaret(chunks, selection.end)
+    const start = locateNotebookCaret(chunks, selection.start)
+    const focusId = result.pageIds[caret.index]
+    scrollIntentRef.current = 0
+    pendingCaretRef.current = { pageId: focusId, start: start.index === caret.index ? start.offset : 0, end: caret.offset }
+    setPages(result.pages)
+    setActivePageId(focusId)
+    setScrollTargetPageId(focusId)
+    setContinuationMessage(`Nội dung đã được nối sang trang tiếp theo.`)
   }
 
   function saveReaderState() {
@@ -207,6 +287,18 @@ export function useBookReaderState({ book, sessionId }) {
     handleImageUpload,
     handleSelectPage,
     handleAddPage,
+    prepareNextPage,
+    handleTextOverflow,
+    continuationMessage,
+    notesScrollProps: {
+      ref: notesScrollRef,
+      onScroll: handleNotesScroll,
+      onWheel: handleNotesWheel,
+      onKeyDown: handleNotesKey,
+      onTouchStart: event => { touchYRef.current = event.touches[0]?.clientY },
+      onTouchMove: handleNotesTouch,
+      onPointerDown: event => { if (event.target === event.currentTarget) scrollIntentRef.current = performance.now() + 3000 },
+    },
     saveReaderState,
     setActivePageId,
   }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { drawPersistedCanvas, normalizeNoteImages, pointerPosition } from './bookReaderModel'
+import { paginatePaperInput } from './notePaperLayout'
 
 export function NotePaper({
   page,
@@ -13,6 +14,8 @@ export function NotePaper({
   setPageRef,
   onActivate,
   onTextChange,
+  onTextOverflow,
+  onNeedNextPage,
   onDrawingChange,
   onImageChange,
   onImageRemove,
@@ -22,6 +25,8 @@ export function NotePaper({
   const canvasRef = useRef(null)
   const pointerStateRef = useRef({ drawing: false, x: 0, y: 0 })
   const imageDragRef = useRef(null)
+  const composingRef = useRef(false)
+  const composedValueRef = useRef(null)
   const images = normalizeNoteImages(page.images)
 
   useEffect(() => {
@@ -65,8 +70,26 @@ export function NotePaper({
   }
 
   function pointerUp() {
-    if (pointerStateRef.current.drawing) onDrawingChange(snapshotCanvas())
+    if (pointerStateRef.current.drawing) {
+      onDrawingChange(snapshotCanvas())
+      if (editorMode === 'draw' && pointerStateRef.current.y >= 1304) onNeedNextPage?.()
+    }
     pointerStateRef.current = { drawing: false, x: 0, y: 0 }
+  }
+
+  function continueText(textarea) {
+    const chunks = paginatePaperInput(textarea)
+    if (chunks.length > 1 && onTextOverflow) {
+      onTextOverflow(chunks, { start: textarea.selectionStart, end: textarea.selectionEnd })
+    } else onTextChange(textarea.value)
+  }
+
+  function changeText(event) {
+    const textarea = event.currentTarget
+    if (composedValueRef.current === textarea.value) { composedValueRef.current = null; return }
+    composedValueRef.current = null
+    if (composingRef.current || event.nativeEvent.isComposing) onTextChange(textarea.value)
+    else continueText(textarea)
   }
 
   function imagePointerDown(event, index, mode = 'move') {
@@ -118,6 +141,7 @@ export function NotePaper({
     <section
       ref={setPageRef}
       data-note-paper
+      data-note-page-id={page.id}
       className={`br-paper${isActive ? ' is-active' : ''}`}
       onPointerDown={onActivate}
     >
@@ -136,7 +160,14 @@ export function NotePaper({
       <textarea
         className={`br-paper__text${inkActive ? ' is-locked' : ''}`}
         value={page.noteText || ''}
-        onChange={(event) => onTextChange(event.target.value)}
+        aria-label={`Ghi chú trang ${pageIndex + 1}`}
+        onChange={changeText}
+        onCompositionStart={() => { composingRef.current = true; composedValueRef.current = null }}
+        onCompositionEnd={(event) => {
+          composingRef.current = false
+          composedValueRef.current = event.currentTarget.value
+          continueText(event.currentTarget)
+        }}
         onPaste={onPaste}
         onFocus={() => {
           onActivate()
