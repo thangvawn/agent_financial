@@ -1,4 +1,5 @@
 """Personal PDF shelf: real auth, isolated DB/files, no default-data resets."""
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -28,7 +29,10 @@ def sample_pdf():
     xref = len(body)
     body += f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode()
     body += b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:])
-    return body + f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return (
+        body
+        + f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    )
 
 
 @pytest.fixture
@@ -42,7 +46,9 @@ def library(tmp_path, monkeypatch):
     for suffix in ("a", "b"):
         _, session = RegisterAccount(
             accounts=SqliteAccountRepository(), sessions=SqliteAccountSessionRepository()
-        ).execute(name=f"Reader {suffix}", email=f"{suffix}@shelf.test", password="shelf-test-password")
+        ).execute(
+            name=f"Reader {suffix}", email=f"{suffix}@shelf.test", password="shelf-test-password"
+        )
         headers.append({"Authorization": f"Bearer {session.session_id}"})
     with TestClient(app) as client:
         yield client, *headers, tmp_path
@@ -50,14 +56,23 @@ def library(tmp_path, monkeypatch):
 
 
 def upload(client, headers, **metadata):
-    return client.post(BASE + "/uploads", headers=headers,
-                       data={"title": "PDF của tôi", "kind": "book", **metadata},
-                       files={"file": ("my-book.pdf", sample_pdf(), "application/pdf")})
+    return client.post(
+        BASE + "/uploads",
+        headers=headers,
+        data={"title": "PDF của tôi", "kind": "book", **metadata},
+        files={"file": ("my-book.pdf", sample_pdf(), "application/pdf")},
+    )
 
 
 def catalog_item(**patch):
-    return {"title": "Full textbook", "author": "Open author", "kind": "book",
-            "source_url": "/learning-assets/books/full.pdf", "page_count": 50, **patch}
+    return {
+        "title": "Full textbook",
+        "author": "Open author",
+        "kind": "book",
+        "source_url": "/learning-assets/books/full.pdf",
+        "page_count": 50,
+        **patch,
+    }
 
 
 @pytest.mark.parametrize("method,path", [("get", ""), ("post", "/uploads"), ("post", "/items")])
@@ -97,23 +112,35 @@ def test_file_metadata_and_history_are_owner_scoped(library):
     assert client.get(item["file_url"], headers=other).status_code == 404
     assert client.get(path, headers=other).status_code == 404
     assert client.patch(path, headers=other, json={"status": "completed"}).status_code == 404
-    assert client.post(path + "/open", headers=other, json={"event_id": "read-foreign-0001"}).status_code == 404
+    assert (
+        client.post(
+            path + "/open", headers=other, json={"event_id": "read-foreign-0001"}
+        ).status_code
+        == 404
+    )
     assert client.delete(path, headers=other).status_code == 404
     assert client.get(item["file_url"], headers=owner).content == sample_pdf()
 
 
-@pytest.mark.parametrize("filename,content,mime", [
-    ("bad.pdf", b"<html>not pdf</html>", "application/pdf"),
-    ("bad.pdf", b"%PDF-1.4\nfake\n%%EOF", "application/pdf"),
-    ("bad.pdf", b"", "application/pdf"),
-    ("book.html", sample_pdf(), "application/pdf"),
-    ("book.pdf", sample_pdf(), "text/html"),
-    ("truncated.pdf", sample_pdf()[:-20], "application/pdf"),
-])
+@pytest.mark.parametrize(
+    "filename,content,mime",
+    [
+        ("bad.pdf", b"<html>not pdf</html>", "application/pdf"),
+        ("bad.pdf", b"%PDF-1.4\nfake\n%%EOF", "application/pdf"),
+        ("bad.pdf", b"", "application/pdf"),
+        ("book.html", sample_pdf(), "application/pdf"),
+        ("book.pdf", sample_pdf(), "text/html"),
+        ("truncated.pdf", sample_pdf()[:-20], "application/pdf"),
+    ],
+)
 def test_bad_upload_does_not_create_rows_or_files(library, filename, content, mime):
     client, owner, _, root = library
-    response = client.post(BASE + "/uploads", headers=owner, data={"title": "Bad", "kind": "book"},
-                           files={"file": (filename, content, mime)})
+    response = client.post(
+        BASE + "/uploads",
+        headers=owner,
+        data={"title": "Bad", "kind": "book"},
+        files={"file": (filename, content, mime)},
+    )
     assert response.status_code == 422, response.text
     assert client.get(BASE, headers=owner).json()["items"] == []
     assert not list(root.rglob("*.pdf")) and not list(root.rglob("*.part"))
@@ -157,12 +184,26 @@ def test_catalog_save_open_history_and_reading_status(library):
     assert restarted.json()["completed_at"] is None
 
 
-@pytest.mark.parametrize("source", ["javascript:alert(1)", "//evil.test/a.pdf",
-    "/api/v1/public/learning/library/items/other/file.pdf", "/etc/passwd", "file:///a.pdf",
-    "https://user:secret@example.com/a.pdf", "/learning-assets/books/../secret.pdf"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        "javascript:alert(1)",
+        "//evil.test/a.pdf",
+        "/api/v1/public/learning/library/items/other/file.pdf",
+        "/etc/passwd",
+        "file:///a.pdf",
+        "https://user:secret@example.com/a.pdf",
+        "/learning-assets/books/../secret.pdf",
+    ],
+)
 def test_catalog_rejects_unsafe_or_private_urls(library, source):
     client, owner, _, _ = library
-    assert client.post(BASE + "/items", headers=owner, json=catalog_item(source_url=source)).status_code == 422
+    assert (
+        client.post(
+            BASE + "/items", headers=owner, json=catalog_item(source_url=source)
+        ).status_code
+        == 422
+    )
 
 
 def test_edit_delete_and_invalid_progress(library):
@@ -171,10 +212,18 @@ def test_edit_delete_and_invalid_progress(library):
     assert response.status_code == 201
     item = response.json()
     path = BASE + "/items/" + item["id"]
-    for patch in ({"status": "invalid"}, {"current_page": 0}, {"current_page": 4},
-                  {"title": "   "}, {"title": None}, {"storage_name": "../other.pdf"}):
+    for patch in (
+        {"status": "invalid"},
+        {"current_page": 0},
+        {"current_page": 4},
+        {"title": "   "},
+        {"title": None},
+        {"storage_name": "../other.pdf"},
+    ):
         assert client.patch(path, headers=owner, json=patch).status_code == 422
-    updated = client.patch(path, headers=owner, json={"title": "Tên mới", "author": "An", "kind": "paper"})
+    updated = client.patch(
+        path, headers=owner, json={"title": "Tên mới", "author": "An", "kind": "paper"}
+    )
     assert updated.status_code == 200 and updated.json()["kind"] == "paper"
     assert client.delete(path, headers=owner).status_code == 204
     assert client.get(item["file_url"], headers=owner).status_code == 404
@@ -184,8 +233,12 @@ def test_edit_delete_and_invalid_progress(library):
 
 def test_upload_filename_cannot_control_storage_path(library):
     client, owner, _, root = library
-    result = client.post(BASE + "/uploads", headers=owner, data={"title": "Safe", "kind": "document"},
-                         files={"file": ("../../outside.pdf", sample_pdf(), "application/pdf")})
+    result = client.post(
+        BASE + "/uploads",
+        headers=owner,
+        data={"title": "Safe", "kind": "document"},
+        files={"file": ("../../outside.pdf", sample_pdf(), "application/pdf")},
+    )
     assert result.status_code == 201
     files = list(root.rglob("*.pdf"))
     assert len(files) == 1 and files[0].parent == root / "learning_library_files"
@@ -203,6 +256,7 @@ def test_revoked_session_cannot_access_uploaded_file(library):
 
 def test_upload_limits_and_quota_leave_no_partial_files(library, monkeypatch):
     from risk_dashboard.modules.learning.infrastructure import personal_library as storage
+
     client, owner, _, root = library
     monkeypatch.setattr(storage, "MAX_UPLOAD_BYTES", 100)
     assert upload(client, owner).status_code == 413
@@ -218,15 +272,20 @@ def test_upload_limits_and_quota_leave_no_partial_files(library, monkeypatch):
 
 def test_declared_and_streamed_request_limits(library, monkeypatch):
     from risk_dashboard.modules.learning.infrastructure import personal_library as storage
+
     client, owner, _, _ = library
     monkeypatch.setattr(storage, "MAX_UPLOAD_BYTES", 100)
     headers = {**owner, "content-type": "multipart/form-data; boundary=shelf-boundary"}
-    declared = client.post(BASE + "/uploads", headers={**headers, "content-length": "999999"}, content=b"x")
+    declared = client.post(
+        BASE + "/uploads", headers={**headers, "content-length": "999999"}, content=b"x"
+    )
     assert declared.status_code == 413
+
     def body():
         yield b'--shelf-boundary\r\nContent-Disposition: form-data; name="file"; filename="book.pdf"\r\nContent-Type: application/pdf\r\n\r\n'
         yield b"x" * 70000
         yield b"\r\n--shelf-boundary--\r\n"
+
     streamed = client.post(BASE + "/uploads", headers=headers, content=body())
     assert streamed.status_code == 413, streamed.text
 
@@ -249,7 +308,9 @@ def test_duplicate_after_reading_preserves_state_and_quota(library):
 
 def test_missing_file_catalog_file_and_removed_history(library):
     client, owner, _, root = library
-    ref = client.post(BASE + "/items", headers=owner, json=catalog_item(source_id="original-id")).json()
+    ref = client.post(
+        BASE + "/items", headers=owner, json=catalog_item(source_id="original-id")
+    ).json()
     assert ref["source_id"] == "original-id"
     assert client.get(BASE + "/items/" + ref["id"] + "/file.pdf", headers=owner).status_code == 404
     item = upload(client, owner).json()

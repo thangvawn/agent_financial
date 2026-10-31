@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {loadComponent, closeViteServer, React, renderToString} from '../test-helpers.js'
 import {safeBookUrl, resolveBookSource} from '../../features/learn-hub/pages/bookSource.js'
 import {catalogDocument,filterShelf,shelfBook,validateUpload} from '../../features/learn-hub/services/personalLibraryApi.js'
+import * as libraryApi from '../../features/learn-hub/services/personalLibraryApi.js'
+import {checkBookSource,loadBookDocument} from '../../features/learn-hub/services/bookAvailability.js'
 
 after(closeViteServer)
 const privateUrl='/api/v1/public/learning/library/items/0123456789abcdef0123456789abcdef/file.pdf'
@@ -55,4 +57,50 @@ test('upload validation explains unsupported, empty and oversized files',()=>{
   assert.match(validateUpload({name:'book.pdf',size:0}),/trống/)
   assert.match(validateUpload({name:'book.pdf',size:40*1024*1024+1}),/40 MB/)
   assert.equal(validateUpload({name:'PAPER.PDF',size:40*1024*1024}),'')
+})
+test('library requests authenticate without putting credentials in URLs and keep multipart boundaries intact',async()=>{
+  const original=globalThis.fetch,calls=[]
+  globalThis.fetch=async(url,options)=>{calls.push({url,options});return options.method==='DELETE'?new Response(null,{status:204}):Response.json({id:'saved',items:[]})}
+  try{
+    await libraryApi.fetchPersonalLibrary('test-session')
+    await libraryApi.saveCatalogDocument('test-session',{title:'Book'})
+    await libraryApi.fetchLibraryItem('test-session','saved')
+    await libraryApi.updateLibraryItem('test-session','saved',{status:'reading'})
+    await libraryApi.openLibraryItem('test-session','saved','reading-event')
+    const deleted=await libraryApi.deleteLibraryItem('test-session','saved');assert.equal(deleted,null)
+    await libraryApi.uploadLibraryDocument('test-session',new File(['%PDF-1.4'],'test.pdf',{type:'application/pdf'}),{title:'Own',kind:'paper',author:''})
+    for(const call of calls){assert.equal(call.options.headers.get('Authorization'),'Bearer test-session');assert.ok(!call.url.includes('test-session'))}
+    const uploaded=calls.at(-1)
+    assert.ok(uploaded.options.body instanceof FormData)
+    assert.equal(uploaded.options.body.get('file').name,'test.pdf')
+    assert.equal(uploaded.options.body.get('kind'),'paper')
+    assert.equal(uploaded.options.headers.has('Content-Type'),false)
+    assert.equal(JSON.parse(calls[4].options.body).event_id,'reading-event')
+  }finally{globalThis.fetch=original}
+})
+test('library errors are readable and an expired session is signalled',async()=>{
+  const original=globalThis.fetch,oldWindow=globalThis.window,events=[]
+  globalThis.window={dispatchEvent:event=>events.push(event)}
+  try{
+    globalThis.fetch=async()=>Response.json({detail:'PDF bị hỏng'},{status:422})
+    await assert.rejects(libraryApi.fetchPersonalLibrary('expired-session'),/PDF bị hỏng/)
+    globalThis.fetch=async()=>new Response('upstream unavailable',{status:500})
+    await assert.rejects(libraryApi.fetchPersonalLibrary('expired-session'),/Vui lòng thử lại/)
+    globalThis.fetch=async()=>Response.json({},{status:401})
+    await assert.rejects(libraryApi.fetchPersonalLibrary('expired-session'),/đăng nhập/)
+    assert.equal(events.length,1)
+  }finally{globalThis.fetch=original;if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow}
+})
+test('private PDF checks and reads authenticate every request and do not reuse public source cache',async()=>{
+  const original=globalThis.fetch,oldWindow=globalThis.window,calls=[]
+  globalThis.window={localStorage:{getItem:()=> 'test-session'}}
+  globalThis.fetch=async(url,options)=>{calls.push({url,options});return new Response('%PDF-1.4\nbody\n%%EOF',{headers:{'content-type':'application/pdf'}})}
+  try{
+    assert.equal((await checkBookSource({url:privateUrl})).status,'ready')
+    assert.equal((await checkBookSource({url:privateUrl})).status,'ready')
+    const result=await loadBookDocument({viewUrl:privateUrl,kind:'pdf'})
+    assert.ok(result.blob)
+    assert.equal(calls.length,3)
+    for(const call of calls)assert.equal(call.options.headers.get('Authorization'),'Bearer test-session')
+  }finally{globalThis.fetch=original;if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow}
 })

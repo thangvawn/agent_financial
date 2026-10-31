@@ -7,6 +7,10 @@ import { fetchLearningCatalog } from '../services/learningApi'
 import { BookReaderWorkspace } from './BookReaderWorkspace'
 import { toReadableBook } from './bookSource'
 import DocumentLibrary from './DocumentLibrary'
+import PersonalLibrary from './PersonalLibrary'
+import UploadDocumentDialog from './UploadDocumentDialog'
+import {usePersonalLibrary} from '../hooks/usePersonalLibrary'
+import {resolveBookSource} from './bookSource'
 import CourseCard from './CourseCard'
 import CoursePlayerPage from './CoursePlayerPage'
 import CourseSectionHeader from './CourseSectionHeader'
@@ -44,6 +48,12 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   const [activeRunId, setActiveRunId] = useState(null)
   const [activeRunStatus, setActiveRunStatus] = useState(null)
   const [dbCourses, setDbCourses] = useState([])
+  const [showUpload,setShowUpload]=useState(false)
+  const library=usePersonalLibrary(sessionId)
+  function openBook(book) {
+    const saved=library.items.find(item=>item.id===book.library_id || item.source_url===resolveBookSource(book).sourceUrl)
+    setActiveBook(saved?{...book,library_id:saved.id,libraryItem:saved}:book)
+  }
 
   const { bookmarks, toggleBookmark } = useCourseBookmarks(accountId)
 
@@ -106,7 +116,7 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   }
 
   if (activeBook) {
-    return <BookReaderWorkspace book={toReadableBook(activeBook)} sessionId={sessionId} onClose={() => setActiveBook(null)} />
+    return <BookReaderWorkspace key={`${accountId}:${activeBook.library_id || activeBook.book_id || activeBook.paper_id}`} book={toReadableBook(activeBook)} sessionId={sessionId} library={library} onClose={() => setActiveBook(null)} />
   }
 
   if (activeCourseId) {
@@ -168,9 +178,11 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
 
         {activeSubTab === 'docs' ? (
           <div className="lh-catalog-container">
-            <DocumentLibrary onOpenBook={setActiveBook} />
+            <DocumentLibrary onOpenBook={openBook} onUpload={()=>setShowUpload(true)} library={library} onShowShelf={()=>setActiveSubTab('shelf')} />
           </div>
         ) : null}
+
+        {activeSubTab === 'shelf' && <div className="lh-catalog-container"><PersonalLibrary library={library} onOpenBook={openBook} onUpload={()=>setShowUpload(true)} onBrowse={()=>setActiveSubTab('docs')}/></div>}
 
         {activeSubTab === 'ai_tutor' ? (
           <div className="lh-catalog-container lh-catalog-container--tutor">
@@ -178,6 +190,7 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
           </div>
         ) : null}
       </div>
+      {showUpload && <UploadDocumentDialog onClose={()=>setShowUpload(false)} onUpload={library.upload} onAdded={()=>setActiveSubTab('shelf')}/>}
     </section>
   )
 }

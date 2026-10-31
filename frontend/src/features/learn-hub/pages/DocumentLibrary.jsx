@@ -14,7 +14,7 @@ import PaperCard from './PaperCard'
 import PaperDetailModal from './PaperDetailModal'
 import './document-library.css'
 
-export default function DocumentLibrary({ onOpenBook }) {
+export default function DocumentLibrary({ onOpenBook, onUpload, library, onShowShelf }) {
   const [books, setBooks] = useState([])
   const [papers, setPapers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -112,6 +112,8 @@ export default function DocumentLibrary({ onOpenBook }) {
           </p>
         </div>
         <div className="lh-doc-library__stats">
+          <button type="button" className="lhc-btn lhc-btn--primary" onClick={onUpload}>Thêm tài liệu</button>
+          <button type="button" className="lhc-btn lhc-btn--outline" onClick={onShowShelf}>Kệ sách của tôi</button>
           <span className="lh-doc-stat-pill">
             <BookOpen size={14} /> Sách: <strong>{books.length}</strong>
           </span>
@@ -201,6 +203,8 @@ export default function DocumentLibrary({ onOpenBook }) {
                       key={item.paper_id}
                       paper={item}
                       onViewDetail={setSelectedPaper}
+                      onOpenBook={onOpenBook}
+                      library={library}
                     />
                   )
                 }
@@ -211,6 +215,7 @@ export default function DocumentLibrary({ onOpenBook }) {
                     availability={checks[bookSourceKey(item)] || cachedBookCheck(bookSourceKey(item))}
                     onOpenBook={onOpenBook}
                     onShowTakeaways={setSelectedTakeawayBook}
+                    library={library}
                   />
                 )
               })}
@@ -228,6 +233,7 @@ export default function DocumentLibrary({ onOpenBook }) {
       <PaperDetailModal
         paper={selectedPaper}
         onClose={() => setSelectedPaper(null)}
+        onOpenBook={onOpenBook}
       />
     </div>
   )

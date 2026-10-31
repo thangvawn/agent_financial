@@ -534,3 +534,7 @@ def _find_cover_url(*, image_dir: Path, stem: str) -> str | None:
 from risk_dashboard.modules.learning.api.reader_proxy import router as _reader_proxy_router
 
 router.include_router(_reader_proxy_router)
+
+from risk_dashboard.modules.learning.api.personal_library import router as _personal_library_router
+
+router.include_router(_personal_library_router)

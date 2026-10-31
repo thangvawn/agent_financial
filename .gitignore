@@ -23,6 +23,7 @@ data/*.db
 data/*.db.*
 data/db/*.db
 data/db/*.db.*
+learning_library_files/
 !data/db/.gitkeep
 !data/db/README.md
 data/cache/

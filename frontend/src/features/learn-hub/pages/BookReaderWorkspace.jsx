@@ -6,8 +6,23 @@ import { resolveBookSource } from './bookSource'
 import { normalizeNoteImages } from './bookReaderModel'
 import { useBookReaderState } from './useBookReaderState'
 import './book-reader.css'
+import {useCallback,useRef,useState} from 'react'
+import ReaderLibraryTools from './ReaderLibraryTools'
 
-export function BookReaderWorkspace({ book, sessionId, onClose }) {
+export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
+  const [readingBook]=useState(book)
+  const [initialPage]=useState(book.libraryItem?.current_page || 1)
+  const [eventId]=useState(()=>crypto.randomUUID())
+  const [libraryItem,setLibraryItem]=useState(book.libraryItem || null)
+  const [historyBusy,setHistoryBusy]=useState(false)
+  const [historyError,setHistoryError]=useState('')
+  const recorded=useRef(false)
+  const recordOpen=library?.recordOpen
+  const onDocumentReady=useCallback(()=>{
+    if(!recordOpen || recorded.current)return
+    recorded.current=true;setHistoryBusy(true);setHistoryError('')
+    recordOpen(readingBook,eventId).then(setLibraryItem).catch(error=>setHistoryError(error.message)).finally(()=>setHistoryBusy(false))
+  },[recordOpen,readingBook,eventId])
   const {
     pages,
     resolvedActivePageId,
@@ -52,11 +67,12 @@ export function BookReaderWorkspace({ book, sessionId, onClose }) {
         onSave={saveReaderState}
         openUrl={source.openUrl}
       />
+      {library && <ReaderLibraryTools item={libraryItem} book={book} busy={historyBusy} error={historyError} onRetry={()=>{recorded.current=false;onDocumentReady()}} onUpdate={async(id,patch)=>setLibraryItem(await library.update(id,patch))}/>}
       <ReaderPanelSwitch panel={panel} onChange={setPanel} />
 
       <ReaderSplitPane
         panel={panel}
-        book={<BookDocumentPane book={book} />}
+        book={<BookDocumentPane book={book} onReady={onDocumentReady} initialPage={initialPage} />}
         notes={(
           <>
           <NoteToolbar

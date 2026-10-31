@@ -1,6 +1,7 @@
 import { Calendar, ExternalLink, FileText, User, X } from 'lucide-react'
+import {safeBookUrl} from './bookSource'
 
-export default function PaperDetailModal({ paper, onClose }) {
+export default function PaperDetailModal({ paper, onClose, onOpenBook }) {
   if (!paper) return null
 
   return (
@@ -74,22 +75,19 @@ export default function PaperDetailModal({ paper, onClose }) {
         </div>
 
         <div className="lh-modal-footer">
-          {paper.pdf_url ? (
-            <a
+          {safeBookUrl(paper.pdf_url) ? (
+            <button type="button" onClick={()=>{onClose();onOpenBook?.(paper)}}
               className="lhc-btn lhc-btn--primary"
-              href={paper.pdf_url}
-              target="_blank"
-              rel="noreferrer"
             >
               <FileText size={15} />
               <span>Mở toàn văn PDF</span>
-            </a>
+            </button>
           ) : null}
 
-          {paper.url ? (
+          {safeBookUrl(paper.url) ? (
             <a
               className="lhc-btn lhc-btn--outline"
-              href={paper.url}
+              href={safeBookUrl(paper.url)}
               target="_blank"
               rel="noreferrer"
             >

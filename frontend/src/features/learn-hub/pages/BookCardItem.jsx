@@ -1,8 +1,9 @@
 import {BookIcon} from '../../../shared/Icons'
 import {resolveBookSource,safeBookUrl} from './bookSource'
 import {BOOK_STATUS_LABELS} from '../services/bookAvailability'
+import AddToShelfButton from './AddToShelfButton'
 
-export default function BookCardItem({book,onOpenBook,onShowTakeaways,availability}) {
+export default function BookCardItem({book,onOpenBook,onShowTakeaways,availability,library}) {
   const source=resolveBookSource(book)
   const originUrl=safeBookUrl(book.source_url) || source.openUrl
   const status=availability?.status || 'unchecked'
@@ -28,6 +29,7 @@ export default function BookCardItem({book,onOpenBook,onShowTakeaways,availabili
         {pdfUrl && <a className="lhc-btn lhc-btn--outline" href={pdfUrl} download={book.file_name || 'sach.pdf'}>Tải PDF</a>}
         <button type="button" className="lhc-btn lhc-btn--outline" onClick={()=>onShowTakeaways?.(book)}>Tóm tắt</button>
         {originUrl && <a className="lhc-btn lhc-btn--outline" href={originUrl} target="_blank" rel="noreferrer">Nguồn</a>}
+        <AddToShelfButton book={book} library={library}/>
       </div>
     </div>
   </article>

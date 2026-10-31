@@ -1,6 +1,8 @@
 import { Calendar, ExternalLink, FileText, Sparkles, User } from 'lucide-react'
+import AddToShelfButton from './AddToShelfButton'
+import {safeBookUrl} from './bookSource'
 
-export default function PaperCard({ paper, onViewDetail }) {
+export default function PaperCard({ paper, onViewDetail, onOpenBook, library }) {
   const isArxiv = paper.source === 'arxiv'
   const isFed = paper.source?.includes('fed')
   const isNber = paper.source === 'nber'
@@ -61,23 +63,20 @@ export default function PaperCard({ paper, onViewDetail }) {
           <span>Tóm tắt & Chi tiết</span>
         </button>
 
-        {paper.pdf_url ? (
-          <a
+        {safeBookUrl(paper.pdf_url) ? (
+          <button type="button" onClick={()=>onOpenBook?.(paper)}
             className="lhc-btn lhc-btn--outline"
-            href={paper.pdf_url}
-            target="_blank"
-            rel="noreferrer"
-            title="Mở toàn văn PDF trong tab mới"
+            title="Mở toàn văn PDF"
           >
             <FileText size={13} />
             <span>PDF</span>
-          </a>
+          </button>
         ) : null}
 
-        {paper.url ? (
+        {safeBookUrl(paper.url) ? (
           <a
             className="lhc-btn lhc-btn--ghost"
-            href={paper.url}
+            href={safeBookUrl(paper.url)}
             target="_blank"
             rel="noreferrer"
             title="Đến trang xuất bản chính thức"
@@ -85,6 +84,7 @@ export default function PaperCard({ paper, onViewDetail }) {
             <ExternalLink size={13} />
           </a>
         ) : null}
+        <AddToShelfButton book={paper} library={library}/>
       </div>
     </article>
   )

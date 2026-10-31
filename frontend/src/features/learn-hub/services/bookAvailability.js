@@ -1,4 +1,5 @@
-import {resolveBookSource} from '../pages/bookSource.js'
+import {resolveBookSource,isPrivateLibraryUrl} from '../pages/bookSource.js'
+import {authenticatedFetch} from '../../auth/services/sessionClient.js'
 
 export const BOOK_STATUS_LABELS = {
   load_failed:'Chưa mở được tài liệu', unchecked:'Chưa kiểm tra', checking:'Đang kiểm tra', ready:'Đọc được', missing:'Không còn tại nguồn',
@@ -69,13 +70,14 @@ export function validateBookPrefix(bytes,kind,contentType='') {
 }
 export async function checkBookSource(book,{signal,force=false,fetchImpl=fetch}={}) {
   const source=resolveBookSource(book), key=bookSourceKey(book)
-  if(!force && cachedBookCheck(key))return cachedBookCheck(key)
+  if(!source.isPrivate && !force && cachedBookCheck(key))return cachedBookCheck(key)
   let result
   try {
     if(!source.sourceUrl)result={status:'missing',message:'Chưa có liên kết tài liệu gốc.'}
     else if(!source.canCheck)result={status:'external',message:'Tài liệu này được đọc hoặc tải tại website nguồn.'}
-    else if(source.isLocalAsset) {
-      const response=await fetchImpl(source.sourceUrl,{headers:{Range:'bytes=0-4095'},signal:signalWithTimeout(signal,15000),cache:'no-cache'})
+    else if(source.isLocalAsset || source.isPrivate) {
+      const request=source.isPrivate ? authenticatedFetch : fetchImpl
+      const response=await request(source.sourceUrl,{headers:{Range:'bytes=0-4095'},signal:signalWithTimeout(signal,15000),cache:'no-cache'})
       if(!response.ok)result=httpFailure(response.status)
       else {
         const rawSize=response.headers.get('content-range')?.split('/').at(-1) || response.headers.get('content-length')
@@ -99,7 +101,7 @@ export async function checkBookSource(book,{signal,force=false,fetchImpl=fetch}=
     result={status:'unavailable',message:'Chưa kết nối được nguồn. Bạn vẫn có thể xem tóm lược và ghi chú.'}
   }
   result={...source,...result,openUrl:source.openUrl,checked_at:result.checked_at || new Date().toISOString()}
-  cache.set(key,{result,expires:Date.now()+(result.status==='ready'?300000:60000)})
+  if(!source.isPrivate)cache.set(key,{result,expires:Date.now()+(result.status==='ready'?300000:60000)})
   if(cache.size>500)cache.delete(cache.keys().next().value)
   return result
 }
@@ -110,7 +112,8 @@ export function rememberBookLoadFailure(source,error) {
   cache.set(key,{result,expires:Date.now()+60000})
 }
 export async function loadBookDocument(source,{signal,fetchImpl=fetch}={}) {
-  const response=await fetchImpl(source.viewUrl,{signal:signalWithTimeout(signal,90000)})
+  const request=isPrivateLibraryUrl(source.viewUrl) ? authenticatedFetch : fetchImpl
+  const response=await request(source.viewUrl,{signal:signalWithTimeout(signal,90000)})
   if(!response.ok)throw Object.assign(new Error(httpFailure(response.status).message),{status:response.status})
   const size=Number(response.headers.get('content-length'))
   if(size>MAX_BOOK_BYTES)throw new Error('Tài liệu vượt giới hạn 40 MB. Vui lòng mở tại nguồn.')

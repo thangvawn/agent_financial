@@ -15,6 +15,7 @@ import {
 const LEARN_SUBTABS = [
   { id: 'courses', label: 'Khóa học', icon: BookOpen },
   { id: 'docs', label: 'Sách & Tài liệu', icon: FileText },
+  { id: 'shelf', label: 'Kệ sách của tôi', icon: BookOpen },
   { id: 'quanta_docs', label: 'Quanta Docs', icon: Sparkles },
   { id: 'ai_tutor', label: 'Hỏi AI Tutor', icon: Pin },
   { id: 'mock_exam', label: 'CFA Mock', icon: CheckSquare },
@@ -80,7 +81,7 @@ export default function LearningTopControls({
 
       {/* Right Controls: Search & Level Filter & Fullscreen Toggle */}
       <div className="lh-top-actions">
-        <div className="lh-search-box">
+        {activeSubTab === 'courses' && <><div className="lh-search-box">
           <Search size={15} className="lh-search-icon" aria-hidden="true" />
           <input
             type="text"
@@ -118,7 +119,7 @@ export default function LearningTopControls({
             ))}
           </select>
           <ChevronDown size={14} className="lh-select-chevron" aria-hidden="true" />
-        </div>
+        </div></>}
 
         <button
           type="button"
