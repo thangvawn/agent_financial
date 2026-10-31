@@ -1,13 +1,13 @@
 import httpx
 import pytest
-from fastapi import FastAPI
+from risk_dashboard.app.bootstrap.app_factory import create_app
 from fastapi.testclient import TestClient
 from risk_dashboard.modules.learning.api import reader_proxy
 
-BASE='/reader'
+BASE='/api/v1/public/learning/reader'
 @pytest.fixture
 def api(monkeypatch):
-    app=FastAPI();app.include_router(reader_proxy.router)
+    app=create_app()
     monkeypatch.setattr(reader_proxy,'_assert_public_host',lambda host: None)
     return TestClient(app)
 
