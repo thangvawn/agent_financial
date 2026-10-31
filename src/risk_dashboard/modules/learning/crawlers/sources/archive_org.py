@@ -2,7 +2,7 @@
 
 We mine `texts` collections (books / textbooks) for finance-aligned topics.
 Items returned have a canonical URL like https://archive.org/details/<id> and
-optional PDF/EPUB at https://archive.org/download/<id>/<id>.pdf.
+files are resolved from item metadata by the reader, never guessed from the identifier.
 """
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ def crawl(conn: sqlite3.Connection, *, limit: int, run_id: str) -> CrawlResult: 
                 fields={
                     "author": creator,
                     "description": description,
-                    "download_url": f"https://archive.org/download/{external_id}/{external_id}.pdf",
+                    "download_url": None,
                     "cover_url": f"https://archive.org/services/img/{external_id}",
                     "publication_year": year_int,
                 },

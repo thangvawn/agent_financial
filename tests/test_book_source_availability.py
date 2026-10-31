@@ -149,3 +149,10 @@ def test_archive_collection_with_multiple_unrelated_books_is_not_mislabelled(api
     result=api.get(f'{BASE}/check',params={'url':'https://archive.org/details/finance-collection'}).json()
     assert result['status']=='external'
     assert not result.get('view_url')
+
+
+def test_metadata_probe_stops_when_total_read_budget_expires(api,monkeypatch):
+    calls=iter([0,11])
+    monkeypatch.setattr(reader_proxy,'monotonic',lambda: next(calls),raising=False)
+    transport(monkeypatch,lambda req:httpx.Response(200,json={'metadata':{'title':'slow'},'files':[]}))
+    assert api.get(f'{BASE}/check',params={'url':'https://archive.org/details/slow'}).json()['status']=='unavailable'

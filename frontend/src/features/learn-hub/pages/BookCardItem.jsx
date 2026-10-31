@@ -1,74 +1,30 @@
-import { BookIcon, FileTextIcon } from '../../../shared/Icons'
+import {BookIcon} from '../../../shared/Icons'
+import {resolveBookSource} from './bookSource'
+import {BOOK_STATUS_LABELS} from '../services/bookAvailability'
 
-export default function BookCardItem({ book, onOpenBook, onShowTakeaways }) {
-  return (
-    <article
-      className="lh-book-card"
-      onClick={() => onOpenBook?.(book)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpenBook?.(book) }}
-    >
-      <div className="lh-book-card__cover" style={{ background: book.cover_color }}>
-        {book.cover_image ? (
-          <img
-            src={book.cover_image}
-            alt={book.title}
-            className="lh-book-card__img"
-            loading="lazy"
-            onError={(e) => { e.target.style.display = 'none' }}
-          />
-        ) : (
-          <>
-            <div className="lh-book-card__spine" />
-            <BookIcon size={32} className="lh-book-card__icon" />
-          </>
-        )}
-        <span className="lh-book-card__rating">★ {book.rating}</span>
+export default function BookCardItem({book,onOpenBook,onShowTakeaways,availability}) {
+  const source=resolveBookSource(book)
+  const status=availability?.status || 'unchecked'
+  const role=source.contentRole==='notes'?'Bài ghi chú':source.contentRole==='sample'?'Tài liệu mẫu':'Sách / học liệu'
+  const label=status==='ready' ? (source.contentRole==='notes'?'Đọc ghi chú':'Đọc tài liệu') : ['unchecked','checking'].includes(status)?'Kiểm tra & đọc':'Thông tin & tóm lược'
+  return <article className="lh-book-card" data-book-id={book.book_id}>
+    <div className="lh-book-card__cover" style={{background:book.cover_color}}>
+      <BookIcon size={32} className="lh-book-card__icon"/>
+      {book.cover_image && <img src={book.cover_image} alt="" className="lh-book-card__img" loading="lazy" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.style.display='none'}}/>}
+      <span className="lh-book-card__rating">{role}</span>
+    </div>
+    <div className="lh-book-card__body">
+      <div className="lh-book-card__header-line"><span className="lh-book-card__author">{book.author}</span><span className="lh-book-card__category-badge">{book.language==='vi'?'Tiếng Việt':book.language==='en'?'Tiếng Anh':''}</span></div>
+      <h3 className="lh-book-card__title"><button type="button" onClick={()=>onOpenBook?.(book)}>{book.title}</button></h3>
+      <span className={`book-source-badge book-source-badge--${status}`}>{BOOK_STATUS_LABELS[status]}</span>
+      <p className="lh-book-card__summary">{book.summary}</p>
+      {availability?.message && status!=='ready' && <p className="book-source-message">{availability.message}</p>}
+      <div className="lh-book-card__meta">{source.contentRole!=='notes' && book.pages && <span>{typeof book.pages==='number'?`${book.pages} trang`:book.pages}</span>}{source.contentRole!=='notes' && book.read_time && <span>~{book.read_time}</span>}{availability?.checked_at && <span>Kiểm tra {new Date(availability.checked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}</span>}</div>
+      <div className="lh-book-card__actions">
+        <button type="button" className="lhc-btn lhc-btn--primary" onClick={()=>onOpenBook?.(book)}><BookIcon size={14}/>{label}</button>
+        <button type="button" className="lhc-btn lhc-btn--outline" onClick={()=>onShowTakeaways?.(book)}>Tóm tắt</button>
+        {source.openUrl && <a className="lhc-btn lhc-btn--outline" href={source.openUrl} target="_blank" rel="noreferrer">Nguồn</a>}
       </div>
-
-      <div className="lh-book-card__body">
-        <div className="lh-book-card__header-line">
-          <span className="lh-book-card__author">{book.author}</span>
-          <span className="lh-book-card__category-badge">
-            {book.language === 'vi' ? 'Tiếng Việt' : 'Tài chính'}
-          </span>
-        </div>
-        <h3 className="lh-book-card__title">{book.title}</h3>
-        <p className="lh-book-card__summary">{book.summary}</p>
-        <div className="lh-book-card__meta">
-          <span>📖 {typeof book.pages === 'number' ? `${book.pages} trang` : book.pages}</span>
-          <span>•</span>
-          <span>⏱ ~{book.read_time}</span>
-        </div>
-        <div className="lh-book-card__actions" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className="lhc-btn lhc-btn--primary"
-            onClick={() => onOpenBook?.(book)}
-          >
-            <BookIcon size={14} /> Đọc sách (Tab Reader)
-          </button>
-          <button
-            type="button"
-            className="lhc-btn lhc-btn--outline"
-            onClick={() => onShowTakeaways?.(book)}
-          >
-            Tóm tắt
-          </button>
-          {book.pdf_url ? (
-            <a
-              className="lhc-btn lhc-btn--outline"
-              href={book.pdf_url}
-              target="_blank"
-              rel="noreferrer"
-              title="Tải PDF"
-            >
-              <FileTextIcon size={14} /> PDF
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  )
+    </div>
+  </article>
 }

@@ -1,6 +1,5 @@
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from html.parser import HTMLParser
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,18 +31,14 @@ def test_surface_rejects_invalid_account_session(tmp_path, monkeypatch, status):
         clear_db_path_cache()
 
 
-def test_reader_fallback_escapes_untrusted_url():
-    class Parser(HTMLParser):
-        injected = False
-        def handle_starttag(self, tag, attrs):
-            if tag == 'span' and ('id', 'injected') in attrs:
-                self.injected = True
+def test_reader_failure_does_not_reflect_untrusted_url():
+    from fastapi import HTTPException
     upstream = MagicMock(status_code=503)
     client = MagicMock()
     client.send.return_value = upstream
     url = "https://www.gutenberg.org/file?x='><span id='injected'>probe</span><a href='"
     with patch('risk_dashboard.modules.learning.api.reader_proxy._assert_public_host'), patch('risk_dashboard.modules.learning.api.reader_proxy.httpx.Client', return_value=client):
-        response = stream_reader_content(url=url)
-    parser = Parser()
-    parser.feed(response.body.decode())
-    assert not parser.injected
+        with pytest.raises(HTTPException) as error:
+            stream_reader_content(url=url)
+    assert error.value.status_code == 502
+    assert '<span' not in error.value.detail

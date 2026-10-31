@@ -62,8 +62,8 @@ def crawl(conn: sqlite3.Connection, *, limit: int, run_id: str) -> CrawlResult: 
             formats = book.get("formats") or {}
             pdf_url = (
                 formats.get("application/pdf")
-                or formats.get("application/epub+zip")
                 or formats.get("text/html")
+                or formats.get("application/epub+zip")
             )
             html_url = formats.get("text/html") or f"https://www.gutenberg.org/ebooks/{external_id}"
             cover = formats.get("image/jpeg")

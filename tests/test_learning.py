@@ -1,6 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from risk_dashboard.api.main import app
+from risk_dashboard.platform.database import clear_db_path_cache
 from risk_dashboard.modules.admin_cms.infrastructure.repositories.sqlite import reset_admin_cms_state
 from risk_dashboard.modules.financial_health.infrastructure.repositories.sqlite import (
     reset_financial_health_state,
@@ -16,6 +18,14 @@ from risk_dashboard.modules.learning.infrastructure.repositories.sqlite import S
 from risk_dashboard.modules.learning.infrastructure.repositories.sqlite import (
     reset_learning_state,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_learning_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_DB_PATH", str(tmp_path / "learning.db"))
+    clear_db_path_cache()
+    yield
+    clear_db_path_cache()
 
 
 def _content_ops_headers(role: str) -> dict[str, str]:

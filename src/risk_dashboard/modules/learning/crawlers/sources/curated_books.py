@@ -1,11 +1,12 @@
 """Curated classic finance and investment books seeder.
 
 Injects foundational, must-read finance books with verified author,
-cover images, topics, and public reading/download links.
+cover images, topics, and source references checked by the reader before opening.
 """
 from __future__ import annotations
 
 import sqlite3
+from urllib.parse import urlparse
 
 from ..common import ResourceRow, stable_id, upsert_resource
 from ..runner import CrawlResult
@@ -33,7 +34,7 @@ def crawl(conn: sqlite3.Connection, *, limit: int, run_id: str) -> CrawlResult: 
             fields={
                 "author": item.get("author"),
                 "description": item.get("description", ""),
-                "download_url": item.get("download_url"),
+                "download_url": None if urlparse(item["url"]).hostname == "archive.org" else item.get("download_url"),
                 "cover_url": item.get("cover_url"),
                 "publication_year": item.get("year"),
             },

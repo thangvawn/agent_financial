@@ -20,15 +20,19 @@ from risk_dashboard.modules.learning.schemas.agent_tools import (
     GradeCheckpointInput,
     UpdateProgressInput,
 )
-from risk_dashboard.platform.database import open_app_state_db
+from risk_dashboard.platform.database import open_app_state_db, clear_db_path_cache
 from risk_dashboard.platform.database.migrate import apply_migrations
 
 
 @pytest.fixture(autouse=True)
-def setup_db():
+def setup_db(tmp_path, monkeypatch):
+    monkeypatch.setenv("RISK_DASHBOARD_DB_PATH", str(tmp_path / "learning-remediation.db"))
+    clear_db_path_cache()
     reset_learning_state()
     with open_app_state_db() as conn:
         apply_migrations(conn)
+    yield
+    clear_db_path_cache()
 
 
 def test_tool_registry_contains_learning_tools():

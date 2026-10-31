@@ -23,7 +23,7 @@ const TIER_PRESETS = {
         id: 'b-fin-1',
         title: 'Book note: The Psychology of Money',
         summary: 'Tập trung vào hành vi tiền bạc bền vững hơn là tối ưu ngắn hạn.',
-        href: localBook('psychology-of-money-notes.pdf'),
+        href: localBook('psychology-of-money-notes.html'),
       },
     ],
     practical: [
@@ -49,7 +49,7 @@ const TIER_PRESETS = {
         id: 'b-inv-1',
         title: 'Book note: The Little Book of Common Sense Investing',
         summary: 'Ưu tiên kỷ luật, chi phí thấp và kỳ vọng thực tế.',
-        href: localBook('common-sense-investing-notes.pdf'),
+        href: localBook('common-sense-investing-notes.html'),
       },
     ],
     practical: [
@@ -75,7 +75,7 @@ const TIER_PRESETS = {
         id: 'b-tool-1',
         title: 'Book note: Systems Thinking for Finance',
         summary: 'Nhìn hệ thống tổng thể trước khi phản ứng theo từng chỉ số lẻ.',
-        href: localBook('systems-thinking-finance-notes.pdf'),
+        href: localBook('systems-thinking-finance-notes.html'),
       },
     ],
     practical: [

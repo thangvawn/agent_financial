@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import {mkdir,readFile,writeFile} from 'node:fs/promises'
 const origin=process.env.REVIEW_ORIGIN || 'http://127.0.0.1:5186'
 const out='output/playwright/book-reader-audit'
+const live=process.env.REVIEW_LIVE_SOURCE==='1'
 await mkdir(out,{recursive:true})
 const pdf=await readFile('frontend/public/learning-assets/books/northstar-sample-reader.pdf')
-const browser=await chromium.launch({headless:true})
+const browser=await chromium.launch({headless:true,channel:'chromium'})
 const context=await browser.newContext({viewport:{width:1440,height:1000}})
 const page=await context.newPage();page.setDefaultTimeout(10000)
 const result={passes:[],failures:[],pageErrors:[]};let repair=false,active=0,maxActive=0,checks=0
@@ -17,9 +18,11 @@ const books=[
 books.push({...books[0],book_id:'duplicate',download_url:'https://archive.org/download/missing/missing.pdf'})
 await context.route('**/*',async route=>{
  const u=new URL(route.request().url())
+ if((u.protocol.startsWith('chrome') || ['blob:','data:'].includes(u.protocol)))return route.continue()
  if(u.hostname==='fonts.googleapis.com')return route.fulfill({contentType:'text/css',body:''})
  if(u.origin!==origin)return route.abort()
  if(u.pathname==='/api/v1/public/learning/catalog')return route.fulfill({json:{items:u.searchParams.get('kind')==='book'?books:[]}})
+ if(live && /\/reader\/(check|stream)$/.test(u.pathname) && (u.searchParams.get('url')||'').includes('gutenberg.org'))return route.continue()
  if(u.pathname.endsWith('/reader/check')){
   active++;maxActive=Math.max(maxActive,active);checks++
   const id=new URL(u.searchParams.get('url')).pathname.split('/')[2]
@@ -93,12 +96,19 @@ try{
   assert.equal(await page.locator('.br-doc__frame').count(),0)
   assert.equal(await page.locator('.br-source-strip .book-source-badge--ready').count(),0,'Failed download must not retain a green readable badge')
   await page.getByRole('button',{name:'Xem tóm lược',exact:true}).click();await page.locator('.br-study').waitFor();await close()
+  const card=page.locator('.lh-book-card').filter({has:page.getByRole('heading',{name:title,exact:true})})
+  assert.equal(await card.locator('.book-source-badge--ready').count(),0)
  })
  await step('local-pdf-is-validated-before-iframe',async()=>{
   await open('Northstar Sample Reader')
   await page.locator('iframe.br-doc__frame[src^="blob:"]').waitFor()
   const content=await page.locator('iframe.br-doc__frame').evaluate(async frame=>(await (await fetch(frame.src)).text()).slice(0,5))
-  assert.equal(content,'%PDF-');await close()
+  assert.equal(content,'%PDF-')
+  const nativeViewer=page.frames().find(frame=>frame.url().startsWith('chrome-extension://')) || await page.waitForEvent('framenavigated',{predicate:frame=>frame.url().startsWith('chrome-extension://')})
+  await nativeViewer.locator('pdf-viewer').waitFor({state:'attached'})
+  // Allow Chromium's native PDF plugin to paint after the validated blob loads.
+  await page.waitForTimeout(3000)
+  await page.screenshot({path:`${out}/reader-pdf-desktop.png`,fullPage:true});await close()
  })
  await step('html-notes-are-sandboxed-and-labelled',async()=>{
   await search.fill('');await page.locator('[data-book-id="b-common-sense-investing"] h3 button').click()
@@ -107,6 +117,12 @@ try{
   assert.equal(await frame.getAttribute('sandbox'),'')
   await page.getByText('Bài ghi chú học tập, không phải toàn bộ cuốn sách.',{exact:true}).waitFor()
   await page.screenshot({path:`${out}/reader-html-desktop.png`,fullPage:true});await close()
+ })
+ if(live)await step('live-gutenberg-html-reader',async()=>{
+  await open('Của Cải Của Các Dân Tộc (The Wealth of Nations)')
+  const frame=page.locator('iframe.br-doc__frame--html');await frame.waitFor({timeout:45000})
+  assert.ok((await frame.getAttribute('srcdoc')).includes('Adam Smith'))
+  await close()
  })
  await step('mobile-library-and-error-reader-fit',async()=>{
   await search.fill('');await page.setViewportSize({width:390,height:844})
