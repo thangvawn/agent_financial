@@ -3,7 +3,7 @@ import { BookDocumentPane } from './BookDocumentPane'
 import { NotePageStrip, NoteToolbar, ReaderPanelSwitch, ReaderTopBar } from './ReaderChrome'
 import { ReaderSplitPane } from './ReaderSplitPane'
 import { resolveBookSource } from './bookSource'
-import { normalizeNoteImages } from './bookReaderModel'
+import { normalizeNoteImages, NOTEBOOK_PAPER } from './bookReaderModel'
 import { useBookReaderState } from './useBookReaderState'
 import './book-reader.css'
 import {useCallback,useRef,useState} from 'react'
@@ -88,7 +88,7 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
         book={<BookDocumentPane book={book} onReady={onDocumentReady} initialPage={initialPage} />}
         notes={(
           <>
-          <div className="br-notebook-heading"><div><NotebookPen size={17}/><h2>Sổ ghi chú</h2></div><span>{pages.length} trang</span></div>
+          <div className="br-notebook-heading"><div><NotebookPen size={17}/><h2>Sổ ghi chú</h2></div><span title={`Khổ giấy ${NOTEBOOK_PAPER.format} dọc: ${NOTEBOOK_PAPER.widthMm} × ${NOTEBOOK_PAPER.heightMm} mm`}>{NOTEBOOK_PAPER.format} · {pages.length} trang</span></div>
           <NoteToolbar
             editorMode={editorMode}
             drawColor={drawColor}

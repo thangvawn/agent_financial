@@ -1,3 +1,7 @@
+export const NOTEBOOK_PAPER = Object.freeze({
+  format: 'A4', widthMm: 210, heightMm: 297, canvasWidth: 1050, canvasHeight: 1485,
+})
+
 export function readerStorageKey(sessionId, assetId) {
   return `learn-reader:${sessionId}:${assetId}`
 }
@@ -8,6 +12,7 @@ export function createNotebookPage(seed = {}) {
     : `page-${Date.now()}-${Math.random().toString(16).slice(2)}`
   return {
     id: typeof seed.id === 'string' && seed.id ? seed.id : uniqueId,
+    paperSize: NOTEBOOK_PAPER.format,
     title: typeof seed.title === 'string' && seed.title.trim() ? seed.title.trim() : '',
     noteText: typeof seed.noteText === 'string' ? seed.noteText : '',
     images: normalizeNoteImages(seed.images),

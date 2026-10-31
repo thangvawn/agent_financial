@@ -49,6 +49,10 @@ try{
     await assertA4()
     await page.getByRole('tab',{name:'Ghi chú',exact:true}).click();await assertA4()
     assert.ok((await papers().first().boundingBox()).height>1100,'Full A4 note page is taller than the previous 620px paper')
+    await page.setViewportSize({width:1400,height:1600})
+    await inputs().first().fill('SỔ GHI CHÚ A4\n\nÝ chính của tài liệu\n\nNhững khái niệm cần nhớ và câu hỏi để suy ngẫm.\n\nVí dụ áp dụng\n\nGhi lại cách vận dụng kiến thức vào thực tế.')
+    await page.screenshot({path:`${out}/paper-a4.png`,fullPage:true})
+    await inputs().first().fill('')
     await page.setViewportSize({width:390,height:844});await assertA4()
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))
     await page.setViewportSize({width:1600,height:1000})
@@ -78,6 +82,7 @@ try{
     assert.equal(await papers().nth(1).getAttribute('data-note-page-id'),blankId)
     assert.equal(await joined(),longText)
     assert.ok(await inputs().evaluateAll(nodes=>nodes.every(node=>node.scrollHeight<=node.clientHeight+1)))
+    assert.ok(await papers().evaluateAll(nodes=>nodes.every((node,index)=>!index || node.getBoundingClientRect().top>=nodes[index-1].getBoundingClientRect().bottom+10)),'A4 sheets must occupy separate grid rows without overlap')
     await page.keyboard.insertText('\nGhi tiếp ở trang mới.')
     assert.equal(await joined(),longText+'\nGhi tiếp ở trang mới.')
     await page.screenshot({path:`${out}/continued-desktop.png`,fullPage:true})
@@ -135,6 +140,7 @@ try{
     assert.equal(await joined(),longText)
     assert.ok(await inputs().evaluateAll(nodes=>nodes.every(node=>node.scrollHeight<=node.clientHeight+1)))
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))
+    assert.ok(await papers().evaluateAll(nodes=>nodes.every((node,index)=>!index || node.getBoundingClientRect().top>=nodes[index-1].getBoundingClientRect().bottom+10)),'Mobile A4 pages must never overlap')
     assert.ok(await page.locator('.br-pages__strip').evaluate(strip=>{
       const bounds=strip.getBoundingClientRect(),active=strip.querySelector('[aria-selected="true"]').getBoundingClientRect()
       return bounds.height<50 && active.left>=bounds.left-1 && active.right<=bounds.right+1

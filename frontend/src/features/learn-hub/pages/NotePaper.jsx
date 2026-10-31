@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { drawPersistedCanvas, normalizeNoteImages, pointerPosition } from './bookReaderModel'
+import { drawPersistedCanvas, normalizeNoteImages, pointerPosition, NOTEBOOK_PAPER } from './bookReaderModel'
 import { paginatePaperInput } from './notePaperLayout'
 
 export function NotePaper({
@@ -72,7 +72,7 @@ export function NotePaper({
   function pointerUp() {
     if (pointerStateRef.current.drawing) {
       onDrawingChange(snapshotCanvas())
-      if (editorMode === 'draw' && pointerStateRef.current.y >= 1304) onNeedNextPage?.()
+      if (editorMode === 'draw' && pointerStateRef.current.y >= canvasRef.current.height * .93) onNeedNextPage?.()
     }
     pointerStateRef.current = { drawing: false, x: 0, y: 0 }
   }
@@ -142,6 +142,8 @@ export function NotePaper({
       ref={setPageRef}
       data-note-paper
       data-note-page-id={page.id}
+      data-paper-size={NOTEBOOK_PAPER.format}
+      style={{ '--br-paper-width': `${NOTEBOOK_PAPER.widthMm}mm`, '--br-paper-ratio': `${NOTEBOOK_PAPER.widthMm} / ${NOTEBOOK_PAPER.heightMm}` }}
       className={`br-paper${isActive ? ' is-active' : ''}`}
       onPointerDown={onActivate}
     >
@@ -149,8 +151,8 @@ export function NotePaper({
       <canvas
         ref={canvasRef}
         className={`br-paper__canvas${inkActive ? ' is-ink' : ''}`}
-        width={960}
-        height={1400}
+        width={NOTEBOOK_PAPER.canvasWidth}
+        height={NOTEBOOK_PAPER.canvasHeight}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
