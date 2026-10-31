@@ -142,3 +142,10 @@ def test_redirect_loop_is_bounded(api,monkeypatch):
     transport(monkeypatch,handler)
     assert api.get(f'{BASE}/check',params={'url':'https://gutenberg.org/loop.pdf'}).status_code==502
     assert len(requests)==5
+
+
+def test_archive_collection_with_multiple_unrelated_books_is_not_mislabelled(api,monkeypatch):
+    transport(monkeypatch,lambda req:httpx.Response(200,json={'metadata':{'title':'Finance collection'},'files':[{'name':'A-Different-Book.pdf','format':'Text PDF'},{'name':'Financial-Reporting.pdf','format':'Text PDF'}]}))
+    result=api.get(f'{BASE}/check',params={'url':'https://archive.org/details/finance-collection'}).json()
+    assert result['status']=='external'
+    assert not result.get('view_url')
