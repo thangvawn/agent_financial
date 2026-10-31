@@ -57,6 +57,7 @@ def test_me_requires_bearer_session(tmp_path, monkeypatch) -> None:
     assert response.json() == {
         "session_id": session.session_id,
         "profile": {
+            "account_id": account.account_id,
             "email": account.email,
             "name": account.name,
             "session_mode": "server_account",

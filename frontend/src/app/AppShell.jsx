@@ -1,4 +1,7 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useFinancialWorkflow } from '../shared/context/FinancialWorkflowContext'
+import { AccountContext } from '../shared/auth/accountContext'
+import { verifySession, clearStoredSession, SESSION_INVALID_EVENT } from '../features/auth/services/sessionClient'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { trackAnalyticsEvent } from '../shared/analytics/trackEvent'
 import ConnectedWorkspaceNav from '../shared/navigation/ConnectedWorkspaceNav'
@@ -33,30 +36,60 @@ function readStoredSession() {
 }
 
 export default function AppShell({ initialView = 'home', view: controlledView, onNavigate }) {
+  const { resetWorkflow } = useFinancialWorkflow()
   const [internalView, setInternalView] = useState(() => normalizeView(initialView))
-  const view = normalizeView(controlledView || internalView)
+  const requestedView = normalizeView(controlledView || internalView)
   const [sessionId, setSessionId] = useState(() => readStoredSession())
+  const [identity, setIdentity] = useState({ sessionId: '', accountId: '', error: '' })
+  const [verifyNonce, setVerifyNonce] = useState(0)
   const [guidedFocusCard, setGuidedFocusCard] = useState('overview')
   const [learningFocus, setLearningFocus] = useState({ tab: 'courses', search: '' })
   const [proLabBacktestContext, setProLabBacktestContext] = useState({ selectedBlueprintId: '', workspace: null, accessToken: '' })
-  const [pendingPostAuthView, setPendingPostAuthView] = useState('')
+  const [pendingPostAuthView, setPendingPostAuthView] = useState(() => isPublicView(requestedView) ? '' : requestedView)
   const [logoutError, setLogoutError] = useState('')
   const previousViewRef = useRef('')
+  const clearPrivateState = useCallback(() => {
+    resetWorkflow()
+    setProLabBacktestContext({ selectedBlueprintId: '', workspace: null, accessToken: '' })
+  }, [resetWorkflow])
+  const view = !sessionId && !isPublicView(requestedView) ? 'auth_login'
+    : sessionId && requestedView === 'home' ? AUTHENTICATED_LANDING_VIEW : requestedView
+  const [lastRoute, setLastRoute] = useState({ requestedView, sessionId })
+  if (lastRoute.requestedView !== requestedView || lastRoute.sessionId !== sessionId) {
+    setLastRoute({ requestedView, sessionId })
+    if (!sessionId && !isPublicView(requestedView)) setPendingPostAuthView(requestedView)
+  }
 
   useEffect(() => {
-    const savedSessionId = readStoredSession()
-    const savedView = (typeof window !== 'undefined' && window.localStorage.getItem('public-beta.view')) || ''
-    if (savedSessionId) {
-      if (savedSessionId !== sessionId) setSessionId(savedSessionId)
-      if (!controlledView) {
-        const restoredView = savedView === 'learning_admin' ? initialView : (savedView || initialView)
-        const nextView = normalizeView(restoredView === 'home' ? AUTHENTICATED_LANDING_VIEW : restoredView)
-        if (onNavigate) onNavigate(nextView)
-        else setInternalView(nextView)
+    if (!sessionId) return
+    let cancelled = false
+    verifySession(sessionId).then(payload => {
+      if (cancelled) return
+      window.localStorage.setItem('public-beta.user_profile', JSON.stringify(payload.profile))
+      setIdentity({sessionId, accountId:payload.profile.account_id, error:''})
+    }).catch(error => {
+      if (cancelled) return
+      if (error.status === 401) { clearStoredSession(); clearPrivateState(); setSessionId(''); setIdentity({sessionId:'',accountId:'',error:''}) }
+      else setIdentity({sessionId,accountId:'',error:error.message})
+    })
+    return () => { cancelled = true }
+  }, [sessionId, verifyNonce, clearPrivateState])
+
+  useEffect(() => {
+    function invalid(event) {
+      if (event.detail.sessionId !== sessionId) return
+      clearStoredSession(); clearPrivateState(); setSessionId(''); setIdentity({sessionId:'',accountId:'',error:''})
+    }
+    function changed(event) {
+      if (event.key === 'public-beta.session_id' || event.key === null) {
+        clearPrivateState()
+        setSessionId(readStoredSession())
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    window.addEventListener(SESSION_INVALID_EVENT, invalid)
+    window.addEventListener('storage', changed)
+    return () => { window.removeEventListener(SESSION_INVALID_EVENT, invalid); window.removeEventListener('storage', changed) }
+  }, [sessionId, clearPrivateState])
 
   useEffect(() => {
     if (sessionId) window.localStorage.setItem('public-beta.session_id', sessionId)
@@ -64,19 +97,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }, [sessionId, view])
 
   useEffect(() => {
-    if (sessionId || isPublicView(view)) return
-    setPendingPostAuthView(view)
-    if (onNavigate) onNavigate('auth_login', { replace: true })
-    else setInternalView('auth_login')
-  }, [onNavigate, sessionId, view])
-
-  useEffect(() => {
-    if (sessionId && view === 'home') {
-      const targetView = normalizeView(AUTHENTICATED_LANDING_VIEW)
-      if (onNavigate) onNavigate(targetView, { replace: true })
-      else setInternalView(targetView)
-    }
-  }, [onNavigate, sessionId, view])
+    if (requestedView !== view) onNavigate?.(view, { replace: true })
+  }, [onNavigate, requestedView, view])
 
   useEffect(() => {
     const previousView = previousViewRef.current
@@ -152,6 +174,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       setLogoutError('')
       try {
         await logoutSession()
+        clearPrivateState()
+        setIdentity({sessionId:'',accountId:'',error:''})
         setSessionId('')
         setPendingPostAuthView('')
         setProLabBacktestContext({ selectedBlueprintId: '', workspace: null, accessToken: '' })
@@ -179,13 +203,14 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
       setView('backtest_studio')
     },
     onAuthSuccess: (payload) => {
+      clearPrivateState()
+      setIdentity({sessionId:payload.session_id,accountId:payload.profile.account_id,error:''})
       setSessionId(payload.session_id)
       setView(pendingPostAuthView || AUTHENTICATED_LANDING_VIEW)
       setPendingPostAuthView('')
     },
     onAuthSwitchMode: (mode) => setView(mode === 'register' ? 'auth_register' : 'auth_login'),
-    onOnboardingCompleted: (payload) => {
-      setSessionId(payload.session_id)
+    onOnboardingCompleted: () => {
       setView(AUTHENTICATED_LANDING_VIEW)
     },
   }
@@ -206,6 +231,9 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
           >
+            {sessionId && !isPublicView(view) && (identity.sessionId !== sessionId || !identity.accountId) ? (
+              <div role="status">{identity.error ? <><p role="alert">{identity.error}</p><button onClick={() => setVerifyNonce(n => n+1)}>Thử xác minh lại</button></> : 'Đang xác minh phiên…'}</div>
+            ) : <AccountContext.Provider key={sessionId ? identity.accountId : 'guest'} value={sessionId ? identity.accountId : ''}>
             <AppShellRoutes
               renderedView={view}
               sessionId={sessionId}
@@ -214,6 +242,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
               proLabBacktestContext={proLabBacktestContext}
               actions={routeActions}
             />
+            </AccountContext.Provider>}
           </motion.div>
         </main>
       </div>

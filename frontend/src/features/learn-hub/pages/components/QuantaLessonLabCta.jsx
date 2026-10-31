@@ -1,7 +1,7 @@
 import React from 'react';
 import { useFinancialWorkflow } from '../../../../shared/context/FinancialWorkflowContext';
 
-export default function QuantaLessonLabCta({ lessonTitle, demoCode }) {
+export default function QuantaLessonLabCta({ demoCode }) {
   const { navigateToSimulationLab } = useFinancialWorkflow();
 
   const handleOpenStudio = () => {

@@ -59,3 +59,32 @@ def test_profile_identity_stable_and_legacy_owner_recovery(client):
         assert p['cash_balance']==90000000 and p['positions'][0]['quantity']==100
     other=register(client,'two')
     assert client.get(f'{BASE}/portfolio',headers={'Authorization':f"Bearer {other['session_id']}"}).json()['positions']==[]
+
+
+def test_multiple_legacy_portfolios_keep_independent_capital_and_ownership(client):
+    a=register(client); old=a['session_id']
+    new=client.post('/api/v1/public/auth/login',json={'email':'one@qa.test','password':'test-only-2026'}).json()['session_id']
+    service=svc.MarketPortfolioService()
+    for sid in (old,new):
+        service.add_watchlist(sid,'FPT')
+        service.place_order(session_id=sid,symbol='FPT',side='BUY',order_type='MP',quantity=100,limit_price=None)
+    h={'Authorization':f'Bearer {new}'}
+    for _ in range(2):
+        result=client.get(f'{BASE}/portfolio',headers=h).json()
+        assert result['cash_balance']==100000000 and result['positions']==[]
+        assert len(result['legacy_portfolios'])==2
+        assert all(p['cash_balance']==90000000 and p['positions'][0]['quantity']==100 for p in result['legacy_portfolios'])
+        assert old not in str(result) and new not in str(result)
+        assert len(client.get(f'{BASE}/watchlist',headers=h).json()['items'])==1
+    other=register(client,'two')
+    result=client.get(f'{BASE}/portfolio',headers={'Authorization':f"Bearer {other['session_id']}"}).json()
+    assert result['legacy_portfolios']==[]
+
+
+def test_bearer_is_authoritative_over_body_or_query(client):
+    a=register(client); b=register(client,'two')
+    h={'Authorization':f"Bearer {a['session_id']}"}
+    assert client.post(f'{BASE}/watchlist/items',headers=h,json={'session_id':b['session_id'],'symbol':'FPT'}).status_code==200
+    assert len(client.get(f'{BASE}/watchlist',headers=h,params={'session_id':b['session_id']}).json()['items'])==1
+    assert client.get(f'{BASE}/watchlist',headers={'Authorization':f"Bearer {b['session_id']}"}).json()['items']==[]
+    assert client.get(f'{BASE}/watchlist',headers={'Authorization':'Bearer invalid'},params={'session_id':a['session_id']}).status_code==401

@@ -44,6 +44,7 @@ class LogoutRequest(BaseModel):
 
 
 class AccountProfile(BaseModel):
+    account_id: str
     email: str
     name: str
     session_mode: str = "server_account"

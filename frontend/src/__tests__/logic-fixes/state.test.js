@@ -19,7 +19,7 @@ test('R10 absent model returns clean state and starts at revision zero', async (
 test('R10 revision conflict must not be reported as offline save', async () => {
   const storage = memory()
   await assert.rejects(saveWorkbookState({ owner:'a', ticker:'HPG', storage, model:emptyWorkbook(), save:async()=>{throw Object.assign(new Error('conflict'),{status:409})} }), /conflict/)
-  assert.equal(storage.getItem(workbookKey('a','HPG')), null)
+  assert.ok(storage.getItem(workbookKey('a','HPG')), '409 preserves draft for explicit recovery')
 })
 test('R05 false financial and technical matches are excluded', () => {
   const items=[{symbol:'X',price:50,change_pct:4,dividend_yield:0,pe:100,roe:1,ma20:100,rsi:20,volume:1}]

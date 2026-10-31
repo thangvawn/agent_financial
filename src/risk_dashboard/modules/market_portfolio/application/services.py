@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+import math
 from datetime import datetime, timezone
 from typing import Any
 
@@ -140,10 +141,14 @@ class MarketPortfolioService:
         holdings = self.repo.list_holdings(session_id)
         prices = quote_map([h.symbol for h in holdings])
         positions = []
+        missing_symbols = []
         market_value = 0.0
         unrealized = 0.0
         for h in holdings:
             mark = prices.get(h.symbol)
+            if not isinstance(mark, (int, float)) or not math.isfinite(mark) or mark <= 0:
+                mark = None
+                missing_symbols.append(h.symbol)
             mv = (mark * h.quantity) if mark is not None else None
             cost = h.avg_cost * h.quantity
             upnl = (mv - cost) if mv is not None else None
@@ -163,16 +168,19 @@ class MarketPortfolioService:
                 }
             )
         cash = float(account["cash_balance"])
-        equity = cash + market_value
+        equity = cash + market_value if not missing_symbols else None
         return {
             "cash_balance": round(cash, 2),
             "currency": account["currency"],
             "starting_cash": STARTING_CASH,
-            "market_value": round(market_value, 2),
-            "equity": round(equity, 2),
-            "unrealized_pnl": round(unrealized, 2),
-            "total_pnl": round(equity - STARTING_CASH, 2),
-            "total_pnl_pct": round(((equity - STARTING_CASH) / STARTING_CASH) * 100, 2),
+            "market_value": round(market_value, 2) if not missing_symbols else None,
+            "known_market_value": round(market_value, 2),
+            "valuation_status": "incomplete" if missing_symbols else "complete",
+            "missing_symbols": missing_symbols,
+            "equity": round(equity, 2) if equity is not None else None,
+            "unrealized_pnl": round(unrealized, 2) if not missing_symbols else None,
+            "total_pnl": round(equity - STARTING_CASH, 2) if equity is not None else None,
+            "total_pnl_pct": round(((equity - STARTING_CASH) / STARTING_CASH) * 100, 2) if equity is not None else None,
             "positions": positions,
             "updated_at": account["updated_at"],
             "disclaimer": "Educational paper trading only — not real brokerage.",

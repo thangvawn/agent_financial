@@ -6,7 +6,7 @@ export default function SimLabTodaySignalBanner({ todaySignal, ticker }) {
   if (!todaySignal) return null;
 
   const {
-    action,
+
     actionLabel,
     color,
     asOfDate,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { loadSavedBlueprints, saveBlueprint, deleteBlueprint } from '../../services/quantaBlueprintStorage';
 
 export default function SimLabBlueprintModal({
@@ -6,25 +6,23 @@ export default function SimLabBlueprintModal({
   onClose,
   currentConfig,
   onLoadBlueprint,
+  owner,
 }) {
-  const [blueprints, setBlueprints] = useState([]);
-  const [strategyName, setStrategyName] = useState('');
+  return isOpen ? <OpenBlueprintModal onClose={onClose} currentConfig={currentConfig} onLoadBlueprint={onLoadBlueprint} owner={owner} /> : null;
+}
+
+function OpenBlueprintModal({ onClose, currentConfig, onLoadBlueprint, owner }) {
+  const [blueprints, setBlueprints] = useState(() => loadSavedBlueprints(owner));
+  const [strategyName, setStrategyName] = useState(() => `Chiến lược ${currentConfig?.ticker || 'FPT'}`);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setBlueprints(loadSavedBlueprints());
-      setSaveSuccess(false);
-      setStrategyName(currentConfig?.name || `Chiến lược ${currentConfig?.ticker || 'FPT'}`);
-    }
-  }, [isOpen, currentConfig]);
-
-  if (!isOpen) return null;
+  const [error, setError] = useState('');
 
   const handleSave = (e) => {
     e.preventDefault();
     if (!strategyName.trim()) return;
-    saveBlueprint({
+    setError('');
+    try { saveBlueprint({
       name: strategyName,
       ticker: currentConfig.ticker,
       period: currentConfig.period,
@@ -32,15 +30,15 @@ export default function SimLabBlueprintModal({
       code: currentConfig.code,
       params: currentConfig.params,
       metrics: currentConfig.metrics,
-    });
-    setBlueprints(loadSavedBlueprints());
+    }, owner); } catch (reason) { setError(reason.message); return; }
+    setBlueprints(loadSavedBlueprints(owner));
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
   const handleDelete = (id) => {
-    const updated = deleteBlueprint(id);
-    setBlueprints(updated);
+    try { setBlueprints(deleteBlueprint(id, owner)); setError(''); }
+    catch (reason) { setError(reason.message); }
   };
 
   return (
@@ -56,6 +54,7 @@ export default function SimLabBlueprintModal({
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
         </div>
 
+        {error && <p role="alert">{error}</p>}
         <form onSubmit={handleSave} className="my-4 flex items-center gap-2">
           <input
             type="text"
@@ -92,7 +91,7 @@ export default function SimLabBlueprintModal({
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-[11px] font-mono text-slate-400">
                     <span>Lợi nhuận: <b className="text-emerald-400">+{bp.metrics.totalReturn}%</b></span>
-                    <span>Sharpe: <b className="text-cyan-300">{bp.metrics.sharpe}</b></span>
+                    <span>Sharpe: <b className="text-cyan-300">{bp.metrics.sharpe ?? '—'}</b></span>
                     <span>MDD: <b className="text-rose-400">{bp.metrics.maxDrawdown}%</b></span>
                   </div>
                 </div>

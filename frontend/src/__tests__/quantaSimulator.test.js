@@ -12,8 +12,6 @@ import {
 } from '../features/simulation-lab/utils/quantaBacktestSimulator.js';
 import {
   parseQuantaParams,
-  extractQuantaParams,
-  updateQuantaParamInCode,
 } from '../features/simulation-lab/utils/quantaParamParser.js';
 import { mapPointsToOHLCBars } from '../features/simulation-lab/services/quantaMarketDataService.js';
 

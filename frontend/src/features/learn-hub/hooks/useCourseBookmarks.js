@@ -1,32 +1,36 @@
+import { accountStorageKey } from '../../../shared/auth/accountContext'
 import { useCallback, useState } from 'react'
 
-const STORAGE_KEY = 'northstar.learn-hub.bookmarks'
+const storageKey = owner => accountStorageKey(owner, 'bookmarks:v2')
 
-function readStoredBookmarks() {
+function readStoredBookmarks(owner) {
+  if (!owner) return []
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    const raw = localStorage.getItem(storageKey(owner))
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
 }
 
-export function useCourseBookmarks() {
-  const [bookmarks, setBookmarks] = useState(readStoredBookmarks)
+export function useCourseBookmarks(owner) {
+  const [bookmarks, setBookmarks] = useState(() => readStoredBookmarks(owner))
 
   const toggleBookmark = useCallback((courseId) => {
+    if (!owner) return
     setBookmarks((prev) => {
       const next = prev.includes(courseId)
         ? prev.filter((id) => id !== courseId)
         : [...prev, courseId]
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+        localStorage.setItem(storageKey(owner), JSON.stringify(next))
       } catch {
         /* noop */
       }
       return next
     })
-  }, [])
+  }, [owner])
 
   return { bookmarks, toggleBookmark }
 }

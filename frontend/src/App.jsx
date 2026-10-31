@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import AppShell from './app/AppShell.jsx'
 import { resolveDomainRoute, resolvePathForView } from './app/domainRoutes'
-import { FinancialWorkflowProvider } from './shared/context/FinancialWorkflowContext.jsx'
+import { FinancialWorkflowProvider } from './shared/context/FinancialWorkflowProvider.jsx'
 import TickerActionPopover from './shared/components/TickerActionPopover.jsx'
 import './shared/styles/fintech-typography.css'
 

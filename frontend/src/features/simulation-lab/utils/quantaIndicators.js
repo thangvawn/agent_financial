@@ -16,14 +16,23 @@ export function rolling(values, length, reduce) {
 }
 export const sma = (values, length) => rolling(values,length,v=>v.reduce((a,b)=>a+b,0)/length)
 export function rsi(values, length) {
-  let gain=0, loss=0
-  return values.map((v,i) => {
-    if (!i) return null
-    const d=v-values[i-1], g=Math.max(0,d), l=Math.max(0,-d)
-    if (i<=length) { gain+=g/length; loss+=l/length }
-    else { gain=(gain*(length-1)+g)/length; loss=(loss*(length-1)+l)/length }
-    if(i<length) return null
-    return loss===0 ? (gain===0 ? 50 : 100) : 100-100/(1+gain/loss)
+  let gain = 0, loss = 0, count = 0
+  return values.map((value, i) => {
+    if (!i || !Number.isFinite(value) || !Number.isFinite(values[i-1])) {
+      gain = 0; loss = 0; count = 0
+      return null
+    }
+    const delta = value - values[i-1]
+    if (count < length) {
+      gain += Math.max(0, delta) / length
+      loss += Math.max(0, -delta) / length
+      count++
+    } else {
+      gain = (gain * (length-1) + Math.max(0, delta)) / length
+      loss = (loss * (length-1) + Math.max(0, -delta)) / length
+    }
+    if (count < length) return null
+    return loss === 0 ? (gain === 0 ? 50 : 100) : 100 - 100/(1+gain/loss)
   })
 }
 export function atr(high,low,close,length) {

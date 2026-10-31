@@ -73,12 +73,12 @@ export function compileStrategy(code,bars) {
     }
     if(node.type==='property') return evaluate(node.arg,i,context)?.[node.key] ?? null
     if(node.type==='history') return evaluate(node.arg,i-node.shift,context)
-    if(node.type==='unary') {const v=evaluate(node.arg,i,context);return node.op==='not'?!v:Number.isFinite(v)?-v:null}
+    if(node.type==='unary') {const v=evaluate(node.arg,i,context);return node.op==='not'?(v===null?null:!v):Number.isFinite(v)?-v:null}
     if(node.type==='binary') return applyBinary(node.op,evaluate(node.left,i,context),evaluate(node.right,i,context),node.op.startsWith('cross')?evaluate(node.left,i-1,context):null,node.op.startsWith('cross')?evaluate(node.right,i-1,context):null)
     if(!cache.has(node)) {
       const args=node.args.map(arg=>bars.map((_,j)=>evaluate(arg,j)))
       const period=args[{ema:1,sma:1,rsi:1,atr:3,bbands:1,donchian:2}[node.name]][0]
-      warmup=Math.max(warmup,period+1)
+      if (!Number.isInteger(period)) throw new Error('Chu kỳ chỉ báo không hợp lệ.')
       cache.set(node,indicator(node.name,args))
     }
     return cache.get(node)[i]
@@ -86,5 +86,22 @@ export function compileStrategy(code,bars) {
   // Materialize indicator caches before choosing the warm-up boundary.
   Object.values(definitions).forEach(node=>evaluate(node,bars.length-1))
   rules.forEach(r=>evaluate(r.condition,bars.length-1,{}))
-  return { params, warmup, signal(i,context={}) {return rules.find(r=>Boolean(evaluate(r.condition,i,context))&&(r.side==='buy'?!context.position:context.position)) || null} }
+  const lookbacks = new Map()
+  function lookback(node) {
+    if (lookbacks.has(node)) return lookbacks.get(node)
+    let required = 0
+    if (node.type === 'ref' && definitions[node.name]) required = lookback(definitions[node.name])
+    else if (node.type === 'history') required = lookback(node.arg) + node.shift
+    else if (node.type === 'property' || node.type === 'unary') required = lookback(node.arg)
+    else if (node.type === 'binary') required = Math.max(lookback(node.left), lookback(node.right)) + (node.op.startsWith('cross') ? 1 : 0)
+    else if (node.type === 'call') {
+      const periodIndex = {ema:1,sma:1,rsi:1,atr:3,bbands:1,donchian:2}[node.name]
+      const period = evaluate(node.args[periodIndex], 0)
+      required = Math.max(...node.args.slice(0,periodIndex).map(lookback)) + period - (node.name === 'rsi' ? 0 : 1)
+    }
+    lookbacks.set(node, required)
+    return required
+  }
+  warmup = Math.max(warmup, ...rules.map(rule => lookback(rule.condition)))
+  return { params, warmup, signal(i,context={}) {if(i<warmup) return null;return rules.find(r=>Boolean(evaluate(r.condition,i,context))&&(r.side==='buy'?!context.position:context.position)) || null} }
 }

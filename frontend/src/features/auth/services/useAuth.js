@@ -1,3 +1,4 @@
+import { verifySession, clearStoredSession } from './sessionClient'
 import { useState, useCallback } from 'react'
 import { logoutSession } from './sessionLifecycle'
 
@@ -35,31 +36,12 @@ async function postJson(path, body, headers = {}) {
   return payload
 }
 
-async function getJson(path, headers = {}) {
-  const response = await fetch(path, { headers })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) {
-    const message = (typeof payload?.detail === 'string' && payload.detail) || `Request failed: ${response.status}`
-    throw new Error(message)
-  }
-  return payload
-}
-
 function persistSession(sessionId, profile) {
   try {
     window.localStorage.setItem(SESSION_KEY, sessionId)
     window.localStorage.setItem(USER_KEY, JSON.stringify(profile))
   } catch {
     /* ignore quota errors */
-  }
-}
-
-function clearSession() {
-  try {
-    window.localStorage.removeItem(SESSION_KEY)
-    window.localStorage.removeItem(USER_KEY)
-  } catch {
-    /* ignore */
   }
 }
 
@@ -157,13 +139,12 @@ export function useAuth() {
     const sessionId = (typeof window !== 'undefined' && window.localStorage.getItem(SESSION_KEY)) || ''
     if (!sessionId) return null
     try {
-      const payload = await getJson('/api/v1/public/auth/me', {
-        Authorization: `Bearer ${sessionId}`,
-      })
+      const payload = await verifySession(sessionId)
       persistSession(payload.session_id, payload.profile)
       return { session_id: payload.session_id, profile: payload.profile }
-    } catch {
-      clearSession()
+    } catch (error) {
+      if (error.status !== 401) throw error
+      clearStoredSession()
       return null
     }
   }, [])

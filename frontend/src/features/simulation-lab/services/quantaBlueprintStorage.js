@@ -1,14 +1,15 @@
+import { accountStorageKey } from '../../../shared/auth/accountContext.js'
 /**
  * quantaBlueprintStorage.js
  * Local persistence and management for Quanta Strategy Blueprints.
  */
 
-const STORAGE_KEY = 'quanta_saved_blueprints_v1';
+const storageKey = owner => accountStorageKey(owner, 'blueprints:v2');
 
-export function loadSavedBlueprints() {
-  if (typeof window === 'undefined') return [];
+export function loadSavedBlueprints(owner) {
+  if (typeof window === 'undefined' || !owner) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey(owner));
     if (!raw) return [];
     const list = JSON.parse(raw);
     return Array.isArray(list) ? list : [];
@@ -26,8 +27,9 @@ export function saveBlueprint({
   code = '',
   params = {},
   metrics = {},
-}) {
-  const existing = loadSavedBlueprints();
+}, owner) {
+  if (!owner) throw new Error('Vui lòng xác minh tài khoản trước khi lưu.');
+  const existing = loadSavedBlueprints(owner);
   const id = `bp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const newBlueprint = {
     id,
@@ -40,7 +42,7 @@ export function saveBlueprint({
     metrics: {
       totalReturn: Number(metrics.total_return ?? metrics.totalReturnPct ?? 0),
       cagr: Number(metrics.cagr ?? 0),
-      sharpe: Number(metrics.sharpe ?? metrics.sharpeRatio ?? 0),
+      sharpe: (metrics.sharpe ?? metrics.sharpeRatio ?? null),
       maxDrawdown: Number(metrics.max_drawdown ?? metrics.maxDrawdown ?? 0),
       winRate: Number(metrics.win_rate ?? metrics.winRate ?? 0),
     },
@@ -49,20 +51,21 @@ export function saveBlueprint({
 
   const updated = [newBlueprint, ...existing.filter((b) => b.id !== id)].slice(0, 30);
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.localStorage.setItem(storageKey(owner), JSON.stringify(updated));
   } catch (err) {
-    console.warn('[BlueprintStorage] Khong the ghi localStorage:', err);
+    throw new Error(`Không lưu được bản thiết kế trên thiết bị: ${err.message}`);
   }
   return newBlueprint;
 }
 
-export function deleteBlueprint(id) {
-  const existing = loadSavedBlueprints();
+export function deleteBlueprint(id, owner) {
+  if (!owner) throw new Error('Vui lòng xác minh tài khoản trước khi xóa.');
+  const existing = loadSavedBlueprints(owner);
   const updated = existing.filter((b) => b.id !== id);
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.localStorage.setItem(storageKey(owner), JSON.stringify(updated));
   } catch (err) {
-    console.warn('[BlueprintStorage] Khong the xoa blueprint:', err);
+    throw new Error(`Không xóa được bản thiết kế trên thiết bị: ${err.message}`);
   }
   return updated;
 }
@@ -71,11 +74,11 @@ export function exportBlueprintJson(blueprint) {
   return JSON.stringify(blueprint, null, 2);
 }
 
-export function importBlueprintJson(jsonString) {
+export function importBlueprintJson(jsonString, owner) {
   try {
     const parsed = JSON.parse(jsonString);
     if (parsed && parsed.code) {
-      return saveBlueprint(parsed);
+      return saveBlueprint(parsed, owner);
     }
   } catch (err) {
     console.warn('[BlueprintStorage] Import that bai:', err);

@@ -1,3 +1,4 @@
+import { useAccountId } from '../../../shared/auth/accountContext'
 import { useEffect, useMemo, useState } from 'react'
 
 import { DEMO_COURSES, filterCourses, normalizeDbCourse } from '../content/courseCatalogData'
@@ -33,6 +34,7 @@ function getCourseProgress(courseId, totalLessons, sessionId) {
 }
 
 export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'courses', initialSearch = '' }) {
+  const accountId = useAccountId()
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab)
   const [search, setSearch] = useState(initialSearch)
   const [difficulty, setDifficulty] = useState('all')
@@ -43,7 +45,7 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   const [activeRunStatus, setActiveRunStatus] = useState(null)
   const [dbCourses, setDbCourses] = useState([])
 
-  const { bookmarks, toggleBookmark } = useCourseBookmarks()
+  const { bookmarks, toggleBookmark } = useCourseBookmarks(accountId)
 
   useEffect(() => {
     let cancelled = false
@@ -112,7 +114,7 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   }
 
   if (activeSubTab === 'mock_exam') {
-    return <MockExamRoomPage onBack={() => setActiveSubTab('courses')} />
+    return <MockExamRoomPage accountId={accountId} key={accountId} onBack={() => setActiveSubTab('courses')} />
   }
 
   if (activeSubTab === 'quanta_docs') {

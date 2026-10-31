@@ -13,10 +13,13 @@ const evidence={passes:[],findings:[],pageErrors:[],requests:[],abortedRequests:
 page.on('pageerror',e=>evidence.pageErrors.push(e.message))
 page.on('requestfailed',r=>{if(r.url().startsWith(origin))evidence.abortedRequests.push({request:new URL(r.url()).pathname,error:r.failure()?.errorText})})
 let modelOffline=false
+let authUnavailable=false
+const emails={}
 await context.route('**/*',async route=>{
   const u=new URL(route.request().url())
   if(u.hostname==='fonts.googleapis.com') return process.env.REVIEW_BLOCK_FONTS?route.abort():route.fulfill({contentType:'text/css',body:''})
   if(u.origin!==origin) return route.abort()
+  if(authUnavailable && u.pathname.endsWith('/auth/me')) return route.fulfill({status:503,json:{detail:'QA unavailable'}})
   if(u.pathname.includes('/instruments/')&&u.pathname.endsWith('/history')) {
     const hourly=u.searchParams.get('interval')==='1h'
     const points=Array.from({length:180},(_,i)=>{
@@ -41,7 +44,8 @@ async function step(name,fn){if(process.env.REVIEW_STEPS&&!process.env.REVIEW_ST
 async function register(suffix){
  await page.goto(`${origin}/dashboard-static/register`)
  await page.locator('#auth-name').fill(`QA ${suffix}`)
- await page.locator('#auth-email').fill(`usage.${Date.now()}.${suffix}@northstar.test`)
+ emails[suffix]=`usage.${Date.now()}.${suffix}@northstar.test`
+ await page.locator('#auth-email').fill(emails[suffix])
  await page.locator('#auth-password').fill('Only-Local-QA-2026')
  await page.locator('#auth-confirm-password').fill('Only-Local-QA-2026')
  await page.locator('#auth-terms').check()
@@ -82,13 +86,31 @@ try {
    modelOffline=true
    await page.getByLabel('Ghi chú BCTC',{exact:true}).fill('offline newer version B')
    await page.getByRole('button',{name:'Lưu',exact:true}).click()
-   await page.getByRole('status').filter({hasText:'bản nháp'}).waitFor()
+   await page.getByRole('status').filter({hasText:'Đã lưu bản nháp'}).waitFor()
    modelOffline=false
    await page.reload()
    await page.getByLabel('Ghi chú BCTC',{exact:true}).waitFor()
    const actual=await page.getByLabel('Ghi chú BCTC',{exact:true}).inputValue()
    evidence.draftReloadActual=actual
    assert.equal(actual,'offline newer version B','Online reload must surface newer offline draft or a recovery choice')
+ })
+ await step('workbook-conflict-requires-choice',async()=>{
+   const token=await page.evaluate(()=>localStorage.getItem('public-beta.session_id'))
+   const headers={Authorization:`Bearer ${token}`}
+   const path=`${origin}/financials/FPT/model`
+   const existing=await (await context.request.get(path,{headers})).json()
+   const saved=await context.request.post(path,{headers,data:{...existing.model,expected_revision:existing.model.revision,notes:'remote version C'}})
+   assert.equal(saved.status(),200)
+   await page.reload()
+   await page.getByRole('button',{name:'Giữ bản nháp để lưu lại',exact:true}).waitFor()
+   assert.equal(await page.getByLabel('Ghi chú BCTC',{exact:true}).inputValue(),'offline newer version B')
+   assert.ok(await page.getByRole('button',{name:'Lưu',exact:true}).isDisabled())
+   await page.getByRole('button',{name:'Giữ bản nháp để lưu lại',exact:true}).click()
+   await page.getByRole('button',{name:'Lưu',exact:true}).click()
+   await page.getByRole('status').filter({hasText:'Mô hình đã lưu'}).waitFor()
+   await page.reload()
+   await page.getByLabel('Ghi chú BCTC',{exact:true}).waitFor()
+   assert.equal(await page.getByLabel('Ghi chú BCTC',{exact:true}).inputValue(),'offline newer version B')
  })
  await step('simulation-default',async()=>{
    await page.goto(`${origin}/dashboard-static/simulation-lab`)
@@ -97,11 +119,28 @@ try {
  await step('simulation-ai-copilot-open',async()=>{
    await page.getByRole('button',{name:'AI Copilot',exact:false}).click()
    await page.getByRole('heading',{name:'AI Quant Copilot & Chiến Lược Cố Vấn'}).waitFor({timeout:2500})
+   const previousCode=await page.getByPlaceholder('Viết mã Quanta DSL tại đây...').inputValue()
+   await page.getByRole('button',{name:'Áp dụng thử chu kỳ dài hơn',exact:true}).click()
+   await page.locator('.tearsheet-grid').waitFor()
+   assert.notEqual(await page.getByPlaceholder('Viết mã Quanta DSL tại đây...').inputValue(),previousCode)
  })
  await step('blueprint-save-owner-A',async()=>{
    await page.getByRole('button',{name:'Bản Lưu',exact:false}).click()
    await page.getByPlaceholder('Tên chiến lược cần lưu...').fill('QA private strategy A')
    await page.getByRole('button',{name:'Lưu Bản Hiện Tại',exact:true}).click()
+   await page.getByText('QA private strategy A',{exact:true}).waitFor()
+   await page.getByRole('button',{name:'✕',exact:true}).click()
+ })
+ await step('blueprint-survives-new-login',async()=>{
+   await page.getByRole('button',{name:'Đăng xuất',exact:true}).click()
+   await page.goto(`${origin}/dashboard-static/login`)
+   await page.locator('#auth-email').fill(emails.A)
+   await page.locator('#auth-password').fill('Only-Local-QA-2026')
+   await page.getByRole('button',{name:'Đăng nhập',exact:true}).last().click()
+   await page.getByRole('tab',{name:'Cổ phiếu',exact:true}).waitFor()
+   await page.goto(`${origin}/dashboard-static/simulation-lab`)
+   await page.locator('.tearsheet-grid').waitFor()
+   await page.getByRole('button',{name:'Bản Lưu',exact:false}).click()
    await page.getByText('QA private strategy A',{exact:true}).waitFor()
    await page.getByRole('button',{name:'✕',exact:true}).click()
  })
@@ -121,16 +160,38 @@ try {
  await page.locator('.lhc-grid').waitFor()
  evidence.learningSnapshot=(await page.locator('body').innerText()).slice(0,4500)
  await page.screenshot({path:`${out}/learning.png`,fullPage:true})
+ await step('temporary-auth-error-retains-session',async()=>{
+   const token=await page.evaluate(()=>localStorage.getItem('public-beta.session_id'))
+   authUnavailable=true
+   await page.reload()
+   await page.getByRole('button',{name:'Thử xác minh lại',exact:true}).waitFor()
+   assert.equal(await page.evaluate(()=>localStorage.getItem('public-beta.session_id')),token)
+   authUnavailable=false
+   await page.getByRole('button',{name:'Thử xác minh lại',exact:true}).click()
+   await page.locator('.lhc-grid').waitFor()
+ })
  // Revoke the actual test session through backend while keeping the browser open.
+ await step('revoked-session-during-active-page',async()=>{
+   const token=await page.evaluate(()=>localStorage.getItem('public-beta.session_id'))
+   const r=await context.request.post(`${origin}/api/v1/public/auth/logout`,{headers:{Authorization:`Bearer ${token}`}})
+   assert.equal(r.status(),200)
+   await page.getByRole('button',{name:'Market & Portfolio',exact:true}).click()
+   await page.getByRole('tab',{name:'Watchlist',exact:true}).click()
+   await page.waitForURL('**/login')
+   assert.equal(await page.evaluate(()=>localStorage.getItem('public-beta.session_id')),null)
+   await page.locator('#auth-email').fill(emails.B)
+   await page.locator('#auth-password').fill('Only-Local-QA-2026')
+   await page.getByRole('button',{name:'Đăng nhập',exact:true}).last().click()
+   await page.getByRole('tab',{name:'Cổ phiếu',exact:true}).waitFor()
+ })
  await step('revoked-session-reroute',async()=>{
    const token=await page.evaluate(()=>localStorage.getItem('public-beta.session_id'))
    const r=await context.request.post(`${origin}/api/v1/public/auth/logout`,{headers:{Authorization:`Bearer ${token}`}})
    assert.equal(r.status(),200)
    await page.goto(`${origin}/dashboard-static/global-terminal`)
-   await page.getByRole('tab',{name:'Lệnh giấy',exact:true}).click()
-   await page.getByRole('alert').waitFor()
-   evidence.revokedSessionMessage=await page.getByRole('alert').innerText()
-   assert.ok(page.url().endsWith('/login'),'Revoked session remains in protected UI instead of login/re-auth')
+   await page.waitForURL('**/login')
+   await page.locator('#auth-email').waitFor()
+   assert.equal(await page.evaluate(()=>localStorage.getItem('public-beta.session_id')),null)
  })
 } finally {await writeFile(`${out}/browser-evidence.json`,JSON.stringify(evidence,null,2));await browser.close()}
 console.log(JSON.stringify({passes:evidence.passes,findings:evidence.findings,pageErrors:evidence.pageErrors},null,2))

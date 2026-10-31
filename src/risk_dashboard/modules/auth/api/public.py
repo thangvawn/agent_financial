@@ -47,7 +47,7 @@ def _sessions() -> SqliteAccountSessionRepository:
 
 
 def _to_profile(account) -> AccountProfile:
-    return AccountProfile(email=account.email, name=account.name)
+    return AccountProfile(account_id=account.account_id, email=account.email, name=account.name)
 
 
 @router.post("/register", response_model=AuthSessionResponse)

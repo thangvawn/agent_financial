@@ -1,6 +1,6 @@
 # Dùng thử và rà soát logic — 31/10/2026
 
-**Trạng thái: verified findings, chưa sửa các lỗi mới.** Kiểm tra trên workspace hiện tại, gồm các thay đổi local của người dùng và checkpoint `f3286d7`. Lượt này bổ sung kịch bản tái hiện và báo cáo; không thay đổi logic sản phẩm, không push/deploy.
+**Trạng thái: báo cáo phát hiện ban đầu; U01–U11 đã được xử lý trong [báo cáo sửa lỗi](USAGE_FIXES_2026_10_31.md).** Kiểm tra trên workspace hiện tại, gồm các thay đổi local của người dùng và checkpoint `f3286d7`. Lượt này bổ sung kịch bản tái hiện và báo cáo; không thay đổi logic sản phẩm, không push/deploy.
 
 Có **11 vấn đề cần xử lý**, trong đó 4 nhóm ưu tiên P1. Build và các test có sẵn đạt nhưng chưa bao phủ đủ luồng giữa frontend và backend với tài khoản đăng ký thật, đổi tài khoản và dữ liệu thiếu.
 
@@ -169,4 +169,4 @@ node scripts/qa/usage-review-learning.mjs
 REVIEW_BLOCK_FONTS=1 REVIEW_STEPS=registration-real-backend,simulation-default node scripts/qa/usage-review-browser.mjs
 ```
 
-Các probe trả exit code 1 khi kỳ vọng không đạt; đây là trạng thái hiện tại đã phát hiện, không phải implementation đã sửa. Server QA tạo database tạm mới mỗi lần khởi động, đọc cache market từ repository, không bật scheduler. Dừng server bằng Ctrl+C khi xong.
+Các probe trả exit code 1 khi kỳ vọng không đạt. Số liệu phát hiện ở trên mô tả lượt review ban đầu; các script và artifact cùng đường dẫn đã được chạy lại sau sửa, xem báo cáo sửa lỗi để biết kết quả hiện tại. Server QA tạo database tạm mới mỗi lần khởi động, đọc cache market từ repository, không bật scheduler. Dừng server bằng Ctrl+C khi xong.

@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../../auth/services/sessionClient'
 const cache = new Map()
 
 async function expectJson(response) {
@@ -121,7 +122,7 @@ export async function runFinancialScenario(
 export async function fetchFinancialWorkbookModel(ticker, sessionId = '') {
   const symbol = String(ticker || '').trim().toUpperCase()
   const headers = sessionId ? { 'X-Session-ID': sessionId } : undefined
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/model`, { headers })
+  const response = await authenticatedFetch(`/financials/${encodeURIComponent(symbol)}/model`, { headers }, sessionId)
   if (response.status === 404) return null
   return expectJson(response)
 }
@@ -130,11 +131,11 @@ export async function saveFinancialWorkbookModel(ticker, model, sessionId = '') 
   const symbol = String(ticker || '').trim().toUpperCase()
   const headers = { 'Content-Type': 'application/json' }
   if (sessionId) headers['X-Session-ID'] = sessionId
-  const response = await fetch(`/financials/${encodeURIComponent(symbol)}/model`, {
+  const response = await authenticatedFetch(`/financials/${encodeURIComponent(symbol)}/model`, {
     method: 'POST',
     headers,
     body: JSON.stringify(model),
-  })
+  }, sessionId)
   return expectJson(response)
 }
 

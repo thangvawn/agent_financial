@@ -59,7 +59,7 @@ test('compiler rejects unsupported syntax, cycles and invalid parameters',()=>{
   assert.equal(applyBinary('/',1,0),null)
   assert.equal(applyBinary('>',null,0),null)
   assert.equal(applyBinary('crossunder',1,2,3,2),true)
-  assert.equal(applyBinary('crossover',1,2,null,2),false)
+  assert.equal(applyBinary('crossover',1,2,null,2),null)
   assert.equal(applyBinary('==',2,2),true)
   assert.equal(applyBinary('!=',1,2),true)
   assert.equal(applyBinary('%',5,2),1)

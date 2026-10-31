@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../../auth/services/sessionClient'
 async function expectJson(response) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
@@ -10,36 +11,33 @@ async function expectJson(response) {
 const BASE = '/api/v1/market-portfolio'
 
 export async function fetchMpWatchlist(sessionId) {
-  const params = new URLSearchParams({ session_id: sessionId })
-  const response = await fetch(`${BASE}/watchlist?${params}`)
+  const response = await authenticatedFetch(`${BASE}/watchlist`, {}, sessionId)
   return expectJson(response)
 }
 
 export async function addMpWatchlistItem(sessionId, symbol, label = '') {
-  const response = await fetch(`${BASE}/watchlist/items`, {
+  const response = await authenticatedFetch(`${BASE}/watchlist/items`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId, symbol, label }),
-  })
+  }, sessionId)
   return expectJson(response)
 }
 
 export async function removeMpWatchlistItem(sessionId, symbol) {
-  const params = new URLSearchParams({ session_id: sessionId })
-  const response = await fetch(`${BASE}/watchlist/items/${encodeURIComponent(symbol)}?${params}`, {
+  const response = await authenticatedFetch(`${BASE}/watchlist/items/${encodeURIComponent(symbol)}`, {
     method: 'DELETE',
-  })
+  }, sessionId)
   return expectJson(response)
 }
 
 export async function fetchMpOrders(sessionId) {
-  const params = new URLSearchParams({ session_id: sessionId })
-  const response = await fetch(`${BASE}/orders?${params}`)
+  const response = await authenticatedFetch(`${BASE}/orders`, {}, sessionId)
   return expectJson(response)
 }
 
 export async function placeMpOrder(sessionId, { symbol, side, orderType, quantity, limitPrice }) {
-  const response = await fetch(`${BASE}/orders`, {
+  const response = await authenticatedFetch(`${BASE}/orders`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -50,31 +48,30 @@ export async function placeMpOrder(sessionId, { symbol, side, orderType, quantit
       quantity: Number(quantity),
       limit_price: orderType === 'LO' ? Number(limitPrice) : null,
     }),
-  })
+  }, sessionId)
   return expectJson(response)
 }
 
 export async function cancelMpOrder(sessionId, orderId) {
-  const response = await fetch(`${BASE}/orders/${encodeURIComponent(orderId)}/cancel`, {
+  const response = await authenticatedFetch(`${BASE}/orders/${encodeURIComponent(orderId)}/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
-  })
+  }, sessionId)
   return expectJson(response)
 }
 
 export async function fetchMpPortfolio(sessionId) {
-  const params = new URLSearchParams({ session_id: sessionId })
-  const response = await fetch(`${BASE}/portfolio?${params}`)
+  const response = await authenticatedFetch(`${BASE}/portfolio`, {}, sessionId)
   return expectJson(response)
 }
 
 export async function resetMpPortfolio(sessionId) {
-  const response = await fetch(`${BASE}/portfolio/reset`, {
+  const response = await authenticatedFetch(`${BASE}/portfolio/reset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
-  })
+  }, sessionId)
   return expectJson(response)
 }
 

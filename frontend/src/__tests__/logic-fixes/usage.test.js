@@ -42,3 +42,49 @@ test('saved strategies are private to account and survive new session for same o
  assert.equal(loadSavedBlueprints('A')[0].name,'A only')
  delete globalThis.window
 })
+
+test('verification distinguishes rejected sessions from temporary server errors',async()=>{
+ const {verifySession,authenticatedFetch,clearStoredSession} = await import('../../features/auth/services/sessionClient.js')
+ for(const status of [401,503]) await assert.rejects(verifySession('token',{fetchImpl:async()=>new Response('',{status})}),error=>error.status===status)
+ await assert.rejects(verifySession('token',{fetchImpl:async()=>Response.json({session_id:'other',profile:{account_id:'A'}})}),/không hợp lệ/)
+ assert.equal((await verifySession('token',{fetchImpl:async()=>Response.json({session_id:'token',profile:{account_id:'A'}})})).profile.account_id,'A')
+ const originalFetch=globalThis.fetch, events=[],s=storage()
+ globalThis.window={localStorage:s,dispatchEvent:e=>events.push(e)}
+ try {
+   s.setItem('public-beta.session_id','new-session');s.setItem('northstar:account:A:blueprints:v2','saved')
+   globalThis.fetch=async(_url,options)=>{assert.equal(options.headers.get('Authorization'),'Bearer old-session');return new Response('',{status:401})}
+   await authenticatedFetch('/private',{},'old-session')
+   assert.equal(events[0].detail.sessionId,'old-session')
+   assert.equal(s.getItem('public-beta.session_id'),'new-session')
+   clearStoredSession(s)
+   assert.equal(s.getItem('public-beta.session_id'),null)
+   assert.equal(s.getItem('northstar:account:A:blueprints:v2'),'saved')
+ } finally {globalThis.fetch=originalFetch;delete globalThis.window}
+})
+test('blueprints ignore unowned legacy cache and report storage write failures',()=>{
+ const s=storage();globalThis.window={localStorage:s}
+ try {
+  s.setItem('quanta_blueprints_v1',JSON.stringify([{name:'unknown owner'}]))
+  assert.deepEqual(loadSavedBlueprints('A'),[])
+  assert.throws(()=>saveBlueprint({name:'anonymous'}),/xác minh/)
+  s.setItem=()=>{throw new Error('quota')}
+  assert.throws(()=>saveBlueprint({name:'cannot save'},'A'),/Không lưu/)
+ } finally {delete globalThis.window}
+})
+
+test('blueprint import, export and deletion preserve owner boundary',async()=>{
+ const {deleteBlueprint,exportBlueprintJson,importBlueprintJson}=await import('../../features/simulation-lab/services/quantaBlueprintStorage.js')
+ const s=storage();globalThis.window={localStorage:s}
+ try {
+  const original=saveBlueprint({name:'private',code:code('bullish')},'A')
+  assert.deepEqual(deleteBlueprint(original.id,'B'),[])
+  assert.equal(loadSavedBlueprints('A').length,1)
+  const imported=importBlueprintJson(exportBlueprintJson(original),'A')
+  assert.equal(imported.code,original.code)
+  assert.notEqual(imported.id,original.id)
+  assert.equal(deleteBlueprint(original.id,'A').length,1)
+  assert.throws(()=>deleteBlueprint(original.id),/xác minh/)
+  s.setItem=()=>{throw new Error('quota')}
+  assert.throws(()=>deleteBlueprint(imported.id,'A'),/Không xóa/)
+ } finally {delete globalThis.window}
+})

@@ -40,10 +40,16 @@ export function parseExpression(source) {
   return tree
 }
 export function applyBinary(op,a,b,previousA,previousB) {
-  if(op==='and') return Boolean(a)&&Boolean(b)
-  if(op==='or') return Boolean(a)||Boolean(b)
+  const known = v => typeof v === 'boolean' || Number.isFinite(v)
+  if(op==='and') return a===false||b===false?false:known(a)&&known(b)?Boolean(a)&&Boolean(b):null
+  if(op==='or') return a===true||b===true?true:known(a)&&known(b)?Boolean(a)||Boolean(b):null
+  if(op==='=='||op==='!=') {
+    if(!known(a)||!known(b)) return null
+    if(typeof a!==typeof b) throw new Error('So sánh cần hai giá trị cùng kiểu.')
+    return op==='=='?a===b:a!==b
+  }
   if(op==='crossover'||op==='crossunder') {
-    if(![a,b,previousA,previousB].every(Number.isFinite)) return false
+    if(![a,b,previousA,previousB].every(Number.isFinite)) return null
     return op==='crossover'?a>b&&previousA<=previousB:a<b&&previousA>=previousB
   }
   if(![a,b].every(Number.isFinite)) return null

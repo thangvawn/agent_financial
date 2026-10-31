@@ -1,3 +1,4 @@
+import { accountStorageKey } from '../../../shared/auth/accountContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -20,12 +21,12 @@ import {
 import { getQuestionStatus, MOCK_EXAM } from '../content/mockExamData'
 import './mock-exam-room.css'
 
-const STORAGE_KEY = `northstar.learn-hub.mock-exam.${MOCK_EXAM.id}`
+const storageKey = owner => accountStorageKey(owner, `mock-exam:v2:${MOCK_EXAM.id}`)
 
-function readSavedState() {
-  if (typeof window === 'undefined') return null
+function readSavedState(owner) {
+  if (!owner || typeof window === 'undefined') return null
   try {
-    const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null')
+    const saved = JSON.parse(window.localStorage.getItem(storageKey(owner)) || 'null')
     if (!saved || saved.examId !== MOCK_EXAM.id || saved.mode !== 'running' || !saved.startedAt) return null
     return saved
   } catch {
@@ -33,8 +34,8 @@ function readSavedState() {
   }
 }
 
-function initialSavedState() {
-  const saved = readSavedState()
+function initialSavedState(owner) {
+  const saved = readSavedState(owner)
   if (!saved) return null
   const elapsed = Math.floor((Date.now() - Number(saved.startedAt)) / 1000)
   return {
@@ -62,8 +63,9 @@ function readSavedSet(value) {
   return new Set(Array.isArray(value) ? value : [])
 }
 
-export default function MockExamRoomPage({ onBack }) {
-  const resumed = useMemo(() => initialSavedState(), [])
+export default function MockExamRoomPage({ onBack, accountId }) {
+  const key = storageKey(accountId)
+  const resumed = useMemo(() => initialSavedState(accountId), [accountId])
   const [mode, setMode] = useState(resumed ? 'running' : 'lobby')
   const [attemptMode, setAttemptMode] = useState(resumed?.attemptMode === 'practice' ? 'practice' : 'exam')
   const [startedAt, setStartedAt] = useState(resumed?.startedAt || null)
@@ -182,10 +184,10 @@ export default function MockExamRoomPage({ onBack }) {
     setResult(nextResult)
     setMode('submitted')
     setModal(null)
-    if (typeof window !== 'undefined') {
-      try { window.localStorage.removeItem(STORAGE_KEY) } catch { /* storage is optional */ }
+    if (key && typeof window !== 'undefined') {
+      try { window.localStorage.removeItem(key) } catch { /* storage is optional */ }
     }
-  }, [calculateResult])
+  }, [calculateResult, key])
 
   const finishExamRef = useRef(finishExam)
   useEffect(() => {
@@ -217,7 +219,7 @@ export default function MockExamRoomPage({ onBack }) {
   }, [mode, startedAt])
 
   useEffect(() => {
-    if (mode !== 'running' || !startedAt || typeof window === 'undefined') return
+    if (!key || mode !== 'running' || !startedAt || typeof window === 'undefined') return
     const payload = {
       examId: MOCK_EXAM.id,
       mode,
@@ -230,8 +232,8 @@ export default function MockExamRoomPage({ onBack }) {
       highlighted: [...highlighted],
       eliminated,
     }
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)) } catch { /* storage is optional */ }
-  }, [answers, attemptMode, currentIndex, eliminated, flags, highlighted, mode, remaining, startedAt])
+    try { window.localStorage.setItem(key, JSON.stringify(payload)) } catch { /* storage is optional */ }
+  }, [answers, attemptMode, currentIndex, eliminated, flags, highlighted, mode, remaining, startedAt, key])
 
   useEffect(() => {
     if (mode !== 'running') return undefined

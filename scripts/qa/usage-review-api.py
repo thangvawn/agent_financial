@@ -46,7 +46,7 @@ checks = {
     'watchlist_write_read_same_owner': len(evidence['watchlist_body_vs_query']['items']) == 1,
     'orders_write_read_same_owner': len(evidence['orders_body_vs_query']['visible_positions']) == 1,
     'revoked_body_credential_rejected': evidence['revoked_body_session']['body_write_status'] == 401,
-    'missing_quote_not_false_loss': evidence['missing_quote_valuation']['total_pnl'] != -10000000,
+    'missing_quote_not_false_loss': evidence['missing_quote_valuation']['total_pnl'] is None and evidence['missing_quote_valuation']['equity'] is None,
 }
 print('FAILED EXPECTATIONS:', ', '.join(name for name, passed in checks.items() if not passed))
 raise SystemExit(0 if all(checks.values()) else 1)

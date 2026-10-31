@@ -3,16 +3,22 @@ export const emptyWorkbook = () => ({
   revision: 0, active_tab: 'income', formula: '=NET_INCOME / REVENUE', notes: '',
   assumptions: { revenueGrowthPct: '5', grossMarginPct: '45', taxRatePct: '20', operatingExpenseGrowthPct: '3' },
 })
+function cachedDraft(storage, owner, ticker) {
+  try {
+    const saved = JSON.parse(storage.getItem(workbookKey(owner,ticker)) || 'null')
+    return saved?.owner === owner && saved?.ticker === ticker.toUpperCase() && saved.model ? saved.model : null
+  } catch { return null }
+}
 export async function loadWorkbookState({ owner, ticker, storage, load }) {
+  const draft = cachedDraft(storage,owner,ticker)
   try {
     const result = await load(ticker, owner)
-    return { model: result?.model ? { ...emptyWorkbook(), ...result.model } : emptyWorkbook(), offline: false }
+    const serverModel = result?.model ? {...emptyWorkbook(),...result.model} : emptyWorkbook()
+    return {model:draft ? {...emptyWorkbook(),...draft} : serverModel, serverModel, offline:false,
+      restoredDraft:Boolean(draft), conflict:Boolean(draft && draft.revision !== serverModel.revision)}
   } catch (error) {
     if (error.status && error.status < 500) throw error
-    let saved
-    try { saved = JSON.parse(storage.getItem(workbookKey(owner, ticker)) || 'null') } catch { /* no usable cache */ }
-    const model = saved?.owner === owner && saved?.ticker === ticker.toUpperCase() ? saved.model : null
-    return { model: model ? { ...emptyWorkbook(), ...model } : emptyWorkbook(), offline: true }
+    return {model:draft ? {...emptyWorkbook(),...draft} : emptyWorkbook(), offline:true, restoredDraft:Boolean(draft)}
   }
 }
 export async function saveWorkbookState({ owner, ticker, storage, model, save }) {
@@ -25,8 +31,9 @@ export async function saveWorkbookState({ owner, ticker, storage, model, save })
     try { storage.removeItem(workbookKey(owner, ticker)) } catch { /* server save succeeded */ }
     return { model: result.model, offline: false }
   } catch (error) {
-    if (error.status && error.status < 500) throw error
-    storage.setItem(workbookKey(owner, ticker), JSON.stringify({ owner, ticker: ticker.toUpperCase(), model }))
+    if (error.status && error.status < 500 && error.status !== 409) throw error
+    storage.setItem(workbookKey(owner, ticker), JSON.stringify({ owner, ticker: ticker.toUpperCase(), model, dirty:true, savedAt:new Date().toISOString() }))
+    if (error.status === 409) throw error
     return { model, offline: true }
   }
 }

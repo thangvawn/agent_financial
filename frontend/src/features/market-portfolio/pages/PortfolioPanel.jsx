@@ -53,6 +53,8 @@ export default function PortfolioPanel({ sessionId }) {
       {error ? <p className="mp-error" role="alert">{error}. Hãy thử tải lại danh mục.</p> : null}
       {portfolio ? (
         <>
+          {portfolio.valuation_status === 'incomplete' && <p role="status">Chưa đủ giá để định giá danh mục: {portfolio.missing_symbols.join(', ')}. Tổng tài sản và PnL tạm thời chưa xác định.</p>}
+          {portfolio.legacy_portfolios?.length > 0 && <section><h3>Danh mục từ các phiên trước</h3><p>Các danh mục có vốn ban đầu riêng được giữ tách biệt để không làm sai số dư hiện tại.</p>{portfolio.legacy_portfolios.map(p => <details key={p.reference}><summary>Phiên {p.created_at} · Tiền mặt {formatVnd(p.cash_balance)}</summary><ul>{p.positions.map(pos => <li key={pos.symbol}>{pos.symbol}: {pos.quantity} cp · Giá vốn {formatVnd(pos.avg_cost)}</li>)}</ul><ul>{p.orders.map((o,i) => <li key={i}>{o.side} {o.symbol} · {o.quantity} cp · {o.status}</li>)}</ul></details>)}</section>}
           <div className="mp-kpi">
             <div>
               <span>Tiền mặt</span>
@@ -69,7 +71,7 @@ export default function PortfolioPanel({ sessionId }) {
             <div>
               <span>Tổng lỗ/lãi</span>
               <strong className={`num ${pnlClass}`}>
-                {formatVnd(portfolio.total_pnl)} ({portfolio.total_pnl_pct}%)
+                {formatVnd(portfolio.total_pnl)} ({portfolio.total_pnl_pct == null ? '—' : `${portfolio.total_pnl_pct}%`})
               </strong>
             </div>
           </div>

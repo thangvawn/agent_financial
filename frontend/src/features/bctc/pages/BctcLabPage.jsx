@@ -1,3 +1,4 @@
+import { useAccountId } from '../../../shared/auth/accountContext'
 import { useWorkbookModel } from '../hooks/useWorkbookModel'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -319,6 +320,7 @@ function WhatIfPanel({ ticker, period, scenario, setScenario, result, status, on
 }
 
 export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }) {
+  const accountId = useAccountId()
   const workflow = useFinancialWorkflow()
   const effectiveInitial = (workflow.activeTicker || initialTicker).toUpperCase()
   const [tickerInput, setTickerInput] = useState(effectiveInitial)
@@ -338,17 +340,19 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   const [scenarioStatus, setScenarioStatus] = useState('idle')
   const [notice, setNotice] = useState('')
   const [modelSessionId] = useState(localWorkbookSessionId)
-  const workbook = useWorkbookModel(ticker, sessionId || modelSessionId)
+  const workbook = useWorkbookModel(ticker, sessionId || modelSessionId, accountId)
   const { active_tab: activeTab, setActiveTab, formula, setFormula, assumptions: scenario, setScenario, notes, setNotes } = workbook
   const uploadRef = useRef(null)
   const analyticsRef = useRef(null)
 
-  useEffect(() => {
-    if (workflow.activeTicker && workflow.activeTicker !== ticker) {
+  const [lastWorkflowTicker, setLastWorkflowTicker] = useState(workflow.activeTicker)
+  if (workflow.activeTicker !== lastWorkflowTicker) {
+    setLastWorkflowTicker(workflow.activeTicker)
+    if (workflow.activeTicker) {
       setTicker(workflow.activeTicker.toUpperCase())
       setTickerInput(workflow.activeTicker.toUpperCase())
     }
-  }, [workflow.activeTicker])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -358,12 +362,15 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
     return () => { cancelled = true }
   }, [ticker, periodMode, loadNonce])
 
-  useEffect(() => {
+  const scope = `${sessionId}:${ticker}`
+  const [lastScope, setLastScope] = useState(scope)
+  if (lastScope !== scope) {
+    setLastScope(scope)
     setSelectedCell('')
     setSelected({ key: 'net_margin_pct', label: 'Net Margin', period: '', value: null, unit: '%' })
     setScenarioResult(null)
     setNotice('')
-  }, [ticker, sessionId])
+  }
 
   const period = selected.period || latestPeriod(workspace)
 
@@ -421,7 +428,7 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
       <label className="bcl-top-select"><span>Năm tài chính</span><select value={periodMode} onChange={(event) => { setStatus('loading'); setPeriodMode(event.target.value) }}><option value="year">Theo năm</option><option value="quarter">Theo quý</option></select></label>
       <label className="bcl-top-select"><span>Đơn vị</span><select value={unit} onChange={(event) => setUnit(event.target.value)}><option value="billion">VND (Tỷ)</option><option value="million">VND (Triệu)</option><option value="raw">VND</option></select></label>
       <div className="bcl-mode-switch" role="group" aria-label="Chế độ workbook">{[['actual', 'Actual'], ['forecast', 'Forecast'], ['scenario', 'Scenario']].map(([key, label]) => <button type="button" className={mode === key ? 'is-active' : ''} key={key} onClick={() => { if (key === 'actual') setMode('actual'); else { runScenario(key); analyticsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } }}>{label}</button>)}</div>
-      <div className="bcl-top-actions"><button type="button" onClick={saveModel} disabled={workbook.loading || workbook.saving || Boolean(workbook.error)}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button><button type="button" aria-label="Thêm"><MoreHorizontal size={17} /></button></div>
+      <div className="bcl-top-actions"><button type="button" onClick={saveModel} disabled={workbook.loading || workbook.saving || Boolean(workbook.error) || workbook.conflict}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button><button type="button" aria-label="Thêm"><MoreHorizontal size={17} /></button></div>
     </header>
     <div className="bcl-layout">
       <aside className="bcl-sidebar">
@@ -444,6 +451,8 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
       </aside>
       <section className="bcl-main">
         <div className="bcl-workbook-tabs" role="tablist" aria-label="BCTC statements">{WORKBOOK_TABS.map(([key, label]) => <button type="button" role="tab" aria-selected={activeTab === key} className={activeTab === key ? 'is-active' : ''} key={key} onClick={() => setActiveTab(key)}>{label}</button>)}</div>
+        {workbook.restoredDraft && <p role="status">Đã khôi phục bản nháp trên thiết bị; bấm Lưu để đồng bộ.</p>}
+        {workbook.conflict && <section role="alert"><p>Bản máy chủ đã thay đổi. Bản nháp của bạn vẫn được giữ. Chọn bản muốn sử dụng trước khi lưu.</p><button onClick={() => { if (window.confirm('Bỏ bản nháp và dùng bản máy chủ?')) workbook.resolveConflict(false) }}>Dùng bản máy chủ</button><button onClick={() => workbook.resolveConflict(true)}>Giữ bản nháp để lưu lại</button></section>}
         {workbook.error && <p role="alert">{workbook.error}</p>}
         {notice && <div className="bcl-notice" role="status"><Check size={14} /> {notice}<button type="button" aria-label="Đóng thông báo" onClick={() => setNotice('')}><X size={14} /></button></div>}
         {error && <div className="bcl-error" role="alert">{error}<button type="button" onClick={() => { setError(''); setStatus('loading'); setLoadNonce((value) => value + 1) }}>Thử lại</button></div>}

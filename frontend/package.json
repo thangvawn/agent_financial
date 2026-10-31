@@ -8,8 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test:unit": "node ./scripts/test-runner.mjs",
-    "lint:css": "node -e 'console.log(\"CSS validation clean: tokens.css verified 100%\")' --",
-    "test:a11y": "node -e 'console.log(\"A11y WCAG AA passed: ARIA attributes and color contrast verified 100%\")' --",
+    "lint:css": "node scripts/check-css.mjs",
+    "test:a11y": "node scripts/check-a11y.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+import { useAccountId } from '../../../shared/auth/accountContext'
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import SimLabHeader from './components/SimLabHeader';
 import QuantaWorkshopEditor from './components/QuantaWorkshopEditor';
@@ -21,6 +22,7 @@ import './styles/simlab-builder.css';
 import './styles/simlab-feed.css';
 
 export default function SimulationLabWorkspace() {
+  const accountId = useAccountId();
   const workflow = useFinancialWorkflow();
   const [ticker, setTicker] = useState(workflow.activeTicker || 'FPT');
   const [interval, setInterval] = useState(workflow.selectedInterval || '1d');
@@ -36,15 +38,16 @@ export default function SimulationLabWorkspace() {
   const requestRef = useRef(0);
   const currentBarsRef = useRef([]);
 
+  const [lastWorkflow, setLastWorkflow] = useState({ ticker: workflow.activeTicker, code: workflow.preloadedStrategyCode });
+  if (lastWorkflow.ticker !== workflow.activeTicker || lastWorkflow.code !== workflow.preloadedStrategyCode) {
+    setLastWorkflow({ ticker: workflow.activeTicker, code: workflow.preloadedStrategyCode });
+    if (lastWorkflow.ticker !== workflow.activeTicker && workflow.activeTicker) setTicker(workflow.activeTicker);
+    if (workflow.preloadedStrategyCode) setQuantaCode(workflow.preloadedStrategyCode);
+  }
+  const { preloadedStrategyCode, setPreloadedStrategyCode } = workflow;
   useEffect(() => {
-    if (workflow.activeTicker && workflow.activeTicker !== ticker) {
-      setTicker(workflow.activeTicker);
-    }
-    if (workflow.preloadedStrategyCode) {
-      setQuantaCode(workflow.preloadedStrategyCode);
-      workflow.setPreloadedStrategyCode(null);
-    }
-  }, [workflow.activeTicker, workflow.preloadedStrategyCode]);
+    if (preloadedStrategyCode) setPreloadedStrategyCode(null);
+  }, [preloadedStrategyCode, setPreloadedStrategyCode]);
 
   const executeBacktestWithBars = useCallback((bars) => {
     setError(''); setSimulationResult(null);
@@ -153,6 +156,7 @@ export default function SimulationLabWorkspace() {
       {isCopilotOpen && (
         <SimLabAiCopilotModal
           code={quantaCode}
+          bars={currentBarsRef.current}
           onClose={() => setIsCopilotOpen(false)}
           onApplyOptimizedCode={(newCode) => {
             setQuantaCode(newCode);
@@ -164,6 +168,7 @@ export default function SimulationLabWorkspace() {
       )}
 
       <SimLabBlueprintModal
+        owner={accountId}
         isOpen={isBlueprintModalOpen}
         onClose={() => setIsBlueprintModalOpen(false)}
         currentConfig={{

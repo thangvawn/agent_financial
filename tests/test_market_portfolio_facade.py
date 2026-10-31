@@ -48,8 +48,12 @@ def test_market_portfolio_watchlist_and_portfolio_flow(monkeypatch):
     monkeypatch.setattr(svc_mod, "quote_last_price", lambda symbol: 100_000.0 if symbol == "FPT" else None)
     monkeypatch.setattr(svc_mod, "quote_map", lambda symbols: {s: 100_000.0 for s in symbols if s == "FPT"})
 
+    monkeypatch.setattr("risk_dashboard.modules.market_portfolio.api.public.DataHubService.get_global_terminal", lambda self, view: {"items": [], "view": view})
     client = _client()
-    session = "test-session-market-portfolio-001"
+    from uuid import uuid4
+    registered = client.post("/api/v1/public/auth/register", json={"name":"Portfolio test", "email":f"portfolio-{uuid4().hex}@qa.test", "password":"Only-Local-QA-2026"})
+    assert registered.status_code == 200
+    session = registered.json()["session_id"]
 
     added = client.post(
         "/api/v1/market-portfolio/watchlist/items",

@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from risk_dashboard.modules.auth.application.dependencies import resolve_surface_principal
+from risk_dashboard.modules.market_portfolio.application.identity import resolve_market_principal, legacy_portfolios
 from risk_dashboard.modules.auth.schemas.principal import AuthPrincipal
 from risk_dashboard.modules.data_hub.application.services import DataHubService
 from risk_dashboard.modules.data_hub.api.public import get_vn_snapshot
@@ -374,7 +374,7 @@ def get_commodities_snapshot() -> dict:
 
 
 @router.get("/watchlist")
-def get_watchlist(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
+def get_watchlist(principal: AuthPrincipal = Depends(resolve_market_principal)) -> dict:
     return {"items": _service.list_watchlist(principal.account_id)}
 
 
@@ -382,9 +382,9 @@ def get_watchlist(principal: AuthPrincipal = Depends(resolve_surface_principal))
 @router.post("/watchlist/items")
 def add_watchlist_item(
     req: WatchlistAddRequest,
-    principal: AuthPrincipal = Depends(resolve_surface_principal),
+    principal: AuthPrincipal = Depends(resolve_market_principal),
 ) -> dict:
-    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    account_id = principal.account_id
     return _service.add_watchlist(account_id, req.symbol, req.label)
 
 
@@ -392,7 +392,7 @@ def add_watchlist_item(
 @router.delete("/watchlist/items/{symbol}")
 def remove_watchlist_item(
     symbol: str,
-    principal: AuthPrincipal = Depends(resolve_surface_principal),
+    principal: AuthPrincipal = Depends(resolve_market_principal),
 ) -> dict:
     return _service.remove_watchlist(principal.account_id, symbol)
 
@@ -401,16 +401,16 @@ def remove_watchlist_item(
 
 
 @router.get("/orders")
-def list_orders(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
+def list_orders(principal: AuthPrincipal = Depends(resolve_market_principal)) -> dict:
     return {"orders": _service.list_orders(principal.account_id)}
 
 
 @router.post("/orders")
 def place_order(
     req: PlaceOrderRequest,
-    principal: AuthPrincipal = Depends(resolve_surface_principal),
+    principal: AuthPrincipal = Depends(resolve_market_principal),
 ) -> dict:
-    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    account_id = principal.account_id
     try:
         return _service.place_order(
             session_id=account_id,
@@ -428,9 +428,9 @@ def place_order(
 def cancel_order(
     order_id: str,
     req: CancelOrderRequest,
-    principal: AuthPrincipal = Depends(resolve_surface_principal),
+    principal: AuthPrincipal = Depends(resolve_market_principal),
 ) -> dict:
-    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    account_id = principal.account_id
     try:
         return _service.cancel_order(account_id, order_id)
     except LookupError as exc:
@@ -443,14 +443,14 @@ def cancel_order(
 
 
 @router.get("/portfolio")
-def get_portfolio(principal: AuthPrincipal = Depends(resolve_surface_principal)) -> dict:
-    return _service.portfolio_summary(principal.account_id)
+def get_portfolio(principal: AuthPrincipal = Depends(resolve_market_principal)) -> dict:
+    return {**_service.portfolio_summary(principal.account_id), "legacy_portfolios": legacy_portfolios(principal.account_id)}
 
 
 @router.post("/portfolio/reset")
 def reset_portfolio(
     req: ResetPortfolioRequest,
-    principal: AuthPrincipal = Depends(resolve_surface_principal),
+    principal: AuthPrincipal = Depends(resolve_market_principal),
 ) -> dict:
-    account_id = principal.account_id if not principal.is_anonymous else (req.session_id or principal.account_id)
+    account_id = principal.account_id
     return _service.reset_portfolio(account_id)

@@ -43,7 +43,7 @@ export function calculatePriceBands(refPrice, exchange = 'HOSE') {
   };
 }
 
-export function evaluateVnExecution(rawPrice, isBuy = true, exchange = 'HOSE') {
+export function evaluateVnExecution(rawPrice, isBuy = true) {
   const basePrice = Number(rawPrice) || 0;
   const slippageMul = isBuy ? (1 + VN_FEES.SLIPPAGE_PCT / 100) : (1 - VN_FEES.SLIPPAGE_PCT / 100);
   const executionPrice = roundToVnPriceTick(basePrice * slippageMul);
