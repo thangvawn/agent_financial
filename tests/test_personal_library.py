@@ -199,3 +199,61 @@ def test_revoked_session_cannot_access_uploaded_file(library):
     SqliteAccountSessionRepository().revoke(session_id=owner["Authorization"].split()[1])
     assert client.get(result.json()["file_url"], headers=owner).status_code == 401
     assert client.get(BASE, headers=owner).status_code == 401
+
+
+def test_upload_limits_and_quota_leave_no_partial_files(library, monkeypatch):
+    from risk_dashboard.modules.learning.infrastructure import personal_library as storage
+    client, owner, _, root = library
+    monkeypatch.setattr(storage, "MAX_UPLOAD_BYTES", 100)
+    assert upload(client, owner).status_code == 413
+    assert not list(root.rglob("*.part")) and not list(root.rglob("*.pdf"))
+    monkeypatch.setattr(storage, "MAX_UPLOAD_BYTES", 40 * 1024 * 1024)
+    monkeypatch.setattr(storage, "MAX_ACCOUNT_BYTES", 100)
+    assert upload(client, owner).status_code == 413
+    assert client.get(BASE, headers=owner).json()["items"] == []
+    assert not list(root.rglob("*.pdf"))
+    monkeypatch.setattr(storage, "MAX_ACCOUNT_ITEMS", 0)
+    assert client.post(BASE + "/items", headers=owner, json=catalog_item()).status_code == 413
+
+
+def test_declared_and_streamed_request_limits(library, monkeypatch):
+    from risk_dashboard.modules.learning.infrastructure import personal_library as storage
+    client, owner, _, _ = library
+    monkeypatch.setattr(storage, "MAX_UPLOAD_BYTES", 100)
+    headers = {**owner, "content-type": "multipart/form-data; boundary=shelf-boundary"}
+    declared = client.post(BASE + "/uploads", headers={**headers, "content-length": "999999"}, content=b"x")
+    assert declared.status_code == 413
+    def body():
+        yield b'--shelf-boundary\r\nContent-Disposition: form-data; name="file"; filename="book.pdf"\r\nContent-Type: application/pdf\r\n\r\n'
+        yield b"x" * 70000
+        yield b"\r\n--shelf-boundary--\r\n"
+    streamed = client.post(BASE + "/uploads", headers=headers, content=body())
+    assert streamed.status_code == 413, streamed.text
+
+
+@pytest.mark.parametrize("metadata", [{"title": " "}, {"kind": "video"}, {"title": "a" * 241}])
+def test_upload_metadata_validation(library, metadata):
+    client, owner, _, _ = library
+    assert upload(client, owner, **metadata).status_code == 422
+
+
+def test_duplicate_after_reading_preserves_state_and_quota(library):
+    client, owner, _, _ = library
+    item = upload(client, owner).json()
+    path = BASE + "/items/" + item["id"]
+    client.patch(path, headers=owner, json={"status": "completed", "current_page": 3})
+    same = upload(client, owner).json()
+    assert same["status"] == "completed" and same["current_page"] == 3
+    assert client.get(BASE, headers=owner).json()["used_bytes"] == len(sample_pdf())
+
+
+def test_missing_file_catalog_file_and_removed_history(library):
+    client, owner, _, root = library
+    ref = client.post(BASE + "/items", headers=owner, json=catalog_item(source_id="original-id")).json()
+    assert ref["source_id"] == "original-id"
+    assert client.get(BASE + "/items/" + ref["id"] + "/file.pdf", headers=owner).status_code == 404
+    item = upload(client, owner).json()
+    next(root.rglob("*.pdf")).unlink()
+    assert client.get(item["file_url"], headers=owner).status_code == 404
+    assert client.delete(BASE + "/items/" + item["id"], headers=owner).status_code == 204
+    assert client.get(BASE + "/items/missing", headers=owner).status_code == 404
