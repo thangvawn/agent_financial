@@ -88,7 +88,8 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
         book={<BookDocumentPane book={book} onReady={onDocumentReady} initialPage={initialPage} />}
         notes={(
           <>
-          <div className="br-notebook-heading"><div><NotebookPen size={17}/><h2>Sổ ghi chú</h2></div><span title={`Khổ giấy ${NOTEBOOK_PAPER.format} dọc: ${NOTEBOOK_PAPER.widthMm} × ${NOTEBOOK_PAPER.heightMm} mm`}>{NOTEBOOK_PAPER.format} · {pages.length} trang</span></div>
+          <div className="br-notebook-bar">
+          <div className="br-notebook-heading"><div><NotebookPen size={15}/><h2>Ghi chú</h2></div></div>
           <NoteToolbar
             editorMode={editorMode}
             drawColor={drawColor}
@@ -102,12 +103,14 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
             onUpload={triggerUpload}
             onClearDrawing={() => updatePageById(resolvedActivePageId, { drawingDataUrl: '' })}
           />
+          </div>
           <NotePageStrip
             pages={pages}
             activePageId={resolvedActivePageId}
             activeTitle={activePage?.title || ''}
             onSelect={handleSelectPage}
             onTitleChange={(title) => updatePageById(resolvedActivePageId, { title })}
+            meta={<span className="br-pages__meta" title={`Khổ giấy ${NOTEBOOK_PAPER.format} dọc: ${NOTEBOOK_PAPER.widthMm} × ${NOTEBOOK_PAPER.heightMm} mm`}>{NOTEBOOK_PAPER.format} · {pages.length}</span>}
           />
           <input
             ref={uploadInputRef}

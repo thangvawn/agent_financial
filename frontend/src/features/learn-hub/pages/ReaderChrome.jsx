@@ -12,8 +12,8 @@ export function ReaderTopBar({ title, author, savedAt, onBack, onSave, openUrl, 
       </button>
       <div className="br-top__center">
         <ReaderDeskScene enabled={depthEnabled}/>
-        <div className="br-top__book-info"><p className="br-top__kicker">LEARN HUB <span>/</span> KHÔNG GIAN ĐỌC</p>
-        <h1 className="br-top__title" title={title}>{title}</h1>
+        <div className="br-top__book-info">
+        <h1 className="br-top__title" title={[title,author].filter(Boolean).join(' — ')}>{title}</h1>
         {author && <p className="br-top__author">{author}</p>}</div>
       </div>
       <div className="br-top__actions">
@@ -99,8 +99,8 @@ export function NoteToolbar({
       ) : null}
 
       <div className="br-tools__actions">
-        <button type="button" className="br-btn br-btn--ghost" onClick={onUpload}><ImagePlus size={14}/>Chèn ảnh</button>
-        <button type="button" className="br-btn br-btn--ghost" onClick={onAddPage}><Plus size={14}/>Trang</button>
+        <button type="button" className="br-btn br-btn--ghost" onClick={onUpload} aria-label="Chèn ảnh" title="Chèn ảnh vào ghi chú"><ImagePlus size={16}/></button>
+        <button type="button" className="br-btn br-btn--ghost" onClick={onAddPage} aria-label="Trang" title="Thêm trang ghi chú"><Plus size={18}/></button>
       </div>
     </div>
   )
@@ -112,6 +112,7 @@ export function NotePageStrip({
   activeTitle,
   onSelect,
   onTitleChange,
+  meta,
 }) {
   const stripRef = useRef(null)
   useEffect(() => {
@@ -146,6 +147,7 @@ export function NotePageStrip({
         placeholder="Đặt tên trang ghi chú…"
         aria-label="Tên trang ghi chú"
       />
+      {meta}
     </div>
   )
 }

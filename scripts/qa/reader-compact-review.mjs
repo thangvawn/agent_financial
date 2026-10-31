@@ -34,6 +34,7 @@ try{
     assert.ok(geometry.document.top<=215,`PDF starts at ${geometry.document.top}px`)
     assert.ok(geometry.notes.height>=680)
     await input().fill('NGUYÊN LÝ TÀI CHÍNH\n\nGiá trị thời gian của tiền\nMột đồng hôm nay khác một đồng nhận trong tương lai.\n\nCâu hỏi cần suy ngẫm\nMức sinh lời kỳ vọng có tương xứng với rủi ro?')
+    await page.waitForTimeout(2000)
     await page.screenshot({path:`${out}/desktop.png`})
   })
   await step('compact-tools-keep-notes-pdf-and-threejs-state',async()=>{
@@ -65,6 +66,9 @@ try{
     assert.equal(await page.getByLabel('Trang đang đọc',{exact:true}).isVisible(),false)
     const toggle=page.getByRole('button',{name:'Vị trí đọc',exact:true})
     await toggle.click();assert.equal(await toggle.getAttribute('aria-expanded'),'true')
+    await page.getByLabel('Trang đang đọc',{exact:true}).press('Escape')
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false')
+    await toggle.press('Enter');assert.equal(await toggle.getAttribute('aria-expanded'),'true')
     await page.getByLabel('Trang đang đọc',{exact:true}).fill('5');await page.getByRole('button',{name:'Lưu vị trí',exact:true}).click()
     await page.getByText('Đã lưu vào kệ sách.',{exact:true}).waitFor()
     await toggle.click();assert.equal(await toggle.getAttribute('aria-expanded'),'false')
