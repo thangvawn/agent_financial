@@ -95,7 +95,7 @@ try{
   await step('resume-and-download-original-private-pdf',async()=>{
     await card().getByRole('button',{name:'Đọc tiếp',exact:true}).click()
     const frame=page.locator('iframe.br-doc__frame[src^="blob:"]');await frame.waitFor()
-    assert.ok((await frame.getAttribute('src')).endsWith('#page=2'))
+    assert.match(await frame.getAttribute('src'),/#page=2(?:&|$)/)
     await page.waitForFunction(()=>document.querySelector('[aria-label="Trạng thái đọc trong kệ"]')?.value==='completed')
     await page.waitForTimeout(1500)
     await page.screenshot({path:`${out}/reader-resumed.png`,fullPage:true})

@@ -1,28 +1,30 @@
-const MODES = [
-  ['type', 'Gõ'],
-  ['draw', 'Vẽ'],
-  ['erase', 'Tẩy'],
-]
+import {ArrowLeft,BookOpen,Box,Check,Columns2,Eraser,ExternalLink,ImagePlus,NotebookPen,PenLine,Plus,Save,Type} from 'lucide-react'
+import ReaderDeskScene from './ReaderDeskScene'
 
-export function ReaderTopBar({ title, savedAt, onBack, onSave, openUrl }) {
+const MODES = [['type','Gõ',Type],['draw','Vẽ',PenLine],['erase','Tẩy',Eraser]]
+
+export function ReaderTopBar({ title, author, savedAt, onBack, onSave, openUrl, depthEnabled=true, onToggleDepth }) {
   return (
     <header className="br-top">
       <button type="button" className="br-top__back" onClick={onBack} aria-label="Quay lại thư viện">
-        ← Thư viện
+        <ArrowLeft size={16}/><span>Thư viện</span>
       </button>
       <div className="br-top__center">
-        <p className="br-top__kicker">Đang đọc</p>
-        <h1 className="br-top__title">{title}</h1>
+        <ReaderDeskScene enabled={depthEnabled}/>
+        <div className="br-top__book-info"><p className="br-top__kicker">LEARN HUB <span>/</span> KHÔNG GIAN ĐỌC</p>
+        <h1 className="br-top__title" title={title}>{title}</h1>
+        {author && <p className="br-top__author">{author}</p>}</div>
       </div>
       <div className="br-top__actions">
         <span className="br-top__saved" aria-live="polite">
-          {savedAt ? `Đã lưu · ${new Date(savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : 'Chưa lưu'}
+          {savedAt && <Check size={13}/>} {savedAt ? `Đã lưu · ${new Date(savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : 'Ghi chú chưa lưu'}
         </span>
         {openUrl ? (
-          <a className="br-btn br-btn--ghost" href={openUrl} target="_blank" rel="noreferrer">Nguồn</a>
+          <a className="br-btn br-btn--ghost br-top__source" href={openUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>Nguồn</a>
         ) : null}
-        <button type="button" className="br-btn br-btn--ghost" onClick={onSave}>Lưu</button>
-        <button type="button" className="br-btn br-btn--solid" onClick={onBack}>Xong</button>
+        <button type="button" className="br-btn br-depth-toggle" aria-label="Hiệu ứng 3D" aria-pressed={depthEnabled} title="Bật hoặc tắt chiều sâu 3D" onClick={onToggleDepth}><Box size={16}/><span>3D</span></button>
+        <button type="button" className="br-btn br-btn--solid" onClick={onSave} title="Lưu ghi chú"><Save size={14}/>Lưu</button>
+        <button type="button" className="br-btn br-btn--ghost" onClick={onBack}>Xong</button>
       </div>
     </header>
   )
@@ -32,10 +34,11 @@ export function ReaderPanelSwitch({ panel, onChange }) {
   return (
     <div className="br-switch" role="tablist" aria-label="Chế độ xem">
       <button type="button" role="tab" aria-selected={panel === 'book'} className={panel === 'book' ? 'is-on' : undefined} onClick={() => onChange('book')}>
-        Sách
+        <BookOpen size={14}/>Sách
       </button>
+      <button type="button" role="tab" aria-selected={panel === 'split'} className={`br-switch__split ${panel === 'split' ? 'is-on' : ''}`} onClick={() => onChange('split')}><Columns2 size={14}/>Song song</button>
       <button type="button" role="tab" aria-selected={panel === 'notes'} className={panel === 'notes' ? 'is-on' : undefined} onClick={() => onChange('notes')}>
-        Ghi chú
+        <NotebookPen size={14}/>Ghi chú
       </button>
     </div>
   )
@@ -57,16 +60,20 @@ export function NoteToolbar({
   return (
     <div className="br-tools">
       <div className="br-tools__modes" role="group" aria-label="Công cụ ghi chú">
-        {MODES.map(([id, label]) => (
+        {MODES.map((mode) => {
+          const [id,label,Icon]=mode
+          return (
           <button
             key={id}
             type="button"
+            aria-pressed={editorMode === id}
             className={editorMode === id ? 'is-on' : undefined}
             onClick={() => onMode(id)}
           >
-            {label}
+            <Icon size={14}/>{label}
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {editorMode === 'draw' ? (
@@ -91,8 +98,8 @@ export function NoteToolbar({
       ) : null}
 
       <div className="br-tools__actions">
-        <button type="button" className="br-btn br-btn--ghost" onClick={onUpload}>Chèn ảnh</button>
-        <button type="button" className="br-btn br-btn--ghost" onClick={onAddPage}>+ Trang</button>
+        <button type="button" className="br-btn br-btn--ghost" onClick={onUpload}><ImagePlus size={14}/>Chèn ảnh</button>
+        <button type="button" className="br-btn br-btn--ghost" onClick={onAddPage}><Plus size={14}/>Trang</button>
       </div>
     </div>
   )

@@ -24,7 +24,14 @@ export function useBookReaderState({ book, sessionId }) {
   const [drawColor, setDrawColor] = useState('#0d6d62')
   const [drawSize, setDrawSize] = useState(2.2)
   const [eraserSize, setEraserSize] = useState(32)
-  const [panel, setPanel] = useState('book')
+  const [panel, setPanel] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 960px)').matches ? 'book' : 'split')
+
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 960px)')
+    const adapt = () => { if (narrow.matches) setPanel(current => current === 'split' ? 'book' : current) }
+    narrow.addEventListener('change', adapt)
+    return () => narrow.removeEventListener('change', adapt)
+  }, [])
 
   const resolvedActivePageId = activePageId || pages[0]?.id || ''
   const activePageIndex = pages.findIndex((page) => page.id === resolvedActivePageId)

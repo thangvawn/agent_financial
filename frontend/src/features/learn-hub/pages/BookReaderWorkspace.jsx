@@ -8,8 +8,12 @@ import { useBookReaderState } from './useBookReaderState'
 import './book-reader.css'
 import {useCallback,useRef,useState} from 'react'
 import ReaderLibraryTools from './ReaderLibraryTools'
+import {NotebookPen} from 'lucide-react'
+import './reader-studio.css'
 
 export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
+  const [depthEnabled,setDepthEnabled]=useState(()=>{try{return localStorage.getItem('learn-reader:depth')!=='off'}catch{return true}})
+  function toggleDepth(){setDepthEnabled(current=>{const next=!current;try{localStorage.setItem('learn-reader:depth',next?'on':'off')}catch{ /* Rendering remains usable without storage. */ }return next})}
   const [readingBook]=useState(book)
   const [initialPage]=useState(book.libraryItem?.current_page || 1)
   const [eventId]=useState(()=>crypto.randomUUID())
@@ -59,22 +63,28 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
   }
 
   return (
-    <div className="br-shell">
+    <div className="br-shell br-studio" data-depth={depthEnabled?'on':'off'}>
       <ReaderTopBar
         title={book.title}
+        author={book.author}
+        depthEnabled={depthEnabled}
+        onToggleDepth={toggleDepth}
         savedAt={savedAt}
         onBack={closeAndPersist}
         onSave={saveReaderState}
         openUrl={source.openUrl}
       />
-      {library && <ReaderLibraryTools item={libraryItem} book={book} busy={historyBusy} error={historyError} onRetry={()=>{recorded.current=false;onDocumentReady()}} onUpdate={async(id,patch)=>setLibraryItem(await library.update(id,patch))}/>}
-      <ReaderPanelSwitch panel={panel} onChange={setPanel} />
+      <div className="br-workspace-bar">
+        {library && <ReaderLibraryTools item={libraryItem} book={book} busy={historyBusy} error={historyError} onRetry={()=>{recorded.current=false;onDocumentReady()}} onUpdate={async(id,patch)=>setLibraryItem(await library.update(id,patch))}/>}
+        <ReaderPanelSwitch panel={panel} onChange={setPanel} />
+      </div>
 
       <ReaderSplitPane
         panel={panel}
         book={<BookDocumentPane book={book} onReady={onDocumentReady} initialPage={initialPage} />}
         notes={(
           <>
+          <div className="br-notebook-heading"><div><NotebookPen size={17}/><h2>Sổ ghi chú</h2></div><span>{pages.length} trang</span></div>
           <NoteToolbar
             editorMode={editorMode}
             drawColor={drawColor}
@@ -139,6 +149,7 @@ export function BookReaderWorkspace({ book, sessionId, onClose, library }) {
           </>
         )}
       />
+      <footer className="br-workspace-footer"><span>Tài liệu & ghi chú cá nhân</span><span className="br-split-hint">Kéo thanh giữa để điều chỉnh · Nhấp đúp để cân lại</span></footer>
     </div>
   )
 }
