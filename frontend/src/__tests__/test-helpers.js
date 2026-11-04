@@ -7,7 +7,8 @@ let viteServer = null
 export async function getViteServer() {
   if (!viteServer) {
     viteServer = await createServer({
-      server: { middlewareMode: true },
+      // SSR tests do not need a browser HMR socket or a shared listening port.
+      server: { middlewareMode: true, ws: false },
       appType: 'custom',
     })
   }

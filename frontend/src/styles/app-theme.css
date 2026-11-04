@@ -1,0 +1,128 @@
+/* All workspaces share one palette, including tooltips portalled outside the shell. */
+:is(:root[data-theme], .app-shell, .theme-portal) {
+  color-scheme: dark;
+  --bg: #090c10;
+  --bg-deep: #06090c;
+  --surface: #10161e;
+  --surface-alt: #18212b;
+  --surface-sunken: #1d2833;
+  --surface-strong: #18212b;
+  --surface-hover: #18212b;
+  --ink: #edf2f7;
+  --ink-strong: #ffffff;
+  --ink-muted: #a1afbd;
+  --ink-subtle: #8898a8;
+  --line: #26333f;
+  --line-strong: #405264;
+  --line-subtle: #1a2530;
+  --accent: #53d3f0;
+  --accent-strong: #8ce4f7;
+  --accent-soft: #102c38;
+  --accent-ink: #06151d;
+  --pos: #32d58a;
+  --pos-strong: #68e8ac;
+  --pos-soft: #11332a;
+  --neg: #ff606b;
+  --neg-strong: #ff8d95;
+  --neg-soft: #361a24;
+  --warn: #e9c44e;
+  --warn-soft: #332e19;
+  --ceiling: #dc8cf0;
+  --floor: #53d3f0;
+  --mp-accent: var(--accent);
+  --mp-accent-strong: var(--accent-strong);
+  --mp-accent-soft: var(--accent-soft);
+  --mp-accent-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --gt-board-bg: var(--bg);
+  --gt-board-panel: var(--surface);
+  --gt-board-panel-hover: var(--surface-alt);
+  --gt-board-header: var(--surface-sunken);
+  --gt-board-line: var(--line);
+  --gt-board-line-soft: var(--line-subtle);
+  --gt-board-text: var(--ink);
+  --gt-board-muted: var(--ink-muted);
+  --gt-board-subtle: var(--ink-subtle);
+  --gt-board-cyan: var(--accent);
+  --gt-board-cyan-soft: var(--accent-soft);
+  --gt-board-cyan-border: var(--mp-accent-ring);
+  --gt-board-green: var(--pos);
+  --gt-board-green-area: var(--pos-soft);
+  --gt-board-red: var(--neg);
+  --gt-board-red-area: var(--neg-soft);
+  --gt-board-yellow: var(--warn);
+  --gt-board-line-hover: var(--line-strong);
+  --gt-board-font: "Inter", var(--font-sans);
+}
+:is(:root[data-theme], .app-shell, .theme-portal)[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f7fa;
+  --bg-deep: #e9eff5;
+  --surface: #ffffff;
+  --surface-alt: #edf3f8;
+  --surface-sunken: #e5edf4;
+  --surface-strong: #ffffff;
+  --surface-hover: #e5edf4;
+  --ink: #172a3a;
+  --ink-strong: #0a1b29;
+  --ink-muted: #526577;
+  --ink-subtle: #607487;
+  --line: #d4dee7;
+  --line-strong: #9badbd;
+  --line-subtle: #e3eaf0;
+  --accent: #006b89;
+  --accent-strong: #004f68;
+  --accent-soft: #ddf1f7;
+  --accent-ink: #ffffff;
+  --pos: #087a49;
+  --pos-strong: #05613a;
+  --pos-soft: #e2f3ea;
+  --neg: #c42b40;
+  --neg-strong: #a51c30;
+  --neg-soft: #fce8ec;
+  --warn: #876400;
+  --warn-soft: #fbf1cc;
+  --ceiling: #9b2cb0;
+  --floor: #007991;
+}
+/* Brand text follows the shared workspace palette. */
+.app-shell .northstar-logo__name { color: var(--ink); }
+.app-shell .northstar-logo__name > span { color: var(--accent); }
+.app-shell .northstar-logo__subtitle { color: var(--ink-muted); }
+
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  flex: 0 0 auto; min-height: 36px; min-width: 76px; padding: 7px 10px;
+  border: 1px solid var(--line-strong); border-radius: 7px;
+  background: var(--surface); color: var(--ink); font: 500 12px var(--font-sans);
+  cursor: pointer; box-shadow: none;
+}
+.theme-toggle:hover { background: var(--surface-alt); border-color: var(--accent); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .theme-toggle { min-height: 42px; min-width: 68px; }
+  .connected-nav__account { gap: 6px; }
+  .connected-nav__avatar { display: none; }
+}
+
+.app-shell {
+  --bg-surface: var(--surface); --bg-surface-2: var(--surface-alt);
+  --border-color: var(--line); --text-primary: var(--ink); --text-secondary: var(--ink-muted);
+  --text-muted: var(--ink-muted); --text-tertiary: var(--ink-subtle);
+}
+.app-shell[data-theme], .app-shell[data-theme]::before { background: var(--bg) !important; color: var(--ink); }
+.app-shell[data-theme] :is(.connected-nav-shell, .connected-nav) { background: var(--bg) !important; border-color: var(--line) !important; }
+.app-shell[data-theme] :is(.connected-nav__logout, .connected-nav__login--ghost) { color: var(--ink-muted) !important; background: var(--surface) !important; border-color: var(--line-strong) !important; }
+.app-shell[data-theme] .connected-nav__tab { color: var(--ink-muted) !important; }
+.app-shell[data-theme] :is(.connected-nav__tab--active, .connected-nav__tab:hover) { color: var(--ink) !important; }
+
+/* Utility-based studio and authentication surfaces use the same readable text roles. */
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell, .auth-page) :is(.text-white, .text-slate-100, .text-slate-200, .text-zinc-100, .text-zinc-200) { color: var(--ink); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell, .auth-page) :is(.text-slate-300, .text-slate-400, .text-slate-500, .text-zinc-300, .text-zinc-400, .text-zinc-500) { color: var(--ink-muted); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) :is(.text-cyan-300, .text-cyan-400, .text-sky-400) { color: var(--accent); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) :is(.text-emerald-400, .text-green-400) { color: var(--pos); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) .text-amber-400 { color: var(--warn); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) .text-rose-400 { color: var(--neg); }
+.auth-theme-tools { position: fixed; top: 14px; right: 18px; z-index: 100; }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) [class*="bg-slate-9"] { background-color: var(--surface-alt); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) [class*="bg-slate-8"] { background-color: var(--surface-sunken); }
+.app-shell :is(.quanta-simulation-lab, .qd-page-shell) [class*="border-slate-"] { border-color: var(--line-strong); }

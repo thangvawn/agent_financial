@@ -23,7 +23,7 @@
 }
 
 .pm-shell--lab {
-  color-scheme: light;
+  color-scheme: inherit;
 }
 
 .pm-shell--pro {
@@ -223,7 +223,7 @@
 /* ---- Module-specific bridges ---- */
 
 .app-shell--global-terminal {
-  background: #f3f7f6 !important;
+  background: var(--bg) !important;
 }
 
 .app-shell--news {
@@ -233,7 +233,7 @@
 .app-shell--pro-lab,
 .app-shell--backtest-studio,
 .app-shell--guided-investing {
-  background: #09090b !important;
+  background: var(--bg) !important;
 }
 
 .news-desk {

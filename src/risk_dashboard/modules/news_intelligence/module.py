@@ -1,5 +1,12 @@
+from fastapi import APIRouter
+
 from risk_dashboard.app.registry.module_definition import ModuleDefinition
 from risk_dashboard.modules.news_intelligence.api.public import router as public_router
+from risk_dashboard.modules.news_intelligence.api.social import router as social_router
+
+combined_router = APIRouter()
+combined_router.include_router(public_router)
+combined_router.include_router(social_router)
 
 module = ModuleDefinition(
     id="news_intelligence",
@@ -15,6 +22,6 @@ module = ModuleDefinition(
         "public:news:agent:read",
         "public:news:write",
     ),
-    public_router=public_router,
+    public_router=combined_router,
     public_mount_prefix="/api/v1/public",
 )

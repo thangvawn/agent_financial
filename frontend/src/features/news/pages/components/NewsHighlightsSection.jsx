@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { IMPORTANCE_LABELS, marketLabel, newsQuality } from '../newsLabels'
 import { formatNewsDate } from '../newsFinnhubCalendarUtils.js'
 
 const PERIODS = [
@@ -18,6 +20,9 @@ export default function NewsHighlightsSection({
   onRetry,
 }) {
   const status = buildStatus(payload, items.length)
+  const [expanded, setExpanded] = useState(false)
+  const visibleItems = expanded ? items : items.slice(0, 3)
+  const quality = newsQuality(payload)
 
   function handleTabKeyDown(event, index) {
     const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
@@ -37,11 +42,11 @@ export default function NewsHighlightsSection({
   }
 
   return (
-    <section className="news-highlights" aria-labelledby="news-highlights-title" aria-busy={loading}>
+    <section className={`news-highlights${expanded ? ' is-expanded' : ''}`} aria-labelledby="news-highlights-title" aria-busy={loading}>
       <div className="news-highlights__heading">
         <div>
-          <h2 id="news-highlights-title">Tin nổi bật</h2>
-          <p>Các sự kiện có mức ảnh hưởng cao nhất trong kỳ đã chọn.</p>
+          <h2 id="news-highlights-title">Tin nổi bật toàn cầu</h2>
+          <p>Tổng hợp độc lập với bộ lọc Dòng tin.</p>
         </div>
         <div className="news-highlights__tabs" role="tablist" aria-label="Kỳ tổng hợp tin nổi bật">
           {PERIODS.map((option, index) => (
@@ -65,6 +70,7 @@ export default function NewsHighlightsSection({
 
       <div className="news-highlights__status" aria-live="polite">
         <span>{status}</span>
+        {payload && quality.stale ? <span>Dữ liệu cũ / nguồn chưa đầy đủ</span> : null}
         {loading ? <span>Đang cập nhật…</span> : null}
       </div>
 
@@ -90,7 +96,7 @@ export default function NewsHighlightsSection({
 
         {items.length > 0 ? (
           <div className="news-highlights__list">
-            {items.map((item, index) => (
+            {visibleItems.map((item, index) => (
               <HighlightItem
                 key={item.article_id}
                 item={item}
@@ -102,6 +108,9 @@ export default function NewsHighlightsSection({
           </div>
         ) : null}
       </div>
+      {items.length > 1 && <button type="button" className="news-highlights__expand" aria-expanded={expanded} aria-controls="news-highlights-panel" onClick={() => setExpanded(value => !value)}>
+        {expanded ? 'Thu gọn tin nổi bật' : `Xem đủ ${items.length} tin nổi bật`}
+      </button>}
     </section>
   )
 }
@@ -113,12 +122,12 @@ function HighlightItem({ item, rank, active, onSelect }) {
       <button type="button" className="news-highlight__open" onClick={() => onSelect(item.article_id)}>
         <span className="news-highlight__meta">
           {item.source || 'Nguồn tổng hợp'} · {formatNewsDate(item.published_at)}
-          {item.importance_label ? ` · ${item.importance_label}` : ''}
+          {item.importance_label ? ` · ${IMPORTANCE_LABELS[item.importance_label] || item.importance_label}` : ''}
         </span>
         <strong>{item.headline || item.title || 'Không có tiêu đề'}</strong>
-        <span className="news-highlight__why">{item.why_it_matters || item.summary || 'Đang cập nhật phân tích tác động.'}</span>
+        <span className="news-highlight__why">{item.summary || 'Mở bài viết để xem bối cảnh.'}</span>
         {item.affected_markets?.length ? (
-          <span className="news-highlight__markets">{item.affected_markets.slice(0, 3).join(' · ')}</span>
+          <span className="news-highlight__markets">{item.affected_markets.slice(0, 3).map(marketLabel).join(' · ')}</span>
         ) : null}
       </button>
     </article>

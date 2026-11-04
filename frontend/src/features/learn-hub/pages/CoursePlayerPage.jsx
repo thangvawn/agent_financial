@@ -30,10 +30,10 @@ const PLAYER_TABS = [
   ['resources', 'Tài liệu'],
 ]
 
-export default function CoursePlayerPage({ courseId, course: initialCourse, sessionId, onBack }) {
+export default function CoursePlayerPage({ courseId, course: initialCourse, initialLessonId, sessionId, onBack }) {
   const course = initialCourse || findCourseById(courseId)
   const allLessons = course ? getAllLessons(course) : []
-  const [activeLessonId, setActiveLessonId] = useState(() => allLessons[0]?.lesson_id || '')
+  const [activeLessonId, setActiveLessonId] = useState(() => allLessons.find(lesson => lesson.lesson_id === initialLessonId)?.lesson_id || allLessons[0]?.lesson_id || '')
   const [completedSet, setCompletedSet] = useState(() => new Set(readProgress(sessionId)[courseId] || []))
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(true)

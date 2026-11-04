@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_VERSION = "1.0.0"
 
 ImportanceLabel = Literal["critical", "high", "medium", "low", "noise"]
-Sentiment = Literal["positive", "neutral", "negative"]
+Sentiment = Literal["positive", "neutral", "negative", "unknown"]
 Impact = Literal["high", "medium", "low"]
 ThreatLevel = Literal["normal", "watch", "elevated", "critical"]
 ClaimKind = Literal["fact", "source_claim", "hypothesis"]

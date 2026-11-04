@@ -11,15 +11,15 @@
 }
 
 .feed-indicator.real {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface));
+  color: var(--pos);
+  border: 1px solid color-mix(in srgb, var(--pos) 15%, var(--line));
 }
 
 .feed-indicator.fallback {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: color-mix(in srgb, var(--neg) 10%, var(--surface));
+  color: var(--neg);
+  border: 1px solid color-mix(in srgb, var(--neg) 15%, var(--line));
 }
 
 .feed-dot {

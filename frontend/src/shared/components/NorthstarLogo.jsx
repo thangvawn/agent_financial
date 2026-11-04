@@ -69,10 +69,10 @@ export default function NorthstarLogo({ size = 32, showText = true, className = 
     >
       {iconMarkup}
       <div className="flex flex-col text-left leading-none">
-        <span className="text-sm font-bold tracking-tight text-white flex items-center gap-1 font-sans">
+        <span className="northstar-logo__name text-sm font-bold tracking-tight text-white flex items-center gap-1 font-sans">
           Northstar <span className="text-teal-400 font-semibold">Finance</span>
         </span>
-        <span className="text-[8.5px] font-semibold uppercase tracking-[0.18em] text-zinc-400 mt-0.5">
+        <span className="northstar-logo__subtitle text-[8.5px] font-semibold uppercase tracking-[0.18em] text-zinc-400 mt-0.5">
           Intelligence Lab
         </span>
       </div>

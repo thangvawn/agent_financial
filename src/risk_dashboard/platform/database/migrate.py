@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from risk_dashboard.platform.database.social_schema import SOCIAL_SQL
+
 _PACKAGE = Path(__file__).resolve().parent
 _SCHEMA_DIR = _PACKAGE / "schema"
 
@@ -592,6 +594,16 @@ CREATE INDEX IF NOT EXISTS idx_financial_periods_time ON company_financial_perio
 """
 
 
+NEWS_FEED_SNAPSHOTS_SQL = """
+CREATE TABLE IF NOT EXISTS news_feed_snapshots (
+  snapshot_id TEXT PRIMARY KEY,
+  filter_key TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_news_feed_snapshots_expiry ON news_feed_snapshots(expires_at);
+"""
+
 MIGRATIONS: list[tuple[str, str]] = [
     ("001_baseline", ""),  # filled at runtime from baseline.sql
     ("002_ingest_runs", INGEST_RUNS_SQL),
@@ -612,6 +624,8 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("017_agentic_memory_retention", ""),
     ("018_learning_video_agent", ""),
     ("019_company_financials", COMPANY_FINANCIALS_SQL),
+    ("020_news_feed_snapshots", NEWS_FEED_SNAPSHOTS_SQL),
+    ("021_social_intelligence", SOCIAL_SQL),
 ]
 
 
@@ -677,6 +691,8 @@ def apply_migrations(conn) -> list[str]:
         ("017_agentic_memory_retention", ""),
         ("018_learning_video_agent", ""),
         ("019_company_financials", COMPANY_FINANCIALS_SQL),
+        ("020_news_feed_snapshots", NEWS_FEED_SNAPSHOTS_SQL),
+        ("021_social_intelligence", SOCIAL_SQL),
     ]
     for mid, sql in migrations:
         if mid in applied:

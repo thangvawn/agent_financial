@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-import uuid
 import math
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from risk_dashboard.modules.market_portfolio.application.fills import apply_fill, resolve_fill_price
 from risk_dashboard.modules.market_portfolio.application.pricing import (
-    quote_details_map,
     quote_last_price,
     quote_map,
 )
-from risk_dashboard.modules.market_portfolio.domain.entities import PaperOrder, STARTING_CASH
-from risk_dashboard.modules.market_portfolio.infrastructure.repository import MarketPortfolioRepository
+from risk_dashboard.modules.market_portfolio.application.watchlist_quotes import (
+    normalize_watchlist_symbol,
+    quote_details_map,
+)
+from risk_dashboard.modules.market_portfolio.domain.entities import STARTING_CASH, PaperOrder
+from risk_dashboard.modules.market_portfolio.infrastructure.repository import (
+    MarketPortfolioRepository,
+)
 
 
 def _now() -> str:
@@ -43,40 +48,28 @@ class MarketPortfolioService:
     def list_watchlist(self, session_id: str) -> list[dict[str, Any]]:
         items = self.repo.list_watchlist(session_id)
         quotes = quote_details_map([i.symbol for i in items])
-        return [
-            {
-                "item_id": i.item_id,
-                "symbol": i.symbol,
-                "label": i.label,
-                "name": quotes.get(i.symbol, {}).get("name") or i.label,
-                "exchange": quotes.get(i.symbol, {}).get("exchange"),
-                "price": quotes.get(i.symbol, {}).get("price"),
-                "change": quotes.get(i.symbol, {}).get("change"),
-                "change_pct": quotes.get(i.symbol, {}).get("change_pct"),
-                "market_cap": quotes.get(i.symbol, {}).get("market_cap"),
-                "volume": quotes.get(i.symbol, {}).get("volume"),
-                "created_at": i.created_at,
-            }
-            for i in items
-        ]
+        return [self._watchlist_item(i, quotes.get(i.symbol, {})) for i in items]
 
-    def add_watchlist(self, session_id: str, symbol: str, label: str = "") -> dict[str, Any]:
-        item = self.repo.add_watchlist(session_id, symbol, label)
-        quotes = quote_details_map([item.symbol])
-        q = quotes.get(item.symbol, {})
+    @staticmethod
+    def _watchlist_item(item, quote: dict) -> dict[str, Any]:
         return {
+            **quote,
             "item_id": item.item_id,
             "symbol": item.symbol,
             "label": item.label,
-            "name": q.get("name") or item.label,
-            "exchange": q.get("exchange"),
-            "price": q.get("price") if q.get("price") is not None else quote_last_price(item.symbol),
-            "change": q.get("change"),
-            "change_pct": q.get("change_pct"),
-            "market_cap": q.get("market_cap"),
-            "volume": q.get("volume"),
+            "name": quote.get("name") or item.label,
+            "price": quote.get("price"),
+            "quote_status": quote.get("quote_status", "unavailable"),
             "created_at": item.created_at,
         }
+
+    def add_watchlist(self, session_id: str, symbol: str, label: str = "") -> dict[str, Any]:
+        canonical = normalize_watchlist_symbol(symbol)
+        # Reuse a legacy alias already saved by this user instead of duplicating it.
+        existing = next((i for i in self.repo.list_watchlist(session_id)
+                         if normalize_watchlist_symbol(i.symbol) == canonical), None)
+        item = self.repo.add_watchlist(session_id, existing.symbol if existing else canonical, label)
+        return self._watchlist_item(item, quote_details_map([item.symbol]).get(item.symbol, {}))
 
     def remove_watchlist(self, session_id: str, symbol: str) -> dict[str, bool]:
         return {"removed": self.repo.remove_watchlist(session_id, symbol)}

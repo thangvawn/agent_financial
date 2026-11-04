@@ -1,9 +1,10 @@
+import { useTheme } from '../../../shared/theme/appTheme'
 import { useEffect, useRef, useState } from 'react'
 import { createChart, AreaSeries, CandlestickSeries, HistogramSeries, LineStyle, CrosshairMode, PriceScaleMode } from 'lightweight-charts'
 
 /**
  * React wrapper around TradingView Lightweight Charts.
- * Supports area/candle modes, dark/light auto from data-theme, wheel zoom,
+ * Supports area/candle modes, dark/light from the shared workspace theme, wheel zoom,
  * drag pan, double-click reset, crosshair tooltip — TradingView-style interactions.
  *
  * Data shape: points = [{date: ISO string, open?, high?, low?, close?, price?, volume?}, ...]
@@ -17,6 +18,8 @@ export default function LightweightChartPanel({
   resetTrigger = 0,
   ariaLabel = 'Biểu đồ giá theo thời gian',
   interval = '1d',
+  pricePrecision,
+  preserveRange = false,
 }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
@@ -26,12 +29,8 @@ export default function LightweightChartPanel({
   const pointsRef = useRef(points)
   const [legend, setLegend] = useState(null)
 
-  const isDark = (() => {
-    if (typeof document === 'undefined') return true
-    return document.documentElement.dataset.theme === 'dark'
-      || document.documentElement.closest('[data-theme="dark"]') != null
-      || document.querySelector('[data-theme="dark"]') != null
-  })()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   const isIntraday = (() => {
     const intrSet = new Set(['1m', '5m', '15m', '30m', '1h', '1H', '4h', '4H', '60m'])
@@ -64,7 +63,7 @@ export default function LightweightChartPanel({
       }
       const price = param.seriesData.get(seriesRef.current)
       const volume = volumeSeriesRef.current ? param.seriesData.get(volumeSeriesRef.current) : null
-      setLegend(normalizeLegend(price, volume, param.time))
+      setLegend({ ...normalizeLegend(price, volume, param.time), points: pointsRef.current })
     }
     chart.subscribeCrosshairMove(handleCrosshair)
 
@@ -72,7 +71,7 @@ export default function LightweightChartPanel({
       const entry = entries[0]
       if (!entry || !chart) return
       const { width } = entry.contentRect
-      chart.applyOptions({ width: Math.max(280, Math.floor(width)) })
+      chart.applyOptions({ width: Math.max(1, Math.floor(width)) })
     })
     ro.observe(containerRef.current)
 
@@ -86,12 +85,6 @@ export default function LightweightChartPanel({
     }
     // We intentionally create the chart ONCE — options updated separately.
   }, [])
-
-  // Apply theme + height + intraday scale changes without recreating the chart.
-  useEffect(() => {
-    if (!chartRef.current) return
-    chartRef.current.applyOptions(buildChartOptions({ isDark, height, isIntraday }))
-  }, [isDark, height, isIntraday])
 
   // (Re)create series whenever mode flips OR shape of data demands it.
   useEffect(() => {
@@ -112,7 +105,7 @@ export default function LightweightChartPanel({
     if (mode === 'candle') {
       seriesRef.current = chart.addSeries(CandlestickSeries, candleSeriesOptions())
     } else {
-      seriesRef.current = chart.addSeries(AreaSeries, areaSeriesOptions(isDark))
+      seriesRef.current = chart.addSeries(AreaSeries, areaSeriesOptions(true))
     }
     if (showVolume) {
       volumeSeriesRef.current = chart.addSeries(HistogramSeries, volumeSeriesOptions(), 1)
@@ -128,15 +121,34 @@ export default function LightweightChartPanel({
     pushData(seriesRef.current, pointsRef.current, mode)
     pushVolumeData(volumeSeriesRef.current, pointsRef.current)
     chart.timeScale().fitContent()
-  }, [mode, isDark, showVolume, scaleMode])
+  }, [mode, showVolume, scaleMode])
+
+  // Update theme in place: keep the current series, visible range and pan position.
+  useEffect(() => {
+    if (!chartRef.current) return
+    const options = buildChartOptions({ isDark, height, isIntraday })
+    // Initial spacing belongs to chart creation, not a theme change.
+    delete options.timeScale.barSpacing
+    delete options.timeScale.rightOffset
+    chartRef.current.applyOptions(options)
+    seriesRef.current?.applyOptions(mode === 'candle' ? candleSeriesOptions(isDark) : areaSeriesOptions(isDark))
+  }, [isDark, height, isIntraday, mode, showVolume, scaleMode])
+
+  useEffect(() => {
+    if (pricePrecision === undefined) return
+    seriesRef.current?.applyOptions({ priceFormat: { type: 'price', precision: pricePrecision, minMove: 10 ** -pricePrecision } })
+  }, [pricePrecision, mode, showVolume, scaleMode])
 
   // Push data updates when points change (mode unchanged).
   useEffect(() => {
     if (!seriesRef.current) return
+    const chart = chartRef.current
+    const range = preserveRange ? chart?.timeScale().getVisibleLogicalRange() : null
     pushData(seriesRef.current, points, modeRef.current)
     pushVolumeData(volumeSeriesRef.current, points)
-    if (chartRef.current) chartRef.current.timeScale().fitContent()
-  }, [points])
+    if (range) chart.timeScale().setVisibleLogicalRange(range)
+    else chart?.timeScale().fitContent()
+  }, [points, preserveRange])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -146,7 +158,7 @@ export default function LightweightChartPanel({
     if (showVolume) chart.priceScale('right', 1).applyOptions({ autoScale: true })
   }, [resetTrigger, showVolume])
 
-  const latest = legend || latestLegend(points)
+  const latest = legend?.points === points ? legend : latestLegend(points)
   return (
     <div className="gt-lwchart-shell">
       {latest ? <div className="gt-lwchart-legend" aria-live="polite">
@@ -199,7 +211,7 @@ function pushVolumeData(series, points) {
       ? 'rgba(34, 197, 94, 0.45)'
       : 'rgba(248, 113, 113, 0.45)',
   })).filter((d) => Number.isFinite(d.value) && d.value > 0 && d.time)
-  if (data.length) series.setData(dedupeByTime(data))
+  series.setData(dedupeByTime(data))
 }
 
 function dedupeByTime(arr) {
@@ -311,14 +323,15 @@ function areaSeriesOptions(isDark) {
   }
 }
 
-function candleSeriesOptions() {
+function candleSeriesOptions(isDark = true) {
+  const p = themePalette(isDark)
   return {
-    upColor: '#16a34a',
-    downColor: '#dc2626',
-    borderUpColor: '#16a34a',
-    borderDownColor: '#dc2626',
-    wickUpColor: '#16a34a',
-    wickDownColor: '#dc2626',
+    upColor: p.up,
+    downColor: p.down,
+    borderUpColor: p.up,
+    borderDownColor: p.down,
+    wickUpColor: p.up,
+    wickDownColor: p.down,
     borderVisible: true,
     priceLineVisible: true,
     priceLineColor: '#71717a',
@@ -340,23 +353,23 @@ function themePalette(isDark) {
   return isDark
     ? {
         bg: 'transparent',
-        text: '#a1a1aa',
-        textMuted: '#71717a',
-        line: '#27272a',
+        text: '#a1afbd', up: '#32d58a', down: '#ff606b',
+        textMuted: '#8898a8',
+        line: '#26333f',
         gridSubtle: 'rgba(63, 63, 70, 0.4)',
-        accent: '#3b82f6',
+        accent: '#53d3f0',
         crosshair: '#71717a',
         tooltipBg: '#27272a',
       }
     : {
         bg: 'transparent',
-        text: '#52525b',
-        textMuted: '#71717a',
-        line: '#e4e4e7',
+        text: '#526577', up: '#087a49', down: '#c42b40',
+        textMuted: '#607487',
+        line: '#d4dee7',
         gridSubtle: 'rgba(228, 228, 231, 0.6)',
-        accent: '#2563eb',
+        accent: '#006b89',
         crosshair: '#a1a1aa',
-        tooltipBg: '#f4f4f5',
+        tooltipBg: '#526577',
       }
 }
 

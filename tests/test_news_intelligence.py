@@ -317,6 +317,7 @@ def test_highlight_period_windows_use_vietnam_calendar_boundaries():
 class HighlightProducer:
     def fetch(self):
         now = datetime.now(timezone.utc)
+        elapsed_today = (now - resolve_period_window("day", now=now).start).total_seconds()
         categories = ("macro", "markets", "commodities", "crypto", "technology")
         articles = []
         for index in range(15):
@@ -328,8 +329,10 @@ class HighlightProducer:
             article.importance_score = 100 - index
             article.importance_label = "high"
             article.content_hash = f"unique-{index}"
-            article.published_at = (now - timedelta(minutes=index)).isoformat()
-            article.sort_ts = int((now - timedelta(minutes=index)).timestamp())
+            # Keep every fixture in today's VN calendar window, even just after midnight.
+            published = now - timedelta(seconds=min(index * 60, elapsed_today * index / 20))
+            article.published_at = published.isoformat()
+            article.sort_ts = int(published.timestamp())
             articles.append(article)
         return articles, {"source_count": 5, "successful_source_count": 5, "errors": []}
 

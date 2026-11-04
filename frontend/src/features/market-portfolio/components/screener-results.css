@@ -1,0 +1,25 @@
+.quant-screen { margin: 10px 0; padding: 12px 16px; border: 1px solid var(--gt-board-border, #283333); border-radius: 8px; background: var(--gt-panel, #10191b); color: var(--gt-board-text, #dbe5e4); font-size: 12px; }
+.quant-screen__summary, .quant-screen__context, .quant-screen__pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.quant-screen__summary strong { font-size: 13px; }
+.quant-screen__summary button { margin-left: auto; }
+.quant-screen__summary button, .quant-screen__pagination button { padding: 5px 12px; color: inherit; background: transparent; border: 1px solid #425b5b; border-radius: 5px; cursor: pointer; }
+.quant-screen button:disabled { opacity: .45; cursor: default; }
+.quant-screen button:focus-visible, .quant-screen summary:focus-visible, .quant-signal summary:focus-visible { outline: 2px solid #57d6c7; outline-offset: 3px; }
+.quant-screen__matches { color: #7cddc0; font-weight: 600; }
+.quant-screen__context { margin-top: 8px; color: #a0b0b1; }
+.quant-screen__method, .quant-screen__missing { margin-top: 9px; }
+.quant-screen summary, .quant-signal summary { cursor: pointer; }
+.quant-screen p { margin: 8px 0; line-height: 1.6; }
+.quant-screen ul { margin: 8px 0; padding-left: 20px; line-height: 1.8; }
+.quant-screen__pagination { margin-top: 10px; justify-content: flex-end; }
+.quant-screen__pagination > span:first-child { margin-right: auto; }
+.quant-signal { font-size: 12px; white-space: normal; min-width: 130px; }
+.quant-signal summary { color: #95dacc; font-variant-numeric: tabular-nums; }
+.quant-signal summary span { color: #9fadaf; margin-left: 5px; font-size: 11px; }
+.quant-signal__content { min-width: 230px; max-width: 330px; padding: 12px; margin-top: 8px; background: #142325; border: 1px solid #3e5a58; border-radius: 6px; text-align: left; }
+.quant-signal__content ul { list-style: none; padding: 0; margin: 8px 0; }
+.quant-signal__content li { padding: 6px 0; border-top: 1px solid #2b4141; line-height: 1.5; }
+.quant-signal__content small { display: block; color: #aebbbc; font-variant-numeric: tabular-nums; }
+.quant-signal__content .is-pass { color: #b9e5d2; }
+.quant-signal__content .is-missing { color: #e4c78d; }
+@media (max-width: 600px) { .quant-screen { padding: 10px; } .quant-screen__summary { gap: 8px; } .quant-screen__context { line-height: 1.6; } }

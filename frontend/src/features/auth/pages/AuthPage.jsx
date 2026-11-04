@@ -1,3 +1,4 @@
+import ThemeToggle from '../../../shared/theme/ThemeToggle'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -286,10 +287,11 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
   }
 
   return (
-    <section 
-      className="relative min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-[#050811] text-zinc-100 overflow-hidden font-sans dark" 
+    <>
+      <div className="auth-theme-tools"><ThemeToggle /></div>
+      <section
+      className="auth-page relative min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-[#050811] text-zinc-100 overflow-hidden font-sans"
       aria-label={isRegister ? 'Đăng ký tài khoản' : 'Đăng nhập tài khoản'}
-      data-theme="dark"
     >
       {/* Ambient Background Radial Glows */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
@@ -398,7 +400,7 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
 
         {/* Centered Form Container */}
         <AnimatePresence mode="wait">
-          <motion.div 
+          <motion.div
             key={mode}
             className="relative z-10 w-full max-w-md"
             initial={{ opacity: 0, x: isRegister ? 16 : -16 }}
@@ -407,9 +409,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
             {/* Back to Home Button */}
-            <motion.button 
-              type="button" 
-              onClick={onNavigateHome} 
+            <motion.button
+              type="button"
+              onClick={onNavigateHome}
               id="auth-back-btn"
               className="group mb-8 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-100 bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 rounded-xl transition-all duration-200 cursor-pointer backdrop-blur-md shadow-sm"
               whileHover={{ x: -2 }}
@@ -434,10 +436,10 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
 
             {/* Google SSO Container */}
             <div className="mb-6 flex justify-center w-full">
-              <div 
-                className="google-btn-container w-full h-[40px] rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-700 bg-white transition-colors shadow-sm" 
-                ref={googleButtonRef} 
-                aria-label="Đăng nhập bằng Google" 
+              <div
+                className="google-btn-container w-full h-[40px] rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-700 bg-white transition-colors shadow-sm"
+                ref={googleButtonRef}
+                aria-label="Đăng nhập bằng Google"
               />
             </div>
 
@@ -594,8 +596,8 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
             {/* Footer Options */}
             <div className="mt-6 flex flex-col items-center gap-3">
               {!isRegister ? (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   id="auth-forgot-btn"
                   className="text-xs text-zinc-500 hover:text-zinc-300 hover:underline transition-colors bg-transparent border-none shadow-none h-auto cursor-pointer"
                 >
@@ -604,9 +606,9 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
               ) : null}
               <p className="text-xs text-zinc-400">
                 {isRegister ? 'Đã có tài khoản? ' : 'Chưa có tài khoản? '}
-                <button 
-                  type="button" 
-                  onClick={handleSwitchMode} 
+                <button
+                  type="button"
+                  onClick={handleSwitchMode}
                   id="auth-toggle-mode-btn"
                   className="text-teal-400 hover:text-teal-300 font-semibold hover:underline bg-transparent border-none p-0 shadow-none h-auto ml-1 cursor-pointer"
                 >
@@ -618,6 +620,6 @@ export default function AuthPage({ mode = 'login', onAuthSuccess, onNavigateHome
         </AnimatePresence>
       </div>
     </section>
+    </>
   )
 }
-

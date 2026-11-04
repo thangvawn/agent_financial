@@ -12,6 +12,7 @@ export const DOMAIN_ROUTES = {
   '/simulation-lab': 'pro_lab',
   '/simulations': 'pro_lab',
   '/news': 'news',
+  '/news/social': 'news_social',
   '/news/economic-calendar': 'news_economic_calendar',
   '/news-desk': 'news',
   '/guided-investing': 'guided_investing',

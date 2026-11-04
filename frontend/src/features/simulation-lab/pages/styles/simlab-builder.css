@@ -1,8 +1,8 @@
 /* Visual Builder & Modal Detail Styles */
 
 .simlab-visual-builder {
-  background: #08111e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 1.25rem;
   display: flex;
@@ -14,7 +14,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #172437;
+  border-bottom: 1px solid var(--line);
   padding-bottom: 0.75rem;
 }
 
@@ -22,19 +22,19 @@
   font-size: 1rem;
   font-weight: 700;
   margin: 0;
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .builder-title p {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--ink-muted);
   margin: 0.25rem 0 0;
 }
 
 .sync-dsl-btn {
-  background: linear-gradient(135deg, #0284c7, #0369a1);
+  background: linear-gradient(135deg, var(--accent), var(--accent));
   border: none;
-  color: #ffffff;
+  color: var(--accent-ink);
   padding: 0.45rem 0.9rem;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -44,7 +44,7 @@
 }
 
 .sync-dsl-btn:hover {
-  background: linear-gradient(135deg, #0369a1, #075985);
+  background: linear-gradient(135deg, var(--accent), var(--accent));
 }
 
 .builder-blocks-grid {
@@ -54,8 +54,8 @@
 }
 
 .builder-card {
-  background: #050b14;
-  border: 1px solid #172437;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1rem;
   display: flex;
@@ -66,7 +66,7 @@
 .card-badge {
   font-size: 0.68rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -75,7 +75,7 @@
   font-size: 0.88rem;
   font-weight: 600;
   margin: 0;
-  color: #f1f5f9;
+  color: var(--ink);
 }
 
 .card-field {
@@ -83,7 +83,7 @@
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ink-muted);
 }
 
 .card-field input[type='range'] {
@@ -92,27 +92,27 @@
 }
 
 .rule-preview {
-  background: #081220;
-  border: 1px dashed #22344d;
+  background: var(--surface);
+  border: 1px dashed var(--line);
   padding: 0.5rem;
   border-radius: 6px;
   font-size: 0.72rem;
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .market-note-box {
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--pos) 12%, var(--line));
   border-radius: 6px;
   padding: 0.6rem;
   font-size: 0.72rem;
-  color: #a7f3d0;
+  color: var(--pos);
 }
 
 .market-note-box .note-title {
   font-weight: 700;
   margin-bottom: 0.2rem;
-  color: #34d399;
+  color: var(--pos);
 }
 
 /* Copilot Prompt Bar & Cards */
@@ -124,19 +124,19 @@
 
 .copilot-prompt-bar input {
   flex: 1;
-  background: #050b14;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  color: #f1f5f9;
+  color: var(--ink);
   font-size: 0.8rem;
   outline: none;
 }
 
 .analyze-btn {
-  background: #0284c7;
+  background: var(--accent);
   border: none;
-  color: #ffffff;
+  color: var(--accent-ink);
   padding: 0.5rem 0.9rem;
   border-radius: 6px;
   font-size: 0.8rem;
@@ -145,8 +145,8 @@
 }
 
 .copilot-analysis-result {
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(14, 165, 233, 0.25);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--line));
   border-radius: 8px;
   padding: 0.85rem;
   margin-bottom: 1rem;
@@ -154,21 +154,21 @@
 
 .copilot-analysis-result h4 {
   font-size: 0.82rem;
-  color: #38bdf8;
+  color: var(--accent);
   margin: 0 0 0.35rem;
 }
 
 .copilot-analysis-result p {
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: var(--ink);
   line-height: 1.4;
   margin: 0 0 0.6rem;
 }
 
 .apply-suggestion-btn {
-  background: #059669;
+  background: var(--pos);
   border: none;
-  color: #ffffff;
+  color: var(--accent-ink);
   padding: 0.35rem 0.7rem;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -186,8 +186,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #050b14;
-  border: 1px solid #172437;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.6rem 0.8rem;
   gap: 0.75rem;
@@ -195,20 +195,20 @@
 
 .copilot-preset-card h5 {
   font-size: 0.8rem;
-  color: #f1f5f9;
+  color: var(--ink);
   margin: 0;
 }
 
 .copilot-preset-card p {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--ink-muted);
   margin: 0.15rem 0 0;
 }
 
 .preset-apply-btn {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #38bdf8;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  color: var(--accent);
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
   font-size: 0.72rem;

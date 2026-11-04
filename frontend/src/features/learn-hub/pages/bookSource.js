@@ -1,61 +1,43 @@
-export function resolveBookSource(book = {}) {
-  const candidates = [
-    book.pdf_url,
-    book.download_url,
-    book.url,
-  ].filter((value) => typeof value === 'string' && value.trim())
-
-  const fileHint = `${book.file_name || ''} ${book.mime_type || ''} ${candidates.join(' ')}`.toLowerCase()
-  const primary = pickPrimaryUrl(candidates, fileHint)
-  const kind = detectKind(primary, fileHint)
-  const isRemote = /^https?:\/\//i.test(primary)
-  const isLocalAsset = primary.startsWith('/learning-assets/')
-  const needsProxy = isRemote && (kind === 'pdf' || kind === 'html' || kind === 'text')
-
-  return {
-    kind,
-    sourceUrl: primary,
-    viewUrl: needsProxy
-      ? `/api/v1/public/learning/reader/stream?url=${encodeURIComponent(primary)}`
-      : primary,
-    openUrl: primary,
-    isRemote,
-    isLocalAsset,
-  }
+const PROXY_HOSTS = ['archive.org','gutenberg.org','arxiv.org','openlibrary.org','wikipedia.org','wikimedia.org','cloudfront.net','gutenberg.net.au']
+export const isPrivateLibraryUrl = value => typeof value === 'string' && /^\/api\/v1\/public\/learning\/library\/items\/[a-f0-9]{32}\/file\.pdf$/.test(value)
+export function safeBookUrl(value) {
+  if (typeof value !== 'string' || !value.trim() || value.trim().startsWith('//')) return ''
+  try {
+    const raw=value.trim(), url=new URL(raw,'https://northstar.local')
+    if (url.username || url.password || !['http:','https:'].includes(url.protocol)) return ''
+    if (isPrivateLibraryUrl(raw)) return raw
+    if (raw.startsWith('/')) return url.pathname.startsWith('/learning-assets/books/') && !decodeURIComponent(url.pathname).includes('..') ? url.pathname+url.search : ''
+    return url.href
+  } catch {return ''}
 }
-
-function pickPrimaryUrl(candidates, fileHint) {
-  const pdf = candidates.find((url) => /\.pdf($|\?)/i.test(url) || /application\/pdf/i.test(fileHint))
-  if (pdf) return pdf
-  const html = candidates.find((url) => /\.(html?|htm)($|\?)/i.test(url) || /text\/html/i.test(fileHint))
-  if (html) return html
-  const text = candidates.find((url) => /\.txt($|\?)/i.test(url) || /text\/plain/i.test(fileHint))
-  if (text) return text
-  return candidates[0] || ''
-}
-
-function detectKind(url, fileHint) {
-  const blob = `${url} ${fileHint}`.toLowerCase()
-  if (/\.pdf($|\?)|application\/pdf/.test(blob)) return 'pdf'
-  if (/\.(html?|htm)($|\?)|text\/html/.test(blob)) return 'html'
-  if (/\.txt($|\?)|text\/plain/.test(blob)) return 'text'
-  if (/\.epub($|\?)/.test(blob)) return 'epub'
-  if (url.startsWith('/learning-assets/')) return 'pdf'
+function typeOfUrl(url) {
+  const parsed=new URL(url,'https://northstar.local')
+  const path=parsed.pathname.toLowerCase()
+  if (['arxiv.org','www.arxiv.org','export.arxiv.org'].includes(parsed.hostname) && path.startsWith('/pdf/')) return 'pdf'
+  if (/\.pdf$/.test(path)) return 'pdf'
+  if (/\.html?(?:$|\.)/.test(path)) return 'html'
+  if (/\.txt$/.test(path)) return 'text'
+  if (/\.epub(?:\d|\.|$)/.test(path)) return 'epub'
   return 'link'
 }
-
-export function toReadableBook(item) {
-  const sourceUrl = item.pdf_url || item.download_url || item.url || ''
-  const fileName = item.file_name
-    || sourceUrl.split('?')[0].split('/').pop()
-    || `${item.title || 'book'}.pdf`
-  return {
-    ...item,
-    asset_id: item.asset_id || item.book_id || sourceUrl,
-    title: item.title || fileName,
-    file_name: fileName,
-    url: sourceUrl,
-    download_url: item.download_url || '',
-    pdf_url: item.pdf_url || '',
-  }
+export function resolveBookSource(book = {}) {
+  const candidates=[book.pdf_url,book.download_url,book.url].map(safeBookUrl).filter(Boolean)
+  const primary=candidates.find(url=>['pdf','html','text'].includes(typeOfUrl(url))) || candidates[0] || ''
+  if (!primary) return {kind:'link',sourceUrl:'',viewUrl:'',openUrl:'',contentRole:'reference',isRemote:false,isLocalAsset:false}
+  const parsed=new URL(primary,'https://northstar.local')
+  const isPrivate=isPrivateLibraryUrl(primary)
+  const isLocalAsset=primary.startsWith('/learning-assets/books/')
+  const allowed=isPrivate || isLocalAsset || PROXY_HOSTS.some(host=>parsed.hostname===host || parsed.hostname.endsWith(`.${host}`))
+  const archiveMatch=['archive.org','www.archive.org'].includes(parsed.hostname) && parsed.pathname.match(/^\/(?:details|download|embed)\/([a-zA-Z0-9_.-]+)(?:\/|$)/)
+  const archiveId=archiveMatch ? archiveMatch[1] : null
+  const sourceUrl=archiveId ? `https://archive.org/details/${archiveId}` : primary
+  const kind=archiveId ? 'archive' : typeOfUrl(primary)
+  const contentRole=book.content_role || (/-notes\.(?:html?|txt|pdf)$/i.test(parsed.pathname) ? 'notes' : /sample-reader/.test(parsed.pathname) ? 'sample' : 'fulltext')
+  const viewUrl=allowed && ['pdf','html','text'].includes(kind) ? (isLocalAsset || isPrivate ? sourceUrl : `/api/v1/public/learning/reader/stream?url=${encodeURIComponent(sourceUrl)}`) : ''
+  return {kind,sourceUrl,archiveId,contentRole,viewUrl,openUrl:isPrivate?'':sourceUrl,isRemote:!isLocalAsset && !isPrivate,isLocalAsset,isPrivate,canCheck:allowed && ['archive','pdf','html','text'].includes(kind)}
+}
+export function toReadableBook(item = {}) {
+  const source=resolveBookSource(item)
+  return {...item,asset_id:item.asset_id || item.book_id || source.sourceUrl,title:item.title || 'Tài liệu',source,
+    isPdf:source.kind==='pdf',isHtml:source.kind==='html',isText:source.kind==='text'}
 }

@@ -4,6 +4,8 @@ Hệ thống phân tích rủi ro định lượng cho thị trường chứng k
 
 Tài liệu này giúp người mới **clone repo và chạy được** (Docker hoặc máy local).
 
+Tab **News → Social** và collector YouTube/Reddit tùy chọn: [cách chạy, phạm vi và giới hạn nguồn](docs/project/engineering/SOCIAL.md).
+
 ---
 
 ## Mục lục
@@ -72,6 +74,19 @@ docker compose logs -f app frontend
 ```
 
 Đợi log không còn lỗi import / uvicorn báo **Application startup complete** và service `frontend` bắt đầu watch build. Sau lần build đầu tiên, sửa UI trong `frontend/src` sẽ tự build lại `frontend/dist`; chỉ cần refresh `http://localhost:8000/`, không cần `docker compose build` hay `docker compose up` lại.
+
+Nếu build báo `ReadTimeoutError` khi tải gói từ `files.pythonhosted.org`, chạy lại
+`docker compose build app` để tận dụng cache. Dockerfile dùng pip 26.2.2, timeout
+120 giây, 10 lần thử kết nối và 10 lần tiếp tục tải dở. Mạng chậm hơn có thể tăng
+các giới hạn này khi build:
+
+```bash
+docker compose build --build-arg PIP_TIMEOUT=300 --build-arg PIP_RETRIES=15 --build-arg PIP_RESUME_RETRIES=15 app
+```
+
+Không cần xóa cache hoặc dùng `--no-cache` cho lỗi tải gói. Thông báo có bản pip
+mới không phải traceback gây dừng build. Xem [cấu hình timeout/retry của pip](https://pip.pypa.io/en/stable/cli/pip/)
+và [cơ chế tiếp tục tải từ pip 25.2](https://pip.pypa.io/en/stable/news/#v25-2).
 
 ### 3. Nạp dữ liệu panel (bắt buộc để dashboard không 503)
 
@@ -381,6 +396,7 @@ Chi tiết quy ước đặt file xem [docs/STRUCTURE.md](docs/STRUCTURE.md).
 | `OPENAI_API_KEY not set` | Điền vào `.env` nếu cần chat LLM |
 | `port 8000 already in use` | `lsof -i :8000` (macOS/Linux) rồi dừng process, hoặc đổi port uvicorn/Docker |
 | Docker không lên | Bật Docker Desktop; `docker compose logs app` |
+| Build lỗi `ReadTimeoutError` từ `files.pythonhosted.org` | Chạy lại `docker compose build app`; xem cấu hình timeout/retry ở phần Docker, giữ cache tải gói |
 | Frontend trắng | Với chỉ backend: cần `make build` hoặc image Docker đã build frontend |
 | `ModuleNotFoundError` | `pip install -e ".[dev,auto]"` trong đúng venv |
 | `vnstock` / VCI / mạng lỗi | API vẫn trả snapshot cache kèm `freshness=stale`; kiểm tra `stale_reason`, thử lại sau, hoặc dùng CSV + `risk-eod-ingest` |

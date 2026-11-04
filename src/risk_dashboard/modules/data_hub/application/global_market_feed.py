@@ -4,7 +4,10 @@ import contextlib
 import json
 import logging
 import os
+import tempfile
 import threading
+import time
+from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,6 +15,14 @@ from typing import Any
 
 import pandas as pd
 import requests
+
+from risk_dashboard.data.yahoo_client import download_yahoo
+from risk_dashboard.modules.data_hub.application.quote_quality import (
+    finite_number,
+    quote_health,
+    quote_summary,
+    timestamp,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,18 +145,28 @@ GLOBAL_MARKET_INSTRUMENTS: tuple[FeedInstrument, ...] = (
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> bool:
+    tmp_path = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
-        tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=path.name + ".tmp.", delete=False) as handle:
+            tmp_path = Path(handle.name)
+            json.dump(payload, handle, ensure_ascii=False)
         os.replace(tmp_path, path)
         return True
     except (PermissionError, OSError) as exc:
         logger.warning("Failed to write JSON cache to %s: %s", path, exc)
         return False
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 _MEM_HISTORY_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_HISTORY_GUARD = threading.Lock()
+_HISTORY_IN_FLIGHT: dict[str, Future] = {}
+_HISTORY_FORCED_AT: dict[str, float] = {}
+_FORCE_REFRESH_MIN_SECONDS = 5
 
 
 def _history_cache_ttl_seconds(interval: str) -> int:
@@ -187,16 +208,25 @@ class GlobalMarketFeedProducer:
         cached = self._load_cache()
         if not read_only and (force_refresh or not self._is_cache_fresh(cached)):
             live = self._fetch_yahoo_snapshot()
-            if live["items"]:
-                self._write_cache(live)
-                cached = live
+            if not live.get("items"):
+                live = {"items": []}  # keep the last successful fetch timestamp
+            cached = _merge_snapshot(cached, live)
+            self._write_cache(cached)
 
         items = cached.get("items", []) if isinstance(cached, dict) else []
         by_group = {"indices": [], "fx": [], "commodities": [], "crypto": []}
         for item in items:
             group = item.get("group")
             if group in by_group:
-                by_group[group].append(item)
+                by_group[group].append(quote_health(item, fallback_fetched_at=cached.get("as_of"),
+                                                   max_fetch_age=self.max_cache_age_seconds))
+
+        group_meta = {
+            group: quote_summary(
+                rows, expected=sum(i.group == group for i in GLOBAL_MARKET_INSTRUMENTS)
+            )
+            for group, rows in by_group.items()
+        }
 
         return {
             "as_of": cached.get("as_of") if isinstance(cached, dict) else None,
@@ -205,6 +235,7 @@ class GlobalMarketFeedProducer:
             "freshness": "fresh" if self._is_cache_fresh(cached) else "stale" if items else "degraded",
             "stale_reason": None if self._is_cache_fresh(cached) else "live_feed_unavailable_using_cache" if items else "live_feed_unavailable_no_cache",
             "groups": by_group,
+            "group_meta": group_meta,
         }
 
     def refresh_in_background(self) -> bool:
@@ -254,16 +285,11 @@ class GlobalMarketFeedProducer:
                 if not crypto_items:
                     return
                 cached = self._load_cache()
-                existing = cached.get("items", []) if isinstance(cached, dict) else []
-                merged = [item for item in existing if item.get("group") != "crypto"]
-                merged.extend(crypto_items)
-                self._write_cache({
-                    **(cached if isinstance(cached, dict) else {}),
-                    "as_of": _utc_now_iso(),
-                    "source": cached.get("source", "mixed") if isinstance(cached, dict) else "mixed",
-                    "data_interval": cached.get("data_interval", _SNAPSHOT_INTRADAY_INTERVAL) if isinstance(cached, dict) else _SNAPSHOT_INTRADAY_INTERVAL,
-                    "items": merged,
-                })
+                merged = _merge_snapshot(cached, {"as_of": _utc_now_iso(), "items": crypto_items},
+                                         refreshed_groups={"crypto"})
+                # A crypto refresh does not renew the age of the full snapshot.
+                merged["as_of"] = cached.get("as_of")
+                self._write_cache(merged)
             except Exception:
                 logger.exception("Crypto background refresh failed")
             finally:
@@ -273,7 +299,8 @@ class GlobalMarketFeedProducer:
         threading.Thread(target=worker, name="crypto-market-refresh", daemon=True).start()
         return True
 
-    def history(self, *, symbol: str, period: str = "6mo", interval: str = "1d") -> dict[str, Any]:
+    def history(self, *, symbol: str, period: str = "6mo", interval: str = "1d",
+                force_refresh: bool = False) -> dict[str, Any]:
         instrument = find_instrument(symbol)
         if instrument is None:
             return {
@@ -286,18 +313,69 @@ class GlobalMarketFeedProducer:
                 "as_of": _utc_now_iso(),
             }
 
+        interval = interval if interval in _SUPPORTED_HISTORY_INTERVALS else "1d"
+        period = _normalize_history_period(period, interval)
         ttl = _history_cache_ttl_seconds(interval)
         cached = self._load_history_cache(instrument.symbol, period, interval)
         fresh = self._is_history_fresh(cached, ttl)
-        if not fresh:
-            if instrument.data_source == "vnstock":
-                live = self._fetch_vnstock_history(instrument=instrument, period=period, interval=interval)
+        if fresh and not force_refresh:
+            return self._history_response(instrument, period, interval, cached, True, "cached")
+
+        key = self._history_key(instrument.symbol, period, interval)
+        with _HISTORY_GUARD:
+            pending = _HISTORY_IN_FLIGHT.get(key)
+            if pending is None:
+                elapsed = time.monotonic() - _HISTORY_FORCED_AT.get(key, -float("inf"))
+                if force_refresh and elapsed < _FORCE_REFRESH_MIN_SECONDS:
+                    return self._history_response(
+                        instrument, period, interval, cached, fresh, "throttled"
+                    )
+                pending = Future()
+                _HISTORY_IN_FLIGHT[key] = pending
+                owner = True
+                if force_refresh:
+                    _HISTORY_FORCED_AT[key] = time.monotonic()
+                    if len(_HISTORY_FORCED_AT) > 4096:
+                        _HISTORY_FORCED_AT.pop(next(iter(_HISTORY_FORCED_AT)))
             else:
-                live = self._fetch_yahoo_history(instrument=instrument, period=period, interval=interval)
-            if live["points"]:
-                self._write_history_cache(instrument.symbol, period, interval, live)
-                cached = live
-                fresh = True
+                owner = False
+        if not owner:
+            return pending.result()
+        try:
+            # Recheck after owning the work: another caller may just have completed.
+            cached = self._load_history_cache(instrument.symbol, period, interval)
+            fresh = self._is_history_fresh(cached, ttl)
+            if fresh and not force_refresh:
+                result = self._history_response(
+                    instrument, period, interval, cached, True, "cached"
+                )
+            else:
+                try:
+                    fetch = (
+                        self._fetch_vnstock_history
+                        if instrument.data_source == "vnstock"
+                        else self._fetch_yahoo_history
+                    )
+                    live = fetch(instrument=instrument, period=period, interval=interval)
+                except Exception:
+                    logger.exception("History provider failed for %s", instrument.symbol)
+                    live = {}
+                success = bool(live.get("points"))
+                if success:
+                    self._write_history_cache(instrument.symbol, period, interval, live)
+                    cached = live
+                result = self._history_response(instrument, period, interval, cached, success,
+                                                "updated" if success else "failed")
+            pending.set_result(result)
+            return result
+        except BaseException as exc:
+            pending.set_exception(exc)
+            raise
+        finally:
+            with _HISTORY_GUARD:
+                _HISTORY_IN_FLIGHT.pop(key, None)
+
+    def _history_response(self, instrument, period, interval, cached, fresh, refresh_status):
 
         points = cached.get("points", []) if isinstance(cached, dict) else []
         return {
@@ -313,6 +391,10 @@ class GlobalMarketFeedProducer:
             "as_of": cached.get("as_of") if isinstance(cached, dict) else _utc_now_iso(),
             "freshness": "fresh" if fresh else "stale" if points else "degraded",
             "stale_reason": None if fresh else "history_live_feed_unavailable_using_cache" if points else "history_live_feed_unavailable_no_cache",
+            "refresh_status": refresh_status,
+            "retry_after_seconds": (
+                _FORCE_REFRESH_MIN_SECONDS if refresh_status == "throttled" else 0
+            ),
         }
 
     def _fetch_yahoo_snapshot(self) -> dict[str, Any]:
@@ -321,14 +403,12 @@ class GlobalMarketFeedProducer:
         daily_frame = pd.DataFrame()
         intraday_frame = pd.DataFrame()
         try:
-            import yfinance as yf
-
             # Daily bars provide a stable previous close for the percentage
             # change. Intraday bars provide the latest tradable quote and
             # session high/low while the market is open. Yahoo may reject an
             # intraday request for a symbol or during an outage, so it is
             # deliberately independent from the daily fallback.
-            daily_frame = yf.download(
+            daily_frame = download_yahoo(
                 tickers=tickers,
                 period="5d",
                 interval="1d",
@@ -339,9 +419,7 @@ class GlobalMarketFeedProducer:
         except Exception:
             daily_frame = pd.DataFrame()
         try:
-            import yfinance as yf
-
-            intraday_frame = yf.download(
+            intraday_frame = download_yahoo(
                 tickers=tickers,
                 period="1d",
                 interval=_SNAPSHOT_INTRADAY_INTERVAL,
@@ -361,16 +439,23 @@ class GlobalMarketFeedProducer:
             if quote_series.empty:
                 continue
             has_intraday = has_intraday or not intraday_closes.empty
-            previous = _previous_close(daily_closes, quote_series)
+            exchange_timezone = _exchange_timezone(instrument)
+            previous = _previous_close(daily_closes, quote_series, exchange_timezone)
             current = quote_series.iloc[-1]
-            if not previous or pd.isna(previous) or pd.isna(current):
+            if finite_number(current) is None:
                 continue
-            change = float(current) - float(previous)
-            change_pct = (change / float(previous)) * 100 if float(previous) else 0.0
+            change = float(current) - previous if previous is not None else None
+            change_pct = change / abs(previous) * 100 if previous else None
             quote_frame = intraday_frame if not intraday_closes.empty else daily_frame
             highs = _extract_field_series(quote_frame, instrument.yahoo_symbol, "High") if not quote_frame.empty else pd.Series(dtype=float)
             lows = _extract_field_series(quote_frame, instrument.yahoo_symbol, "Low") if not quote_frame.empty else pd.Series(dtype=float)
             volumes = _extract_field_series(quote_frame, instrument.yahoo_symbol, "Volume") if not quote_frame.empty else pd.Series(dtype=float)
+            if not intraday_closes.empty:
+                highs = _same_exchange_day(highs, quote_series.index[-1], exchange_timezone)
+                lows = _same_exchange_day(lows, quote_series.index[-1], exchange_timezone)
+                volumes = _same_exchange_day(volumes, quote_series.index[-1], exchange_timezone)
+            else:
+                highs, lows, volumes = highs.tail(1), lows.tail(1), volumes.tail(1)
             items.append(
                 {
                     "symbol": instrument.symbol,
@@ -378,10 +463,16 @@ class GlobalMarketFeedProducer:
                     "yahoo_symbol": instrument.yahoo_symbol,
                     "group": instrument.group,
                     "price": round(float(current), 6),
-                    "change": round(change, 6),
-                    "change_pct": round(change_pct, 3),
-                    "high_24h": round(float(highs.iloc[-1]), 6) if not highs.empty else None,
-                    "low_24h": round(float(lows.iloc[-1]), 6) if not lows.empty else None,
+                    "change": round(change, 6) if change is not None else None,
+                    "change_pct": round(change_pct, 3) if change_pct is not None else None,
+                    "reference_price": previous,
+                    "reference_basis": (
+                        "previous_daily_close" if previous is not None else "unknown"
+                    ),
+                    "exchange_timezone": exchange_timezone,
+                    "statistics_window": "exchange_day",
+                    "high_24h": round(float(highs.max()), 6) if not highs.empty else None,
+                    "low_24h": round(float(lows.min()), 6) if not lows.empty else None,
                     # Intraday volume is the current session's accumulated
                     # volume. Daily fallback keeps the old last-bar value.
                     "volume_24h": round(float(volumes.sum() if not intraday_closes.empty else volumes.iloc[-1]), 4) if not volumes.empty else None,
@@ -391,6 +482,7 @@ class GlobalMarketFeedProducer:
                     "source": "yahoo_finance",
                     "data_interval": _SNAPSHOT_INTRADAY_INTERVAL if not intraday_closes.empty else "1d",
                     "updated_at": _series_updated_at(quote_series),
+                    "fetched_at": _utc_now_iso(),
                 }
             )
         items.extend(self._fetch_vnstock_snapshot_items())
@@ -517,9 +609,7 @@ class GlobalMarketFeedProducer:
         safe_period = _normalize_history_period(period, interval)
         safe_interval = _download_interval_for_history(interval)
         try:
-            import yfinance as yf
-
-            frame = yf.download(
+            frame = download_yahoo(
                 tickers=instrument.yahoo_symbol,
                 period=safe_period,
                 interval=safe_interval,
@@ -549,7 +639,7 @@ class GlobalMarketFeedProducer:
                     "high": round(float(row.get("high", price)), 6),
                     "low": round(float(row.get("low", price)), 6),
                     "close": round(price, 6),
-                    "volume": round(float(row.get("volume", 0.0)), 4),
+                    "volume": finite_number(row.get("volume")),
                     "change_pct": round(change_pct, 4),
                 }
             )
@@ -614,7 +704,7 @@ class GlobalMarketFeedProducer:
             return {}
 
     def _load_history_cache(self, symbol: str, period: str, interval: str) -> dict[str, Any]:
-        key = f"{symbol}_{period}_{interval}"
+        key = self._history_key(symbol, period, interval)
         ttl = _history_cache_ttl_seconds(interval)
         import time as _t
         now = _t.time()
@@ -623,7 +713,7 @@ class GlobalMarketFeedProducer:
             if now - ts <= ttl and payload:
                 return payload
 
-        path = self.cache_dir / "history" / f"{key}.json"
+        path = self._history_path(symbol, period, interval)
         if not path.exists():
             return {}
         try:
@@ -638,31 +728,79 @@ class GlobalMarketFeedProducer:
         _atomic_write_json(path, payload)
 
     def _write_history_cache(self, symbol: str, period: str, interval: str, payload: dict[str, Any]) -> None:
-        key = f"{symbol}_{period}_{interval}"
+        key = self._history_key(symbol, period, interval)
         import time as _t
         _MEM_HISTORY_CACHE[key] = (_t.time(), payload)
-        path = self.cache_dir / "history" / f"{key}.json"
+        if len(_MEM_HISTORY_CACHE) > 4096:
+            _MEM_HISTORY_CACHE.pop(next(iter(_MEM_HISTORY_CACHE)))
+        path = self._history_path(symbol, period, interval)
         _atomic_write_json(path, payload)
 
+    def _history_path(self, symbol, period, interval):
+        # Version invalidates potentially mixed histories produced before CP-02.
+        return self.cache_dir / "history" / f"v2_{symbol}_{period}_{interval}.json"
+
+    def _history_key(self, symbol, period, interval):
+        return str(self._history_path(symbol, period, interval).resolve())
+
     def _is_history_fresh(self, payload: dict[str, Any] | None, ttl_seconds: int) -> bool:
-        if not payload or not payload.get("as_of"):
-            return False
-        try:
-            as_of = datetime.fromisoformat(str(payload["as_of"]).replace("Z", "+00:00"))
-        except ValueError:
-            return False
-        return datetime.now(timezone.utc) - as_of <= timedelta(seconds=ttl_seconds)
+        as_of = timestamp((payload or {}).get("as_of"))
+        return bool(
+            as_of and 0 <= (datetime.now(timezone.utc) - as_of).total_seconds() <= ttl_seconds
+        )
 
 
 
     def _is_cache_fresh(self, payload: dict[str, Any] | None) -> bool:
-        if not payload or not payload.get("as_of"):
-            return False
-        try:
-            as_of = datetime.fromisoformat(str(payload["as_of"]).replace("Z", "+00:00"))
-        except ValueError:
-            return False
-        return datetime.now(timezone.utc) - as_of <= timedelta(seconds=self.max_cache_age_seconds)
+        return self._is_history_fresh(payload, self.max_cache_age_seconds)
+
+
+def _merge_snapshot(cached, live, refreshed_groups=None):
+    refreshed_groups = refreshed_groups or {"indices", "fx", "commodities", "crypto"}
+    previous = {
+        row["symbol"]: {**row, "fetched_at": row.get("fetched_at") or cached.get("as_of")}
+        for row in cached.get("items", []) if row.get("symbol")
+    }
+    received = set()
+    for row in live.get("items", []):
+        symbol = row.get("symbol")
+        if not symbol or finite_number(row.get("price")) is None:
+            continue
+        received.add(symbol)
+        previous[symbol] = {**row, "fetched_at": row.get("fetched_at") or live.get("as_of"),
+                            "refresh_failed": False}
+    for symbol, row in previous.items():
+        if symbol not in received and row.get("group") in refreshed_groups:
+            previous[symbol] = {**row, "refresh_failed": True}
+    return {**cached, **live, "items": list(previous.values())}
+
+
+def _exchange_timezone(instrument):
+    # Download warms Yahoo's timezone metadata cache. Do not guess a reference
+    # for markets whose metadata is unavailable.
+    try:
+        import yfinance as yf
+        value = yf.cache.get_tz_cache().lookup(instrument.yahoo_symbol)
+        if value:
+            return value
+    except Exception:
+        pass
+    # Yahoo commodity futures in this catalog use the New York daily date.
+    return "America/New_York" if instrument.group == "commodities" else None
+
+
+def _same_exchange_day(series, quote_at, exchange_timezone):
+    if series.empty or not exchange_timezone:
+        return pd.Series(dtype=float)
+    try:
+        target = pd.Timestamp(quote_at)
+        target = target.tz_convert(exchange_timezone) if target.tzinfo else target
+        dates = pd.DatetimeIndex(series.index)
+        if dates.tz is not None:
+            dates = dates.tz_convert(exchange_timezone)
+        return series[dates.date == target.date()]
+    except (TypeError, ValueError, KeyError):
+        return pd.Series(dtype=float)
 
 
 def _extract_close_series(frame: pd.DataFrame, yahoo_symbol: str) -> pd.Series:
@@ -685,24 +823,29 @@ def _extract_close_series(frame: pd.DataFrame, yahoo_symbol: str) -> pd.Series:
         return pd.Series(dtype=float)
 
 
-def _previous_close(daily_closes: pd.Series, quote_series: pd.Series):
+def _previous_close(daily_closes: pd.Series, quote_series: pd.Series, exchange_timezone=None):
     """Choose the prior session close for an intraday quote.
 
     Yahoo sometimes returns a daily bar for the current session and sometimes
     only the previous session (pre-market, after-hours, or a closed market).
-    Comparing dates prevents a two-session jump when the current daily bar is
-    absent, while retaining a sensible first-bar fallback for thin symbols.
+    Compare dates in the provider's exchange timezone. Missing reference data
+    stays unknown; an intraday bar must not be substituted for a daily close.
     """
-    if daily_closes.empty:
-        return quote_series.iloc[0]
+    if daily_closes.empty or quote_series.empty:
+        return None
     try:
-        daily_date = pd.Timestamp(daily_closes.index[-1]).date()
-        quote_date = pd.Timestamp(quote_series.index[-1]).date()
-        if daily_date >= quote_date and len(daily_closes) >= 2:
-            return daily_closes.iloc[-2]
-    except (TypeError, ValueError, IndexError):
-        pass
-    return daily_closes.iloc[-1]
+        latest = pd.Timestamp(quote_series.index[-1])
+        if latest.tzinfo is not None:
+            if not exchange_timezone:
+                return None
+            latest = latest.tz_convert(exchange_timezone)
+        daily_dates = pd.DatetimeIndex(daily_closes.index)
+        if daily_dates.tz is not None:
+            daily_dates = daily_dates.tz_convert(exchange_timezone or "UTC")
+        prior = daily_closes[daily_dates.date < latest.date()]
+        return finite_number(prior.iloc[-1]) if not prior.empty else None
+    except (TypeError, ValueError, IndexError, KeyError):
+        return None
 
 
 def _extract_field_series(frame: pd.DataFrame, yahoo_symbol: str, field: str) -> pd.Series:
@@ -722,8 +865,6 @@ def _extract_field_series(frame: pd.DataFrame, yahoo_symbol: str, field: str) ->
             return pd.Series(dtype=float)
         series = pd.to_numeric(series, errors="coerce")
         series.index = pd.to_datetime(series.index)
-        if hasattr(series.index, "tz") and series.index.tz is not None:
-            series.index = series.index.tz_localize(None)
         return series.dropna().sort_index()
     except Exception:
         return pd.Series(dtype=float)
@@ -884,7 +1025,7 @@ def _fetch_vnstock_dataframe(symbol: str, *, days: int, interval: str) -> pd.Dat
         return entrade_frame
 
     # 2. Secondary fallback: vnstock (if installed & within rate limit)
-    from datetime import date, timedelta
+    from datetime import date
 
     end = date.today()
     start = end - timedelta(days=max(days, 5))

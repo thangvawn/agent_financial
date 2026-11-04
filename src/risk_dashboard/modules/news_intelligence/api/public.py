@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from risk_dashboard.modules.news_intelligence.application.feed_pagination import NewsCursorError
 from risk_dashboard.modules.news_intelligence.application.finnhub_desk import (
     get_finnhub_desk_snapshot,
 )
@@ -33,20 +34,25 @@ def get_news_feed(
     sentiment: str | None = Query(default=None),
     impact_level: str | None = Query(default=None),
     importance: str | None = Query(default=None),
+    cursor: str | None = Query(default=None, max_length=128),
 ) -> dict:
-    return NewsIntelligenceService().get_feed(
-        category=category,
-        query=q,
-        limit=limit,
-        time_range_hours=time_range_hours,
-        region=region,
-        source_group=source_group,
-        preset=preset,
-        force=force,
-        sentiment=sentiment,
-        impact_level=impact_level,
-        importance=importance,
-    )
+    try:
+        return NewsIntelligenceService().get_feed(
+            category=category,
+            query=q,
+            limit=limit,
+            time_range_hours=time_range_hours,
+            region=region,
+            source_group=source_group,
+            preset=preset,
+            force=force,
+            sentiment=sentiment,
+            impact_level=impact_level,
+            importance=importance,
+            cursor=cursor,
+        )
+    except NewsCursorError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("/highlights")

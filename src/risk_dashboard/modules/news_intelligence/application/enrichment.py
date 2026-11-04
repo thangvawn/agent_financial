@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from datetime import datetime, timezone
 
 from risk_dashboard.modules.news_intelligence.domain.entities import NewsArticle
@@ -15,6 +16,8 @@ from risk_dashboard.modules.news_intelligence.domain.text import (
 from risk_dashboard.modules.news_intelligence.domain.time import parse_utc_datetime
 
 POSITIVE_WORDS = {
+    "tăng trưởng", "tăng mạnh", "tăng kỷ lục", "khởi sắc", "phục hồi",
+    "vượt kỳ vọng", "vượt kế hoạch", "bứt phá", "lãi kỷ lục",
     "gain",
     "gains",
     "rally",
@@ -28,6 +31,8 @@ POSITIVE_WORDS = {
     "eases",
 }
 NEGATIVE_WORDS = {
+    "giảm mạnh", "lao dốc", "sụt giảm", "thua lỗ", "phá sản", "vỡ nợ",
+    "suy thoái", "bán tháo", "khủng hoảng", "đình trệ", "thất thoát",
     "fall",
     "falls",
     "drop",
@@ -122,13 +127,35 @@ def _priority(text: str, source_tier: int) -> int:
 
 
 def _sentiment(text: str) -> str:
-    positive = count_keywords(text, POSITIVE_WORDS)
-    negative = count_keywords(text, NEGATIVE_WORDS)
-    if positive > negative + 1:
+    text = unicodedata.normalize("NFC", text).casefold()
+
+    def evidence(words: set[str]) -> int:
+        count = 0
+        for word in words:
+            for match in re.finditer(rf"(?<!\w){re.escape(word)}(?!\w)", text):
+                # Negated evidence is uncertain, not automatically opposite sentiment.
+                clause = re.split(r"[.!?;,\n]", text[:match.start()])[-1]
+                prefix = clause.split()[-3:]
+                # A direction in inflation, rates or costs is not an equity sentiment.
+                if word in {"tăng mạnh", "giảm mạnh"} and any(
+                    contains_keyword(clause, subject)
+                    for subject in ("lạm phát", "lãi suất", "chi phí", "nợ xấu", "giá dầu")
+                ):
+                    continue
+                if not {"không", "chưa", "chẳng", "not", "no", "without"}.intersection(prefix):
+                    count += 1
+                    break
+        return count
+
+    positive = evidence(POSITIVE_WORDS)
+    negative = evidence(NEGATIVE_WORDS)
+    if positive > negative:
         return "positive"
-    if negative > positive + 1:
+    if negative > positive:
         return "negative"
-    return "neutral"
+    if not positive and not negative and evidence({"ổn định", "không đổi", "unchanged", "stable"}):
+        return "neutral"
+    return "unknown"
 
 
 def _impact(priority: int, source_tier: int) -> str:
@@ -169,4 +196,4 @@ def _threat(text: str) -> tuple[str, str | None, float]:
 
 
 def _content_hash(headline: str, url: str) -> str:
-    return hashlib.sha256(f"{headline.strip().lower()}|{url}".encode("utf-8")).hexdigest()[:32]
+    return hashlib.sha256(f"{headline.strip().lower()}|{url}".encode()).hexdigest()[:32]

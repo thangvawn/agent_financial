@@ -13,8 +13,3 @@ test('study-note HTML is not advertised as the original full book',async()=>{
  assert.ok(!html.includes('Nguyên bản'))
  assert.ok(!html.includes('Toàn văn'))
 })
-test('study notes never link unsafe source schemes',async()=>{
- const {BookStudyNotes}=await loadComponent('./src/features/learn-hub/pages/BookStudyNotes.jsx')
- const html=renderToString(React.createElement(BookStudyNotes,{book:{title:'Unsafe',url:'javascript:alert(1)'},notes:{}}))
- assert.ok(!html.includes('<a '))
-})

@@ -39,7 +39,7 @@ export default function useNewsHighlights({ initialPeriod = 'day', limit = 8 } =
         force,
         signal: controller.signal,
       })
-      if (requestRef.current.sequence !== sequence) return null
+      if (controller.signal.aborted || requestRef.current.sequence !== sequence) return null
       const normalized = normalizePayload(response, targetPeriod)
       setPayloads((current) => ({ ...current, [targetPeriod]: normalized }))
       return normalized
@@ -54,7 +54,7 @@ export default function useNewsHighlights({ initialPeriod = 'day', limit = 8 } =
 
   useEffect(() => {
     load(period)
-    return () => requestRef.current.controller?.abort()
+    return () => { requestRef.current.controller?.abort(); requestRef.current.sequence += 1 }
   }, [load, period])
 
   const setPeriod = useCallback((nextPeriod) => {

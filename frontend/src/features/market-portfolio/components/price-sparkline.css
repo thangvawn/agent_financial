@@ -1,0 +1,32 @@
+/* Hallmark · component: financial sparkline · theme: existing terminal tokens
+ * Pre-emit critique: P5 H4 E4 S5 R5 V4. Static price paths, no decorative motion. */
+.price-sparkline {
+  --spark-color: var(--ink-muted);
+  display: block; position: relative; width: 100%; min-width: 0;
+  color: var(--spark-color); border-radius: var(--radius-sm); line-height: 1;
+}
+.price-sparkline.is-up { --spark-color: var(--pos); }
+.price-sparkline.is-down { --spark-color: var(--neg); }
+.price-sparkline.is-flat { --spark-color: var(--warn); }
+.price-sparkline svg { display: block; width: 100%; height: var(--spark-height); overflow: hidden; }
+.price-sparkline__line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.price-sparkline__reference { stroke: var(--ink-muted); stroke-width: .7; stroke-dasharray: 3 4; opacity: .4; }
+.price-sparkline__dot { fill: currentColor; }
+.price-sparkline__crosshair { stroke: currentColor; opacity: .4; stroke-width: .8; }
+.price-sparkline:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.price-sparkline:active { background: var(--surface-alt); }
+.price-sparkline__empty { display: flex; height: var(--spark-height); align-items: center; justify-content: center; color: var(--ink-muted); font: 10px var(--font-sans); }
+.price-sparkline[data-state="loading"] .price-sparkline__empty { opacity: .65; }
+.price-sparkline[data-state="error"] .price-sparkline__empty { text-decoration: underline dotted; text-underline-offset: 4px; }
+.price-sparkline__period { display: flex; justify-content: space-between; gap: 6px; font: 10px var(--font-sans); margin-top: 3px; }
+.price-sparkline__period > :first-child { color: var(--ink-muted); }
+.instrument-sparkline { display: block; width: 100%; min-width: 0; }
+.price-sparkline-tooltip {
+  position: fixed; z-index: 10000; pointer-events: none; width: 200px; box-sizing: border-box;
+  padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow-md); font: 11px var(--font-sans);
+}
+.price-sparkline-tooltip > span { display: flex; justify-content: space-between; color: var(--ink-muted); }
+.price-sparkline-tooltip strong { display: block; margin: 4px 0; font: 600 14px var(--font-mono); }
+.price-sparkline-tooltip small { color: var(--ink-muted); font-size: 10px; }
+@media (hover: hover) { .price-sparkline[tabindex]:hover { background: var(--surface-alt); cursor: crosshair; } }

@@ -7,6 +7,7 @@ const SURFACE_LABELS = {
   learning: 'Learn Hub',
   global_terminal: 'Market & Portfolio',
   news: 'News & Intelligence',
+  news_social: 'Social · Thảo luận thị trường',
   news_economic_calendar: 'Lịch kinh tế',
   guided_investing: 'BCTC Analysis',
   pro_lab: 'Simulation Lab',

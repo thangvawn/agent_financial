@@ -3,7 +3,7 @@
 .qd-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -13,8 +13,8 @@
 }
 
 .qd-modal-box {
-  background: #090e17;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 16px;
   width: 100%;
   max-width: 680px;
@@ -27,14 +27,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
 }
 
 .qd-modal-close {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ink-muted);
   cursor: pointer;
 }
 
@@ -53,17 +53,17 @@
   font-size: 0.72rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #38bdf8;
-  border: 1px solid rgba(6, 182, 212, 0.25);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--line));
   cursor: pointer;
 }
 
 .qd-editor-textarea {
   width: 100%;
-  background: #030712;
-  color: #67e8f9;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.85rem;
   resize: vertical;
@@ -78,15 +78,15 @@
 }
 
 .qd-verify-badge.is-ok {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface));
+  color: var(--pos);
+  border: 1px solid color-mix(in srgb, var(--pos) 18%, var(--line));
 }
 
 .qd-verify-badge.is-err {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: color-mix(in srgb, var(--neg) 10%, var(--surface));
+  color: var(--neg);
+  border: 1px solid color-mix(in srgb, var(--neg) 18%, var(--line));
 }
 
 .qd-modal-footer {
@@ -95,5 +95,5 @@
   justify-content: flex-end;
   gap: 0.65rem;
   padding: 0.75rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
 }

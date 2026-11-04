@@ -1,3 +1,4 @@
+import { resolveLearningTarget } from '../content/newsLessonLinks'
 import { useAccountId } from '../../../shared/auth/accountContext'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -43,7 +44,8 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   const [search, setSearch] = useState(initialSearch)
   const [difficulty, setDifficulty] = useState('all')
   const [sortBy, setSortBy] = useState('latest')
-  const [activeCourseId, setActiveCourseId] = useState(null)
+  const [deepLink, setDeepLink] = useState(() => resolveLearningTarget(window.location.search))
+  const [activeCourseId, setActiveCourseId] = useState(() => resolveLearningTarget(window.location.search)?.course.course_id || null)
   const [activeBook, setActiveBook] = useState(null)
   const [activeRunId, setActiveRunId] = useState(null)
   const [activeRunStatus, setActiveRunStatus] = useState(null)
@@ -120,7 +122,9 @@ export default function LearningHomePage({ sessionId, onBack, initialSubTab = 'c
   }
 
   if (activeCourseId) {
-    return <CoursePlayerPage courseId={activeCourseId} course={selectedCourse} sessionId={sessionId} onBack={() => setActiveCourseId(null)} />
+    return <CoursePlayerPage key={`${activeCourseId}:${deepLink?.lesson.lesson_id || ''}`} courseId={activeCourseId}
+      course={deepLink?.course || selectedCourse} initialLessonId={deepLink?.lesson.lesson_id} sessionId={sessionId}
+      onBack={() => { setActiveCourseId(null); setDeepLink(null); window.history.replaceState(window.history.state, '', window.location.pathname) }} />
   }
 
   if (activeSubTab === 'mock_exam') {

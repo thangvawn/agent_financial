@@ -1,3 +1,4 @@
+import ThemeToggle from '../../../shared/theme/ThemeToggle'
 import {ArrowLeft,BookOpen,Box,Check,Columns2,Eraser,ExternalLink,ImagePlus,NotebookPen,PenLine,Plus,Save,Type} from 'lucide-react'
 import ReaderDeskScene from './ReaderDeskScene'
 import {useEffect,useRef} from 'react'
@@ -17,6 +18,7 @@ export function ReaderTopBar({ title, author, savedAt, onBack, onSave, openUrl, 
         {author && <p className="br-top__author">{author}</p>}</div>
       </div>
       <div className="br-top__actions">
+        <ThemeToggle />
         <span className="br-top__saved" aria-live="polite">
           {savedAt && <Check size={13}/>} {savedAt ? `Đã lưu · ${new Date(savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : 'Ghi chú chưa lưu'}
         </span>

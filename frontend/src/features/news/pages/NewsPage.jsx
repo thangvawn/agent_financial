@@ -1,25 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CalendarDays, Flag, Globe, Newspaper, Sparkles } from 'lucide-react'
 import '../../market-portfolio/pages/market-portfolio-panels.css'
-
-import { fetchArticleDetail, fetchNewsFeed } from '../services'
-import FinancialLearningContext from '../../../shared/ui/FinancialLearningContext'
-import NewsHeader from './components/NewsHeader'
+import { fetchArticleDetail } from '../services'
 import NewsFilters from './components/NewsFilters'
 import NewsHighlightsSection from './components/NewsHighlightsSection'
 import NewsFeedList from './components/NewsFeedList'
 import NewsArticleReader from './components/NewsArticleReader'
+import NewsDataStatus from './components/NewsDataStatus'
 import useNewsHighlights from './hooks/useNewsHighlights'
+import useNewsFeed from './hooks/useNewsFeed'
+import useNewsAutoRefresh from './hooks/useNewsAutoRefresh'
 import './news.css'
+import './social.css'
+import NewsWorkspaceTabs from './components/NewsWorkspaceTabs'
 
-const NEWS_SUBTABS = [
-  { id: 'all', label: 'Tất cả tin tức', icon: Newspaper, lens: 'cross_impact' },
-  { id: 'vietnam', label: 'Thị trường VN', icon: Flag, lens: 'vietnam' },
-  { id: 'global', label: 'Vĩ mô Toàn cầu', icon: Globe, lens: 'global' },
-]
-
-const FEED_LIST_INITIAL = 12
-const FEED_LIST_STEP = 12
 const DEFAULT_MARKET_LENS = 'vietnam'
 const DEFAULT_TIME_RANGE_HOURS = 168
 const MARKET_LENS_FILTERS = {
@@ -28,12 +21,7 @@ const MARKET_LENS_FILTERS = {
   cross_impact: { preset: 'balanced', region: '', sourceGroup: '' },
 }
 
-export default function NewsPage() {
-  // Feed state
-  const [payload, setPayload] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
+export default function NewsPage({ onOpenSocial }) {
   // Filter state
   const [marketLens, setMarketLens] = useState(DEFAULT_MARKET_LENS)
   const [category, setCategory] = useState('all')
@@ -47,7 +35,8 @@ export default function NewsPage() {
   const [activeArticleId, setActiveArticleId] = useState('')
   const [articleDetail, setArticleDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [feedVisible, setFeedVisible] = useState(FEED_LIST_INITIAL)
+  const [detailError, setDetailError] = useState('')
+  const [detailAttempt, setDetailAttempt] = useState(0)
   const [mobileTab, setMobileTab] = useState('feed')
 
   const {
@@ -65,6 +54,14 @@ export default function NewsPage() {
   // Map preset / filters depending on lens selection
   const activeLensFilters = MARKET_LENS_FILTERS[marketLens] || MARKET_LENS_FILTERS.cross_impact
   const { preset, region, sourceGroup } = activeLensFilters
+  const filterScope = JSON.stringify([marketLens, category, query, timeRangeHours, sentiment, impactLevel, importance])
+  const [selectionScope, setSelectionScope] = useState(filterScope)
+  if (selectionScope !== filterScope) {
+    setSelectionScope(filterScope)
+    setActiveArticleId('')
+    setArticleDetail(null)
+  }
+
 
   // Sync mobile tab automatically on mobile widths
   const selectArticle = useCallback((id) => {
@@ -74,66 +71,42 @@ export default function NewsPage() {
     }
   }, [])
 
-  // Fetch news feed
+  const feed = useNewsFeed({ category: category === 'all' ? '' : category, q: query,
+    timeRangeHours, region, sourceGroup, preset, sentiment, impactLevel, importance })
+  const { payload, loading, error, refresh: refreshFeed, loadingMore, loadMore, retry } = feed
+  const refreshAll = useCallback(async (force = false) => {
+    await refreshFeed({ force, background: !force })
+    await refreshHighlights({ force: false })
+  }, [refreshFeed, refreshHighlights])
+  const autoRefresh = useCallback(() => refreshAll(false), [refreshAll])
+  useNewsAutoRefresh(autoRefresh)
+
   useEffect(() => {
-    let cancelled = false
-    const controller = new AbortController()
-    async function loadFeed() {
-      setLoading(true)
-      setError('')
-      try {
-        const data = await fetchNewsFeed({
-          category: category === 'all' ? '' : category,
-          q: query,
-          limit: 80,
-          timeRangeHours,
-          region,
-          sourceGroup,
-          preset,
-          sentiment: sentiment || undefined,
-          impactLevel: impactLevel || undefined,
-          importance: importance || undefined,
-          signal: controller.signal,
-        })
-        if (!cancelled) {
-          setPayload(data)
-          setActiveArticleId((current) => {
-            const hasCurrent = data.articles?.some((article) => article.article_id === current)
-            return hasCurrent ? current : data.articles?.[0]?.article_id || ''
-          })
-        }
-      } catch (err) {
-        if (!cancelled && err.name !== 'AbortError') setError(err.message)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    if (mobileTab === 'detail' && window.matchMedia('(max-width: 899px)').matches) {
+      document.getElementById('news-mobile-detail-panel')?.scrollIntoView({ block: 'start' })
     }
-    const delayTimer = setTimeout(loadFeed, 250)
-    return () => { cancelled = true; clearTimeout(delayTimer); controller.abort() }
-  }, [category, query, preset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
+  }, [mobileTab, activeArticleId])
 
   // Fetch article detail
   useEffect(() => {
-    if (!activeArticleId) { setArticleDetail(null); return }
+    if (!activeArticleId) { setArticleDetail(null); setDetailLoading(false); setDetailError(''); return }
     let cancelled = false
+    const controller = new AbortController()
     async function loadDetail() {
       setDetailLoading(true)
+      setDetailError('')
       try {
-        const data = await fetchArticleDetail(activeArticleId)
+        const data = await fetchArticleDetail(activeArticleId, { signal: controller.signal })
         if (!cancelled) setArticleDetail(data)
       } catch {
-        if (!cancelled) setArticleDetail(null)
+        if (!cancelled) { setArticleDetail(null); setDetailError('Không thể tải phân tích bài viết. Vui lòng thử lại.') }
       } finally {
         if (!cancelled) setDetailLoading(false)
       }
     }
     loadDetail()
-    return () => { cancelled = true }
-  }, [activeArticleId])
-
-  useEffect(() => {
-    setFeedVisible(FEED_LIST_INITIAL)
-  }, [category, query, preset, region, sourceGroup, timeRangeHours, sentiment, impactLevel, importance])
+    return () => { cancelled = true; controller.abort() }
+  }, [activeArticleId, detailAttempt])
 
   const handleResetFilters = () => {
     setMarketLens(DEFAULT_MARKET_LENS)
@@ -147,33 +120,37 @@ export default function NewsPage() {
 
   // Derived articles lists
   const articles = payload?.articles || []
-  const feedArticles = articles.slice(0, Math.min(feedVisible, articles.length))
   const matchingDetail = articleDetail?.article?.article_id === activeArticleId ? articleDetail : null
   const activeArticle = matchingDetail?.article
     || articles.find((article) => article.article_id === activeArticleId)
     || highlightItems.find((article) => article.article_id === activeArticleId)
     || (!activeArticleId ? articles[0] : null)
+  const effectiveArticleId = activeArticleId || articles[0]?.article_id
+  useEffect(() => {
+    if (!activeArticleId && effectiveArticleId) setActiveArticleId(effectiveArticleId)
+  }, [activeArticleId, effectiveArticleId])
 
   // Infinite scroll intersection observer
   useEffect(() => {
     const sentinel = feedSentinelRef.current
-    if (!sentinel || feedVisible >= articles.length) return
+    if (!sentinel || !payload?.has_more || loading || loadingMore || error) return
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
-        setFeedVisible((prev) => Math.min(prev + FEED_LIST_STEP, articles.length))
+        loadMore()
       }
-    }, { rootMargin: '100px 0px' })
+    }, { root: sentinel.closest('.news-feed__scroll'), rootMargin: '50px 0px' })
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [articles.length, feedVisible])
+  }, [payload?.has_more, articles.length, loading, loadingMore, loadMore, error])
 
   return (
     <section className="news-desk">
+      <NewsWorkspaceTabs active="news" onSocial={onOpenSocial} />
       <NewsFilters
         marketLens={marketLens}
-        onLensChange={setMarketLens}
+        onLensChange={value => { setMarketLens(value); setActiveArticleId('') }}
         query={query}
-        onQueryChange={setQuery}
+        onQueryChange={value => { setQuery(value); setActiveArticleId('') }}
         timeRangeHours={timeRangeHours}
         onTimeRangeHoursChange={setTimeRangeHours}
         sentiment={sentiment}
@@ -184,6 +161,8 @@ export default function NewsPage() {
         onImportanceChange={setImportance}
         onResetFilters={handleResetFilters}
       />
+
+      <NewsDataStatus payload={payload} loading={loading} error={error} pending={feed.pending} onRefresh={() => refreshAll(true)} />
 
       {/* Mobile Switch Tabs */}
       <div className="news-mobile-switch" role="group" aria-label="Chế độ xem tin tức">
@@ -230,16 +209,19 @@ export default function NewsPage() {
 
           <NewsFeedList
             articles={articles}
-            feedArticles={feedArticles}
+            feedArticles={articles}
+            total={payload?.total || 0}
+            loadingMore={loadingMore}
+            onRetry={retry}
             activeArticleId={activeArticleId}
             onSelectArticle={selectArticle}
             category={category}
-            onCategoryChange={setCategory}
+            onCategoryChange={value => { setCategory(value); setActiveArticleId('') }}
             loading={loading}
             error={error}
             feedSentinelRef={feedSentinelRef}
-            onLoadMore={() => setFeedVisible((v) => Math.min(v + FEED_LIST_STEP, articles.length))}
-            hasMore={feedArticles.length < articles.length}
+            onLoadMore={loadMore}
+            hasMore={Boolean(payload?.has_more)}
           />
         </div>
 
@@ -253,6 +235,8 @@ export default function NewsPage() {
             activeArticle={activeArticle}
             detail={matchingDetail}
             detailLoading={detailLoading}
+            error={detailError}
+            onRetry={() => setDetailAttempt(v => v + 1)}
             onSelectRelated={selectArticle}
           />
         </div>

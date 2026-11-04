@@ -13,6 +13,10 @@ from risk_dashboard.api.middleware import APIKeyMiddleware, RequestLoggingMiddle
 from risk_dashboard.app.bootstrap.lifecycle import on_startup
 from risk_dashboard.app.config.settings import get_settings
 from risk_dashboard.app.registry.registry import get_enabled_modules
+from risk_dashboard.modules.news_intelligence.application.social_worker import (
+    start_social_worker,
+    stop_social_worker,
+)
 from risk_dashboard.platform.feature_flags.service import FeatureFlagService
 
 load_dotenv()
@@ -82,6 +86,7 @@ def create_app() -> FastAPI:
         name="learning-assets",
     )
 
+    app.router.on_startup.append(on_startup)
     for module in get_enabled_modules(feature_flags):
         if module.public_router is not None:
             app.include_router(module.public_router, prefix=module.public_mount_prefix)
@@ -89,10 +94,12 @@ def create_app() -> FastAPI:
             app.include_router(module.pro_router, prefix=module.pro_mount_prefix)
         if module.admin_router is not None:
             app.include_router(module.admin_router, prefix=module.admin_mount_prefix)
+        if module.id == "news_intelligence":
+            app.router.on_startup.append(start_social_worker)
+            app.router.on_shutdown.append(stop_social_worker)
 
     from risk_dashboard.modules.auth.api.user_rights import router as user_rights_router
     app.include_router(user_rights_router, prefix="/api/me")
     app.include_router(user_rights_router, prefix="/api/v1/public/me")
 
-    app.router.on_startup.append(on_startup)
     return app

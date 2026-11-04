@@ -19,7 +19,7 @@
   color: var(--ink) !important;
   background: var(--bg) !important;
   font-family: var(--font-sans);
-  color-scheme: light dark;
+  color-scheme: inherit;
   box-shadow: none !important;
   border: 0 !important;
   animation: none !important;
@@ -579,7 +579,7 @@
   color: var(--ink) !important;
   background: var(--bg) !important;
   font-family: var(--font-sans);
-  color-scheme: dark;
+  color-scheme: inherit;
   box-shadow: none !important;
   border: 0 !important;
   animation: none !important;

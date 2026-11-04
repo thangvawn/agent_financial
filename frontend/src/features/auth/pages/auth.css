@@ -5,7 +5,7 @@
 
 .app-shell--auth-login,
 .app-shell--auth-register {
-  background: #060913 !important;
+  background: var(--bg) !important;
 }
 
 .app-shell--auth-login .connected-nav-shell,
@@ -39,3 +39,20 @@
   box-shadow: none;
   backdrop-filter: none;
 }
+
+/* Authentication is a full-screen surface but shares the application's theme. */
+.app-shell .auth-page { background: var(--bg); color: var(--ink); }
+.auth-page [class*="bg-zinc-"] { background-color: var(--surface); }
+.auth-page [class*="border-zinc-"] { border-color: var(--line); }
+.auth-page :is(.text-white, .text-zinc-100, .text-zinc-200) { color: var(--ink); }
+.auth-page :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600) { color: var(--ink-muted); }
+.auth-page :is(.text-teal-300, .text-teal-400, .text-emerald-400) { color: var(--accent); }
+.auth-page input::placeholder { color: var(--ink-subtle); }
+.auth-page button[type="submit"] { background: var(--accent); color: var(--accent-ink); }
+.app-shell[data-theme="light"] .auth-page [class*="from-[#050811]"] { background: color-mix(in srgb, var(--bg) 90%, transparent); }
+
+.auth-page [class*="bg-[#050811]"] { background-color: var(--bg); }
+.app-shell .auth-page { width: 100%; max-width: none; margin: 0; padding: 0; }
+.app-shell .surface-panel > .auth-page { max-width: none !important; width: 100%; margin: 0; }
+.app-shell .surface-panel > .auth-theme-tools { width: max-content !important; max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.app-shell .auth-page button[type="submit"], .app-shell .auth-page button[type="submit"] span { color: var(--accent-ink); }

@@ -1,3 +1,4 @@
+import { useTheme } from '../../../../shared/theme/appTheme';
 import React, { useEffect, useRef } from 'react';
 import {
   createChart,
@@ -10,16 +11,21 @@ import {
 } from 'lightweight-charts';
 import { calcEMA } from '../../utils/quantaBacktestSimulator';
 
+const EMPTY_POINTS = []
+
 export default function SimLabMultiChart({
-  bars = [],
-  ohlcData = [],
-  trades = [],
+  bars = EMPTY_POINTS,
+  ohlcData = EMPTY_POINTS,
+  trades = EMPTY_POINTS,
   fastPeriod = 21,
   slowPeriod = 55,
   marketSourceInfo = null,
 }) {
   const chartContainerRef = useRef(null);
   const oscContainerRef = useRef(null);
+  const { theme } = useTheme();
+  const chartsRef = useRef([]);
+  const seriesRef = useRef({});
   const data = bars && bars.length > 0 ? bars : ohlcData;
 
   useEffect(() => {
@@ -136,6 +142,7 @@ export default function SimLabMultiChart({
         };
       });
       histSeries.setData(histData);
+      seriesRef.current = { histogram: histSeries, histogramData: histData };
     }
 
     const handleResize = () => {
@@ -147,16 +154,25 @@ export default function SimLabMultiChart({
       }
     };
 
+    seriesRef.current = { ...seriesRef.current, candle: candleSeries, fast: fastSeries, slow: slowSeries };
+    chartsRef.current = [mainChart, oscChart].filter(Boolean);
+    applyAppearance(chartsRef.current, chartContainerRef.current, seriesRef.current);
     window.addEventListener('resize', handleResize);
     mainChart.timeScale().fitContent();
     if (oscChart) oscChart.timeScale().fitContent();
 
     return () => {
+      chartsRef.current = [];
+      seriesRef.current = {};
       window.removeEventListener('resize', handleResize);
       mainChart.remove();
       if (oscChart) oscChart.remove();
     };
   }, [data, trades, fastPeriod, slowPeriod]);
+
+  useEffect(() => {
+    if (chartContainerRef.current) applyAppearance(chartsRef.current, chartContainerRef.current, seriesRef.current);
+  }, [theme]);
 
   return (
     <div className="simlab-chart-wrapper">
@@ -189,4 +205,19 @@ export default function SimLabMultiChart({
       />
     </div>
   );
+}
+
+// Read shared CSS tokens; changing theme updates appearance without resetting chart time ranges.
+function applyAppearance(charts, element, series) {
+  const style = getComputedStyle(element);
+  const token = name => style.getPropertyValue(name).trim();
+  series.candle?.applyOptions({ upColor: token('--pos'), downColor: token('--neg'), wickUpColor: token('--pos'), wickDownColor: token('--neg') });
+  series.fast?.applyOptions({ color: token('--accent') });
+  series.slow?.applyOptions({ color: token('--warn') });
+  if (series.histogram) series.histogram.setData(series.histogramData.map(point => ({ ...point, color: token(point.value >= 0 ? '--pos' : '--neg') })));
+  for (const chart of charts) chart.applyOptions({
+    layout: { background: { type: ColorType.Solid, color: token('--surface') }, textColor: token('--ink-muted') },
+    grid: { vertLines: { color: token('--line-subtle') }, horzLines: { color: token('--line-subtle') } },
+    timeScale: { borderColor: token('--line') }, rightPriceScale: { borderColor: token('--line') },
+  });
 }

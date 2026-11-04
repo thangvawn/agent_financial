@@ -1,3 +1,4 @@
+import { resolveBookSource } from '../pages/bookSource.js'
 /**
  * Learn Hub catalog barrel: courses (YouTube) + books (Archive.org).
  */
@@ -153,28 +154,25 @@ export function normalizeDbCourse(row) {
 
 export function normalizeDbBook(row) {
   if (!row) return null
-  const sourceUrl = row.download_url || row.url || ''
+  const source = resolveBookSource(row)
   return {
-    book_id: row.book_id,
-    title: row.title,
+    ...row,
+    book_id: row.book_id || row.asset_id || source.sourceUrl,
+    title: row.title || 'Tài liệu',
     original_title: row.title,
-    author: row.author || 'Tác giả chuyên môn',
-    language: row.language || 'en',
+    author: row.author || 'Chưa có thông tin tác giả',
+    language: row.language || '',
     category: (row.topics && row.topics[0]) || 'finance',
-    pages: row.pages || (row.publication_year ? `Năm ${row.publication_year}` : 280),
-    read_time: row.read_time || '4 giờ',
-    rating: row.rating || 4.8,
+    pages: row.pages || null,
+    read_time: row.read_time || '',
+    rating: row.rating || null,
     cover_image: row.cover_url || row.cover_image || '',
     cover_color: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-    summary: row.description || row.summary || 'Tài liệu phân tích tài chính và đầu tư.',
-    url: row.url,
-    download_url: sourceUrl,
-    pdf_url: sourceUrl,
-    file_name: `${row.book_id || 'document'}.pdf`,
-    key_takeaways: [
-      row.description?.slice(0, 160) || 'Tài liệu kiến thức tài chính nền tảng.',
-      `Chủ đề: ${(row.topics || []).join(', ') || 'Tài chính & Đầu tư'}.`,
-      `Ngôn ngữ: ${row.language === 'vi' ? 'Tiếng Việt' : 'Tiếng Anh'} ${row.publication_year ? `• Xuất bản: ${row.publication_year}` : ''}.`,
-    ],
+    summary: row.description || row.summary || 'Chưa có mô tả từ nguồn.',
+    url: row.url || source.openUrl,
+    download_url: row.download_url || '',
+    pdf_url: source.kind === 'pdf' ? source.sourceUrl : '',
+    file_name: source.sourceUrl.split('/').pop() || '',
+    key_takeaways: row.key_takeaways || [row.description || row.summary].filter(Boolean),
   }
 }

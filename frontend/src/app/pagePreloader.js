@@ -9,6 +9,9 @@ export function prefetchView(view) {
   prefetchCache.add(view)
 
   switch (view) {
+    case 'news_social':
+      import('../features/news/pages/SocialPage.jsx')
+      break
     case 'global_terminal':
       import('../features/market-portfolio/pages/MarketPortfolioPage.jsx')
       break

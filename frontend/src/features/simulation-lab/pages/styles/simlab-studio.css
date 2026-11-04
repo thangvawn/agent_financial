@@ -4,8 +4,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #050b14;
-  color: #f1f5f9;
+  background-color: var(--surface);
+  color: var(--ink);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow-x: hidden;
 }
@@ -24,8 +24,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: #091220;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   gap: 1.5rem;
 }
@@ -44,7 +44,7 @@
 
 .branding-icon {
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  background: linear-gradient(135deg, var(--accent), var(--accent));
   padding: 0.4rem;
   border-radius: 8px;
   display: flex;
@@ -56,13 +56,13 @@
   font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
-  color: #ffffff;
+  color: var(--ink);
   letter-spacing: -0.02em;
 }
 
 .branding-sub {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--ink-muted);
   display: block;
 }
 
@@ -77,13 +77,13 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--ink-muted);
 }
 
 .simlab-select {
-  background: #0b1526;
-  border: 1px solid #1e293b;
-  color: #f1f5f9;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -93,14 +93,14 @@
 }
 
 .simlab-select:hover {
-  border-color: #06b6d4;
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
 
 /* Nav Pills */
 .mode-nav-pill {
   display: flex;
-  background: #060e1a;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 3px;
   gap: 2px;
@@ -109,7 +109,7 @@
 .mode-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--ink-muted);
   padding: 0.4rem 0.9rem;
   font-size: 0.8rem;
   font-weight: 500;
@@ -119,12 +119,12 @@
 }
 
 .mode-btn:hover {
-  color: #ffffff;
+  color: var(--ink);
 }
 
 .mode-btn.active {
-  background: #1e293b;
-  color: #38bdf8;
+  background: var(--surface-alt);
+  color: var(--accent);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
@@ -140,9 +140,9 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(14, 165, 233, 0.1);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+  color: var(--accent);
   padding: 0.45rem 0.85rem;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -152,17 +152,17 @@
 }
 
 .copilot-action-btn:hover {
-  background: rgba(14, 165, 233, 0.2);
-  border-color: #38bdf8;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
 
 .run-backtest-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #059669, #10b981);
+  background: linear-gradient(135deg, var(--pos), var(--pos));
   border: none;
-  color: #ffffff;
+  color: var(--accent-ink);
   padding: 0.5rem 1.1rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -183,7 +183,7 @@
 }
 
 .kbd-shortcut {
-  background: rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
   font-size: 0.72rem;
@@ -215,3 +215,21 @@
   flex-direction: column;
   gap: 1.25rem;
 }
+
+/* Studio dialogs share the workspace palette in both appearance modes. */
+.simlab-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1100; padding: 24px;
+  display: grid; place-items: center; overflow-y: auto;
+  background: rgb(0 0 0 / 55%);
+}
+.simlab-copilot-modal {
+  width: min(680px, 100%); max-height: calc(100dvh - 48px); overflow-y: auto;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--surface); color: var(--ink);
+}
+.simlab-copilot-modal .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.simlab-copilot-modal .modal-header h3 { margin: 0; font-size: 18px; }
+.simlab-copilot-modal .modal-body { padding: 18px 22px; font-size: 14px; line-height: 1.7; }
+.simlab-copilot-modal .modal-body p { margin: 0 0 14px; }
+.simlab-copilot-modal button { color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line-strong); padding: 8px 12px; border-radius: 6px; }
+.simlab-copilot-modal .apply-suggestion-btn { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }

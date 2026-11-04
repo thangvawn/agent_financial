@@ -54,7 +54,7 @@ export default function DerivativesPanel() {
       <div className="gt-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--line)', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--ink)' }}>BẢNG GIÁ PHÁI SINH</h2>
-          <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontWeight: '600' }}>VN30 FUTURES</span>
+          <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: '600' }}>VN30 FUTURES</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--ink-subtle)' }}>
           <span className={`gt-status-dot ${data?.freshness === 'stale' ? '' : 'is-live'}`} />
@@ -76,10 +76,10 @@ export default function DerivativesPanel() {
           {data?.errors?.length ? <div style={{ fontSize: '11px', marginTop: '8px', color: 'var(--neg)' }}>Nguồn hiện không kết nối được.</div> : null}
         </div>
       ) : (
-        <div className="gt-priceboard-container" style={{ overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="gt-priceboard-container" style={{ overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '12px', background: 'var(--surface)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--line-strong)', textAlign: 'right' }}>
+              <tr style={{ background: 'var(--surface-alt)', borderBottom: '1px solid var(--line-strong)', textAlign: 'right' }}>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--ink-subtle)', fontWeight: '600' }}>Mã HĐ</th>
                 <th style={{ padding: '12px 16px', fontSize: '11px', color: 'var(--ink-subtle)', fontWeight: '600' }}>Giá Khớp</th>
                 <th style={{ padding: '12px 16px', fontSize: '11px', color: 'var(--ink-subtle)', fontWeight: '600' }}>+/-</th>
@@ -99,7 +99,7 @@ export default function DerivativesPanel() {
                 const basisClass = row.basis == null ? '' : row.basis > 0 ? 'is-pos' : row.basis < 0 ? 'is-neg' : 'is-ref'
 
                 return (
-                  <tr key={row.symbol} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', textAlign: 'right' }} className="gt-priceboard-row">
+                  <tr key={row.symbol} style={{ borderBottom: '1px solid var(--line-subtle)', textAlign: 'right' }} className="gt-priceboard-row">
                     <td style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '13px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span className={changeClass}>{row.symbol}</span>

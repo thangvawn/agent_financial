@@ -2,7 +2,7 @@ async function expectJson(response) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     const message = payload?.detail || payload?.message || `Request failed: ${response.status}`
-    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+    throw Object.assign(new Error(typeof message === 'string' ? message : JSON.stringify(message)), { status: response.status })
   }
   return payload
 }
@@ -38,6 +38,7 @@ export async function fetchNewsFeed({
   sentiment = '',
   impactLevel = '',
   importance = '',
+  cursor,
   signal,
 } = {}) {
   const params = new URLSearchParams({
@@ -53,12 +54,13 @@ export async function fetchNewsFeed({
   if (sentiment) params.set('sentiment', sentiment)
   if (impactLevel) params.set('impact_level', impactLevel)
   if (importance) params.set('importance', importance)
+  if (cursor) params.set('cursor', cursor)
   const response = await fetch(`/api/v1/public/news/feed?${params}`, { signal })
   return expectJson(response)
 }
 
-export async function fetchArticleDetail(articleId) {
-  const response = await fetch(`/api/v1/public/news/articles/${encodeURIComponent(articleId)}`)
+export async function fetchArticleDetail(articleId, { signal } = {}) {
+  const response = await fetch(`/api/v1/public/news/articles/${encodeURIComponent(articleId)}`, { signal })
   return expectJson(response)
 }
 

@@ -1,8 +1,8 @@
 /* Quanta Code Editor & Dynamic Parameter Sliders */
 
 .simlab-editor-box {
-  background: #08111e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
   display: flex;
@@ -14,8 +14,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.6rem 0.85rem;
-  background: #0d1929;
-  border-bottom: 1px solid #1e293b;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--line);
 }
 
 .simlab-status-badge {
@@ -26,19 +26,19 @@
 }
 
 .simlab-status-badge.is-valid {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface));
+  color: var(--pos);
 }
 
 .simlab-status-badge.is-warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface));
+  color: var(--warn);
 }
 
 .simlab-preset-select {
-  background: #060e1a;
-  border: 1px solid #26354a;
-  color: #38bdf8;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
   font-size: 0.78rem;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -47,9 +47,9 @@
 }
 
 .simlab-btn-tool {
-  background: #0b1526;
-  border: 1px solid #1e293b;
-  color: #94a3b8;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
   padding: 0.25rem 0.45rem;
   border-radius: 4px;
   cursor: pointer;
@@ -59,15 +59,15 @@
 }
 
 .simlab-btn-tool:hover {
-  color: #f1f5f9;
-  border-color: #38bdf8;
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
 
 /* Editor Input & Vertical Line Numbers */
 .simlab-editor-workspace {
   display: flex;
   position: relative;
-  background: #050b14;
+  background: var(--surface);
   height: 340px;
   overflow: hidden;
 }
@@ -77,9 +77,9 @@
   flex-direction: column;
   width: 38px;
   padding: 0.75rem 0.35rem;
-  background: #070e1a;
-  border-right: 1px solid #172437;
-  color: #475569;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  color: var(--ink-muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
   line-height: 1.45rem;
@@ -93,7 +93,7 @@
   padding: 0.75rem 0.85rem;
   background: transparent;
   border: none;
-  color: #e2e8f0;
+  color: var(--ink);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
   line-height: 1.45rem;
@@ -110,14 +110,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.35rem 0.85rem;
-  background: #08111e;
-  border-top: 1px solid #142032;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--ink-muted);
 }
 
 .simlab-kbd {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-family: 'JetBrains Mono', monospace;
@@ -125,8 +125,8 @@
 
 /* Sliders Section */
 .quanta-param-sliders {
-  background: #08111e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.85rem 1rem;
 }
@@ -137,13 +137,13 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #172437;
+  border-bottom: 1px solid var(--line);
 }
 
 .sliders-title {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--accent);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -151,8 +151,8 @@
 
 .sliders-badge {
   font-size: 0.68rem;
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
 }
@@ -177,12 +177,12 @@
 }
 
 .slider-param-name {
-  color: #94a3b8;
+  color: var(--ink-muted);
   font-family: 'JetBrains Mono', monospace;
 }
 
 .slider-param-val {
-  color: #38bdf8;
+  color: var(--accent);
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
 }
@@ -202,6 +202,6 @@
 
 .slider-bound {
   font-size: 0.68rem;
-  color: #475569;
+  color: var(--ink-muted);
   font-family: 'JetBrains Mono', monospace;
 }

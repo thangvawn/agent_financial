@@ -256,8 +256,8 @@ def get_market_leaders() -> dict:
 
 
 @router.get("/market-data/instruments/{symbol}/history")
-def market_data_history(symbol: str, period: str = "6mo", interval: str = "1d") -> dict:
-    return DataHubService().get_instrument_history(symbol=symbol, period=period, interval=interval)
+def market_data_history(symbol: str, period: str = "6mo", interval: str = "1d", refresh: bool = False) -> dict:
+    return DataHubService().get_instrument_history(symbol=symbol, period=period, interval=interval, force_refresh=refresh)
 
 
 @router.get("/market-data/instruments/{symbol}/profile")
@@ -362,15 +362,21 @@ def _quote_age_seconds(value: object) -> float:
 
 
 @router.get("/market-data/commodities/snapshot")
-def get_commodities_snapshot() -> dict:
+def get_commodities_snapshot(refresh: bool = False) -> dict:
     from risk_dashboard.modules.market_portfolio.application.commodity_feed import sync_commodity_snapshot
     try:
-        return sync_commodity_snapshot()
+        return sync_commodity_snapshot(refresh=refresh)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Watchlist ────────────────────────────────────────────────────────────────
+
+
+@router.get("/watchlist/instruments")
+def get_watchlist_instruments(principal: AuthPrincipal = Depends(resolve_market_principal)) -> dict:
+    from risk_dashboard.modules.market_portfolio.application.watchlist_quotes import watchlist_instruments
+    return {"items": watchlist_instruments()}
 
 
 @router.get("/watchlist")
@@ -388,8 +394,8 @@ def add_watchlist_item(
     return _service.add_watchlist(account_id, req.symbol, req.label)
 
 
-@router.delete("/watchlist/{symbol}")
-@router.delete("/watchlist/items/{symbol}")
+@router.delete("/watchlist/{symbol:path}")
+@router.delete("/watchlist/items/{symbol:path}")
 def remove_watchlist_item(
     symbol: str,
     principal: AuthPrincipal = Depends(resolve_market_principal),

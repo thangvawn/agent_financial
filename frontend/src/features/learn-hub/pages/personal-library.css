@@ -62,5 +62,3 @@
   .pl-filters button { padding: .5rem .6rem; font-size: .8rem; }
   .pl-reading-tools { padding: .5rem; }
 }
-
-.br-shell .pl-reading-tools { --surface: var(--br-paper); --ink: var(--br-ink); --ink-muted: var(--br-muted); --line: var(--br-line); }

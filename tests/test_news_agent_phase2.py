@@ -154,9 +154,16 @@ def test_get_enrichment_tool(test_envelope: TrustedExecutionEnvelope):
     output = asyncio.run(get_enrichment(payload, test_envelope))
     assert output.schema_version == "1.0.0"
     assert output.article_id == "art_sbv_01"
-    assert output.sentiment in ("positive", "neutral", "negative")
+    assert output.sentiment in ("positive", "neutral", "negative", "unknown")
     assert output.impact in ("high", "medium", "low")
-    assert output.enrichment_method_version == "1.0.0"
+    assert output.enrichment_method_version == "keyword_rules_v2"
+
+
+def test_get_enrichment_keeps_unknown_distinct_from_neutral(test_envelope: TrustedExecutionEnvelope):
+    with open_app_state_db() as conn:
+        conn.execute("UPDATE news_articles SET sentiment='unknown' WHERE article_id='art_sbv_01'")
+    output = asyncio.run(get_enrichment(GetEnrichmentInput(article_id="art_sbv_01"), test_envelope))
+    assert output.sentiment == "unknown"
 
 
 def test_get_enrichment_not_found_raises(test_envelope: TrustedExecutionEnvelope):

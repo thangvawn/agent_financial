@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   TrendingUp,
+  LayoutDashboard,
   Star,
   Activity,
   Layers,
@@ -22,6 +23,7 @@ import CommoditiesPanel from './CommoditiesPanel'
 import './market-portfolio-panels.css'
 
 const TABS = [
+  { id: 'tong_quan', label: 'Tổng quan', icon: LayoutDashboard, group: 'main' },
   { id: 'co_phieu', label: 'Cổ phiếu', icon: TrendingUp, group: 'main' },
   { id: 'watchlist', label: 'Watchlist', icon: Star, group: 'main' },
   { id: 'chi_so', label: 'Chỉ số', icon: Activity, group: 'main' },
@@ -53,12 +55,12 @@ function handleTabKeyDown(event, tabs, currentId, onSelect) {
 }
 
 export default function MarketPortfolioPage({ sessionId, onOpenProLab, onOpenNews, onOpenLogin }) {
-  const [tab, setTab] = useState('co_phieu')
+  const [tab, setTab] = useState('tong_quan')
   const needsSession = ['watchlist', 'lenh_giay', 'danh_muc'].includes(tab)
   const sessionMissing = needsSession && !sessionId
 
-  const isTerminalTab = ['co_phieu', 'chi_so', 'ngoai_te'].includes(tab)
-  const terminalActiveTab = tab === 'chi_so' ? 'indices' : tab === 'ngoai_te' ? 'fx' : 'dashboard'
+  const isTerminalTab = ['tong_quan', 'co_phieu', 'chi_so', 'ngoai_te'].includes(tab)
+  const terminalActiveTab = tab === 'tong_quan' ? 'market_overview' : tab === 'chi_so' ? 'indices' : tab === 'ngoai_te' ? 'fx' : 'dashboard'
 
   const otherBody = useMemo(() => {
     if (sessionMissing) {
@@ -74,7 +76,7 @@ export default function MarketPortfolioPage({ sessionId, onOpenProLab, onOpenNew
         </section>
       )
     }
-    if (tab === 'watchlist') return <WatchlistPanel sessionId={sessionId} />
+    if (tab === 'watchlist') return <WatchlistPanel key={sessionId} sessionId={sessionId} />
     if (tab === 'lenh_giay') return <TradePanel key={sessionId} sessionId={sessionId} />
     if (tab === 'danh_muc') return <PortfolioPanel sessionId={sessionId} />
     if (tab === 'phai_sinh') return <DerivativesPanel />
@@ -86,7 +88,8 @@ export default function MarketPortfolioPage({ sessionId, onOpenProLab, onOpenNew
   const allTabs = TABS
 
   return (
-    <section className="mp-desk" aria-labelledby="mp-desk-title">
+    <section className="mp-desk" aria-label="Market & Portfolio">
+      <div className="mp-desk__toolbar">
       <div
         className="mp-desk__tabs"
         role="tablist"
@@ -135,6 +138,8 @@ export default function MarketPortfolioPage({ sessionId, onOpenProLab, onOpenNew
             </button>
           )
         })}
+      </div>
+
       </div>
 
       <div

@@ -10,9 +10,13 @@ async function expectJson(response) {
 
 const BASE = '/api/v1/market-portfolio'
 
-export async function fetchMpWatchlist(sessionId) {
-  const response = await authenticatedFetch(`${BASE}/watchlist`, {}, sessionId)
+export async function fetchMpWatchlist(sessionId, { signal } = {}) {
+  const response = await authenticatedFetch(`${BASE}/watchlist`, { signal }, sessionId)
   return expectJson(response)
+}
+
+export async function fetchMpWatchlistInstruments(sessionId, { signal } = {}) {
+  return expectJson(await authenticatedFetch(`${BASE}/watchlist/instruments`, { signal }, sessionId))
 }
 
 export async function addMpWatchlistItem(sessionId, symbol, label = '') {
@@ -99,8 +103,8 @@ export async function fetchMpCryptoSnapshot({ signal } = {}) {
   return expectJson(response)
 }
 
-export async function fetchMpCommoditiesSnapshot() {
-  const response = await fetch(`${BASE}/market-data/commodities/snapshot`)
+export async function fetchMpCommoditiesSnapshot({ signal, refresh = false } = {}) {
+  const response = await fetch(`${BASE}/market-data/commodities/snapshot${refresh ? '?refresh=true' : ''}`, { signal, cache: 'no-store' })
   return expectJson(response)
 }
 

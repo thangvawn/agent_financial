@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, ChevronRight, CircleDot, GripHorizontal, Maximize2, Minimize2, Star } from 'lucide-react'
+import { BarChart3, ChevronRight, GripHorizontal, Maximize2, Minimize2, Star } from 'lucide-react'
 
 import {
   fetchGlobalTerminal,
@@ -14,6 +14,9 @@ import LightweightChartPanel from './LightweightChartPanel'
 import TradingViewRealtimeWidget from './TradingViewRealtimeWidget'
 import { isTradingViewSupported } from './tradingViewUtils'
 import VnOrderBookWidget from './VnOrderBookWidget'
+import { IndexCardsBar } from '../components'
+import MarketOverviewTab from '../components/MarketOverviewTab'
+import { InstrumentSparkline } from '../components/PriceSparkline'
 import './global-terminal.css'
 
 const TAB_CATEGORY = {
@@ -27,6 +30,7 @@ const TAB_CATEGORY = {
 }
 
 const TAB_MAP = {
+  market_overview: { view: 'vn_stocks', default_symbol: 'VNINDEX' },
   dashboard: { view: 'vn_stocks', default_symbol: 'FPT' },
   indices: { view: 'indices', default_symbol: 'VNINDEX' },
   fx: { view: 'fx', default_symbol: 'DXY' },
@@ -178,7 +182,12 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
   const [vnSort, setVnSort] = useState('market_cap_desc')
   const [vnPageSize, setVnPageSize] = useState(50)
   const [vnExchange, setVnExchange] = useState('')
-  const [detailedMode, setDetailedMode] = useState(false)
+  const [studentSector, setStudentSector] = useState('')
+  const [vnNavigation, setVnNavigation] = useState({ selection: '', offset: 0 })
+  const vnSelection = JSON.stringify([vnSort, vnExchange, studentSector, vnPageSize])
+  const vnOffset = vnNavigation.selection === vnSelection ? vnNavigation.offset : 0
+  const vnQueryKey = JSON.stringify([vnSelection, vnOffset])
+  const [detailedMode] = useState(false)
   const [activeDetailSymbol, setActiveDetailSymbol] = useState(null)
   const [visibilityTick, setVisibilityTick] = useState(0)
   const [favoriteSymbols, setFavoriteSymbols] = useState(() => {
@@ -343,6 +352,8 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         const data = await fetchVnSnapshot({
           sort: vnSort,
           exchange: vnExchange,
+          industry: studentSector,
+          offset: vnOffset,
           limit: vnPageSize,
           refresh: refreshRequested,
           signal: controller.signal,
@@ -353,7 +364,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         if (Number.isFinite(serverInterval) && serverInterval > 0) {
           vnPollDelayRef.current = Math.max(MIN_POLL_MS, serverInterval * 1000)
         }
-        setVnSnapshot(data)
+        setVnSnapshot({ ...data, queryKey: vnQueryKey })
         return true
       } catch (err) {
         if (err.name === 'AbortError') return
@@ -390,7 +401,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
       controller.abort()
       if (timer) window.clearTimeout(timer)
     }
-  }, [activeView, vnSort, vnExchange, vnPageSize, refreshTick, visibilityTick])
+  }, [activeView, vnSort, vnExchange, studentSector, vnPageSize, vnOffset, vnQueryKey, refreshTick, visibilityTick])
 
   useEffect(() => {
     let cancelled = false
@@ -497,6 +508,17 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
     setCommand('')
   }
 
+  const isVnTab = activeView === 'vn_stocks'
+  const isMarketOverview = activeTab === 'market_overview'
+
+  const currentVnSnapshot = vnSnapshot?.queryKey === vnQueryKey ? vnSnapshot : null
+  const filteredVnItems = currentVnSnapshot?.items || []
+  const boardLoading = vnLoading || (!currentVnSnapshot && !vnError)
+  const boardError = vnError
+  const boardTotal = currentVnSnapshot?.total || 0
+  const vnPage = Math.floor(vnOffset / vnPageSize) + 1
+  const setVnOffset = offset => setVnNavigation({ selection: vnSelection, offset })
+
   function handleSelectRow(sym) {
     setSelectedSymbol(sym)
     const isIndex = ['VNINDEX', 'VN30', 'HNXINDEX', 'HNX30', 'UPCOM'].includes(sym)
@@ -540,7 +562,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
     const vnTabDef = DEFAULT_TABS.find((tab) => tab.id === 'vn_stocks')
     if (vnTabDef) tabs = [tabs[0], vnTabDef, ...tabs.slice(1)]
   }
-  const isVnTab = activeView === 'vn_stocks'
+
   const watchlist = isVnTab
     ? (vnSnapshot?.items || []).map((item) => ({
         symbol: item.symbol,
@@ -595,17 +617,7 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         />
       ) : null}
 
-      {activeView === 'dashboard' && !activeDetailSymbol ? (
-        <IndexCardsRow
-          indexItems={indexItems}
-          vnItems={vnSnapshot?.items || []}
-          marketSummary={vnSnapshot?.market_summary}
-          selectedSymbol={selectedSymbol}
-          onSelect={handleSelectRow}
-          statsActive={detailedMode}
-          onOpenStats={() => setDetailedMode((current) => !current)}
-        />
-      ) : null}
+
 
       {isVnTab ? (
         activeDetailSymbol ? (
@@ -622,8 +634,24 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
             isFullscreen={isTabFullscreen}
             onToggleFullscreen={toggleTabFullscreen}
           />
+        ) : isMarketOverview ? (
+          <MarketOverviewTab
+            indexItems={indexItems}
+            selectedSymbol={selectedSymbol}
+            onSelectSymbol={handleSelectRow}
+          />
         ) : (
           <div className="gt-full-workspace">
+            {/* 4 Card chỉ số thị trường VNINDEX, VN30, HNX30, UPCOM */}
+            <IndexCardsBar
+              indexItems={indexItems}
+              vnItems={vnSnapshot?.items || []}
+              marketSummary={vnSnapshot?.summary || {}}
+              selectedSymbol={selectedSymbol}
+              onSelect={handleSelectRow}
+            />
+
+            {/* Sắp xếp và lựa chọn phạm vi bảng giá */}
             <FilterChipsBar
               sort={vnSort}
               onSortChange={setVnSort}
@@ -631,28 +659,45 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
               onExchangeChange={setVnExchange}
               pageSize={vnPageSize}
               onPageSizeChange={setVnPageSize}
+              sectorOptions={vnSnapshot?.industry_options || []}
+              unclassifiedCount={vnSnapshot?.industry_coverage?.unclassified || 0}
+              selectedSector={studentSector}
+              onSelectSector={setStudentSector}
             />
-            {detailedMode ? (
-              <VnPriceBoard
-                items={vnSnapshot?.items || []}
-                selectedSymbol={selectedSymbol}
-                onSelect={handleSelectRow}
-                total={vnSnapshot?.total}
-                loading={vnLoading}
-                error={vnError}
-              />
-            ) : (
-              <VnOverviewTable
-                items={vnSnapshot?.items || []}
-                selectedSymbol={selectedSymbol}
-                onSelect={handleSelectRow}
-                total={vnSnapshot?.total}
-                loading={vnLoading}
-                error={vnError}
-                favoriteSymbols={favoriteSymbols}
-                onToggleFavorite={handleToggleFavorite}
-              />
-            )}
+
+            <div className="gt-board-status" role="status">
+              <span>{boardLoading ? 'Đang tải bảng giá…' : `Hiển thị ${filteredVnItems.length} / ${boardTotal} mã.`}</span>
+              {(vnPage > 1 || currentVnSnapshot?.next_offset != null) && (
+                <nav aria-label="Phân trang bảng giá">
+                  <button type="button" className="gt-chip" onClick={() => setVnOffset(Math.max(0, vnOffset - vnPageSize))} disabled={vnPage <= 1 || boardLoading}>Trước</button>
+                  <span>Trang {vnPage}</span>
+                  <button type="button" className="gt-chip" onClick={() => setVnOffset(currentVnSnapshot.next_offset)} disabled={currentVnSnapshot?.next_offset == null || boardLoading}>Tiếp</button>
+                </nav>
+              )}
+            </div>
+            <div style={{ marginTop: '10px' }}>
+              {detailedMode ? (
+                <VnPriceBoard
+                  items={filteredVnItems}
+                  selectedSymbol={selectedSymbol}
+                  onSelect={handleSelectRow}
+                  total={boardTotal}
+                  loading={boardLoading}
+                  error={boardError}
+                />
+              ) : (
+                <VnOverviewTable
+                  items={filteredVnItems}
+                  selectedSymbol={selectedSymbol}
+                  onSelect={handleSelectRow}
+                  total={boardTotal}
+                  loading={boardLoading}
+                  error={boardError}
+                  favoriteSymbols={favoriteSymbols}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              )}
+            </div>
           </div>
         )
       ) : activeView === 'indices' ? (
@@ -688,13 +733,13 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         </div>
       )}
 
-      <StatusBar
+      {!isMarketOverview && <StatusBar
         topics={payload?.topics || []}
         timestamp={effectiveTimestamp}
         source={effectiveSource}
         freshness={effectiveFreshness}
         ageSeconds={effectiveAgeSeconds}
-      />
+      />}
     </section>
   )
 }
@@ -748,29 +793,6 @@ function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit,
   )
 }
 
-function buildStockMiniChart(row) {
-  const ref = Number(row.ref_price || row.price || 1)
-  const close = Number(row.price || ref)
-  const low = Number(row.low || Math.min(ref, close))
-  const high = Number(row.high || Math.max(ref, close))
-  const spread = Math.max(high - low, Math.abs(close - ref) * 0.8, ref * 0.004)
-  const seed = [...String(row.symbol || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const pointCount = 18
-  const prices = Array.from({ length: pointCount }, (_, index) => {
-    const progress = index / (pointCount - 1)
-    if (index === 0) return ref
-    if (index === pointCount - 1) return close
-    const drift = ref + (close - ref) * progress
-    const wave = Math.sin(seed * 0.17 + index * 1.35) * spread * 0.18 * (1 - progress * 0.35)
-    return Math.min(high + spread * 0.12, Math.max(low - spread * 0.12, drift + wave))
-  })
-  const min = Math.min(...prices)
-  const max = Math.max(...prices)
-  const span = max - min || 1
-  const path = prices.map((value, index) => `${index ? 'L' : 'M'} ${((index / (prices.length - 1)) * 100).toFixed(1)} ${(28 - ((value - min) / span) * 24).toFixed(1)}`).join(' ')
-  return { path, positive: close > ref, negative: close < ref, isRef: close === ref }
-}
-
 /* ====================== Index Cards Row ====================== */
 function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onSelect, statsActive, onOpenStats }) {
   const indices = useMemo(() => {
@@ -816,11 +838,8 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
     <section className="gt-index-cards" aria-label="Tổng quan chỉ số Việt Nam">
       {indices.map((item) => {
         const changePct = Number(item.change_pct)
-        const change = Number(item.change)
         const hasQuote = Number.isFinite(Number(item.price))
         const positive = Number.isFinite(changePct) && changePct >= 0
-        const previous = hasQuote ? Number(item.price) - (Number.isFinite(change) ? change : 0) : 0
-        const chart = hasQuote ? buildIndexMiniPath(item.symbol, previous || Number(item.price), Number(item.price)) : null
         return (
           <button
             type="button"
@@ -849,11 +868,7 @@ function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onS
               </div>
             </div>
             <div className="gt-index-card__chart">
-              {chart ? (
-                <svg className={`gt-sparkline ${positive ? 'is-up' : 'is-down'}`} viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label={`Biểu đồ ${item.label}`}>
-                  <path d={chart.path} fill="none" vectorEffect="non-scaling-stroke" />
-                </svg>
-              ) : <span className="gt-index-card__chart-empty">Đang đồng bộ</span>}
+              <InstrumentSparkline symbol={item.symbol} width={120} height={38} interactive={false}/>
             </div>
           </button>
         )
@@ -932,11 +947,7 @@ const IndexMarketRow = memo(function IndexMarketRow({ item, index, selected, onS
   const change = Number(item.change_pct || 0)
   const positive = change > 0
   const negative = change < 0
-  const price = Number(item.price || 0)
-  const previous = price - Number(item.change || 0)
-  const chart = buildIndexMiniPath(item.symbol, previous || price, price)
   const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
-  const chartTone = positive ? 'is-up' : negative ? 'is-down' : 'is-ref'
   return (
     <tr className={selected ? 'is-selected' : ''} onClick={() => onSelect(item.symbol)}>
       <td className="num gt-indices-board__rank">{index}</td>
@@ -945,33 +956,25 @@ const IndexMarketRow = memo(function IndexMarketRow({ item, index, selected, onS
       <td className={`num ${toneClass}`}>{formatSigned(item.change)}</td>
       <td className={`num ${toneClass}`}>{formatChange(item.change_pct)}</td>
       <td className="gt-indices-board__chart">
-        <svg className={`gt-sparkline ${chartTone}`} viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label={`Biểu đồ ${item.symbol}`}>
-          <path d={chart.path} fill="none" vectorEffect="non-scaling-stroke" />
-        </svg>
+        <InstrumentSparkline symbol={item.symbol} width={120} height={36}/>
       </td>
     </tr>
   )
 })
 
-function buildIndexMiniPath(symbol, start, end) {
-  const seed = [...String(symbol || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const pointCount = 18
-  const range = Math.max(Math.abs(end - start) * 1.8, Math.abs(start) * 0.006, 1)
-  const values = Array.from({ length: pointCount }, (_, index) => {
-    const progress = index / (pointCount - 1)
-    if (index === 0) return start
-    if (index === pointCount - 1) return end
-    return start + (end - start) * progress + Math.sin(seed * 0.15 + index * 1.3) * range * 0.22 * (1 - progress * 0.3)
-  })
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const path = values.map((val, index) => `${index ? 'L' : 'M'} ${((index / (pointCount - 1)) * 100).toFixed(1)} ${(28 - ((val - min) / span) * 24).toFixed(1)}`).join(' ')
-  return { path, positive: end > start, negative: end < start, isRef: end === start }
-}
-
-/* ====================== Filter Chips Bar ====================== */
-function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, pageSize, onPageSizeChange }) {
+/* ====================== Filter Chips Bar (Hợp nhất toàn bộ bộ lọc & chế độ xem) ====================== */
+function FilterChipsBar({
+  sort,
+  onSortChange,
+  exchange,
+  onExchangeChange,
+  pageSize,
+  onPageSizeChange,
+  selectedSector = '',
+  sectorOptions = [],
+  unclassifiedCount = 0,
+  onSelectSector
+}) {
   const sortOptions = [
     { value: 'market_cap_desc', label: 'Vốn hóa' },
     { value: 'volume_desc', label: 'Thanh khoản' },
@@ -986,49 +989,72 @@ function FilterChipsBar({ sort, onSortChange, exchange, onExchangeChange, pageSi
     { value: 'HNX', label: 'Sàn HNX' },
     { value: 'UPCOM', label: 'Sàn UPCOM' },
   ]
+
   return (
     <div className="gt-filter-bar">
       <div className="gt-filter-bar__market-row">
-        <div className="gt-filter-bar__chips gt-filter-bar__sort" aria-label="Sắp xếp bảng giá">
-          {sortOptions.map((opt) => (
-            <button
-              type="button"
-              key={opt.value}
-              className={`gt-chip ${sort === opt.value ? 'is-active' : ''}`}
-              aria-pressed={sort === opt.value}
-              onClick={() => onSortChange(opt.value)}
+          <div className="gt-filter-bar__sort-sector">
+          <div className="gt-filter-bar__chips gt-filter-bar__sort" aria-label="Sắp xếp bảng giá">
+            {sortOptions.map((opt) => (
+              <button
+                type="button"
+                key={opt.value}
+                className={`gt-chip ${sort === opt.value ? 'is-active' : ''}`}
+                aria-pressed={sort === opt.value}
+                onClick={() => onSortChange?.(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="gt-filter-bar__sector">
+            <span>Ngành</span>
+            <select
+              value={selectedSector}
+              onChange={(e) => onSelectSector?.(e.target.value)}
+              className="gt-select-custom"
+              aria-label="Chọn nhóm ngành"
+              title={sectorOptions.find(sector => sector.code === selectedSector)?.name || 'Phân ngành ICB · Vietcap'}
             >
-              {opt.label}
-            </button>
-          ))}
+              <option value="">Tất cả ngành</option>
+              {sectorOptions.map((sec) => (
+                <option key={sec.code} value={sec.code}>{sec.name} ({sec.count})</option>
+              ))}
+              {unclassifiedCount > 0 && <option value="unclassified">Chưa phân ngành ({unclassifiedCount})</option>}
+            </select>
+
+          </label>
+          </div>
+
+          <div className="gt-filter-bar__chips gt-filter-bar__exchanges" aria-label="Lọc theo sàn">
+            {exchangeOptions.map((opt) => (
+              <button
+                type="button"
+                key={opt.value || 'all'}
+                className={`gt-chip ${exchange === opt.value ? 'is-active' : ''}`}
+                aria-pressed={exchange === opt.value}
+                onClick={() => onExchangeChange?.(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="gt-filter-bar__chips gt-filter-bar__page-size" aria-label="Số dòng">
+            {[20, 50, 100].map((size) => (
+              <button
+                type="button"
+                key={size}
+                className={`gt-chip gt-chip--compact ${pageSize === size ? 'is-active' : ''}`}
+                aria-pressed={pageSize === size}
+                onClick={() => onPageSizeChange?.(size)}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="gt-filter-bar__chips gt-filter-bar__exchanges" aria-label="Lọc theo sàn">
-          {exchangeOptions.map((opt) => (
-            <button
-              type="button"
-              key={opt.value || 'all'}
-              className={`gt-chip ${exchange === opt.value ? 'is-active' : ''}`}
-              aria-pressed={exchange === opt.value}
-              onClick={() => onExchangeChange(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <div className="gt-filter-bar__chips gt-filter-bar__page-size" aria-label="Số dòng">
-          {[20, 50, 100].map((size) => (
-            <button
-              type="button"
-              key={size}
-              className={`gt-chip gt-chip--compact ${pageSize === size ? 'is-active' : ''}`}
-              aria-pressed={pageSize === size}
-              onClick={() => onPageSizeChange(size)}
-            >
-              {size}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
@@ -1561,7 +1587,7 @@ function InstrumentChart({ history, loading, error, presetId, onPresetChange, on
               borderRadius: '6px',
               border: '1px solid var(--line)',
               background: isFullscreen ? 'var(--gt-accent)' : 'var(--surface-alt)',
-              color: isFullscreen ? '#000' : 'var(--ink)',
+              color: isFullscreen ? 'var(--accent-ink)' : 'var(--ink)',
               fontWeight: '600',
               fontSize: '11px',
               cursor: 'pointer',
@@ -2203,7 +2229,7 @@ function VnOverviewTable({ items, selectedSymbol, onSelect, total, loading, erro
                 <th scope="col">GT (tỷ)</th>
                 <th scope="col">Tổng KL</th>
                 <th scope="col">GT NN mua ròng (triệu)</th>
-                <th scope="col" className="gt-priceboard__chart-head">Biểu đồ</th>
+                <th scope="col" className="gt-priceboard__chart-head">Giá · 1 tháng</th>
               </tr>
             </thead>
             <tbody>
@@ -2230,14 +2256,12 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
   const meta = getStockMetadata(row.symbol, row.price, row)
   const cls = priceClass(row.price, row)
   const valBillion = ((Number(row.price || 0) * Number(row.volume || 0)) / 1e9).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-  const miniChart = buildStockMiniChart(row)
   const isCeiling = cls.includes('gt-px-ce') || cls.includes('is-ceiling')
   const isFloor = cls.includes('gt-px-fl') || cls.includes('is-floor')
   const chg = Number(row.change_pct ?? row.changePct ?? row.change ?? 0)
   const isUp = isCeiling || chg > 0 || (row.price != null && row.ref_price != null && row.price > row.ref_price)
   const isDown = isFloor || chg < 0 || (row.price != null && row.ref_price != null && row.price < row.ref_price)
   const toneClass = isCeiling ? 'gt-px-ce is-ceiling' : isFloor ? 'gt-px-fl is-floor' : isUp ? 'is-pos gt-px-up' : isDown ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
-  const chartTone = isCeiling ? 'is-ceiling' : isFloor ? 'is-floor' : isUp ? 'is-up' : isDown ? 'is-down' : 'is-ref'
   
   return (
     <tr
@@ -2256,7 +2280,6 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
         <div className="gt-overview-sym-layout">
           <div className="gt-overview-sym-col">
             <div className="gt-overview-sym-row">
-              <CircleDot className={`gt-overview-market-icon ${toneClass}`} size={15} aria-hidden="true" />
               <strong className={toneClass}>{row.symbol}</strong>
             </div>
             <small className="gt-overview-name">{meta.name}</small>
@@ -2291,9 +2314,7 @@ function VnOverviewRow({ idx, row, selected, onSelect, favorite, onToggleFavorit
         {meta.netBuy == null ? '—' : Number(meta.netBuy).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </td>
       <td className="gt-priceboard__chart-cell">
-        <svg className={`gt-sparkline ${chartTone}`} viewBox="0 0 100 32" preserveAspectRatio="none" aria-label={`Biểu đồ mini ${row.symbol}`} role="img">
-          <path d={miniChart.path} fill="none" vectorEffect="non-scaling-stroke" />
-        </svg>
+        <InstrumentSparkline symbol={row.symbol} width={120} height={36} unit="đ"/>
       </td>
     </tr>
   )

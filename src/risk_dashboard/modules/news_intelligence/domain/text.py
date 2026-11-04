@@ -34,8 +34,10 @@ def tokens(value: str) -> set[str]:
 def contains_keyword(value: str, keyword: str) -> bool:
     """Match a whole word or phrase, without substring false positives."""
 
-    text = normalize_text(value)
-    needle = normalize_text(keyword)
+    # Classification must preserve Vietnamese meaning: đầu != dầu, tăng != tang.
+    # Accent folding remains available to search/clustering through normalize_text.
+    text = unicodedata.normalize("NFC", value or "").casefold()
+    needle = unicodedata.normalize("NFC", keyword or "").casefold()
     if not needle:
         return False
     # Match the meaningful words while allowing punctuation in symbols such

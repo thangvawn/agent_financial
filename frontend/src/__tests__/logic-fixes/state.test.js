@@ -62,13 +62,12 @@ test('logout failures preserve credential for retry, expired session can be clea
   assert.equal(storage.getItem('public-beta.session_id'),null)
   await logoutSession({storage,fetchImpl:async()=>{throw new Error('must not call')}})
 })
-test('filters require actual matching data and preserve unknowns',()=>{
-  const items=[{symbol:'MATCH',price:200,ma20:190,ma50:180,ma200:170,dividend_yield_pct:9,consecutive_cash_dividend_years:3,
-    foreign_net_buy_streak:4,rsi:80,volume:300,volume_ma20:100,prior_high_20:195,high:204,low:190,ref_price:200,industry:'Ngân hàng'}]
-  for(const preset of ['breakout','strong_trend','money_inflow','high_dividend','regular_cash_div','foreign_favorite']) assert.equal(filterStocks(items,{preset}).items.length,1)
-  for(const technical of ['above_ma20','above_ma50','above_ma200','rsi_overbought','vol_2x_ma20','high_volatility']) assert.equal(filterStocks(items,{technical}).items.length,1)
+test('filters consume server decisions without recalculating financial thresholds',()=>{
+  const items=[{symbol:'MATCH',industry:'Ngân hàng',price:1,screening:{signals:{breakout:{status:'evaluated',matched:true},above_ma20:{status:'evaluated',matched:true},rsi_oversold:{status:'evaluated',matched:false}}}}]
+  assert.equal(filterStocks(items,{preset:'breakout',technical:'above_ma20'}).items.length,1)
   assert.equal(filterStocks(items,{technical:'rsi_oversold'}).items.length,0)
+  assert.equal(filterStocks(items,{preset:'high_dividend'}).unavailable,1)
   assert.equal(filterStocks(items,{sector:'Dầu khí'}).items.length,0)
   assert.equal(filterStocks(items,{sector:'Ngân hàng'}).items.length,1)
-  assert.equal(filterStocks([{price:100,ma20:null}],{technical:'above_ma20'}).unavailable,1)
+  assert.equal(filterStocks([{price:100,ma20:1}],{technical:'above_ma20'}).unavailable,1)
 })

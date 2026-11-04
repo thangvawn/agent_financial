@@ -98,7 +98,7 @@ export async function checkBookSource(book,{signal,force=false,fetchImpl=fetch}=
     }
   } catch(error) {
     if(signal?.aborted)throw error
-    result={status:'unavailable',message:'Chưa kết nối được nguồn. Bạn vẫn có thể xem tóm lược và ghi chú.'}
+    result={status:'unavailable',message:'Chưa kết nối được nguồn. Bạn vẫn có thể sử dụng sổ ghi chú.'}
   }
   result={...source,...result,openUrl:source.openUrl,checked_at:result.checked_at || new Date().toISOString()}
   if(!source.isPrivate)cache.set(key,{result,expires:Date.now()+(result.status==='ready'?300000:60000)})
@@ -129,7 +129,7 @@ export async function loadBookDocument(source,{signal,fetchImpl=fetch}={}) {
     }
   } finally {await reader.cancel()}
   const blob=new Blob(parts,{type:source.kind==='pdf'?'application/pdf':source.kind==='html'?'text/html':'text/plain'})
-  if(!validateBookPrefix(new Uint8Array(await blob.slice(0,4096).arrayBuffer()),source.kind,response.headers.get('content-type') || ''))throw new Error('Nguồn chưa trả về đúng nội dung tài liệu. Hãy thử lại hoặc xem tóm lược.')
+  if(!validateBookPrefix(new Uint8Array(await blob.slice(0,4096).arrayBuffer()),source.kind,response.headers.get('content-type') || ''))throw new Error('Nguồn chưa trả về đúng nội dung tài liệu. Hãy thử lại hoặc mở tài liệu tại nguồn.')
   if(source.kind==='pdf') {
     if(!(await blob.slice(-2048).text()).includes('%%EOF'))throw new Error('File PDF tải về chưa đầy đủ hoặc bị hỏng. Vui lòng thử lại.')
     return {blob}

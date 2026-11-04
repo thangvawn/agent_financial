@@ -27,6 +27,8 @@ learning_library_files/
 !data/db/.gitkeep
 !data/db/README.md
 data/cache/
+data/vn_screener/
+data/vn_market/industries.json
 data/global_market_prices/*.json
 data/global_market_prices/history/*.json
 data/financials/cache/*.json

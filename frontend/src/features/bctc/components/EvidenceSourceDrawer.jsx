@@ -49,7 +49,7 @@ export default function EvidenceSourceDrawer({
         top: 0,
         bottom: 0,
         width: "420px",
-        backgroundColor: "#ffffff",
+        backgroundColor: "var(--surface)",
         boxShadow: "-4px 0 16px rgba(0,0,0,0.15)",
         zIndex: 1000,
         display: "flex",
@@ -60,7 +60,7 @@ export default function EvidenceSourceDrawer({
       <header
         style={{
           padding: "1rem",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom: "1px solid var(--line)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -89,8 +89,8 @@ export default function EvidenceSourceDrawer({
           role="alert"
           aria-live="polite"
           style={{
-            backgroundColor: "#fef3c7",
-            color: "#92400e",
+            backgroundColor: "var(--warn-soft)",
+            color: "var(--warn)",
             padding: "0.75rem 1rem",
             fontSize: "0.875rem",
             borderBottom: "1px solid #fde68a",
@@ -114,9 +114,9 @@ export default function EvidenceSourceDrawer({
               fontSize: "0.75rem",
               fontWeight: 500,
               backgroundColor:
-                memo.reviewer_status === "approved" ? "#d1fae5" : "#fef3c7",
+                memo.reviewer_status === "approved" ? "#d1fae5" : "var(--warn-soft)",
               color:
-                memo.reviewer_status === "approved" ? "#065f46" : "#92400e",
+                memo.reviewer_status === "approved" ? "#065f46" : "var(--warn)",
             }}
           >
             Trạng thái kiểm duyệt: {memo.reviewer_status}
@@ -124,7 +124,7 @@ export default function EvidenceSourceDrawer({
         </div>
 
         <section style={{ marginBottom: "1.5rem" }}>
-          <h5 style={{ margin: "0 0 0.5rem 0", color: "#4b5563" }}>
+          <h5 style={{ margin: "0 0 0.5rem 0", color: "var(--ink-muted)" }}>
             Bảng bằng chứng số liệu ({memo.evidence_rows?.length || 0})
           </h5>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
@@ -134,16 +134,16 @@ export default function EvidenceSourceDrawer({
                 style={{
                   padding: "0.75rem",
                   marginBottom: "0.5rem",
-                  backgroundColor: "#f9fafb",
+                  backgroundColor: "var(--surface-alt)",
                   borderRadius: "6px",
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid var(--line)",
                   fontSize: "0.85rem",
                 }}
               >
                 <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
                   {row.claim}
                 </div>
-                <div style={{ color: "#6b7280", fontSize: "0.75rem" }}>
+                <div style={{ color: "var(--ink-muted)", fontSize: "0.75rem" }}>
                   <div>Nguồn: {row.citation?.source}</div>
                   <div>Kỳ: {row.citation?.period} | Rev: {row.citation?.revision_id}</div>
                   <div>Thu thập lúc: {row.citation?.fetched_at}</div>
@@ -155,7 +155,7 @@ export default function EvidenceSourceDrawer({
 
         {memo.interpretations?.length > 0 && (
           <section>
-            <h5 style={{ margin: "0 0 0.5rem 0", color: "#4b5563" }}>
+            <h5 style={{ margin: "0 0 0.5rem 0", color: "var(--ink-muted)" }}>
               Nhận định & Diễn giải
             </h5>
             <ul style={{ paddingLeft: "1.25rem", margin: 0, fontSize: "0.85rem" }}>

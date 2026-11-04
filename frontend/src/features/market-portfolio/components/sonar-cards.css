@@ -1,0 +1,46 @@
+/* Hallmark · component: index quote card · theme: existing terminal tokens
+ * Pre-emit critique: P5 H4 E4 S5 R5 V4 · states: default, hover, focus, active, disabled; chart loading/error/ready. */
+.sonar-cards-bar-wrap { width: 100%; margin: 10px 0 16px; }
+.sonar-cards-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sonar-index-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; min-width: 0; padding: 12px 14px 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font-family: var(--font-sans); text-align: left; cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease; }
+.sonar-index-card.is-active { border-color: var(--gt-board-cyan, var(--accent)); }
+.sonar-index-card:focus-visible { outline: 2px solid var(--gt-board-cyan, var(--accent)); outline-offset: 3px; }
+.sonar-index-card:active { background: var(--surface-alt); }
+.sonar-index-card:disabled { cursor: not-allowed; opacity: .65; }
+.sonar-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sonar-card-heading strong { font-size: 12px; letter-spacing: .02em; }
+.sonar-card-heading > span { color: var(--ink-muted); font-size: 9px; letter-spacing: .06em; white-space: nowrap; }
+.sonar-card-quote { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.sonar-price-large { color: var(--ink); font-size: clamp(20px, 1.7vw, 26px); line-height: 1.2; font-weight: 650; letter-spacing: -.04em; }
+.sonar-card-change { display: flex; flex-direction: column; gap: 3px; text-align: right; font-variant-numeric: tabular-nums; }
+.sonar-card-change strong { font-size: 12px; font-weight: 600; }
+.sonar-card-change small { font-size: 10px; }
+.sonar-sparkline-box { display: block; width: 100%; min-width: 0; }
+.sonar-card-details { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 8px; color: var(--ink-muted); font-size: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.sonar-breadth-line { display: flex; gap: 9px; }
+.sonar-index-card .is-pos { color: var(--pos); }
+.sonar-index-card .is-neg { color: var(--neg); }
+.sonar-index-card .is-ref { color: var(--warn); }
+@media (hover: hover) { .sonar-index-card:not(:disabled):hover { border-color: var(--ink-subtle); background: var(--surface-alt); } }
+@media (prefers-reduced-motion: reduce) { .sonar-index-card { transition: none; } }
+@media (max-width: 1100px) { .sonar-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) { .sonar-cards-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; } .sonar-index-card { padding: 12px 14px 10px; } .sonar-price-large { font-size: 24px; } }
+
+/* Overview: four compact instruments establish context above the market map. */
+.sonar-cards-bar-wrap.is-compact .sonar-cards-grid { gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.is-compact .sonar-index-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(60px, .65fr); gap: 4px 12px; padding: 12px; }
+.is-compact .sonar-card-heading { grid-column: 1; }
+.is-compact .sonar-card-quote { grid-column: 1; flex-direction: column; align-items: start; gap: 4px; }
+.is-compact .sonar-price-large { font-size: clamp(18px, 1.6vw, 24px); }
+.is-compact .sonar-card-change { flex-direction: row; flex-wrap: wrap; gap: 4px 8px; text-align: left; align-items: baseline; }
+.is-compact .sonar-card-change small { font-size: 10px; }
+.is-compact .sonar-sparkline-box { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+.is-compact .sonar-card-details { grid-column: 1 / -1; border: 0; padding-top: 4px; justify-content: start; gap: 4px 12px; }
+@media (max-width: 1000px) { .sonar-cards-bar-wrap.is-compact .sonar-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) {
+  .sonar-cards-bar-wrap.is-compact .sonar-cards-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 4px; }
+  .is-compact .sonar-index-card { flex: 0 0 260px; grid-template-columns: minmax(0, 1fr) 90px; padding: 10px; scroll-snap-align: start; }
+  .is-compact .price-sparkline__period { flex-wrap: wrap; gap: 2px; }
+  .is-compact .sonar-card-change strong { font-size: 11px; }
+  .is-compact .sonar-card-details { font-size: 9px; }
+}

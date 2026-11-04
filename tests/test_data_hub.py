@@ -111,6 +111,7 @@ def test_data_hub_global_terminal_view_metadata(monkeypatch):
 
 
 def test_vn_snapshot_returns_exchange_market_summary(monkeypatch):
+    # Snapshot turnover is raw VND; the summary converts it to billions of VND.
     monkeypatch.setattr(
         "risk_dashboard.modules.data_hub.api.public._vn_market.snapshot",
         lambda: {
@@ -119,10 +120,10 @@ def test_vn_snapshot_returns_exchange_market_summary(monkeypatch):
             "freshness": "fresh",
             "count": 4,
             "items": [
-                {"symbol": "AAA", "exchange": "HSX", "change_pct": 1.2, "value": 1200},
-                {"symbol": "BBB", "exchange": "HOSE", "change_pct": -0.4, "value": 800},
-                {"symbol": "CCC", "exchange": "HNX", "change_pct": 0, "value": 500},
-                {"symbol": "DDD", "exchange": "UPCOM", "change_pct": None, "value": 100},
+                {"symbol": "AAA", "exchange": "HSX", "change_pct": 1.2, "value": 1_200_000_000},
+                {"symbol": "BBB", "exchange": "HOSE", "change_pct": -0.4, "value": 800_000_000},
+                {"symbol": "CCC", "exchange": "HNX", "change_pct": 0, "value": 500_000_000},
+                {"symbol": "DDD", "exchange": "UPCOM", "change_pct": None, "value": 100_000_000},
             ],
         },
     )

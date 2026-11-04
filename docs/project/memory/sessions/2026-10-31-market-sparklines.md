@@ -1,0 +1,16 @@
+# Thiết kế lại mini chart bảng giá
+
+- Date: 2026-10-31. Status: **verified** cho build, test và browser QA với fixture/cache.
+- Request: thiết kế các chart nhỏ trong thẻ chỉ số và bảng cổ phiếu giống giao diện tài chính thực tế hơn.
+- Change: component `PriceSparkline` dùng chung, đường mảnh/gradient nhẹ/mốc đầu kỳ/điểm cuối, tooltip ngày–giá–% và điều hướng bàn phím. Thẻ chỉ số bố cục trái–phải, giá chính trung tính, phần biến động phiên riêng. Cột chart ghi rõ “Giá · 1 tháng”. Giữ theme/fonts/tokens của terminal; áp dụng Hallmark ở phạm vi component.
+- Data: bỏ sine-wave/synthetic path khỏi các chart active trong `GlobalTerminalPage` và `IndexSparklineCard`. Dùng API history sẵn có với `period=1mo`, `interval=1d`, không tự nối quote hiện tại vào history. Màu chart/% theo đầu kỳ lịch sử; % trên thẻ vẫn là biến động phiên, hai phạm vi được ghi nhãn riêng. HNXINDEX hiển thị đúng HNX, không gắn nhãn HNX30; bỏ fallback số giá/khối lượng/breadth cố định trong IndexCardsBar.
+- Performance: IntersectionObserver tải khi gần viewport, queue chung tối đa 4 request, dedupe, cache thành công 5 phút/thất bại 30 giây, timeout 20 giây, bỏ state update khi component/symbol cũ đã unmount. Daily sparkline hiện tải theo vòng mount/symbol, không quảng bá là intraday/live tick.
+- Verification: 151 frontend unit đạt (6 test mới cho normalize/geometry/flat/missing/concurrency/cache); lint, CSS51 và build đạt. Browser kiểm tra lịch sử cache, không tạo path khi empty/error, tooltip chuột/bàn phím, giới hạn 4 request, không gọi trùng trong một mount, và không tràn tại 320/375/414/768. [Evidence](../../../../output/playwright/market-sparklines/evidence.json), [desktop](../../../../output/playwright/market-sparklines/desktop.png), [mobile](../../../../output/playwright/market-sparklines/mobile.png), [logs](../../../../output/qa/market-sparklines/), [preview component](../../../../output/qa/market-sparklines/PriceSparkline.preview.html).
+- Sources: `frontend/src/features/market-portfolio/components/{PriceSparkline,IndexSparklineCard,IndexCardsBar}.jsx`, `components/{price-sparkline,sonar-cards}.css`, `hooks/useSparklineHistory.js`, `services/{sparklineHistory,sparklineModel}.js`, `pages/{GlobalTerminalPage.jsx,global-terminal.css}`.
+- Limits: QA dùng DB/build riêng và fixture đọc từ cache provider, không chứng nhận provider live hoặc độ mới mọi mã. Cache live có thể được tiến trình ứng dụng bổ sung khi đang QA; không suy ra dữ liệu bất biến. Thiếu lịch sử hiển thị trạng thái trống/lỗi; các prototype MarketOverview/marketDataService chưa mount không nằm trong thay đổi này. Không sửa 7 nhóm lỗi review trước.
+- Preserved staging fingerprint: `38f8fe1906f7dcd23ef9f97d84a7bab92051ebf08cc60ac7bc90a6bcd21d41ec`. Không commit/push/deploy.
+
+## Follow-up: bỏ dấu tròn trước mã cổ phiếu
+
+- User request 2026-10-31: bỏ biểu tượng tròn trước ticker. Đã xóa CircleDot trong VnOverviewRow, import và các selector CSS dành riêng cho icon; giữ màu giá và tên doanh nghiệp.
+- Verified: ESLint, CSS51, build riêng đạt. Chromium 1920×1000, DB tạm/cache fixture: cả 50 hàng không còn icon, VIC/VCB/VHM giữ màu phân biệt và tên; không pageerror. [Ảnh](../../../../output/playwright/stock-symbols/symbols.png), [evidence](../../../../output/playwright/stock-symbols/evidence.json). Không sửa DB thật hoặc deploy.

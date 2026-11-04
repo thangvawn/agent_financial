@@ -164,10 +164,15 @@ class DataHubService:
             },
         }
 
-    def get_instrument_history(self, *, symbol: str, period: str = "6mo", interval: str = "1d") -> dict[str, Any]:
+    def get_instrument_history(
+        self, *, symbol: str, period: str = "6mo", interval: str = "1d",
+        force_refresh: bool = False,
+    ) -> dict[str, Any]:
         # Variable cache TTL by interval — intraday must refresh aggressively for near-realtime feel.
         ttl = _cache_ttl_for_interval(interval)
-        return GlobalMarketFeedProducer(max_cache_age_seconds=ttl).history(symbol=symbol, period=period, interval=interval)
+        return GlobalMarketFeedProducer(max_cache_age_seconds=ttl).history(
+            symbol=symbol, period=period, interval=interval, force_refresh=force_refresh
+        )
 
     def _build_snapshots(self, *, cache_only: bool = False) -> tuple[TopicSnapshot, ...]:
         now = utc_now_iso()
@@ -211,6 +216,15 @@ class DataHubService:
             confidence = "high" if freshness == "fresh" else "limited"
             stale_reason = None
             last_success_at = str(feed.get("as_of") or now)
+            group = {
+                "global:indices": "indices", "global:fx:majors": "fx",
+                "global:commodities": "commodities", "global:crypto": "crypto",
+            }.get(policy.topic)
+            group_meta = feed.get("group_meta", {}).get(group)
+            if group_meta:
+                freshness = group_meta["freshness"]
+                confidence = "high" if freshness == "fresh" else "limited"
+                last_success_at = group_meta.get("as_of")
             if policy.topic == "global:news:pulse":
                 freshness = str(news_feed.get("freshness") or "degraded")
                 confidence = str(news_feed.get("confidence_label") or "limited")
@@ -266,21 +280,34 @@ def _has_stale_crypto_quotes(items: list[dict[str, Any]]) -> bool:
 
 
 def _build_market_pulse(*, indices: list[dict[str, Any]], crypto: list[dict[str, Any]], commodities: list[dict[str, Any]]) -> dict[str, Any]:
-    up_count = sum(1 for item in indices if float(item["change_pct"]) >= 0)
-    down_count = max(0, len(indices) - up_count)
-    average_index_change = sum(float(item["change_pct"]) for item in indices) / max(1, len(indices))
-    risk_on = average_index_change + sum(float(item["change_pct"]) for item in crypto[:2]) / 4
+    from risk_dashboard.modules.data_hub.application.quote_quality import finite_number
+
+    def known(rows):
+        return [row for row in rows if finite_number(row.get("change_pct")) is not None]
+
+    def breadth(label, rows):
+        valid = known(rows)
+        return {
+            "label": label, "up": sum(float(r["change_pct"]) >= 0 for r in valid),
+            "down": sum(float(r["change_pct"]) < 0 for r in valid),
+            "unknown": len(rows) - len(valid),
+        }
+
+    index_changes = [float(row["change_pct"]) for row in known(indices)]
+    risk_on = sum(index_changes) / max(1, len(index_changes)) + sum(
+        float(r["change_pct"]) for r in known(crypto[:2])
+    ) / 4
     fear_greed = max(0, min(100, round(50 + risk_on * 12)))
+    valid = known(indices + crypto + commodities)
     return {
         "fear_greed": fear_greed,
         "label": "Extreme greed" if fear_greed >= 75 else "Risk-on" if fear_greed >= 60 else "Neutral" if fear_greed >= 40 else "Risk-off",
         "breadth": [
-            {"label": "Global indices", "up": up_count, "down": down_count},
-            {"label": "Crypto beta", "up": sum(1 for item in crypto if float(item["change_pct"]) >= 0), "down": sum(1 for item in crypto if float(item["change_pct"]) < 0)},
-            {"label": "Commodities", "up": sum(1 for item in commodities if float(item["change_pct"]) >= 0), "down": sum(1 for item in commodities if float(item["change_pct"]) < 0)},
+            breadth("Global indices", indices), breadth("Crypto beta", crypto),
+            breadth("Commodities", commodities),
         ],
-        "top_gainers": sorted(indices + crypto + commodities, key=lambda item: float(item["change_pct"]), reverse=True)[:3],
-        "top_losers": sorted(indices + crypto + commodities, key=lambda item: float(item["change_pct"]))[:3],
+        "top_gainers": sorted(valid, key=lambda item: float(item["change_pct"]), reverse=True)[:3],
+        "top_losers": sorted(valid, key=lambda item: float(item["change_pct"]))[:3],
     }
 
 

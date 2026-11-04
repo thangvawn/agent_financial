@@ -1,3 +1,5 @@
+import { newsLessonLink } from '../../../learn-hub/content/newsLessonLinks'
+import { SENTIMENT_LABELS, marketLabel } from '../newsLabels'
 import { formatNewsDate } from '../newsFinnhubCalendarUtils.js'
 
 export default function NewsArticleReader({
@@ -5,11 +7,14 @@ export default function NewsArticleReader({
   detail,
   detailLoading,
   onSelectRelated,
+  error,
+  onRetry,
 }) {
   if (!activeArticle) {
     return (
       <div className="news-reader news-reader--empty">
-        <strong>Chọn một tin để đọc phân tích</strong>
+        <strong>{detailLoading ? 'Đang tải bài viết…' : 'Chọn một tin để đọc phân tích'}</strong>
+        {error && <p role="alert">{error} <button type="button" onClick={onRetry}>Thử lại</button></p>}
         <p>Tiêu đề, tóm tắt, thị trường ảnh hưởng và các bài liên quan sẽ xuất hiện tại đây.</p>
       </div>
     )
@@ -20,9 +25,11 @@ export default function NewsArticleReader({
   const monitors = detail?.what_to_monitor || activeArticle.what_to_monitor || []
   const learnLinks = detail?.learn_links || activeArticle.learn_links || []
   const whyThisMatters = detail?.why_this_matters
+  const lessons = [...new Map(learnLinks.map(link => newsLessonLink(link.id)).filter(Boolean).map(link => [link.url, link])).values()]
 
   return (
     <article className="news-reader" aria-busy={detailLoading}>
+      {error && <p role="alert">{error} <button type="button" onClick={onRetry}>Thử lại</button></p>}
       {detailLoading ? (
         <div className="news-reader__loading" role="status">
           <span className="news-reader__spinner" aria-hidden="true" />
@@ -35,8 +42,8 @@ export default function NewsArticleReader({
         <div className="news-reader__meta">
           <span>{activeArticle.source || 'Nguồn tổng hợp'}</span>
           <span>{formatNewsDate(activeArticle.published_at)}</span>
-          <span data-sentiment={activeArticle.sentiment || 'neutral'}>
-            {activeArticle.sentiment || 'neutral'}
+          <span data-sentiment={activeArticle.sentiment || 'unknown'}>
+            {SENTIMENT_LABELS[activeArticle.sentiment] || 'Chưa xác định'}
           </span>
         </div>
         <h2>{activeArticle.headline}</h2>
@@ -58,7 +65,7 @@ export default function NewsArticleReader({
 
       {whyThisMatters ? (
         <section className="news-reader__section news-reader__context">
-          <h3>Vì sao đáng chú ý</h3>
+          <h3>Thông tin phân loại</h3>
           <p>{whyThisMatters}</p>
         </section>
       ) : null}
@@ -67,7 +74,7 @@ export default function NewsArticleReader({
         <section className="news-reader__section">
           <h3>Thị trường &amp; ngành ảnh hưởng</h3>
           <div className="news-reader__tags">
-            {affectedMarkets.map((market) => <span key={market}>{market}</span>)}
+            {affectedMarkets.map((market) => <span key={market}>{marketLabel(market)}</span>)}
           </div>
         </section>
       ) : null}
@@ -81,15 +88,11 @@ export default function NewsArticleReader({
         </section>
       ) : null}
 
-      {learnLinks.length ? (
+      {lessons.length ? (
         <section className="news-reader__section">
-          <h3>Khái niệm liên quan</h3>
+          <h3>Bài học liên quan</h3>
           <div className="news-reader__learn-links">
-            {learnLinks.map((link) => (
-              <a key={link.id || link.label || link} href={link.url || `/learn?concept=${link.id || ''}`}>
-                {link.label || link.title || link}
-              </a>
-            ))}
+            {lessons.map(link => <a key={link.url} href={link.url}>{link.label}</a>)}
           </div>
         </section>
       ) : null}

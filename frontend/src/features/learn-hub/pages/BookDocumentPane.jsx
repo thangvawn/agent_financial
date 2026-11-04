@@ -1,126 +1,19 @@
-import { useState, useEffect } from 'react'
+import {resolveBookSource} from './bookSource'
+import {PdfBookPane,DocumentFilePane} from './PdfBookPane'
+import {useBookAvailability} from '../hooks/useBookAvailability'
+import {BOOK_STATUS_LABELS} from '../services/bookAvailability'
 
-export function BookDocumentPane({ book }) {
-  if (!book) return null
-
-  if (book.isPdf) {
-    return <PdfBookPane source={book.source} title={book.title} />
-  }
-
-  if (book.isText) {
-    return <TextBookPane url={book.source.viewUrl} title={book.title} openUrl={book.source.openUrl} />
-  }
-
-  return (
-    <div className="br-doc br-doc--empty">
-      <p>Không có bản đọc trực tiếp trong ứng dụng cho tài liệu này.</p>
-      {book.source?.openUrl ? (
-        <a className="br-btn br-btn--solid" href={book.source.openUrl} target="_blank" rel="noreferrer">
-          Mở liên kết tài liệu
-        </a>
-      ) : null}
-    </div>
-  )
+export function BookDocumentPane({book,onReady,initialPage=1}) {
+  return book ? <BookDocumentContent key={book.book_id || book.asset_id || book.url} book={book} onReady={onReady} initialPage={initialPage} /> : null
 }
-
-function PdfBookPane({ source, title }) {
-  const [mode, setMode] = useState(source.isRemote ? 'gview' : 'proxy')
-  const [loadedUrl, setLoadedUrl] = useState('')
-  const [failedUrl, setFailedUrl] = useState('')
-
-  const embedUrl = mode === 'proxy'
-    ? source.viewUrl
-    : mode === 'gview'
-      ? `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(source.openUrl)}`
-      : source.openUrl
-
-  const loading = loadedUrl !== embedUrl && failedUrl !== embedUrl
-  const failed = failedUrl === embedUrl
-
-  return (
-    <div className="br-doc">
-      {loading && !failed ? (
-        <div className="br-doc br-doc--empty br-doc--overlay">
-          <p>Đang tải PDF… (file lớn có thể mất vài giây)</p>
-        </div>
-      ) : null}
-      {failed ? (
-        <div className="br-doc br-doc--empty">
-          <p>Không nhúng được PDF trong app.</p>
-          <a className="br-btn br-btn--solid" href={source.openUrl} target="_blank" rel="noreferrer">
-            Mở tab mới
-          </a>
-          {source.isRemote && mode !== 'gview' ? (
-            <button type="button" className="br-btn br-btn--ghost" onClick={() => setMode('gview')}>
-              Thử Google Viewer
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <iframe
-          key={embedUrl}
-          className="br-doc__frame"
-          src={embedUrl}
-          title={title}
-          onLoad={() => setLoadedUrl(embedUrl)}
-          onError={() => setFailedUrl(embedUrl)}
-        />
-      )}
-      <div className="br-doc__actions">
-        <a className="br-btn br-btn--ghost" href={source.openUrl} target="_blank" rel="noreferrer">Mở tab mới</a>
-        {source.isRemote && mode !== 'gview' ? (
-          <button type="button" className="br-btn br-btn--ghost" onClick={() => setMode('gview')}>
-            Thử Google Viewer
-          </button>
-        ) : null}
-        {source.isRemote && mode === 'gview' ? (
-          <button type="button" className="br-btn br-btn--ghost" onClick={() => setMode('proxy')}>
-            Thử proxy app
-          </button>
-        ) : null}
-      </div>
+function BookDocumentContent({book,onReady,initialPage}) {
+  const source=resolveBookSource(book)
+  const {state,retry}=useBookAvailability(book)
+  return <div className="br-doc-container">
+    <div className="br-doc-body">
+      {state.status==='checking' ? <div className="br-source-state" role="status"><h3>Đang kiểm tra nguồn tài liệu…</h3><p>Đang xác định bản đọc hiện còn truy cập được.</p></div>
+        :state.status==='ready' ? (state.kind==='pdf' ? <PdfBookPane source={state} title={book.title} onReady={onReady} initialPage={initialPage}/> : <DocumentFilePane source={state} title={book.title} onReady={onReady}/>)
+          :<div className="br-source-state" role="status"><h3>{BOOK_STATUS_LABELS[state.status]}</h3><p>{state.message}</p><p className="br-doc__meta">Bạn vẫn có thể sử dụng sổ ghi chú.</p><div className="br-source-actions"><button className="br-btn br-btn--ghost" onClick={retry}>Kiểm tra lại nguồn</button>{source.openUrl && <a className="br-btn br-btn--ghost" href={source.openUrl} target="_blank" rel="noreferrer">Xem trang nguồn</a>}</div></div>}
     </div>
-  )
-}
-
-function TextBookPane({ url, title, openUrl }) {
-  const [data, setData] = useState({ text: '', error: '', url: '' })
-
-  const loading = data.url !== url
-  const text = data.text
-  const error = data.error
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(url)
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const body = await response.text()
-        if (!cancelled) setData({ text: body, error: '', url })
-      })
-      .catch(() => {
-        if (!cancelled) setData({ text: '', error: 'Không tải được nội dung văn bản.', url })
-      })
-    return () => { cancelled = true }
-  }, [url])
-
-  return (
-    <div className="br-doc br-doc--text">
-      {loading ? <p className="br-doc__meta">Đang tải văn bản…</p> : null}
-      {error ? (
-        <div className="br-doc br-doc--empty">
-          <p>{error}</p>
-          <a className="br-btn br-btn--solid" href={openUrl} target="_blank" rel="noreferrer">Mở nguồn gốc</a>
-        </div>
-      ) : null}
-      {!loading && !error ? (
-        <article className="br-doc__article">
-          <header className="br-doc__header">
-            <h2>{title}</h2>
-          </header>
-          <pre className="br-doc__content">{text}</pre>
-        </article>
-      ) : null}
-    </div>
-  )
+  </div>
 }

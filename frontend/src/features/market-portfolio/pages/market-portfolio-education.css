@@ -52,7 +52,7 @@
 .mp-form button {
   border-color: var(--pm-accent);
   background: var(--pm-accent);
-  color: #fff;
+  color: var(--accent-ink);
   white-space: nowrap;
 }
 
@@ -125,20 +125,20 @@
 
 .mp-error {
   padding: 12px 14px;
-  border-left: 3px solid #b42318;
-  background: #fff1f0;
-  color: #8f1d14;
+  border-left: 3px solid var(--neg);
+  background: var(--neg-soft);
+  color: var(--neg);
   font-size: 0.85rem;
 }
 
 .mp-table .is-pos,
 .mp-kpi .is-pos {
-  color: #087a55;
+  color: var(--pos);
 }
 
 .mp-table .is-neg,
 .mp-kpi .is-neg {
-  color: #b42318;
+  color: var(--neg);
 }
 
 @media (max-width: 980px) {

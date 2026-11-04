@@ -1,0 +1,98 @@
+.vn-heatmap { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg, #080a0b); color: var(--ink); }
+.vn-heatmap:fullscreen { overflow-y: auto; padding: 12px; border-radius: 0; }
+.vn-heatmap__heading { display: flex; align-items: center; gap: 16px; padding: 10px 12px; }
+.vn-heatmap h2 { flex: none; margin: 0; font-size: 14px; font-weight: 650; }
+.vn-heatmap button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); font: 12px var(--font-sans); cursor: pointer; }
+.vn-heatmap button:hover { background: var(--surface-alt); }
+.vn-heatmap button:disabled { cursor: default; opacity: .5; }
+.vn-heatmap :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vn-heatmap__actions { display: flex; gap: 4px; flex-shrink: 0; }
+.vn-heatmap__toolbar { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.vn-heatmap__toolbar label { display: block; min-width: 0; color: var(--ink-muted); font-size: 10px; }
+.vn-heatmap :is(input, select) { min-width: 0; height: 35px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); font: 12px var(--font-sans); caret-color: var(--accent); }
+.vn-heatmap__toolbar .vn-heatmap__search { flex: 1; min-width: 120px; max-width: 280px; margin-left: auto; position: relative; }
+.vn-heatmap__toolbar select { width: 100%; max-width: 190px; }
+.vn-heatmap__actions button { width: 34px; padding: 0; }
+.vn-heatmap__search label { display: block; }
+.vn-heatmap__search-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 6; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; }
+.vn-heatmap__search-results button { display: flex; width: 100%; justify-content: flex-start; text-align: left; border: 0; gap: 10px; }
+.vn-heatmap__search-results button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.vn-heatmap__search-results p { margin: 8px; font-size: 12px; }
+.vn-heatmap__search svg { position: absolute; left: 10px; bottom: 10px; pointer-events: none; }
+.vn-heatmap__search input { width: 100%; padding-left: 33px; }
+.vn-heatmap__search input::placeholder { color: var(--ink-subtle); opacity: 1; }
+.vn-heatmap__summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 42px; padding: 4px 12px 8px; border-bottom: 1px solid var(--line); }
+.vn-heatmap__caption { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 11px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.vn-heatmap__caption button { min-height: 28px; padding: 2px 6px; font-size: 11px; }
+.vn-heatmap__stale { color: var(--warn); }
+.vn-heatmap__footer { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.vn-heatmap__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ink-muted); font-size: 10px; }
+.vn-heatmap__legend span { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.vn-heatmap__legend i { width: 10px; height: 10px; border-radius: 1px; }
+.vn-heatmap__info { color: var(--ink-muted); font-size: 11px; }
+.vn-heatmap__info summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; text-decoration: underline; text-underline-offset: 3px; }
+.vn-heatmap__info summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vn-heatmap__info[open] { flex-basis: 100%; }
+.vn-heatmap__footer:has(.vn-heatmap__info[open]) { flex-wrap: wrap; }
+.vn-heatmap__info p { margin: 4px 0; line-height: 1.6; }
+.vn-heatmap__plot { min-width: 0; position: relative; min-height: var(--map-height); background: var(--bg); color: var(--ink); }
+.vn-heatmap__plot svg { display: block; touch-action: none; }
+.vn-heatmap__plot rect { cursor: pointer; stroke: var(--bg); stroke-width: 1; transition: fill 180ms ease-out; }
+.vn-heatmap__plot svg[data-animate-layout="true"] rect { transition: fill 180ms ease-out, x 220ms ease-out, y 220ms ease-out, width 220ms ease-out, height 220ms ease-out; }
+.vn-heatmap__plot svg[data-animate-layout="true"] .vn-heatmap__cell-label { transition: transform 220ms ease-out, font-size 220ms ease-out; }
+.vn-heatmap__plot svg[data-animate-layout="true"] foreignObject { transition: x 220ms ease-out, y 220ms ease-out, width 220ms ease-out, height 220ms ease-out; }
+.vn-heatmap__plot rect.is-active, .vn-heatmap__plot g:focus-visible rect { stroke: #f4fff8; stroke-width: 2; }
+.vn-heatmap__plot g:focus { outline: none; }
+.vn-heatmap__cell-label { fill: #fff; stroke: rgb(35 28 0 / 70%); paint-order: stroke fill; stroke-linejoin: round; font-family: var(--font-mono, monospace); pointer-events: none; font-variant-numeric: tabular-nums; }
+.vn-heatmap button.vn-heatmap__sector-label { display: block; width: 100%; min-height: 0; height: 24px; padding: 2px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; border-radius: 0; background: transparent; font-size: 11px; font-weight: 600; }
+.vn-heatmap__view-controls { display: flex; gap: 3px; align-items: center; flex: none; color: var(--ink-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.vn-heatmap__view-controls button { min-height: 28px; padding: 3px 6px; border-color: transparent; background: transparent; }
+.vn-heatmap__view-controls output { min-width: 40px; text-align: center; color: var(--ink); }
+.vn-heatmap__computing { position: absolute; z-index: 3; right: 12px; top: 12px; background: var(--surface); color: var(--ink); padding: 8px 12px; border: 1px solid var(--line); border-radius: 5px; font-size: 12px; }
+.vn-heatmap__empty { display: grid; align-content: center; justify-items: center; min-height: var(--map-height); padding: 30px; text-align: center; }
+.vn-heatmap__empty h3 { font-size: 18px; margin: 0 0 12px; }
+.vn-heatmap__empty p { font-size: 13px; margin: 0 0 16px; line-height: 1.7; }
+.vn-heatmap__message { padding: 10px 18px; font-size: 12px; color: var(--warn); display: flex; gap: 10px; align-items: center; }
+.vn-heatmap__tooltip { position: absolute; z-index: 4; width: min(290px, calc(100% - 16px)); padding: 14px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--ink); background: var(--surface); font-size: 12px; }
+.vn-heatmap__tooltip[data-pinned="false"] { pointer-events: none; }
+.vn-heatmap__tooltip.is-inline { position: relative; width: auto; margin: 8px; }
+.vn-heatmap__tooltip > strong { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-right: 22px; font-size: 18px; }
+.vn-heatmap__tooltip > strong span { font-size: 16px; font-variant-numeric: tabular-nums; }
+.vn-heatmap__tooltip p { font-size: 12px; line-height: 1.5; margin: 8px 0 12px; color: var(--ink-muted); }
+.vn-heatmap__tooltip dl { margin: 0 0 10px; }
+.vn-heatmap__tooltip dl > div { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; line-height: 1.5; }
+.vn-heatmap__tooltip dt { color: var(--ink-muted); flex-shrink: 0; }
+.vn-heatmap__tooltip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.vn-heatmap__tooltip small { display: block; font-size: 11px; line-height: 1.55; color: var(--ink-muted); margin-bottom: 12px; }
+.vn-heatmap__tooltip button { color: var(--ink); background: var(--surface-alt); border-color: var(--line); }
+.vn-heatmap__tooltip .vn-heatmap__tip-close { position: absolute; top: 7px; right: 7px; border: 0; padding: 0; width: 24px; min-height: 24px; background: transparent; }
+.vn-heatmap__table-wrap { max-height: var(--map-height); overflow: auto; background: var(--bg); color: var(--ink); }
+.vn-heatmap__table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: right; }
+.vn-heatmap__table-wrap th { position: sticky; top: 0; z-index: 1; background: var(--surface); color: var(--ink-muted); font-weight: 500; }
+.vn-heatmap__table-wrap :is(th, td) { padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.vn-heatmap__table-wrap :is(th, td):nth-child(-n + 2) { text-align: left; }
+.vn-heatmap__table-wrap td button { font-weight: 650; border: 0; background: transparent; padding: 0; min-height: 22px; }
+@media (max-width: 1100px) {
+  .vn-heatmap__heading { flex-wrap: wrap; gap: 8px; }
+  .vn-heatmap__toolbar { order: 3; flex-basis: 100%; }
+  .vn-heatmap__actions { margin-left: auto; }
+  .vn-heatmap__toolbar .vn-heatmap__search { max-width: none; }
+}
+@media (max-width: 700px) {
+  .vn-heatmap__heading { padding: 8px; }
+  .vn-heatmap__toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+  .vn-heatmap__toolbar select { max-width: none; }
+  .vn-heatmap__toolbar .vn-heatmap__search { width: 100%; min-width: 0; }
+  .vn-heatmap :is(input, select), .vn-heatmap button { min-height: 42px; }
+  .vn-heatmap__actions button { width: 42px; }
+  .vn-heatmap__search svg { bottom: 13px; }
+  .vn-heatmap__summary { padding: 0 8px 6px; flex-wrap: wrap; }
+  .vn-heatmap__view-controls { margin-left: auto; }
+  .vn-heatmap__view-controls button { min-width: 36px; min-height: 36px; }
+  .vn-heatmap__view-controls button:last-child span { display: none; }
+  .vn-heatmap__legend { gap: 6px 10px; }
+  .vn-heatmap__footer { flex-wrap: wrap; gap: 4px; padding: 8px; }
+  .vn-heatmap__info { margin-left: auto; }
+  .vn-heatmap__tooltip .vn-heatmap__tip-close { min-height: 30px; width: 30px; }
+}
+@media (prefers-reduced-motion: reduce) { .vn-heatmap * { scroll-behavior: auto; transition: none !important; } }

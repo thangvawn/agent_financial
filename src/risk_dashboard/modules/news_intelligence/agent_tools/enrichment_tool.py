@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from risk_dashboard.modules.agentic_core.schemas.envelope import TrustedExecutionEnvelope
 from risk_dashboard.modules.news_intelligence.agent_tools.helpers import (
     check_scope,
@@ -9,7 +7,9 @@ from risk_dashboard.modules.news_intelligence.agent_tools.helpers import (
 )
 from risk_dashboard.modules.news_intelligence.domain.entities import utc_now_iso
 from risk_dashboard.modules.news_intelligence.domain.ports import SourceRegistryPort
-from risk_dashboard.modules.news_intelligence.infrastructure.source_registry import get_default_source_registry
+from risk_dashboard.modules.news_intelligence.infrastructure.source_registry import (
+    get_default_source_registry,
+)
 from risk_dashboard.modules.news_intelligence.schemas.agent_tools import (
     GetEnrichmentInput,
     GetEnrichmentOutput,
@@ -104,7 +104,9 @@ async def get_enrichment(
         method_version="1.0.0",
     )
 
-    sentiment_val: Sentiment = article.sentiment if article.sentiment in ("positive", "neutral", "negative") else "neutral"
+    sentiment_val: Sentiment = (
+        article.sentiment if article.sentiment in ("positive", "neutral", "negative", "unknown") else "unknown"
+    )
     impact_val: Impact = article.impact if article.impact in ("high", "medium", "low") else "medium"
     threat_val: ThreatLevel = (
         article.threat_level if article.threat_level in ("normal", "watch", "elevated", "critical") else "normal"
@@ -127,5 +129,5 @@ async def get_enrichment(
         what_to_monitor=tuple(article.what_to_monitor),
         learn_links=tuple(article.learn_links),
         related_entities=tuple(article.related_entities),
-        enrichment_method_version="1.0.0",
+        enrichment_method_version="keyword_rules_v2",
     )

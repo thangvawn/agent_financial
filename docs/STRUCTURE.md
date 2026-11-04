@@ -30,6 +30,7 @@ Product domains: `home`, `market_portfolio`, `learn_hub`, `bctc`, `news`, `simul
 - Alias flags: `RISK_FLAG__MODULE__PRO_LAB__ENABLED` → `simulation_lab`;
   `RISK_FLAG__MODULE__HOME_ONBOARDING__ENABLED` → `home`
 
+Chi tiết kiến trúc Subdomain: xem [DOMAIN_SUBDOMAIN_ARCHITECTURE.md](DOMAIN_SUBDOMAIN_ARCHITECTURE.md). Tài liệu này mô tả định hướng; các wrapper subdomain chưa nối vào route đã được dọn ngày 31/10/2026.
 Chi tiết roadmap: `plans/2026-07-17-northstar-codebase-structure-refactor.md`.
 
 ## Frontend (`frontend/src/`)
@@ -53,9 +54,9 @@ Mỗi feature thường có:
 - `pages/` — màn hình route
 - `services/` — HTTP API
 - `components/` / `hooks/` — nội bộ feature
-- `index.js` — public export
+- `index.js` — public export khi có nơi sử dụng; không tạo barrel rỗng/chỉ chuyển tiếp nếu không cần
 
-`pages/` và `modules/` cũ chỉ còn shim/README — không thêm code mới vào đó.
+Barrel `pages/index.js` cũ đã bỏ; `modules/` chỉ còn README hướng dẫn chuyển chỗ. Không thêm code mới vào hai vị trí này. Một số compatibility export còn được test sử dụng vẫn giữ lại; 43 file không được entrypoint hoặc test sử dụng đã được lưu bản sao rồi xóa trong đợt review 31/10/2026.
 
 Nguồn tên domain / nav: `frontend/src/app/productRegistry.js`.
 

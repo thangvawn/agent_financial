@@ -5,6 +5,7 @@ import { NAV_FLOW } from '../../app/productRegistry'
 import { prefetchView } from '../../app/pagePreloader'
 import { trackAnalyticsEvent } from '../analytics/trackEvent'
 import NorthstarLogo from '../components/NorthstarLogo'
+import ThemeToggle from '../theme/ThemeToggle'
 
 const FLOW = NAV_FLOW.map((domain) => ({
   id: domain.view,
@@ -41,7 +42,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
     }
   }, [currentView])
 
-  if (currentView?.includes('admin') || currentView === 'backtest_studio') return null
+  if (currentView?.includes('admin')) return null
 
   function open(item) {
     const handler = actions?.[item.action]
@@ -85,7 +86,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
       </motion.button>
       <div className="connected-nav__tabs">
         {showTabs ? FLOW.map((item) => {
-          const isActive = currentView === item.id || (item.id === 'news' && currentView === 'news_economic_calendar')
+          const isActive = currentView === item.id || (item.id === 'news' && ['news_economic_calendar', 'news_social'].includes(currentView))
           const isHovered = hoveredTab === item.id
           return (
             <div
@@ -131,6 +132,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
       </div>
       {!sessionId ? (
         <div className="connected-nav__auth-actions">
+          <ThemeToggle />
           <motion.button
             type="button"
             className="connected-nav__login connected-nav__login--ghost"
@@ -152,6 +154,7 @@ export default function ConnectedWorkspaceNav({ currentView, sessionId, actions,
         </div>
       ) : (
         <div className="connected-nav__account">
+          <ThemeToggle />
           <motion.button
             type="button"
             className="connected-nav__avatar"

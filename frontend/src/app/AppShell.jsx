@@ -8,6 +8,7 @@ import ConnectedWorkspaceNav from '../shared/navigation/ConnectedWorkspaceNav'
 import NavBar from './NavBar'
 import { logoutSession } from '../features/auth/services/sessionLifecycle'
 import AppShellRoutes from './AppShellRoutes'
+import { ThemeContext, useAppTheme } from '../shared/theme/appTheme'
 
 const LazyNewsEconCalendarEmbed = lazy(() => import('../features/news/pages/NewsEconCalendarPage.jsx'))
 
@@ -36,6 +37,7 @@ function readStoredSession() {
 }
 
 export default function AppShell({ initialView = 'home', view: controlledView, onNavigate }) {
+  const appTheme = useAppTheme()
   const { resetWorkflow } = useFinancialWorkflow()
   const [internalView, setInternalView] = useState(() => normalizeView(initialView))
   const requestedView = normalizeView(controlledView || internalView)
@@ -151,8 +153,8 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   const tone = (view === 'pro_lab' || view === 'backtest_studio') ? 'pro' : 'public'
-  const themeAttr = !isPublicView(view) && view !== 'guided_investing' ? 'dark' : 'light'
-  const shellSkin = view === 'news_economic_calendar' ? 'news' : view
+  const themeAttr = appTheme.theme
+  const shellSkin = ['news_economic_calendar', 'news_social'].includes(view) ? 'news' : view
 
   const connectedNavActions = {
     openHome: () => sessionId ? setView(AUTHENTICATED_LANDING_VIEW) : setView('home'),
@@ -185,6 +187,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   const routeActions = {
+    onOpenSocial: () => openProtectedView('news_social'),
     onBackHome: () => setView('home'),
     onOpenProLab: () => openProtectedView('pro_lab'),
     onOpenNews: () => openProtectedView('news'),
@@ -216,6 +219,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
   }
 
   return (
+    <ThemeContext.Provider value={appTheme}>
     <div className={`app-shell app-shell--${shellSkin.replaceAll('_', '-')} app-shell--${tone} ${themeAttr}`} data-theme={themeAttr}>
       <div className="app-shell__ambient app-shell__ambient--one" />
       <div className="app-shell__ambient app-shell__ambient--two" />
@@ -247,6 +251,7 @@ export default function AppShell({ initialView = 'home', view: controlledView, o
         </main>
       </div>
     </div>
+    </ThemeContext.Provider>
   )
 }
 

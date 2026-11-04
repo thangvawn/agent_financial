@@ -7,6 +7,7 @@ const HomePage = lazy(() => import('../features/home/pages/HomePage.jsx'))
 const OnboardingPage = lazy(() => import('../features/home/pages/OnboardingPage.jsx'))
 const MarketPortfolioPage = lazy(() => import('../features/market-portfolio/pages/MarketPortfolioPage.jsx'))
 const NewsPage = lazy(() => import('../features/news/pages/NewsPage.jsx'))
+const SocialPage = lazy(() => import('../features/news/pages/SocialPage.jsx'))
 const NewsEconCalendarPage = lazy(() => import('../features/news/pages/NewsEconCalendarPage.jsx'))
 const GuidedInvestingPage = lazy(() => import('../features/bctc/pages/GuidedInvestingPage.jsx'))
 const LearningHomePage = lazy(() => import('../features/learn-hub/pages/LearningHomePage.jsx'))
@@ -46,11 +47,14 @@ export default function AppShellRoutes({
   } else if (renderedView === 'news') {
     content = (
       <NewsPage
+        onOpenSocial={actions.onOpenSocial}
         sessionId={sessionId}
         onBack={actions.onBackHome}
         onOpenGlobalTerminal={actions.onOpenGlobalTerminal}
       />
     )
+  } else if (renderedView === 'news_social') {
+    content = <SocialPage sessionId={sessionId} onOpenNews={actions.onOpenNews} />
   } else if (renderedView === 'news_economic_calendar') {
     content = <NewsEconCalendarPage onBackToNews={actions.onOpenNews} />
   } else if (renderedView === 'guided_investing') {

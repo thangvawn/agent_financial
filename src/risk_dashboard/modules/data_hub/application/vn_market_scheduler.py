@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from risk_dashboard.modules.data_hub.application.global_market_feed import GlobalMarketFeedProducer
 from risk_dashboard.modules.data_hub.application.vn_market_feed import VnMarketFeedProducer
+from risk_dashboard.modules.data_hub.infrastructure.vn_industries import VnIndustryCatalog
 
 _START_LOCK = threading.Lock()
 _STARTED = False
@@ -69,6 +70,10 @@ def _is_market_hours(now_utc: datetime) -> bool:
 
 def _run_loop(logger: logging.Logger) -> None:
     producer = VnMarketFeedProducer()
+    industries = VnIndustryCatalog(producer.cache_dir)
+    from risk_dashboard.modules.data_hub.application.screener_job import start_screener_job
+
+    start_screener_job(lambda: producer._load_json(producer.snapshot_path).get("items", []))
     history_producer = GlobalMarketFeedProducer(max_cache_age_seconds=3600)
     fast_interval = max(int(os.getenv("VN_MARKET_INTERVAL_FAST_SEC", "12")), 5)
     slow_interval = max(int(os.getenv("VN_MARKET_INTERVAL_SLOW_SEC", "300")), 60)
@@ -96,6 +101,7 @@ def _run_loop(logger: logging.Logger) -> None:
                 # snapshot refresh so a cold start cannot race with an empty
                 # universe and publish a degraded snapshot unnecessarily.
                 producer.universe(force_refresh=True)
+                industries.refresh()
                 next_universe = now + universe_interval
             if now >= next_snapshot:
                 producer.refresh_in_background()

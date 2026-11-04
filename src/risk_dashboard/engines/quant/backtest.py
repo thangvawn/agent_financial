@@ -276,14 +276,14 @@ def fetch_vn_close_separate_benchmark(
     interval: str = "1d",
 ) -> tuple[pd.DataFrame, pd.Series | None]:
     """Tải giá cổ phiếu VN và chuỗi VN-Index riêng (symbol khác định dạng)."""
-    import yfinance as yf
+    from risk_dashboard.data.yahoo_client import download_yahoo
 
     normalized_interval = _normalize_interval(interval)
     keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
 
-    raw_stocks = yf.download(
+    raw_stocks = download_yahoo(
         stock_syms,
         start=start,
         end=end_adj,
@@ -298,7 +298,7 @@ def fetch_vn_close_separate_benchmark(
     stocks = _resample_close_frame(stocks, normalized_interval)
     bench_close: pd.Series | None = None
     try:
-        raw_b = yf.download(
+        raw_b = download_yahoo(
             "^VNINDEX",
             start=start,
             end=end_adj,
@@ -317,13 +317,13 @@ def fetch_vn_close_separate_benchmark(
 
 def fetch_vn_stocks_only(tickers: list[str], start: date, end: date, *, interval: str = "1d") -> pd.DataFrame:
     """Chỉ tải cổ phiếu VN (không gọi benchmark)."""
-    import yfinance as yf
+    from risk_dashboard.data.yahoo_client import download_yahoo
 
     normalized_interval = _normalize_interval(interval)
     keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
-    raw_stocks = yf.download(
+    raw_stocks = download_yahoo(
         stock_syms,
         start=start,
         end=end_adj,
@@ -340,12 +340,12 @@ def fetch_vn_ohlcv_only(
     tickers: list[str], start: date, end: date, *, interval: str = "1d"
 ) -> dict[str, pd.DataFrame]:
     """Download OHLCV once and keep valid symbols instead of failing the whole universe."""
-    import yfinance as yf
+    from risk_dashboard.data.yahoo_client import download_yahoo
 
     normalized_interval = _normalize_interval(interval)
     keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(ticker) for ticker in tickers]
-    raw = yf.download(
+    raw = download_yahoo(
         stock_syms,
         start=start,
         end=end + timedelta(days=1),
@@ -367,12 +367,12 @@ def fetch_vn_ohlcv_only(
 
 
 def fetch_vn_benchmark_close(start: date, end: date, *, interval: str = "1d") -> pd.Series | None:
-    import yfinance as yf
+    from risk_dashboard.data.yahoo_client import download_yahoo
 
     normalized_interval = _normalize_interval(interval)
     keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     try:
-        raw = yf.download(
+        raw = download_yahoo(
             "^VNINDEX",
             start=start,
             end=end + timedelta(days=1),
@@ -399,14 +399,14 @@ def fetch_vn_ohlcv_with_regime_inputs(
     interval: str = "1d",
 ) -> tuple[dict[str, pd.DataFrame], pd.Series | None, pd.Series]:
     """Tải OHLCV cho cổ phiếu VN + benchmark tùy chọn + chuỗi BTC xác nhận risk-on."""
-    import yfinance as yf
+    from risk_dashboard.data.yahoo_client import download_yahoo
 
     normalized_interval = _normalize_interval(interval)
     keep_time = normalized_interval in {"1m", "5m", "15m", "30m", "1h", "4h"}
     stock_syms = [_yf_symbol(t) for t in tickers]
     end_adj = end + timedelta(days=1)
 
-    raw_stocks = yf.download(
+    raw_stocks = download_yahoo(
         stock_syms,
         start=start,
         end=end_adj,
@@ -421,7 +421,7 @@ def fetch_vn_ohlcv_with_regime_inputs(
     bench_close: pd.Series | None = None
     if include_benchmark:
         try:
-            raw_b = yf.download(
+            raw_b = download_yahoo(
                 "^VNINDEX",
                 start=start,
                 end=end_adj,
@@ -435,7 +435,7 @@ def fetch_vn_ohlcv_with_regime_inputs(
         except Exception as exc:
             logger.info("Benchmark ^VNINDEX không tải được: %s", exc)
 
-    raw_btc = yf.download(
+    raw_btc = download_yahoo(
         _DEFAULT_BTC_SYMBOL,
         start=start - timedelta(days=7),
         end=end_adj,

@@ -18,4 +18,4 @@ Lần test mở rộng đầu thiếu biến DB tạm; hai module test cũ reset
 
 ## Handoff
 
-Giữ nguyên 116 mục staged có sẵn. Checkpoint chỉ chứa file của lượt làm; reader/content/proxy đã dirty hoặc untracked trước đó vẫn trong working tree. Bằng chứng áp dụng workspace, không phải checkout checkpoint độc lập. Chưa push/deploy/restart stack người dùng. Backend QA sử dụng DB riêng, cần dừng khi bàn giao.
+Giữ nguyên 116 mục staged có sẵn. GREEN checkpoint `917e6ad` chỉ chứa file của lượt làm; reader/content/proxy đã dirty hoặc untracked trước đó vẫn trong working tree. Bằng chứng áp dụng workspace, không phải checkout checkpoint độc lập. Chưa push/deploy/restart stack người dùng. Backend QA sử dụng DB riêng, cần dừng khi bàn giao.

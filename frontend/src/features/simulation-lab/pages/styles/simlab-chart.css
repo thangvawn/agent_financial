@@ -2,8 +2,8 @@
 
 /* Multi-Panel Chart */
 .simlab-chart-wrapper {
-  background: #08111e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 1rem;
 }
@@ -14,7 +14,7 @@
   align-items: center;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #142032;
+  border-bottom: 1px solid var(--line);
 }
 
 .simlab-source-pill {
@@ -25,15 +25,15 @@
 }
 
 .simlab-source-pill.real {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface));
+  color: var(--pos);
+  border: 1px solid color-mix(in srgb, var(--pos) 18%, var(--line));
 }
 
 .simlab-source-pill.mock {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: color-mix(in srgb, var(--neg) 10%, var(--surface));
+  color: var(--neg);
+  border: 1px solid color-mix(in srgb, var(--neg) 18%, var(--line));
 }
 
 .simlab-chart-main {
@@ -53,8 +53,8 @@
 
 /* Tearsheet Metrics */
 .simlab-tearsheet {
-  background: #08111e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 1rem;
   display: flex;
@@ -72,13 +72,13 @@
   font-size: 0.95rem;
   font-weight: 700;
   margin: 0;
-  color: #f1f5f9;
+  color: var(--ink);
 }
 
 .tearsheet-badge {
   font-size: 0.7rem;
-  background: #14233c;
-  color: #38bdf8;
+  background: var(--surface-alt);
+  color: var(--accent);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
@@ -90,8 +90,8 @@
 }
 
 .tearsheet-metric-card {
-  background: #050b14;
-  border: 1px solid #172437;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem 0.85rem;
   display: flex;
@@ -101,7 +101,7 @@
 
 .metric-label {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--ink-muted);
   font-weight: 500;
 }
 
@@ -109,17 +109,17 @@
   font-size: 1.25rem;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
-  color: #f1f5f9;
+  color: var(--ink);
 }
 
 .metric-sub {
   font-size: 0.68rem;
-  color: #475569;
+  color: var(--ink-muted);
 }
 
-.tearsheet-metric-card.profit .metric-value { color: #10b981; }
-.tearsheet-metric-card.loss .metric-value { color: #ef4444; }
-.tearsheet-metric-card.accent .metric-value { color: #06b6d4; }
+.tearsheet-metric-card.profit .metric-value { color: var(--pos); }
+.tearsheet-metric-card.loss .metric-value { color: var(--neg); }
+.tearsheet-metric-card.accent .metric-value { color: var(--accent); }
 
 /* Trade Log Table */
 .trades-toolbar {
@@ -133,7 +133,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   margin: 0;
-  color: #cbd5e1;
+  color: var(--ink);
 }
 
 .filter-pills {
@@ -142,9 +142,9 @@
 }
 
 .filter-pills button {
-  background: #060e1a;
-  border: 1px solid #1e293b;
-  color: #64748b;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-size: 0.72rem;
@@ -152,14 +152,14 @@
 }
 
 .filter-pills button.active {
-  background: #1e293b;
-  color: #38bdf8;
-  border-color: #38bdf8;
+  background: var(--surface-alt);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
 
 .trades-table-wrap {
   overflow-x: auto;
-  border: 1px solid #172437;
+  border: 1px solid var(--line);
   border-radius: 6px;
 }
 
@@ -171,17 +171,17 @@
 }
 
 .trades-table th {
-  background: #0c1726;
-  color: #94a3b8;
+  background: var(--surface);
+  color: var(--ink-muted);
   padding: 0.5rem 0.6rem;
   font-weight: 600;
 }
 
 .trades-table td {
   padding: 0.5rem 0.6rem;
-  border-top: 1px solid #142032;
+  border-top: 1px solid var(--line);
   font-family: 'JetBrains Mono', monospace;
 }
 
-.profit-text { color: #10b981; font-weight: 600; }
-.loss-text { color: #ef4444; font-weight: 600; }
+.profit-text { color: var(--pos); font-weight: 600; }
+.loss-text { color: var(--neg); font-weight: 600; }

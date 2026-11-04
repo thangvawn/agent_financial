@@ -85,6 +85,9 @@ package-dir = { "" = "src" }
 where = ["src"]
 namespaces = false
 
+[tool.setuptools.package-data]
+"risk_dashboard.modules.data_hub.infrastructure" = ["data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

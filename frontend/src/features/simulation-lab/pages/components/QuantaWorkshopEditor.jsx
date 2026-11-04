@@ -58,7 +58,7 @@ export default function QuantaWorkshopEditor({ code, onChange, onApplyPreset, on
 
       <div
         className="simlab-editor-workspace"
-        style={{ display: 'flex', flexDirection: 'row', minHeight: '340px', background: '#050b14' }}
+        style={{ display: 'flex', flexDirection: 'row', minHeight: '340px', background: 'var(--bg)' }}
       >
         <div
           className="simlab-editor-lines"
@@ -67,12 +67,12 @@ export default function QuantaWorkshopEditor({ code, onChange, onApplyPreset, on
             textAlign: 'right',
             padding: '10px 8px',
             userSelect: 'none',
-            color: '#64748b',
+            color: 'var(--ink-muted)',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: '12px',
             lineHeight: '20px',
-            backgroundColor: '#070e1a',
-            borderRight: '1px solid #1e293b',
+            backgroundColor: 'var(--surface-alt)',
+            borderRight: '1px solid var(--line)',
             whiteSpace: 'pre',
             boxSizing: 'border-box',
           }}
@@ -90,7 +90,7 @@ export default function QuantaWorkshopEditor({ code, onChange, onApplyPreset, on
             padding: '10px 12px',
             background: 'transparent',
             border: 'none',
-            color: '#e2e8f0',
+            color: 'var(--ink)',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: '12.5px',
             lineHeight: '20px',

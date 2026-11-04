@@ -11,6 +11,7 @@ const SENTIMENTS = [
   { value: 'positive', label: 'Tích cực' },
   { value: 'negative', label: 'Tiêu cực' },
   { value: 'neutral', label: 'Trung tính' },
+  { value: 'unknown', label: 'Chưa xác định' },
 ]
 
 const IMPACT_LEVELS = [
@@ -97,7 +98,7 @@ export default function NewsFilters({
           <button
             type="button"
             className={showAdvanced || hasActiveFilters ? 'news-filters__toggle is-active' : 'news-filters__toggle'}
-            aria-expanded={showAdvanced || Boolean(hasActiveSubFilters)}
+            aria-expanded={showAdvanced}
             aria-controls="news-advanced-filters"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
@@ -106,7 +107,7 @@ export default function NewsFilters({
         </div>
       </div>
 
-      {(showAdvanced || hasActiveSubFilters) && (
+      {showAdvanced && (
         <div id="news-advanced-filters" className="news-filters__advanced animate-fadeIn">
           <label>
             <span>Thời gian</span>
@@ -121,7 +122,7 @@ export default function NewsFilters({
           </label>
 
           <label>
-            <span>Sắc thái (AI)</span>
+            <span>Sắc thái nội dung</span>
             <select
               value={sentiment}
               onChange={(e) => onSentimentChange(e.target.value)}

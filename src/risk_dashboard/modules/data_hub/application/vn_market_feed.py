@@ -229,9 +229,12 @@ class VnMarketFeedProducer:
         return {"as_of": _utc_now_iso(), "tickers": tickers, "source": "ssi"}
 
     # ----- Snapshot -------------------------------------------------------
-    def snapshot(self, *, force_refresh: bool = False) -> dict[str, Any]:
+    def snapshot(self, *, force_refresh: bool = False, read_only: bool = False) -> dict[str, Any]:
         cached = self._load_json(self.snapshot_path)
         ttl = self._effective_snapshot_ttl()
+        if read_only:
+            self._enrich_market_cap(cached)
+            return cached if self._is_fresh(cached, ttl) else self._mark_stale(cached)
         if not force_refresh and self._is_fresh(cached, ttl):
             self._enrich_market_cap(cached)
             return cached
@@ -255,12 +258,16 @@ class VnMarketFeedProducer:
             }
         try:
             live = self._fetch_snapshot_live()
-            if live["items"]:
+            if live["items"] and _covers_exchanges(live["items"], cached.get("items", [])):
                 self._write_json(self.snapshot_path, live)
                 return live
             if cached:
                 self._enrich_market_cap(cached)
-                return self._mark_stale(cached)
+                reason = (
+                    "incomplete_market_snapshot_using_cache"
+                    if live["items"] else "live_feed_unavailable_using_cache"
+                )
+                return self._mark_stale(cached, reason=reason)
             return live
         finally:
             self._refresh_lock.release()
@@ -303,7 +310,7 @@ class VnMarketFeedProducer:
         # 1. Primary SSI fast realtime feed (~0.6s for all exchanges, no guest rate limits)
         if preferred_provider in {"ssi", "auto", "default"}:
             items = _fetch_ssi_price_board()
-            if items:
+            if items and _covers_exchanges(items, universe):
                 return self._finish_live_items(items, universe)
             _LOG.info("SSI price board unavailable; falling back to vnstock/VCI")
 
@@ -321,7 +328,7 @@ class VnMarketFeedProducer:
 
                 board = Trading(source="VCI").price_board(symbols)
             items = _normalize_price_board(board)
-            if items:
+            if items and _covers_exchanges(items, universe):
                 return self._finish_live_items(items, universe)
         except _VnstockRateExceeded:
             _LOG.warning("VN price_board rate-limited (vnstock guest tier); attempting fallbacks")
@@ -333,12 +340,12 @@ class VnMarketFeedProducer:
         # 2. Secondary fallback: SSI if preferred_provider was vnstock
         if preferred_provider not in {"ssi", "auto", "default"}:
             items = _fetch_ssi_price_board()
-            if items:
+            if items and _covers_exchanges(items, universe):
                 return self._finish_live_items(items, universe)
 
         # 3. Tertiary fallback: VCI direct HTTP
         items = _fetch_vci_price_board(symbols)
-        if items:
+        if items and _covers_exchanges(items, universe):
             return self._finish_live_items(items, universe)
 
         return {"as_of": _utc_now_iso(), "items": [], "source": "all_failed", "freshness": "degraded"}
@@ -457,6 +464,23 @@ class VnMarketFeedProducer:
 
 
 # ---- Helpers (module level) ----------------------------------------------
+def _covers_exchanges(items: list[dict], reference: list[dict]) -> bool:
+    """Reject a missing exchange without mixing new quotes with older ones."""
+    def exchange(row):
+        value = str(row.get("exchange") or "").strip().upper()
+        return "HOSE" if value == "HSX" else value
+
+    by_symbol = {row.get("symbol"): exchange(row) for row in reference}
+    expected = set(by_symbol.values()) & {"HOSE", "HNX", "UPCOM"}
+    received = {exchange(row) or by_symbol.get(row.get("symbol"), "") for row in items}
+    missing = expected - received
+    if missing:
+        _LOG.warning(
+            "Rejecting incomplete VN snapshot; missing exchanges: %s", ", ".join(sorted(missing))
+        )
+    return not missing
+
+
 def _normalize_price_board(board: pd.DataFrame) -> list[dict[str, Any]]:
     """vnstock returns a MultiIndex-columns DataFrame: ('listing', col), ('match', col), ('bid_ask', col).
 
@@ -633,7 +657,12 @@ def _fetch_ssi_price_board(
             )
             resp.raise_for_status()
             payload = resp.json()
-            return payload.get("data", []) or []
+            rows = payload.get("data") if isinstance(payload, dict) else None
+            if not isinstance(rows, list) or not rows or not any(
+                isinstance(row, dict) and row.get("stockSymbol") for row in rows
+            ):
+                raise ValueError("Empty or malformed exchange response")
+            return rows
         except (OSError, ValueError, requests.RequestException) as exc:
             _LOG.warning("SSI price board fetch failed for exchange %s: %s", ex, exc)
             return []
@@ -643,7 +672,11 @@ def _fetch_ssi_price_board(
         with ThreadPoolExecutor(max_workers=len(exchanges)) as executor:
             futures = [executor.submit(_fetch_ex, ex) for ex in exchanges]
             for fut in futures:
-                all_rows.extend(fut.result())
+                rows = fut.result()
+                if not rows:
+                    # A partly successful request is not a complete market snapshot.
+                    return []
+                all_rows.extend(rows)
     except Exception as exc:
         _LOG.warning("SSI price board concurrent fetch failed: %s", exc)
         return []

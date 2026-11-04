@@ -1,3 +1,4 @@
+import { useTheme } from '../../../shared/theme/appTheme'
 import { useEffect, useRef, memo } from 'react'
 import { resolveTradingViewSymbol } from './tradingViewUtils'
 
@@ -9,14 +10,8 @@ export function TradingViewRealtimeWidget({
 }) {
   const containerRef = useRef(null)
 
-  const isDark = (() => {
-    if (typeof document === 'undefined') return true
-    return (
-      document.documentElement.dataset.theme === 'dark' ||
-      document.documentElement.closest('[data-theme="dark"]') != null ||
-      document.querySelector('[data-theme="dark"]') != null
-    )
-  })()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   const tvSymbol = resolveTradingViewSymbol(symbol)
 

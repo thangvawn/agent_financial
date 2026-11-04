@@ -11,7 +11,15 @@ RUN npm run build
 
 # ── Stage 2: Python deps (cached independently of src) ──
 FROM python:3.12-slim AS deps
-ENV PYTHONDONTWRITEBYTECODE=1
+ARG PIP_VERSION=26.2.2
+ARG PIP_TIMEOUT=120
+ARG PIP_RETRIES=10
+ARG PIP_RESUME_RETRIES=10
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DEFAULT_TIMEOUT=${PIP_TIMEOUT} \
+    PIP_RETRIES=${PIP_RETRIES} \
+    PIP_RESUME_RETRIES=${PIP_RESUME_RETRIES} \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,6 +29,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-vie && \
     rm -rf /var/lib/apt/lists/*
 
+# pip >=25.2 resumes interrupted downloads; connection retries alone do not
+# recover a read timeout partway through a large wheel with the base image's pip.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade "pip==${PIP_VERSION}"
+
 # Copy only what setuptools needs to resolve dependencies.
 # A stub __init__.py lets "pip install .[auto]" read pyproject.toml
 # without shipping the real source code into this layer.
@@ -28,7 +41,7 @@ COPY pyproject.toml README.md ./
 RUN mkdir -p src/risk_dashboard && \
     echo '__version__ = "0.1.0"' > src/risk_dashboard/__init__.py
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install ".[auto]"
+    python -m pip install ".[auto]"
 
 # ── Stage 3: Final runtime ──────────────────────────────
 FROM deps AS runtime
@@ -37,7 +50,8 @@ ENV PYTHONUNBUFFERED=1
 
 # Overlay real source — only this layer invalidates on code changes
 COPY src/ ./src/
-RUN pip install --no-deps -e .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --no-deps -e .
 
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 

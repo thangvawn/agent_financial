@@ -11,5 +11,6 @@
 @import "./styles/product-surfaces.css";
 @import "./styles/education-ux.css";
 @import "./styles/product-navigation.css";
+@import "./styles/app-theme.css";
 
 @import "tailwindcss/utilities.css" layer(utilities);
