@@ -1,5 +1,5 @@
 import { useTheme } from '../../../../shared/theme/appTheme';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react'
 import {
   createChart,
   CandlestickSeries,

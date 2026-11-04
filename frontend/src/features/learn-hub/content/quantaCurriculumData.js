@@ -96,14 +96,3 @@ export const TUTORIAL_FAST_TRACK = [
   { num: 4, slug: 'types-and-inputs', title: 'Kiểu dữ liệu & Tham số' },
   { num: 5, slug: 'ham-tu-dinh-nghia', title: 'Hàm: fn' },
 ]
-
-export function findQuantaLesson(slugOrId) {
-  for (const sec of QUANTA_SECTIONS) {
-    for (const l of sec.lessons) {
-      if (l.slug === slugOrId || l.id === slugOrId) {
-        return { ...l, sectionId: sec.id, sectionTitle: sec.title }
-      }
-    }
-  }
-  return null
-}

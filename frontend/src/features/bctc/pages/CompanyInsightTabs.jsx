@@ -1,9 +1,5 @@
 import { Fragment, useRef, useState } from 'react'
-import {
-  AlertTriangle, BarChart3, BookOpen, Building2, Check, CheckCircle2, ChevronDown, CircleAlert, CircleCheck,
-  Database, FileUp, Gauge, GitCompareArrows, LineChart, Scale, ShieldCheck, Sparkles, TrendingUp,
-  UsersRound, X,
-} from 'lucide-react'
+import { AlertTriangle, BarChart3, BookOpen, Building2, Check, CheckCircle2, ChevronDown, CircleAlert, CircleCheck, Database, FileUp, Gauge, GitCompareArrows, LineChart, Scale, ShieldCheck, UsersRound, X } from 'lucide-react'
 
 import {
   extractFinancialStatementUpload,

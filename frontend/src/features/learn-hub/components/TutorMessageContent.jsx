@@ -1,5 +1,3 @@
-import React from 'react'
-
 /**
  * Format math/formula string into readable mathematical expression.
  * Cleanly transforms LaTeX \text{}, \frac{}, \times, etc.

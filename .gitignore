@@ -21,8 +21,10 @@ build/
 var/
 data/*.db
 data/*.db.*
+data/*.db-*
 data/db/*.db
 data/db/*.db.*
+data/db/*.db-*
 learning_library_files/
 !data/db/.gitkeep
 !data/db/README.md
@@ -30,6 +32,7 @@ data/cache/
 data/vn_screener/
 data/vn_market/industries.json
 data/global_market_prices/*.json
+data/global_market_prices/*.json.tmp.*
 data/global_market_prices/history/*.json
 data/financials/cache/*.json
 data/models/*.pkl
@@ -54,7 +57,7 @@ output/
 *.parquet
 
 # ── Frontend ─────────────────────────
-frontend/node_modules/
+node_modules/
 frontend/dist/
 frontend/output/
 .playwright-cli
@@ -70,8 +73,11 @@ frontend/.playwright-cli/
 *.swo
 
 # ── Misc cache ───────────────────────
-.local-dev/*
-!.local-dev/.venv-requirements-backup-*.txt
+.local-dev/
+coverage/
+htmlcov/
+test-results/
+playwright-report/
 .ruff_cache
 .ruff_cache/
 .home-vnstock

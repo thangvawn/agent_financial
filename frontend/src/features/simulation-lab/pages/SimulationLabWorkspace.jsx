@@ -1,5 +1,5 @@
 import { useAccountId } from '../../../shared/auth/accountContext'
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'
 import SimLabHeader from './components/SimLabHeader';
 import QuantaWorkshopEditor from './components/QuantaWorkshopEditor';
 import QuantaParamSliders from './components/QuantaParamSliders';

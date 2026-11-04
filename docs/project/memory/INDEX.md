@@ -1,5 +1,7 @@
 # Project memory
 
+- [Dọn mã và đầu ra QA cho bản bàn giao — 04/11/2026, verified theo phạm vi](sessions/2026-11-04-release-cleanup.md)
+
 - [Tổng quan tham khảo FireAnt /thi-truong —03/11/2026, verified](sessions/2026-11-03-market-overview-reference.md)
 
 - [Tổng quan gọn và heatmap cập nhật độc lập —03/11/2026, verified](sessions/2026-11-03-market-overview-live-updates.md)

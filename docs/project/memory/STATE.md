@@ -1,5 +1,7 @@
 # Trạng thái dự án
 
+**2026-11-04 · Dọn bản bàn giao — verified theo phạm vi.** Xoá 99 file obsolete và ~1,34 GiB output/cache/backup; bỏ theo dõi 282 file dependency/runtime. Giữ shim xgb để đọc model pickle. 180 frontend +128 backend +5 runner, lint/CSS/build/wheel và Chromium desktop/mobile đạt. Giữ DB/model/thư viện; provider ngoài chưa kiểm chứng, chưa deploy. [Session/bằng chứng](sessions/2026-11-04-release-cleanup.md).
+
 **2026-11-03 · Tổng quan tham khảo FireAnt /thi-truong —verified, hiện hành.** Chỉ số compact đứng đầu, nhịp thị trường, bản đồ, ngành/movers và quốc tế; mobile chỉ số vuốt ngang. Chung snapshot heatmap cho các thống kê cổ phiếu, loại dữ liệu thiếu khỏi độ rộng, movers có ngưỡng GTGD1tỷ tùy chọn.192test frontend, lint/CSS/build và browser sáng/tối320–1600 đạt; tickVCI riêng giữ zoom. [Session/giới hạn](sessions/2026-11-03-market-overview-reference.md). Thay thứ tự map-đầu của lượt trước; logic map ổn định tiếp tục giữ.
 
 **2026-11-03 · Tổng quan/heatmap live — verified.** Bỏ header lớn, gộp toolbar và thông tin phụ; từng mã đổi màu/số độc lập, giữ worker/DOM, resquarify theo ngành, diện tích chuyển mượt và giữ camera. Ghép quote/bố cục khi thêm-bớt mã, giữ last-good khi lỗi.188 frontend/16 heatmap, 12 live + 9 hồi quy Chromium, CSS 57/build đạt; localhost:8000 cùng asset QA. [Session, bằng chứng và giới hạn](sessions/2026-11-03-market-overview-live-updates.md).

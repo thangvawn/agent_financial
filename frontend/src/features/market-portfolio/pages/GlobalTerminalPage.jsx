@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, ChevronRight, GripHorizontal, Maximize2, Minimize2, Star } from 'lucide-react'
+import { GripHorizontal, Maximize2, Minimize2, Star } from 'lucide-react'
 
 import {
   fetchGlobalTerminal,
@@ -14,7 +14,7 @@ import LightweightChartPanel from './LightweightChartPanel'
 import TradingViewRealtimeWidget from './TradingViewRealtimeWidget'
 import { isTradingViewSupported } from './tradingViewUtils'
 import VnOrderBookWidget from './VnOrderBookWidget'
-import { IndexCardsBar } from '../components'
+import { IndexCardsBar } from '../components/IndexCardsBar'
 import MarketOverviewTab from '../components/MarketOverviewTab'
 import { InstrumentSparkline } from '../components/PriceSparkline'
 import './global-terminal.css'
@@ -43,7 +43,6 @@ const DEFAULT_TABS = [
 ]
 
 const PRIORITY = ['VNINDEX', 'VN30', 'HNXINDEX', 'UPCOMINDEX', 'SPX', 'NDX', 'XAU', 'BTC', 'ETH', 'FPT', 'VCB', 'MWG']
-
 
 const CHART_PRESETS = [
   { id: '1m', label: '1m', period: 'max', interval: '1m', desc: 'Nến 1 phút (Max)' },
@@ -617,8 +616,6 @@ export default function GlobalTerminalPage({ activeTab = 'dashboard', onOpenNews
         />
       ) : null}
 
-
-
       {isVnTab ? (
         activeDetailSymbol ? (
           <VnDetailedTickerPage
@@ -793,98 +790,6 @@ function CompactSearchBar({ inputRef, command, onCommandChange, onCommandSubmit,
   )
 }
 
-/* ====================== Index Cards Row ====================== */
-function IndexCardsRow({ indexItems, vnItems, marketSummary, selectedSymbol, onSelect, statsActive, onOpenStats }) {
-  const indices = useMemo(() => {
-    const lookup = new Map((indexItems || []).map((item) => [String(item.symbol || '').toUpperCase(), item]))
-    const definitions = [
-      { symbol: 'VNINDEX', label: 'VN-INDEX', exchanges: ['HSX', 'HOSE'] },
-      { symbol: 'HNXINDEX', label: 'HNX-INDEX', exchanges: ['HNX'] },
-      { symbol: 'UPCOM', label: 'UPCOM', exchanges: ['UPCOM'], aliases: ['UPCOMINDEX'] },
-    ]
-
-    return definitions.map((definition) => {
-      const quote = lookup.get(definition.symbol)
-        || definition.aliases?.map((alias) => lookup.get(alias)).find(Boolean)
-        || null
-      const marketRows = (vnItems || []).filter((row) => definition.exchanges.includes(String(row.exchange || '').toUpperCase()))
-      const fallbackBreadth = marketRows.reduce((result, row) => {
-        const change = Number(row.change_pct ?? row.changePct)
-        if (!Number.isFinite(change)) return result
-        if (change === 0) result.flat += 1
-        else if (change > 0) result.up += 1
-        else result.down += 1
-        return result
-      }, { up: 0, flat: 0, down: 0 })
-      const exchangeKey = definition.exchanges[0] === 'HOSE' ? 'HSX' : definition.exchanges[0]
-      const summary = marketSummary?.[exchangeKey]
-      return {
-        ...definition,
-        ...quote,
-        symbol: definition.symbol,
-        label: definition.label,
-        breadth: summary ? {
-          up: summary.advances || 0,
-          flat: summary.unchanged || 0,
-          down: summary.declines || 0,
-        } : fallbackBreadth,
-        sampleSize: marketRows.length,
-        turnover: summary?.turnover_billion,
-      }
-    })
-  }, [indexItems, marketSummary, vnItems])
-
-  return (
-    <section className="gt-index-cards" aria-label="Tổng quan chỉ số Việt Nam">
-      {indices.map((item) => {
-        const changePct = Number(item.change_pct)
-        const hasQuote = Number.isFinite(Number(item.price))
-        const positive = Number.isFinite(changePct) && changePct >= 0
-        return (
-          <button
-            type="button"
-            key={item.symbol}
-            className={`gt-index-card ${item.symbol === selectedSymbol ? 'is-selected' : ''}`}
-            onClick={() => onSelect(item.symbol)}
-            title={`Mở thông tin ${item.label}`}
-          >
-            <div className="gt-index-card__main">
-              <div className="gt-index-card__heading">
-                <span className={`gt-index-card__name ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>{item.label}</span>
-                <span className="gt-index-card__sample">
-                  {Number.isFinite(Number(item.turnover)) ? `${Math.round(Number(item.turnover)).toLocaleString('vi-VN')} tỷ` : '—'}
-                </span>
-              </div>
-              <div className="gt-index-card__quote">
-                <span className={`gt-index-card__price ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>{formatIndexPrice(item.price)}</span>
-                <span className={`gt-index-card__change ${hasQuote ? (positive ? 'is-pos' : 'is-neg') : ''}`}>
-                  {hasQuote ? `${formatSigned(item.change)} (${formatChange(item.change_pct)})` : 'Chưa có quote chỉ số'}
-                </span>
-              </div>
-              <div className="gt-index-card__breadth" aria-label={`Độ rộng ${item.label}`}>
-                <span className="is-pos">▲ {item.breadth.up}</span>
-                <span className="is-flat">● {item.breadth.flat}</span>
-                <span className="is-neg">▼ {item.breadth.down}</span>
-              </div>
-            </div>
-            <div className="gt-index-card__chart">
-              <InstrumentSparkline symbol={item.symbol} width={120} height={38} interactive={false}/>
-            </div>
-          </button>
-        )
-      })}
-      <button
-        type="button"
-        className={`gt-market-stats-card ${statsActive ? 'is-active' : ''}`}
-        onClick={onOpenStats}
-        aria-pressed={statsActive}
-      >
-        <span className="gt-market-stats-card__title"><BarChart3 size={17} aria-hidden="true" /> Thống kê sàn</span>
-        <span className="gt-market-stats-card__action">Xem chi tiết <ChevronRight size={14} aria-hidden="true" /></span>
-      </button>
-    </section>
-  )
-}
 
 const INDEX_REGIONS = [
   { id: 'vietnam', label: 'Việt Nam', symbols: ['VNINDEX', 'VN30', 'HNXINDEX', 'UPCOMINDEX'] },
@@ -941,7 +846,6 @@ function IndicesMarketBoard({ items, selectedSymbol, onSelect }) {
     </section>
   )
 }
-
 
 const IndexMarketRow = memo(function IndexMarketRow({ item, index, selected, onSelect }) {
   const change = Number(item.change_pct || 0)
@@ -1083,37 +987,6 @@ function TerminalLoadingState() {
   )
 }
 
-/* ====================== Ticker tape ====================== */
-function TickerTape({ items, selectedSymbol, onSelect }) {
-  if (!items?.length) return null
-  return (
-    <div className="gt-ticker" aria-label="Market ticker tape">
-      <div className="gt-ticker__track">
-        {items.map((item) => {
-          const change = Number(item.change_pct || 0)
-          const positive = change > 0
-          const negative = change < 0
-          const toneClass = positive ? 'is-pos gt-px-up' : negative ? 'is-neg gt-px-dn' : 'is-ref gt-px-tc'
-          return (
-            <button
-              type="button"
-              key={item.symbol}
-              className={`gt-ticker__item ${item.symbol === selectedSymbol ? 'is-selected' : ''}`}
-              aria-pressed={item.symbol === selectedSymbol}
-              onClick={() => onSelect(item.symbol)}
-            >
-              <strong className={toneClass}>{item.symbol}</strong>
-              <span className={`gt-ticker__item-price ${toneClass}`}>{formatPrice(item.price)}</span>
-              <em className={`gt-ticker__item-change ${toneClass}`}>
-                {formatChange(item.change_pct)}
-              </em>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 /* ====================== Watchlist ====================== */
 function Watchlist({ title, items, selectedSymbol, onSelect, vnControls }) {
@@ -1361,7 +1234,6 @@ function formatVnVolume(value) {
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
   return n.toLocaleString('vi-VN', { maximumFractionDigits: 0 })
 }
-
 
 function InstrumentHero({ quote, history, symbol }) {
   const ohlc = useMemo(() => computeOHLC(history), [history])
@@ -2173,11 +2045,7 @@ function formatVnStockChange(value) {
   return `${normalized > 0 ? '+' : ''}${normalized.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function formatIndexPrice(value) {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return '—'
-  return number.toLocaleString('en-US', { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+
 
 function formatVnMarketCap(value) {
   const number = Number(value)

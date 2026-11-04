@@ -58,7 +58,7 @@ export default function useSocialFeed(sessionId) {
         .catch(e => { if (e.name !== 'AbortError' && id === generation.current) setError(e.message) })
         .finally(() => { if (id === generation.current) setLoading(false) })
     }, 250)
-    return () => { clearTimeout(timer); controller.abort(); generation.current++ }
+    return () => { clearTimeout(timer); controller.abort(); generation.current = id + 1 }
   }, [sessionId, scopeKey, version])
 
   const loadMore = useCallback(async () => {

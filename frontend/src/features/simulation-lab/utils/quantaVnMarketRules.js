@@ -17,13 +17,6 @@ export const VN_FEES = {
   SLIPPAGE_PCT: 0.15,    // 0.15% uoc tinh truot gia khop lenh
 };
 
-export function detectExchange(symbol = '') {
-  const sym = String(symbol).toUpperCase().trim();
-  if (sym.includes('UPCOM')) return 'UPCOM';
-  if (sym.includes('HNX')) return 'HNX';
-  return 'HOSE';
-}
-
 export function roundToVnPriceTick(price) {
   const p = Math.round(Number(price) || 0);
   if (p <= 0) return 0;

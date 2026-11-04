@@ -28,14 +28,6 @@ async function fetchWithCache(key, url, refresh = false) {
   return payload
 }
 
-export async function fetchFinancialStatus() {
-  return fetchWithCache('status', '/financials/status')
-}
-
-export async function fetchFinancialUploadTypes() {
-  return fetchWithCache('financial_upload_types', '/financials/upload/supported-types')
-}
-
 export async function uploadFinancialStatement({ file, ticker = '', reportType = 'auto', period = '' }) {
   const form = new FormData()
   form.set('file', file)
@@ -49,26 +41,11 @@ export async function uploadFinancialStatement({ file, ticker = '', reportType =
   return expectJson(response)
 }
 
-export async function analyzeFinancialStatementUpload(uploadId) {
-  const response = await fetch(`/financials/uploads/${encodeURIComponent(uploadId)}/analyze`, {
-    method: 'POST',
-  })
-  return expectJson(response)
-}
-
 export async function extractFinancialStatementUpload(uploadId) {
   const response = await fetch(`/financials/uploads/${encodeURIComponent(uploadId)}/extract`, {
     method: 'POST',
   })
   return expectJson(response)
-}
-
-export async function fetchFinancialAnalysis(ticker, { refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const params = new URLSearchParams()
-  if (refresh) params.set('refresh', '1')
-  const query = params.toString()
-  return fetchWithCache(`analysis_${symbol}`, `/financials/${encodeURIComponent(symbol)}/analysis${query ? `?${query}` : ''}`, refresh)
 }
 
 export async function fetchFinancialCockpit(ticker, { refresh = false, periodType = 'quarter' } = {}) {
@@ -157,14 +134,6 @@ export async function runBctcPracticeLab({ tickers = [], datasets = [], periodMo
   return expectJson(response)
 }
 
-export function clearFinancialsApiCache() {
-  cache.clear()
-}
-
-export async function fetchCachedFinancialTickers() {
-  return fetchWithCache('financials_cached_tickers', '/financials/cached-tickers')
-}
-
 export async function fetchCompanyMarketContext(ticker) {
   const symbol = String(ticker || '').trim().toUpperCase()
   const [prices, profile, shareholders, officers] = await Promise.allSettled([
@@ -182,46 +151,6 @@ export async function fetchCompanyMarketContext(ticker) {
   }
 }
 
-export async function fetchFinancialQuality(ticker, { refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const query = refresh ? '?refresh=1' : ''
-  return fetchWithCache(`quality_${symbol}`, `/financials/${encodeURIComponent(symbol)}/quality-charts${query}`, refresh)
-}
-
-export async function fetchFinancialSections(ticker, { refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const params = new URLSearchParams()
-  if (refresh) params.set('refresh', '1')
-  const query = params.toString()
-  return fetchWithCache(`sections_${symbol}`, `/financials/${encodeURIComponent(symbol)}/sections${query ? `?${query}` : ''}`, refresh)
-}
-
-export async function fetchFinancialSection(ticker, section, { refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const normalizedSection = (section || '').trim()
-  const params = new URLSearchParams()
-  if (refresh) params.set('refresh', '1')
-  const query = params.toString()
-  return fetchWithCache(`section_${symbol}_${normalizedSection}`, `/financials/${encodeURIComponent(symbol)}/sections/${encodeURIComponent(normalizedSection)}${query ? `?${query}` : ''}`, refresh)
-}
-
-export async function fetchFinancialQualityCharts(ticker, { refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const params = new URLSearchParams()
-  if (refresh) params.set('refresh', '1')
-  const query = params.toString()
-  return fetchWithCache(`quality_${symbol}`, `/financials/${encodeURIComponent(symbol)}/quality-charts${query ? `?${query}` : ''}`, refresh)
-}
-
-export async function fetchBalanceSheetStrength(ticker, { period = '', refresh = false } = {}) {
-  const symbol = (ticker || '').toUpperCase().trim()
-  const params = new URLSearchParams()
-  if (period) params.set('period', period)
-  if (refresh) params.set('refresh', '1')
-  const query = params.toString()
-  return fetchWithCache(`balance_${symbol}_${period}`, `/financials/${encodeURIComponent(symbol)}/balance-sheet-strength${query ? `?${query}` : ''}`, refresh)
-}
-
 export async function fetchFinancialPeers(ticker, peers = '') {
   const symbol = (ticker || '').toUpperCase().trim()
   const params = new URLSearchParams()
@@ -237,16 +166,6 @@ export async function submitStudentNote(payload) {
     body: JSON.stringify(payload),
   })
   return expectJson(response)
-}
-
-export async function fetchLineItemExplanation(itemKey, companyId, period = '', studentLevel = 'beginner') {
-  const params = new URLSearchParams()
-  params.set('item_key', itemKey)
-  if (companyId) params.set('company_id', companyId)
-  if (period) params.set('period', period)
-  if (studentLevel) params.set('student_level', studentLevel)
-  const query = params.toString()
-  return fetchWithCache(`explain_${itemKey}_${studentLevel}`, `/api/bctc/income-statement/explain-line-item?${query}`)
 }
 
 // =============================================================================
@@ -273,15 +192,6 @@ export async function fetchBctcAgentHealth() {
   return expectJson(response)
 }
 
-export async function invokeBctcTool(toolId, input = {}) {
-  const response = await fetch(`${BCTC_AGENT_BASE}/tools/${encodeURIComponent(toolId)}:invoke`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ input }),
-  })
-  return expectJson(response)
-}
-
 export async function createBctcRun({ skillId, ticker, periods = ['2024Q3'], lineItem = null, formulaId = null, query = null }) {
   const response = await fetch(`${BCTC_AGENT_BASE}/runs`, {
     method: 'POST',
@@ -298,13 +208,6 @@ export async function createBctcRun({ skillId, ticker, periods = ['2024Q3'], lin
   return expectJson(response)
 }
 
-export async function getBctcRun(runId) {
-  const response = await fetch(`${BCTC_AGENT_BASE}/runs/${encodeURIComponent(runId)}`, {
-    headers: getAuthHeaders(),
-  })
-  return expectJson(response)
-}
-
 export async function createBctcMemo(memoPayload, idempotencyKey = null) {
   const customHeaders = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
   const response = await fetch(`${BCTC_AGENT_BASE}/memos`, {
@@ -317,16 +220,6 @@ export async function createBctcMemo(memoPayload, idempotencyKey = null) {
 
 export async function fetchBctcMemos() {
   const response = await fetch(`${BCTC_AGENT_BASE}/memos`, {
-    headers: getAuthHeaders(),
-  })
-  return expectJson(response)
-}
-
-export async function getBctcMemo(memoId, revisionId = null) {
-  const url = revisionId
-    ? `${BCTC_AGENT_BASE}/memos/${encodeURIComponent(memoId)}?revision_id=${encodeURIComponent(revisionId)}`
-    : `${BCTC_AGENT_BASE}/memos/${encodeURIComponent(memoId)}`
-  const response = await fetch(url, {
     headers: getAuthHeaders(),
   })
   return expectJson(response)

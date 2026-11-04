@@ -1,4 +1,3 @@
-import React from 'react'
 import './checkpoint.css'
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']

@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Code2, Check, Copy, Sparkles, BookOpen, Terminal } from 'lucide-react'
+import { useState } from 'react'
+import { Code2, Check, Copy } from 'lucide-react'
 import { QUANTA_STRATEGY_PRESETS } from '../../content/quantaStrategyPresets'
 
 export default function QuantaWorkshopEditor({ code, onChange, onApplyPreset, onRunBacktest }) {

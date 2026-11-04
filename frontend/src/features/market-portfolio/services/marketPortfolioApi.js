@@ -107,13 +107,3 @@ export async function fetchMpCommoditiesSnapshot({ signal, refresh = false } = {
   const response = await fetch(`${BASE}/market-data/commodities/snapshot${refresh ? '?refresh=true' : ''}`, { signal, cache: 'no-store' })
   return expectJson(response)
 }
-
-export async function fetchMpLeaders() {
-  const response = await fetch(`${BASE}/market-data/leaders`)
-  return expectJson(response)
-}
-
-export async function fetchMpCompanyOfficers(symbol) {
-  const response = await fetch(`${BASE}/market-data/instruments/${encodeURIComponent(symbol)}/officers`)
-  return expectJson(response)
-}

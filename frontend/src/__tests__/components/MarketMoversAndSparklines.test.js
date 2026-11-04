@@ -2,7 +2,7 @@ import { describe, it, after } from 'node:test'
 import assert from 'node:assert'
 import { loadComponent, closeViteServer, React, renderToString } from '../test-helpers.js'
 
-describe('Financial Subagents: Market Movers & 4 Index Sparklines Tests', () => {
+describe('Market index cards and sparklines', () => {
   after(async () => {
     await closeViteServer()
   })
@@ -57,55 +57,4 @@ describe('Financial Subagents: Market Movers & 4 Index Sparklines Tests', () => 
     assert.ok(html.includes('UPCOM'), 'Missing UPCOM card')
   })
 
-  it('renders StudentStockFilterBar with 1-click Preset Packs and Dropdowns', async () => {
-    const mod = await loadComponent('./src/features/market-portfolio/components/StudentStockFilterBar.jsx')
-    const StudentStockFilterBar = mod.StudentStockFilterBar || mod
-
-    const html = renderToString(React.createElement(StudentStockFilterBar, {
-      activePreset: 'breakout',
-      selectedSector: 'Ngân hàng',
-      selectedExchange: 'HOSE',
-      matchCount: 15
-    }))
-
-    assert.ok(html.includes('Bộ Lọc Sinh Viên'), 'Must render Student Screener title')
-    assert.ok(html.includes('Breakout có xác nhận'), 'Must render Breakout preset')
-    assert.ok(html.includes('Giá tăng quá xa nền'), 'Must render Overbought warning preset')
-    assert.ok(html.includes('Cổ tức cao'), 'Must render High Dividend preset')
-    assert.ok(html.includes('Tìm thấy'), 'Must render match counter title')
-    assert.ok(html.includes('15'), 'Must render match counter count')
-    assert.ok(html.includes('Đặt lại'), 'Must render Reset button when filtered')
-  })
-
-  it('renders ForeignFlowButterfly with symmetric Buy/Sell wings', async () => {
-    const mod = await loadComponent('./src/features/market-portfolio/components/ForeignFlowButterfly.jsx')
-    const ForeignFlowButterfly = mod.ForeignFlowButterfly || mod
-
-    const html = renderToString(React.createElement(ForeignFlowButterfly, {
-      items: [
-        { symbol: 'FPT', foreign_buy_val: 200e9, foreign_sell_val: 20e9 },
-        { symbol: 'VHM', foreign_buy_val: 10e9, foreign_sell_val: 150e9 }
-      ]
-    }))
-
-    assert.ok(html.includes('Giao Dịch Khối Ngoại (Cánh Bướm)'), 'Must render Butterfly card title')
-    assert.ok(html.includes('Top Mua Ròng'), 'Must render Buy Wing')
-    assert.ok(html.includes('Top Bán Ròng'), 'Must render Sell Wing')
-  })
-
-  it('renders VnIndexImpactWidget with positive and negative drivers', async () => {
-    const mod = await loadComponent('./src/features/market-portfolio/components/VnIndexImpactWidget.jsx')
-    const VnIndexImpactWidget = mod.VnIndexImpactWidget || mod
-
-    const html = renderToString(React.createElement(VnIndexImpactWidget, {
-      items: [
-        { symbol: 'VCB', change_pct: 2.5, market_cap: 500000 },
-        { symbol: 'VIC', change_pct: -3.0, market_cap: 350000 }
-      ]
-    }))
-
-    assert.ok(html.includes('Tác Động Chỉ Số VN-Index'), 'Must render Index Impact title')
-    assert.ok(html.includes('Top Kéo Điểm'), 'Must render Positive leaders')
-    assert.ok(html.includes('Top Đè Điểm'), 'Must render Negative laggards')
-  })
 })

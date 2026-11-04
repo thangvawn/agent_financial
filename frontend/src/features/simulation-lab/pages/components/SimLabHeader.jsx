@@ -1,5 +1,3 @@
-import React from 'react';
-
 const POPULAR_TICKERS = [
   'FPT', 'HPG', 'SSI', 'MWG', 'VNM', 'VCB', 'MBB', 'TCB', 'VIC', 'DGC', 'VND', 'VNINDEX'
 ];

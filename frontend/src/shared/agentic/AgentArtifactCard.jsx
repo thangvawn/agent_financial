@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 import { EvidenceDrawer } from './EvidenceDrawer';
 
 export function AgentArtifactCard({ artifact, onArtifactClick }) {

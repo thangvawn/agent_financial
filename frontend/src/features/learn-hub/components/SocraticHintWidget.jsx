@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import './checkpoint.css'
 
 const DEFAULT_STEP_TITLES = [

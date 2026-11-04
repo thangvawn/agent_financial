@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ArrowRight, ChevronDown } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 const SORT_OPTIONS = [
   { id: 'latest', label: 'Mới nhất' },

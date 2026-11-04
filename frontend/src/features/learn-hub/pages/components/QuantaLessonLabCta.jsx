@@ -1,4 +1,3 @@
-import React from 'react';
 import { useFinancialWorkflow } from '../../../../shared/context/FinancialWorkflowContext';
 
 export default function QuantaLessonLabCta({ demoCode }) {

@@ -9,6 +9,7 @@ export async function getViteServer() {
     viteServer = await createServer({
       // SSR tests do not need a browser HMR socket or a shared listening port.
       server: { middlewareMode: true, ws: false },
+      optimizeDeps: { noDiscovery: true, include: [] },
       appType: 'custom',
     })
   }

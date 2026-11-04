@@ -286,12 +286,15 @@ make test / make test-cov
 make lint / make fmt
 make docker-build   # docker compose build
 make up / make down / make logs
-make clean          # Xóa cache test / coverage local
+make clean          # Xóa output QA, cache test và coverage local
 ```
 
 ---
 
 ## Tests & chất lượng code
+
+Chạy trong virtualenv đã kích hoạt. `make test` và `make test-cov` dùng runner
+cấp DB tạm trước khi import; `make clean` xoá đầu ra QA, giữ dữ liệu runtime.
 
 ```bash
 make test

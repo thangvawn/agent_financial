@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 import { loadSavedBlueprints, saveBlueprint, deleteBlueprint } from '../../services/quantaBlueprintStorage';
 
 export default function SimLabBlueprintModal({

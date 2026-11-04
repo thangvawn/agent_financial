@@ -11,10 +11,10 @@ dev-frontend:
 	cd frontend && npm run dev
 
 test:
-	pytest --tb=short -q
+	python scripts/qa/run_isolated_tests.py -- --tb=short
 
 test-cov:
-	pytest --cov=risk_dashboard --cov-report=term-missing --cov-report=html
+	python scripts/qa/run_isolated_tests.py -- --cov=risk_dashboard --cov-report=term-missing --cov-report=html
 
 lint:
 	ruff check src/ tests/
@@ -45,6 +45,6 @@ logs:
 	docker compose logs -f app
 
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
-	rm -rf htmlcov .coverage
+	find src tests scripts -type d -name __pycache__ -prune -exec rm -rf {} +
+	rm -rf output frontend/output build htmlcov .coverage coverage test-results playwright-report
+	rm -rf .local-dev/.pytest_cache .local-dev/.ruff_cache .local-dev/.pycache_tmp .local-dev/pycache

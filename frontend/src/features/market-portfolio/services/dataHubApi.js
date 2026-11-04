@@ -110,11 +110,6 @@ export async function fetchInstrumentHistory(symbol, { period = '6mo', interval 
   return consumeHistory(promise, signal)
 }
 
-export async function fetchVnUniverse() {
-  const response = await fetch('/api/v1/public/data-hub/vn-market/universe')
-  return expectJson(response)
-}
-
 export async function fetchVnSnapshot({ sort = 'market_cap_desc', exchange = '', search = '', industry = '', limit = 50, offset = 0, refresh = false, signal } = {}) {
   const key = JSON.stringify([sort, exchange, search, industry, limit, offset])
   const cached = clientSnapshotCache.get(key)
@@ -130,17 +125,4 @@ export async function fetchVnSnapshot({ sort = 'market_cap_desc', exchange = '',
   }))
   if (data && !signal?.aborted) clientSnapshotCache.set(key, { data, ts: Date.now() })
   return data
-}
-
-export async function fetchDataHubTopics() {
-  const response = await fetch('/api/v1/public/data-hub/topics')
-  return expectJson(response)
-}
-
-// Each screen owns its AbortSignal. Do not share an in-flight request with a
-// previous filter selection: aborting that request must not poison the new one.
-export async function fetchVnScreener({ preset = '', technical = 'all', sector = '', exchange = '', sort = 'score_desc', limit = 50, cursor = '', signal } = {}) {
-  const params = new URLSearchParams({ preset, technical, sector, exchange, sort, limit: String(limit) })
-  if (cursor) params.set('cursor', cursor)
-  return expectJson(await fetch(`/api/v1/public/data-hub/vn-market/screener?${params}`, { signal, cache: 'no-store', headers: { Accept: 'application/json' } }))
 }

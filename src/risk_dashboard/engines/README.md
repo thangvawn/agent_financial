@@ -17,13 +17,11 @@ Product chatbots (`ai_assistant`, multi-agent chat, trading-lab chat) have been 
 - `engines.agents` → may call `engines.quant`, data connectors, shared schemas. **No** FastAPI, **no** `modules/*`.
 - `modules/*/application` → **only** layer that should import engines for product features.
 
-## Compatibility
+## Import path
 
-Deprecated import path still works via shim:
-
-- `risk_dashboard.quant.*` → `risk_dashboard.engines.quant.*`
-
-Prefer `engines.*` in new code.
+Use `risk_dashboard.engines.quant.*` for computational modules and notebooks.
+`risk_dashboard.quant.xgb_engine` remains only because stored pickle models
+reference that historical module path. Other unused quant shims were removed.
 
 ## Non-goals
 

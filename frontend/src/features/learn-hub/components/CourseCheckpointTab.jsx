@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { fetchCheckpoint, gradeCheckpoint, completeCheckpoint } from '../services/learningApi'
 import CheckpointCard from './CheckpointCard'
 import SocraticHintWidget from './SocraticHintWidget'

@@ -483,34 +483,6 @@
   animation-delay: -2.2s;
 }
 
-.sparkle-client-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 30px;
-  width: min(1100px, calc(100vw - 48px));
-  margin: 0 auto;
-  padding: 44px 30px;
-  background: var(--surface);
-}
-
-.sparkle-client-logo {
-  display: grid;
-  place-items: center;
-  min-height: 54px;
-  color: var(--ink-muted);
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-align: center;
-  text-transform: uppercase;
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.sparkle-client-strip.is-visible .sparkle-client-logo {
-  animation: sparkle-logo-in 520ms ease var(--delay, 0ms) both;
-}
-
 .sparkle-features {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -890,17 +862,7 @@
   }
 }
 
-@keyframes sparkle-logo-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
 
 @keyframes sparkle-cta-sheen {
 
@@ -964,10 +926,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sparkle-client-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .sparkle-app-cta {
     padding: 34px;
   }
@@ -990,7 +948,6 @@
     display: none;
   }
 
-  .sparkle-client-strip,
   .sparkle-features,
   .sparkle-app-cta,
   .sparkle-testimonials,
@@ -998,7 +955,6 @@
     width: min(100vw - 28px, 1100px);
   }
 
-  .sparkle-client-strip,
   .sparkle-demo-flow-grid,
   .sparkle-testimonial-grid {
     grid-template-columns: 1fr;
@@ -1024,8 +980,7 @@
   .sparkle-dashboard-image,
   .sparkle-floating-card,
   .sparkle-app-cta::before,
-  .sparkle-phone-preview img,
-  .sparkle-client-strip.is-visible .sparkle-client-logo {
+  .sparkle-phone-preview img {
     animation: none !important;
   }
 

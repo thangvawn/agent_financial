@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 
 export default function SimLabTearsheet({ metrics, trades = [] }) {
   const [filterType, setFilterType] = useState('all');

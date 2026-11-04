@@ -1,26 +1,7 @@
 import ThemeToggle from '../../../shared/theme/ThemeToggle'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  Activity,
-  AlertCircle,
-  ArrowLeft,
-  BarChart3,
-  BookOpen,
-  CheckCircle2,
-  ChevronRight,
-  Cpu,
-  Eye,
-  EyeOff,
-  Globe,
-  Lock,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  User,
-  Zap,
-} from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart3, CheckCircle2, Cpu, Eye, EyeOff, Lock, Mail, Sparkles, TrendingUp, User } from 'lucide-react'
 
 import { useAuth } from '..'
 import Auth3DObjectCanvas from '../components/Auth3DObjectCanvas'

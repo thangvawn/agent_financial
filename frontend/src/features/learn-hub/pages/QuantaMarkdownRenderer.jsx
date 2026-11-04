@@ -1,4 +1,3 @@
-import React from 'react'
 import { Info, Lightbulb, AlertTriangle, Terminal } from 'lucide-react'
 import { parseQuantaBlocks } from './quantaMarkdownParser'
 

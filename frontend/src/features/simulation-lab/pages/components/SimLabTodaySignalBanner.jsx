@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 
 export default function SimLabTodaySignalBanner({ todaySignal, ticker }) {
   const [isCollapsed, setIsCollapsed] = useState(false);

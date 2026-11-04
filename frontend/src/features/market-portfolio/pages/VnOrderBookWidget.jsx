@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Activity, ArrowDown, ArrowUp, BarChart2, CheckCircle2, ShieldCheck, TrendingUp, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, BarChart2 } from 'lucide-react'
 
 function formatVnPrice(val) {
   if (val === null || val === undefined || Number.isNaN(Number(val))) return '—'

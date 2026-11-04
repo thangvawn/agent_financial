@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 
 export default function SimLabVisualBuilder({ onApplyToQuantaCode }) {
   const [fastPeriod, setFastPeriod] = useState(9);

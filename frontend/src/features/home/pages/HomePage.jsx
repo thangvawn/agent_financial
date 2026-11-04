@@ -82,31 +82,6 @@ function SparkleHero({ actions }) {
   )
 }
 
-function SparkleModuleStrip({ onOpen }) {
-  const brands = [
-    { label: 'Market & Portfolio', run: onOpen.onOpenGlobalTerminal },
-    { label: 'Learn Hub', run: onOpen.onOpenLearning },
-    { label: 'BCTC Analysis', run: onOpen.onOpenGuidedInvesting },
-    { label: 'News', run: onOpen.onOpenNews },
-    { label: 'Simulation Lab', run: onOpen.onOpenProLab },
-  ]
-  return (
-    <section className="sparkle-client-strip sparkle-reveal" aria-label="Các module chính">
-      {brands.map((brand, index) => (
-        <button
-          key={brand.label}
-          type="button"
-          className="sparkle-client-logo"
-          style={{ '--delay': `${index * 80}ms` }}
-          onClick={() => brand.run?.()}
-        >
-          {brand.label}
-        </button>
-      ))}
-    </section>
-  )
-}
-
 function SparkleDemoFlow() {
   const steps = [
     {

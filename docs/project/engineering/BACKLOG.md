@@ -3,6 +3,14 @@
 Ngày: 31/10/2026. Chỉ mục đầu việc local, không đồng bộ issue bên ngoài.
 `proposed` = đề xuất; `ready` = đủ yêu cầu/quyền thực hiện; `in_progress` = đang làm; `blocked` = cần gỡ phụ thuộc; `done` = có bằng chứng nghiệm thu.
 
+## Dọn bản bàn giao — 04/11/2026
+
+**done trong phạm vi cleanup**, theo yêu cầu người dùng. Đã loại mã không còn caller,
+UI thay thế, script QA dùng một lần và output cũ; chặn dependency/cache/test artifact
+trong Git/build. 180 frontend +128 backend +5 runner, lint/CSS/build/wheel và browser
+đạt; giữ dữ liệu runtime, shim model pickle và chức năng hiện hành. Không push/deploy.
+[Phạm vi, bằng chứng và giới hạn](../memory/sessions/2026-11-04-release-cleanup.md).
+
 ## Social — cập nhật 02/11/2026
 
 - S0/S1 và S2 mức trích đoạn: **done trên workspace/QA**; [vận hành và scope](SOCIAL.md), [bằng chứng](../qa/results/SOCIAL_IMPLEMENTATION_2026_11_02.md).

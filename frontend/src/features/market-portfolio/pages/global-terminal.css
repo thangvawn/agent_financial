@@ -146,75 +146,6 @@
 }
 
 /* ---------- Index cards row -------------------------------- */
-.gt-index-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  padding: 14px clamp(16px, 2.6vw, 42px);
-  border-bottom: 1px solid var(--line);
-}
-
-.gt-index-card {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-.gt-index-card:hover {
-  border-color: var(--line-strong);
-  background: var(--surface-alt);
-}
-.gt-index-card.is-selected {
-  border-color: var(--gt-accent-ring);
-  background: var(--gt-accent-soft);
-}
-.gt-index-card--skeleton {
-  min-height: 72px;
-  cursor: default;
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-}
-
-.gt-index-card__main {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-.gt-index-card__chart {
-  display: flex;
-  align-items: center;
-}
-
-.gt-index-card__name {
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.gt-index-card__price {
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-.gt-index-card__change {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  font-weight: 600;
-}
 
 .is-pos { color: var(--pos); }
 .is-neg { color: var(--neg); }
@@ -791,7 +722,6 @@
 .gt-watchlist__row:focus-visible,
 .gt-chart__btn:focus-visible,
 .gt-chart__mode-btn:focus-visible,
-.gt-index-card:focus-visible,
 .gt-chip:focus-visible {
   outline: 2px solid var(--gt-accent);
   outline-offset: -2px;
@@ -1367,7 +1297,6 @@
   }
   .gt-search-bar__form { max-width: 100%; order: 3; }
   .gt-search-bar__status { margin-left: 0; }
-  .gt-index-cards { grid-template-columns: repeat(2, 1fr); padding: 10px 14px; }
   .gt-filter-bar { padding: 8px 14px; }
   .gt-filter-bar__search { width: 100%; }
   .gt-full-workspace--indices { grid-template-columns: 1fr; padding: 10px 14px; }
@@ -1928,123 +1857,6 @@
   background: var(--gt-board-bg, #070b0c) !important;
 }
 
-.gt-index-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) 150px;
-  gap: 12px;
-  padding: 16px clamp(16px, 2.6vw, 42px) 12px;
-  border-bottom: 0;
-  background: var(--gt-board-bg);
-}
-
-.gt-index-card {
-  min-width: 0;
-  min-height: 96px;
-  padding: 12px;
-  border-color: var(--gt-board-line);
-  border-radius: 14px;
-  background: var(--gt-board-panel);
-  box-shadow: none;
-  color: var(--gt-board-text);
-  text-align: left;
-}
-
-.gt-index-card:hover {
-  border-color: var(--gt-board-line-hover);
-  background: var(--gt-board-panel-hover);
-}
-
-.gt-index-card:active { background: var(--gt-board-bg); }
-.gt-index-card:disabled { cursor: not-allowed; opacity: 0.55; }
-
-.gt-index-card.is-selected {
-  border-color: var(--gt-board-line);
-  background: var(--gt-board-panel);
-}
-
-.gt-index-card__main {
-  min-width: 0;
-  flex: 1;
-  gap: 4px;
-}
-
-.gt-index-card__heading,
-.gt-index-card__quote,
-.gt-index-card__breadth {
-  display: flex;
-  align-items: baseline;
-}
-
-.gt-index-card__heading {
-  justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-}
-
-.gt-index-card__name {
-  color: var(--gt-board-muted);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.015em;
-}
-
-.gt-index-card__sample {
-  color: var(--gt-board-subtle);
-  font: 500 10px/1.3 var(--gt-board-font);
-  white-space: nowrap;
-}
-
-.gt-index-card__quote {
-  gap: 10px;
-  min-height: 24px;
-}
-
-.gt-index-card__price {
-  font-size: 22px;
-  font-weight: 750;
-  line-height: 1;
-}
-
-.gt-index-card__change {
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.gt-index-card__breadth {
-  gap: 12px;
-  font: 650 11px/1 var(--font-mono);
-}
-
-.gt-index-card__breadth .is-flat {
-  color: var(--gt-board-muted);
-}
-
-.gt-index-card__chart {
-  flex: 0 0 92px;
-  justify-content: flex-end;
-}
-
-.gt-index-card__chart svg {
-  display: block;
-  overflow: visible;
-}
-
-.gt-index-card__ref {
-  stroke: var(--gt-board-yellow);
-  stroke-width: 1;
-  opacity: 0.72;
-}
-
-.gt-index-card__area.is-up { fill: var(--gt-board-green-area); }
-.gt-index-card__area.is-down { fill: var(--gt-board-red-area); }
-.gt-index-card__line { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.gt-index-card__line.is-up { stroke: var(--gt-board-green); }
-.gt-index-card__line.is-down { stroke: var(--gt-board-red); }
-.gt-index-card__dot.is-up { fill: var(--gt-board-green); }
-.gt-index-card__dot.is-down { fill: var(--gt-board-red); }
-.gt-index-card__chart-empty { color: var(--gt-board-subtle); font: 500 11px var(--font-sans); }
-
 .gt-market-stats-card {
   display: flex;
   min-width: 0;
@@ -2467,7 +2279,6 @@
 .gt-priceboard__chart-cell { width: 140px; min-width: 140px; padding-inline: 12px !important; }
 .gt-priceboard__chart-cell .instrument-sparkline { width: 116px; margin-inline: auto; }
 .gt-indices-board__chart .instrument-sparkline { width: 120px; }
-.gt-index-card__chart .instrument-sparkline { width: 120px; }
 
 /* ---------- Consistent Symbol / Price / % / Change Colors ---------- */
 /* POSITIVE / TĂNG: XANH LÁ */
@@ -2487,10 +2298,6 @@
 .gt-indices-board__table .strong.gt-px-up,
 .gt-watchlist__sym strong.is-pos,
 .gt-watchlist__row .is-pos,
-.gt-ticker__item strong.is-pos,
-.gt-ticker__item-price.is-pos,
-.gt-ticker__item-price.gt-px-up,
-.gt-ticker__item-change.is-pos,
 .gt-hero-meta h2.is-pos,
 .gt-hero-price-large.is-pos,
 .gt-hero-price-large.gt-px-up,
@@ -2520,10 +2327,6 @@ td.is-pos,
 .gt-indices-board__table .strong.gt-px-dn,
 .gt-watchlist__sym strong.is-neg,
 .gt-watchlist__row .is-neg,
-.gt-ticker__item strong.is-neg,
-.gt-ticker__item-price.is-neg,
-.gt-ticker__item-price.gt-px-dn,
-.gt-ticker__item-change.is-neg,
 .gt-hero-meta h2.is-neg,
 .gt-hero-price-large.is-neg,
 .gt-hero-price-large.gt-px-dn,
@@ -2553,10 +2356,6 @@ td.is-neg,
 .gt-indices-board__table .strong.gt-px-tc,
 .gt-watchlist__sym strong.is-ref,
 .gt-watchlist__row .is-ref,
-.gt-ticker__item strong.is-ref,
-.gt-ticker__item-price.is-ref,
-.gt-ticker__item-price.gt-px-tc,
-.gt-ticker__item-change.is-ref,
 .gt-hero-meta h2.is-ref,
 td.gt-px-tc,
 td.is-ref,
@@ -2614,7 +2413,6 @@ td.is-floor,
 }
 
 @media (max-width: 1180px) {
-  .gt-index-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gt-market-stats-card { grid-column: auto; }
   .gt-filter-bar__market-row { align-items: flex-start; flex-wrap: wrap; }
   .gt-filter-bar__exchanges { margin-left: 0; }
@@ -2622,10 +2420,6 @@ td.is-floor,
 }
 
 @media (max-width: 760px) {
-  .gt-index-cards { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-  .gt-index-card { min-height: 96px; padding: 12px; }
-  .gt-index-card__chart { flex-basis: 92px; }
-  .gt-index-card__chart svg { width: 92px; }
   .gt-market-stats-card { min-height: 80px; margin-inline: 0; }
   .gt-filter-bar { position: relative; padding-inline: 12px; }
   .gt-filter-bar__sort-sector { width: 100%; flex-wrap: wrap; }

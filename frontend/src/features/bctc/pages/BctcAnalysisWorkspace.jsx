@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Activity, BarChart3, Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database,
-  DollarSign, Download, FileSpreadsheet, FileText, GraduationCap, Info, MoreHorizontal, PieChart, RefreshCw, Search, Star, TrendingUp,
-} from 'lucide-react'
+import { Activity, BarChart3, Building2, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Database, Download, FileSpreadsheet, FileText, GraduationCap, Info, MoreHorizontal, PieChart, RefreshCw, Search, Star, TrendingUp } from 'lucide-react'
 import '../../market-portfolio/pages/market-portfolio-panels.css'
 
 import { fetchCompanyFinancialWorkspace } from '../services/financialsApi'

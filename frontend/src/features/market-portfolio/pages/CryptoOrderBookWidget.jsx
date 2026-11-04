@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, memo } from 'react'
-import { Activity, ArrowDown, ArrowUp, Layers, RefreshCw, Zap } from 'lucide-react'
+import { ArrowDown, ArrowUp, Layers } from 'lucide-react'
 
 /**
  * Format cryptocurrency prices according to their magnitude.

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { IndexSparklineCard } from './IndexSparklineCard'
+import './sonar-cards.css'
 
 const INDEX_GROUPS = [
   { symbols: ['VNINDEX'], label: 'VN-INDEX' },
