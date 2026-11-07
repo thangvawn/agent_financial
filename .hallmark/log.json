@@ -1,0 +1,16 @@
+[
+  {
+    "date": "2026-07-22",
+    "macrostructure": "Split Studio",
+    "theme": "Midnight Trading Desk",
+    "enrichment": "none",
+    "brief": "Left-aligned News stream with persistent article reader and unified dark navigation"
+  },
+  {
+    "date": "2026-07-22",
+    "macrostructure": "Workbench",
+    "theme": "Midnight Trading Desk",
+    "enrichment": "none",
+    "brief": "Dark News desk with persisted day, week, and month highlights"
+  }
+]

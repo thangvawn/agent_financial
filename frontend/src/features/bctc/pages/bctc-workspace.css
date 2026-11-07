@@ -57,7 +57,7 @@
 .bctc-report-nav { display: flex; min-height: 58px; align-items: stretch; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .bctc-report-scope { position: relative; display: flex; width: 205px; flex: 0 0 205px; align-items: center; gap: 8px; margin: 8px 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
 .bctc-report-scope > svg:first-child { width: 16px; margin-left: 11px; color: var(--blue); }
-.bctc-report-scope > svg:last-child { position: absolute; right: 9px; width: 14px; color: var(--muted); pointer-events: none; }
+.bctc-report-scope > svg:last-child { position: absolute; right: 12px; width: 14px; color: var(--muted); pointer-events: none; }
 .bctc-report-scope select { width: 100%; height: 40px; padding: 0 31px 0 0; appearance: none; border: 0; outline: 0; color: var(--ink-muted); background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
 .bctc-report-topline { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 15px; padding: 0 16px; border-bottom: 1px solid var(--line); }
 .bctc-report-topline label { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; }
@@ -81,7 +81,7 @@
 .bctc-control-spacer { flex: 1; }
 .bctc-report-controls > label { position: relative; display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
 .bctc-report-controls select { height: 38px; min-width: 100px; padding: 0 31px 0 11px; appearance: none; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--surface); font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgb(15 23 42 / 4%); }
-.bctc-report-controls > label > svg { position: absolute; right: 9px; bottom: 11px; width: 13px; pointer-events: none; }
+.bctc-report-controls > label > svg { position: absolute; right: 12px; bottom: 11px; width: 13px; pointer-events: none; }
 .bctc-refresh, .bctc-export { display: inline-flex; height: 38px; min-width: 44px; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-muted); background: var(--surface); font-size: 11px; font-weight: 700; cursor: pointer; transition: background 160ms ease, border-color 160ms ease, color 160ms ease; }
 .bctc-refresh:hover:not(:disabled) { border-color: var(--line); background: var(--surface); }
 .bctc-export { border-color: var(--blue); color: var(--accent-ink); background: var(--blue); }

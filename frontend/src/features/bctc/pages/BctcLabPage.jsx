@@ -2,12 +2,13 @@ import { useAccountId } from '../../../shared/auth/accountContext'
 import { useWorkbookModel } from '../hooks/useWorkbookModel'
 import { useEffect, useRef, useState } from 'react'
 import {
-  BarChart3, BookOpen, Calculator, Check, CheckCircle2, ChevronDown, ChevronLeft,
+  BarChart3, BookOpen, Calculator, Check, ChevronLeft,
   ChevronRight, ClipboardList, CloudUpload, FileSpreadsheet, FileText, FlaskConical,
-  HelpCircle, LineChart, MoreHorizontal, PanelRight, Save, Search, Share2,
-  SlidersHorizontal, Sparkles, Table2, X,
+  Save, Search, Share2,
+  SlidersHorizontal, Table2, X,
 } from 'lucide-react'
 
+import FinancialCalculator from './FinancialCalculator'
 import RatioPracticeLab from './RatioPracticeLab'
 import BctcAnalysisWorkspace from './BctcAnalysisWorkspace'
 import { useFinancialWorkflow } from '../../../shared/context/FinancialWorkflowContext'
@@ -17,6 +18,8 @@ import {
   uploadFinancialStatement,
 } from '../services/financialsApi'
 import { findRowWithAliases } from '../utils/statementMapper'
+import MiniMarginChart from './MiniMarginChart'
+import ReadingPanel from './ReadingPanel'
 import './bctc-lab.css'
 
 const WORKBOOK_TABS = [
@@ -161,58 +164,33 @@ function ratioMap(workspace) {
   return new Map((workspace?.ratio_groups || []).flatMap((group) => (group.metrics || []).map((metric) => [metric.key, metric])))
 }
 
-function linePoints(values, width = 380, height = 120) {
-  const finite = values.filter((value) => Number.isFinite(value))
-  if (!finite.length) return ''
-  const min = Math.min(...finite)
-  const max = Math.max(...finite)
-  const span = max - min || 1
-  return values.map((value, index) => {
-    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width
-    const y = height - ((value - min) / span) * (height - 16) - 8
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-}
-
 function MiniBarChart({ workspace }) {
   const periods = [...(workspace?.trend?.periods || [])]
   const series = new Map((workspace?.trend?.series || []).map((item) => [item.key, item]))
-  const revenue = periods.map((period) => numeric(series.get('revenue')?.values?.find((item) => item.period === period)?.value) || 0)
-  const netIncome = periods.map((period) => numeric(series.get('net_income')?.values?.find((item) => item.period === period)?.value) || 0)
-  const max = Math.max(...revenue, ...netIncome, 1)
+  const revenue = periods.map((period) => numeric(series.get('revenue')?.values?.find((item) => item.period === period)?.value))
+  const netIncome = periods.map((period) => numeric(series.get('net_income')?.values?.find((item) => item.period === period)?.value))
+  const max = Math.max(...revenue.filter((v) => v !== null), ...netIncome.filter((v) => v !== null), 1)
   return <div className="bcl-bar-chart" role="img" aria-label="Doanh thu và lợi nhuận ròng theo kỳ">
     <div className="bcl-chart-gridlines"><i /><i /><i /><i /></div>
     <div className="bcl-bars">{periods.map((period, index) => <div className="bcl-bar-group" key={period}>
-      <div className="bcl-bar-pair"><i className="is-revenue" style={{ height: `${Math.max(3, revenue[index] / max * 100)}%` }} /><i className="is-income" style={{ height: `${Math.max(3, netIncome[index] / max * 100)}%` }} /></div>
-      <span>{String(period).replace(/.*?(\d{4})/, '$1')}</span>
+      <div className="bcl-bar-pair">{revenue[index] !== null && revenue[index] >= 0 && <i className="is-revenue" style={{ height: `${revenue[index] / max * 100}%` }} />}{netIncome[index] !== null && netIncome[index] >= 0 && <i className="is-income" style={{ height: `${netIncome[index] / max * 100}%` }} />}</div>
+      <span title={period}>{period}</span>
     </div>)}</div>
   </div>
 }
 
-function MiniMarginChart({ workspace }) {
-  const periods = [...(workspace?.trend?.periods || [])]
-  const series = new Map((workspace?.trend?.series || []).map((item) => [item.key, item]))
-  const metricValues = (key) => periods.map((period) => numeric(series.get(key)?.values?.find((item) => item.period === period)?.value)).filter((item) => item !== null)
-  const gross = metricValues('gross_margin_pct')
-  const operating = metricValues('operating_margin_pct')
-  const net = metricValues('net_margin_pct')
-  return <div className="bcl-line-chart" role="img" aria-label="Biên lợi nhuận theo kỳ">
-    <svg viewBox="0 0 380 140" preserveAspectRatio="none"><path className="is-gross" d={`M ${linePoints(gross, 380, 120)}`} /><path className="is-operating" d={`M ${linePoints(operating, 380, 120)}`} /><path className="is-net" d={`M ${linePoints(net, 380, 120)}`} /></svg>
-    <div className="bcl-line-labels">{periods.map((period) => <span key={period}>{String(period).replace(/.*?(\d{4})/, '$1')}</span>)}</div>
-  </div>
-}
-
-function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes, onNotesChange, mode, scenarioResult }) {
+function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes, onNotesChange, mode, scenarioResult, rowSearch, periodFilter }) {
   if (tab === 'notes') return <div className="bcl-notes-workspace"><div><span className="bcl-eyebrow">WORKING NOTES</span><h2>Ghi chú cho phiên học</h2><p>Ghi lại bằng chứng từ raw data, công thức và giới hạn của kết luận.</p></div><textarea aria-label="Ghi chú BCTC" value={notes} onChange={(event) => onNotesChange(event.target.value)} placeholder="Ví dụ: Biên lợi nhuận giảm vì giá vốn tăng nhanh hơn doanh thu…" rows={14} /><small>Ghi chú sẽ đi cùng phiên workbook khi bạn bấm Lưu.</small></div>
   const sourceTab = tab === 'model' || tab === 'ratios' ? 'income' : tab
   const statement = workspace?.statements?.[sourceTab]
-  const periods = displayPeriods(statement, workspace)
+  const allPeriods = displayPeriods(statement, workspace)
+  const periods = allPeriods.filter((period) => !periodFilter || periodKey(period) === periodKey(periodFilter))
   const baseRows = tab === 'ratios' ? RATIO_ROWS : DATA_ROWS[sourceTab] || DATA_ROWS.income
   const knownKeys = new Set(baseRows.map(([key]) => key))
   const rawRows = tab === 'ratios' || tab === 'model' ? [] : (statement?.rows || [])
     .filter((row) => row?.key && !knownKeys.has(row.key))
     .map((row) => [row.key, row.label || row.label_en || row.key, 'VND', Boolean(row.emphasis)])
-  const rowSpecs = [...baseRows, ...rawRows]
+  const rowSpecs = [...baseRows, ...rawRows].filter(([key, label]) => `${key} ${label}`.toLocaleLowerCase('vi').includes(rowSearch.trim().toLocaleLowerCase('vi')))
   const statementRows = sourceMap(statement)
   const ratios = ratioMap(workspace)
   const trendRows = new Map((workspace?.trend?.series || []).map((series) => [series.key, series]))
@@ -220,6 +198,7 @@ function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes
   // A fixed-layout table can otherwise squeeze twenty quarters into narrow
   // cells. Set the real content width so the horizontal scrollbar preserves
   // readable spacing instead of letting values overlap.
+  if (!rowSpecs.length) return <div className="bcl-empty"><Search size={22} /><strong>Không tìm thấy chỉ tiêu</strong><span>Thử từ khóa khác hoặc xóa bộ lọc.</span></div>
   const tableWidth = `${245 + periods.length * 124}px`
   return <div className="bcl-table-scroll"><table className="bcl-table tabular-nums" style={{ width: tableWidth, minWidth: tableWidth }}><caption className="bcl-sr-only">Bảng {tab}</caption><thead><tr><th scope="col"><span className="bcl-col-letter">A</span>Chỉ tiêu</th>{periods.map((period, index) => <th scope="col" key={period}><span className="bcl-col-letter">{String.fromCharCode(66 + index)}</span>{period}</th>)}</tr></thead><tbody>
     {rowSpecs.map(([key, label, metricUnit, emphasis]) => {
@@ -239,7 +218,7 @@ function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes
       if (key === 'cost_of_goods_sold') {
         const revenueValues = mergedPeriodValues(trendRows.get('revenue')?.values, findRowWithAliases(statementRows, 'revenue')?.values)
         const grossValues = mergedPeriodValues(trendRows.get('gross_profit')?.values, findRowWithAliases(statementRows, 'gross_profit')?.values)
-        periods.forEach((period) => {
+        allPeriods.forEach((period) => {
           const canonicalPeriod = periodKey(period)
           if (values.get(canonicalPeriod) === undefined || values.get(canonicalPeriod) === null) {
             const revenue = numeric(revenueValues.get(canonicalPeriod))
@@ -249,7 +228,7 @@ function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes
         })
       }
       if (['gross_margin_pct', 'operating_margin_pct', 'net_margin_pct'].includes(key)) {
-        periods.forEach((period) => {
+        allPeriods.forEach((period) => {
           const canonicalPeriod = periodKey(period)
           if (values.get(canonicalPeriod) === undefined || values.get(canonicalPeriod) === null) {
             const revenueValues = mergedPeriodValues(trendRows.get('revenue')?.values, findRowWithAliases(statementRows, 'revenue')?.values)
@@ -288,30 +267,11 @@ function WorkbookTable({ workspace, tab, unit, selectedCell, onSelectCell, notes
           const cellKey = `${key}:${period}`
           const selected = selectedCell === cellKey
           const value = values.get(periodKey(period))
-          return <td key={period} className={selected ? 'is-selected' : ''}><button type="button" onClick={() => onSelectCell(cellKey, key, period, value, metricUnit)} aria-label={`${label} ${period}`} title={value === null ? 'Không có dữ liệu từ nguồn cho kỳ này; dấu — không có nghĩa là 0.' : undefined}>{formatNumber(value, unit, metricUnit)}</button></td>
+          return <td key={period} className={selected ? 'is-selected' : ''}><button type="button" onClick={() => onSelectCell(cellKey, key, period, value, metricUnit, label, allPeriods.map((item) => ({ period: item, value: values.get(periodKey(item)) ?? null })), metricUnit === '%' || Boolean(FORMULAS[key]) || Boolean(ratio))} aria-label={`${label} ${period}`} title={value === null ? 'Không có dữ liệu từ nguồn cho kỳ này; dấu — không có nghĩa là 0.' : undefined}>{formatNumber(value, unit, metricUnit)}</button></td>
         })}
       </tr>
     })}
   </tbody></table></div>
-}
-
-function TutorPanel({ workspace, selected, formula, onFormulaChange, rightTab, setRightTab, notes, onNotesChange }) {
-  const ratio = ratioMap(workspace).get(selected?.key)
-  const value = selected?.value
-  const expected = FORMULAS[selected?.key] || ratio?.formula || 'Khoản mục được lấy trực tiếp từ dữ liệu báo cáo.'
-  const normalizedFormula = formula.toLowerCase().replace(/\s+/g, '')
-  const formulaValid = selected?.key === 'net_margin_pct'
-    ? normalizedFormula.includes('net_income') && normalizedFormula.includes('revenue')
-    : selected?.key === 'gross_margin_pct'
-      ? normalizedFormula.includes('gross_profit') && normalizedFormula.includes('revenue')
-      : formula.trim().length > 2
-  return <aside className="bcl-tutor">
-    <div className="bcl-right-tabs" role="tablist" aria-label="BCTC Lab assistant"><button className={rightTab === 'assistant' ? 'is-active' : ''} onClick={() => setRightTab('assistant')} type="button"><PanelRight size={14} /> Trợ lý phân tích</button><button className={rightTab === 'chart' ? 'is-active' : ''} onClick={() => setRightTab('chart')} type="button"><BarChart3 size={14} /> Biểu đồ</button><button className={rightTab === 'notes' ? 'is-active' : ''} onClick={() => setRightTab('notes')} type="button"><FileText size={14} /> Ghi chú</button><button className={rightTab === 'lesson' ? 'is-active' : ''} onClick={() => setRightTab('lesson')} type="button"><BookOpen size={14} /> Bài học</button></div>
-    {rightTab === 'assistant' && <div className="bcl-tutor-body"><div className="bcl-tutor-heading"><div><span className="bcl-eyebrow">CÂU HỎI TRUNG TÂM</span><h2>{selected?.label || 'Chọn một ô để bắt đầu'}</h2></div><HelpCircle size={19} /></div><p className="bcl-tutor-intro">Đọc dữ liệu gốc, kiểm tra công thức và tự giải thích ý nghĩa của chỉ tiêu trước khi đưa ra kết luận.</p><section className="bcl-formula-card"><strong>Công thức chuẩn</strong><code>{expected}</code><small>Registry · version 1.0</small></section><section className="bcl-formula-check"><div className="bcl-check-title"><strong>Công thức của bạn</strong><span className={formulaValid ? 'is-valid' : 'is-invalid'}>{formulaValid ? <><CheckCircle2 size={14} /> Hợp lệ</> : 'Cần kiểm tra'}</span></div><div className="bcl-formula-input"><input aria-label="Công thức của bạn" value={formula} onChange={(event) => onFormulaChange(event.target.value)} /><span>fx</span></div><div className={formulaValid ? 'bcl-result is-valid' : 'bcl-result is-invalid'}>{formulaValid ? <CheckCircle2 size={17} /> : <HelpCircle size={17} />}<div><strong>{formulaValid ? 'Công thức hợp lệ' : 'Công thức chưa đủ đầu vào'}</strong><span>Kết quả: {formatNumber(value, 'billion', selected?.unit)} {selected?.period ? `(${selected.period})` : ''}</span></div></div></section><section className="bcl-suggestion"><Sparkles size={16} /><div><strong>Gợi ý học tập</strong><p>Hãy so sánh {selected?.label || 'chỉ tiêu này'} với kỳ trước và kiểm tra khoản mục gốc trước khi kết luận.</p><button type="button" onClick={() => setRightTab('lesson')}>Mở bài học <ChevronRight size={14} /></button></div></section><section className="bcl-related"><strong>Các chỉ số liên quan</strong>{['gross_margin_pct', 'operating_margin_pct', 'roe_pct', 'ocf_to_net_income'].map((key) => { const item = ratioMap(workspace).get(key); return <div key={key}><span>{item?.label || key}</span><b>{formatNumber(item?.value, 'billion', item?.unit)}</b></div> })}</section></div>}
-    {rightTab === 'chart' && <div className="bcl-side-content"><span className="bcl-eyebrow">READ THE TREND</span><h2>Đọc xu hướng trước khi tính</h2><p>Đường xu hướng chỉ là điểm bắt đầu. Hãy mở raw input và kiểm tra kỳ so sánh.</p><MiniMarginChart workspace={workspace} /></div>}
-    {rightTab === 'notes' && <div className="bcl-side-content"><span className="bcl-eyebrow">WORKING NOTES</span><h2>Ghi chú phiên học</h2><textarea aria-label="Ghi chú phiên học" value={notes} onChange={(event) => onNotesChange(event.target.value)} placeholder="Viết quan sát, bằng chứng và giới hạn của kết luận…" rows={12} /></div>}
-    {rightTab === 'lesson' && <div className="bcl-side-content"><span className="bcl-eyebrow">LEARN BY DOING</span><h2>Biên lợi nhuận ròng</h2><p>Net Margin cho biết cứ 1 đồng doanh thu tạo ra bao nhiêu đồng lợi nhuận sau thuế.</p><div className="bcl-lesson-step"><b>01</b><span>Đọc LNST và doanh thu trên bảng gốc.</span></div><div className="bcl-lesson-step"><b>02</b><span>Chia LNST cho doanh thu, không tự bù số thiếu.</span></div><div className="bcl-lesson-step"><b>03</b><span>Đối chiếu với biên gộp, biên hoạt động và CFO.</span></div></div>}
-  </aside>
 }
 
 function WhatIfPanel({ ticker, period, scenario, setScenario, result, status, onRun }) {
@@ -327,6 +287,8 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   const [ticker, setTicker] = useState(effectiveInitial)
   const [periodMode, setPeriodMode] = useState('year')
   const [unit, setUnit] = useState('billion')
+  const [rowSearch, setRowSearch] = useState('')
+  const [periodFilter, setPeriodFilter] = useState('')
   const [workspace, setWorkspace] = useState(null)
   const [status, setStatus] = useState('loading')
   const [loadNonce, setLoadNonce] = useState(0)
@@ -344,6 +306,9 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   const { active_tab: activeTab, setActiveTab, formula, setFormula, assumptions: scenario, setScenario, notes, setNotes } = workbook
   const uploadRef = useRef(null)
   const analyticsRef = useRef(null)
+  const calculatorRef = useRef(null)
+  const sheetRef = useRef(null)
+  const availablePeriods = [...new Set(Object.values(workspace?.statements || {}).flatMap((statement) => statement?.periods || []))].sort().reverse()
 
   const [lastWorkflowTicker, setLastWorkflowTicker] = useState(workflow.activeTicker)
   if (workflow.activeTicker !== lastWorkflowTicker) {
@@ -374,9 +339,9 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
 
   const period = selected.period || latestPeriod(workspace)
 
-  function selectCell(cellKey, key, cellPeriod, value, metricUnit) {
+  function selectCell(cellKey, key, cellPeriod, value, metricUnit, label, series, calculated) {
     setSelectedCell(cellKey)
-    setSelected({ key, label: [...(DATA_ROWS.income || []), ...(DATA_ROWS.balance || []), ...(DATA_ROWS.cash_flow || []), ...RATIO_ROWS].find((row) => row[0] === key)?.[1] || key, period: cellPeriod, value, unit: metricUnit })
+    setSelected({ key, label: label || key, period: cellPeriod, value, unit: metricUnit, series, kind: calculated ? 'calculated' : 'reported', formula: FORMULAS[key] || ratioMap(workspace).get(key)?.formula, tableTab: activeTab, tableMode: mode, periodMode, loadNonce })
     setFormula(`=${(key === 'net_margin_pct' ? 'NET_INCOME / REVENUE' : FORMULAS[key] || key).toUpperCase()}`)
     setRightTab('assistant')
   }
@@ -384,7 +349,7 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   function submitTicker(event) {
     event.preventDefault()
     const symbol = tickerInput.trim().toUpperCase()
-    if (/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(symbol)) { setStatus('loading'); setTicker(symbol) }
+    if (/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(symbol)) { setStatus('loading'); setError(''); if (symbol === ticker) setLoadNonce((value) => value + 1); else setTicker(symbol) }
     else setError('Mã doanh nghiệp chỉ gồm chữ, số, dấu chấm, gạch ngang hoặc gạch dưới.')
   }
 
@@ -424,33 +389,31 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
   return <main className="bctc-lab-page">
     <header className="bcl-topbar">
       <div className="bcl-brand"><div className="bcl-brand-mark"><FileSpreadsheet size={22} /></div><div><strong>BCTC Lab</strong><span>Học · Tính toán · Phân tích · Ứng dụng</span></div></div>
-      <form className="bcl-company-picker" onSubmit={submitTicker}><Search size={15} /><input aria-label="Mã doanh nghiệp" value={tickerInput} onChange={(event) => setTickerInput(event.target.value.toUpperCase())} /><span>{workspace?.company?.name || 'Chọn doanh nghiệp'}</span><button type="submit" aria-label="Tra cứu"><ChevronDown size={14} /></button></form>
-      <label className="bcl-top-select"><span>Năm tài chính</span><select value={periodMode} onChange={(event) => { setStatus('loading'); setPeriodMode(event.target.value) }}><option value="year">Theo năm</option><option value="quarter">Theo quý</option></select></label>
+      <form className="bcl-company-picker" onSubmit={submitTicker}><Search size={15} /><input aria-label="Mã doanh nghiệp" value={tickerInput} onChange={(event) => setTickerInput(event.target.value.toUpperCase())} /><span>{workspace?.company?.name || 'Chọn doanh nghiệp'}</span><button type="submit" aria-label="Tra cứu doanh nghiệp">Tìm</button></form>
+      <label className="bcl-top-select"><span>Năm tài chính</span><select value={periodMode} onChange={(event) => { setStatus('loading'); setPeriodMode(event.target.value); setPeriodFilter('') }}><option value="year">Theo năm</option><option value="quarter">Theo quý</option></select></label>
       <label className="bcl-top-select"><span>Đơn vị</span><select value={unit} onChange={(event) => setUnit(event.target.value)}><option value="billion">VND (Tỷ)</option><option value="million">VND (Triệu)</option><option value="raw">VND</option></select></label>
       <div className="bcl-mode-switch" role="group" aria-label="Chế độ workbook">{[['actual', 'Actual'], ['forecast', 'Forecast'], ['scenario', 'Scenario']].map(([key, label]) => <button type="button" className={mode === key ? 'is-active' : ''} key={key} onClick={() => { if (key === 'actual') setMode('actual'); else { runScenario(key); analyticsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } }}>{label}</button>)}</div>
-      <div className="bcl-top-actions"><button type="button" onClick={saveModel} disabled={workbook.loading || workbook.saving || Boolean(workbook.error) || workbook.conflict}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button><button type="button" aria-label="Thêm"><MoreHorizontal size={17} /></button></div>
+      <div className="bcl-top-actions"><button type="button" onClick={saveModel} disabled={workbook.loading || workbook.saving || Boolean(workbook.error) || workbook.conflict}><Save size={15} /> Lưu</button><button type="button" onClick={shareModel}><Share2 size={15} /> Chia sẻ</button></div>
     </header>
     <div className="bcl-layout">
       <aside className="bcl-sidebar">
         <div className="bcl-sidebar-title">Dữ liệu</div>
-        <button className={activeTab === 'income' ? 'is-active' : ''} type="button" onClick={() => { setActiveTab('income'); setMode('actual') }}><FileText size={15} /> BCTC gốc</button>
-        <button type="button" onClick={() => { setRightTab('lesson'); setNotice('Mẫu ngành sẽ được bổ sung theo ngành và kỳ tương đồng.') }}><Table2 size={15} /> Mẫu ngành</button>
+        <button className={['income', 'balance', 'cash_flow'].includes(activeTab) ? 'is-active' : ''} aria-current={['income', 'balance', 'cash_flow'].includes(activeTab) ? 'page' : undefined} type="button" onClick={() => { setActiveTab('income'); setMode('actual'); sheetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}><FileText size={15} /> BCTC gốc</button>
+
         <button type="button" onClick={() => uploadRef.current?.click()}><CloudUpload size={15} /> Tải dữ liệu mới</button>
         <div className="bcl-sidebar-title">Phân tích</div>
-        <button type="button" onClick={() => { setActiveTab('income'); setRightTab('assistant') }}><LineChart size={15} /> So sánh theo năm</button>
-        <button type="button" onClick={() => { setActiveTab('ratios'); setRightTab('assistant') }}><BarChart3 size={15} /> Common-size</button>
-        <button type="button" onClick={() => { setActiveTab('ratios'); setRightTab('chart') }}><LineChart size={15} /> YoY Growth</button>
-        <button type="button" onClick={() => setActiveTab('ratios')}><Calculator size={15} /> Chỉ số tài chính</button>
+        <button type="button" onClick={() => calculatorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Calculator size={15} /> Chỉ số & công thức</button>
+        <button className={activeTab === 'ratios' ? 'is-active' : ''} aria-current={activeTab === 'ratios' ? 'page' : undefined} type="button" onClick={() => { setActiveTab('ratios'); sheetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}><Table2 size={15} /> Bảng chỉ số báo cáo</button>
         <button type="button" onClick={() => analyticsRef.current?.scrollIntoView({ behavior: 'smooth' })}><BarChart3 size={15} /> Biểu đồ</button>
         <button type="button" onClick={() => setActiveView('analysis')}><ClipboardList size={15} /> Báo cáo chi tiết</button>
         <div className="bcl-sidebar-title">Học tập</div>
-        <button type="button" onClick={() => setRightTab('lesson')}><BookOpen size={15} /> Bài học liên quan</button>
+        <button type="button" onClick={() => setRightTab('notes')}><BookOpen size={15} /> Ghi chú báo cáo</button>
         <button type="button" onClick={() => setActiveView('practice')}><FlaskConical size={15} /> Bài tập thực hành</button>
         <button type="button" onClick={() => setRightTab('assistant')}><ClipboardList size={15} /> Kiểm tra công thức</button>
         <input ref={uploadRef} className="bcl-hidden-file" type="file" accept=".csv,text/csv" onChange={handleUpload} />
       </aside>
       <section className="bcl-main">
-        <div className="bcl-workbook-tabs" role="tablist" aria-label="BCTC statements">{WORKBOOK_TABS.map(([key, label]) => <button type="button" role="tab" aria-selected={activeTab === key} className={activeTab === key ? 'is-active' : ''} key={key} onClick={() => setActiveTab(key)}>{label}</button>)}</div>
+        <div className="bcl-workbook-tabs" role="tablist" aria-label="BCTC statements">{WORKBOOK_TABS.map(([key, label]) => <button type="button" role="tab" title={`Mở ${label}`} aria-selected={activeTab === key} className={activeTab === key ? 'is-active' : ''} key={key} onClick={() => setActiveTab(key)}>{label}</button>)}</div>
         {workbook.restoredDraft && <p role="status">Đã khôi phục bản nháp trên thiết bị; bấm Lưu để đồng bộ.</p>}
         {workbook.conflict && <section role="alert"><p>Bản máy chủ đã thay đổi. Bản nháp của bạn vẫn được giữ. Chọn bản muốn sử dụng trước khi lưu.</p><button onClick={() => { if (window.confirm('Bỏ bản nháp và dùng bản máy chủ?')) workbook.resolveConflict(false) }}>Dùng bản máy chủ</button><button onClick={() => workbook.resolveConflict(true)}>Giữ bản nháp để lưu lại</button></section>}
         {workbook.error && <p role="alert">{workbook.error}</p>}
@@ -459,13 +422,15 @@ export default function BctcLabPage({ initialTicker = 'HPG', onBack, sessionId }
         {status === 'loading' && <div className="bcl-loading"><CloudUpload className="is-spinning" size={22} /> Đang đồng bộ dữ liệu BCTC…</div>}
         {status === 'error' && <div className="bcl-error" role="alert">Không tải được dữ liệu {ticker}. {error}</div>}
         {status === 'ready' && <>
-          <div className="bcl-sheet-toolbar"><div className="bcl-cell-ref">{selectedCell.split(':')[0].toUpperCase()}</div><span className="bcl-fx">fx</span><input value={formula} aria-label="Thanh công thức" onChange={(event) => setFormula(event.target.value)} /><button type="button" aria-label="Hoàn tác"><ChevronLeft size={16} /></button><button type="button" aria-label="Làm lại"><ChevronRight size={16} /></button><button type="button" className="bcl-function-btn">Hàm <ChevronDown size={13} /></button></div>
-          <div className="bcl-sheet-meta"><div><strong>{workspace?.company?.name || ticker}</strong><span>{workspace?.company?.industry || 'Chưa phân loại ngành'} · {mode === 'actual' ? 'Số liệu báo cáo' : mode === 'forecast' ? 'Dự phóng theo giả định' : 'Kịch bản đang chọn'}</span></div><div><span className="bcl-status-dot" /> {workspace?.data_provenance?.provider || 'Nguồn chuẩn hóa'} <span className="bcl-missing-legend">— không có dữ liệu ≠ 0</span><button type="button" onClick={() => setTicker((value) => value)}>↻</button></div></div>
-          <div className="bcl-sheet"><WorkbookTable workspace={workspace} tab={activeTab} unit={unit} mode={mode} scenarioResult={scenarioResult} selectedCell={selectedCell} onSelectCell={selectCell} notes={notes} onNotesChange={setNotes} /></div>
-          <div ref={analyticsRef} className="bcl-analytics-grid"><section className="bcl-chart-card"><div className="bcl-panel-heading"><div><h2>Doanh thu và Lợi nhuận ròng</h2><span><i className="legend-revenue" /> Revenue <i className="legend-income" /> Net Income</span></div><select aria-label="Kiểu biểu đồ"><option>Biểu đồ cột</option></select></div><MiniBarChart workspace={workspace} /></section><section className="bcl-chart-card"><div className="bcl-panel-heading"><div><h2>Biên lợi nhuận</h2><span><i className="legend-gross" /> Gross Margin <i className="legend-operating" /> Operating Margin <i className="legend-net" /> Net Margin</span></div><select aria-label="Kiểu biểu đồ"><option>Biểu đồ đường</option></select></div><MiniMarginChart workspace={workspace} /></section><WhatIfPanel ticker={ticker} period={period} scenario={scenario} setScenario={setScenario} result={scenarioResult} status={scenarioStatus} onRun={runScenario} /></div>
+          <div ref={sheetRef} className="bcl-sheet-toolbar"><div className="bcl-cell-ref">{selectedCell.split(':')[0].toUpperCase()}</div><span className="bcl-fx">fx</span><input value={formula} aria-label="Thanh công thức" onChange={(event) => setFormula(event.target.value)} /></div>
+          <div className="bcl-sheet-meta"><div><strong>{workspace?.company?.name || ticker}</strong><span>{workspace?.company?.industry || 'Chưa phân loại ngành'} · {mode === 'actual' ? 'Số liệu báo cáo' : mode === 'forecast' ? 'Dự phóng theo giả định' : 'Kịch bản đang chọn'}</span></div><div><span className="bcl-status-dot" /> {workspace?.data_provenance?.provider || 'Nguồn chuẩn hóa'} <span className="bcl-missing-legend">— không có dữ liệu ≠ 0</span><button type="button" onClick={() => { setStatus('loading'); setLoadNonce((value) => value + 1) }} aria-label="Làm mới dữ liệu">↻</button></div></div>
+          <div className="bcl-table-filters"><label><Search size={15} /><input value={rowSearch} onChange={(event) => setRowSearch(event.target.value)} placeholder="Tìm chỉ tiêu" aria-label="Tìm chỉ tiêu trong bảng" /></label><label>Kỳ <select value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value)}><option value="">Tất cả các kỳ</option>{availablePeriods.map((item) => <option key={item}>{item}</option>)}</select></label></div>
+          <div className="bcl-sheet"><WorkbookTable workspace={workspace} tab={activeTab} unit={unit} mode={mode} scenarioResult={scenarioResult} selectedCell={selectedCell} onSelectCell={selectCell} notes={notes} onNotesChange={setNotes} rowSearch={rowSearch} periodFilter={periodFilter} /></div>
+          <div ref={analyticsRef} className="bcl-analytics-grid"><section className="bcl-chart-card"><div className="bcl-panel-heading"><div><h2>Doanh thu và Lợi nhuận ròng</h2><span><i className="legend-revenue" /> Revenue <i className="legend-income" /> Net Income</span><small>Giá trị âm không hiển thị trên biểu đồ cột.</small></div><select aria-label="Kiểu biểu đồ"><option>Biểu đồ cột</option></select></div><MiniBarChart workspace={workspace} /></section><section className="bcl-chart-card"><div className="bcl-panel-heading"><div><h2>Biên lợi nhuận</h2><span><i className="legend-gross" /> Gross Margin <i className="legend-operating" /> Operating Margin <i className="legend-net" /> Net Margin</span></div><select aria-label="Kiểu biểu đồ"><option>Biểu đồ đường</option></select></div><MiniMarginChart workspace={workspace} /></section><WhatIfPanel ticker={ticker} period={period} scenario={scenario} setScenario={setScenario} result={scenarioResult} status={scenarioStatus} onRun={runScenario} /></div>
         </>}
+        {status !== 'loading' && <div ref={calculatorRef}><FinancialCalculator key={`${ticker}:${periodMode}:${unit}:${loadNonce}:${status}`} workspace={status === 'ready' ? workspace : null} unit={unit} /></div>}
       </section>
-      <TutorPanel workspace={workspace} selected={selected} formula={formula} onFormulaChange={setFormula} rightTab={rightTab} setRightTab={setRightTab} notes={notes} onNotesChange={setNotes} />
+      <ReadingPanel key={`${ticker}:${periodMode}`} workspace={workspace} selected={selected} activeTab={activeTab} mode={mode} periodMode={periodMode} loadNonce={loadNonce} unit={unit} rightTab={rightTab} setRightTab={setRightTab} notes={notes} onNotesChange={setNotes} onOpenCalculator={() => calculatorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} onSelectHistory={(item) => { setPeriodFilter(''); selectCell(`${selected.key}:${item.period}`, selected.key, item.period, item.value, selected.unit, selected.label, selected.series, selected.kind === 'calculated') }} />
     </div>
   </main>
 }

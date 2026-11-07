@@ -14,3 +14,21 @@
 @import "./styles/app-theme.css";
 
 @import "tailwindcss/utilities.css" layer(utilities);
+
+/* Keep native select controls consistent across workspaces, including lazy-loaded CSS. */
+select:not([multiple]):not([size]):not(:has(+ svg)) {
+  appearance: none !important;
+  padding-right: 36px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238997a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px 16px !important;
+}
+
+/* Preserve the platform's high-contrast affordance when images are suppressed. */
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]):not(:has(+ svg)) {
+    appearance: auto !important;
+    background-image: none !important;
+  }
+}

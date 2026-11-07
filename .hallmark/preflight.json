@@ -1,0 +1,9 @@
+{
+  "date": "2026-07-22",
+  "framework": "React 19 + Vite 8 + Tailwind CSS 4",
+  "design_tokens": "frontend/src/styles/tokens.css",
+  "fonts": ["Outfit", "JetBrains Mono"],
+  "existing_theme": "Northstar dark fintech",
+  "route_scope": "news",
+  "reference": "user-provided News & Intelligence screenshot"
+}
